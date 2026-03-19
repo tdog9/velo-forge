@@ -1276,6 +1276,7 @@ let exerciseOverrides = {}; // {planId_weekIdx: {name, description, duration}} �
 let plansCategory = 'invehicle';
 let plansYear = 'Y7';
 let plansTier = 'basic';
+let plansSearch = '';
 
 // Team state
 let teamData = null; // {id, name, code, members:[]}
@@ -2914,6 +2915,53 @@ function renderPlans() {
 
   let html = '<div class="page-title">Training Plans</div>';
 
+  // Search bar
+  html += `<div class="demo-search-wrap" style="margin-bottom:10px">
+    <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input class="demo-search" type="text" id="plans-search-input" placeholder="Search plans by name, description..." value="${escHtml(plansSearch)}">
+  </div>`;
+
+  const visiblePlans = getVisiblePlans();
+  const activePlanId = userProfile?.activePlanId;
+
+  // SEARCH MODE — show results across all categories/years/tiers
+  if (plansSearch.trim()) {
+    const q = plansSearch.toLowerCase().trim();
+    const results = visiblePlans.filter(p => {
+      const pd = getPlanDisplayData(p);
+      return pd.name.toLowerCase().includes(q)
+        || pd.description.toLowerCase().includes(q)
+        || p.category.toLowerCase().includes(q)
+        || p.yearLevel.toLowerCase().includes(q)
+        || p.tier.toLowerCase().includes(q)
+        || (p.workouts || []).some(w => (w.name || '').toLowerCase().includes(q));
+    });
+
+    html += `<div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">${results.length} plan${results.length !== 1 ? 's' : ''} matching "${escHtml(plansSearch)}"</div>`;
+
+    if (results.length === 0) {
+      html += `<div class="empty-state" style="padding:24px 16px">
+        <div class="empty-state-title">No Plans Found</div>
+        <div class="empty-state-desc">Try a different search term.</div>
+      </div>`;
+    } else {
+      const catLabels = { invehicle: 'In Vehicle', floor: 'Floor & Home', machine: 'Fitness Machine' };
+      html += '<div class="space-y">';
+      results.forEach(plan => {
+        const isActive = plan.id === activePlanId;
+        html += `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:-8px;margin-top:4px">${plan.yearLevel} · ${catLabels[plan.category] || plan.category}</div>`;
+        html += renderPlanCard(plan, isActive);
+      });
+      html += '</div>';
+    }
+
+    c.innerHTML = html;
+    bindPlanSearchAndCards(c);
+    return;
+  }
+
+  // NORMAL MODE — category/year/tier filters
+
   // Category tabs
   html += '<div class="pill-tabs">';
   categories.forEach(cat => {
@@ -2967,9 +3015,7 @@ function renderPlans() {
   }
 
   // Filter plans
-  const visiblePlans = getVisiblePlans();
   const filtered = visiblePlans.filter(p => p.category === plansCategory && p.yearLevel === plansYear && p.tier === plansTier);
-  const activePlanId = userProfile?.activePlanId;
 
   if (filtered.length === 0) {
     html += `<div class="empty-state" style="padding:32px 16px">
@@ -2988,27 +3034,46 @@ function renderPlans() {
   
   c.innerHTML = html;
 
-  // Bind category tabs
+  // Bind filter tabs
   c.querySelectorAll('.pill-tab[data-cat]').forEach(btn => {
     btn.addEventListener('click', () => {
       plansCategory = btn.dataset.cat;
       renderPlans();
     });
   });
-  // Bind year pills
   c.querySelectorAll('.year-pill').forEach(btn => {
     btn.addEventListener('click', () => {
       plansYear = btn.dataset.year;
       renderPlans();
     });
   });
-  // Bind tier pills
   c.querySelectorAll('.tier-pill').forEach(btn => {
     btn.addEventListener('click', () => {
       plansTier = btn.dataset.tier;
       renderPlans();
     });
   });
+
+  bindPlanSearchAndCards(c);
+}
+
+function bindPlanSearchAndCards(c) {
+  // Bind search
+  const searchInput = $('plans-search-input');
+  if (searchInput) {
+    let timer;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        plansSearch = searchInput.value.trim();
+        renderPlans();
+        // Re-focus search after re-render
+        const newInput = $('plans-search-input');
+        if (newInput) { newInput.focus(); newInput.selectionStart = newInput.selectionEnd = newInput.value.length; }
+      }, 250);
+    });
+  }
+
   // Bind plan expand/collapse
   c.querySelectorAll('.plan-header').forEach(hdr => {
     hdr.addEventListener('click', () => {
