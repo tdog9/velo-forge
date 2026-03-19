@@ -264,6 +264,7 @@ function showAuthLogin() {
   hide('auth-signup');
   hide('main-app');
   hide('login-error');
+  hide('ai-fab');
   $('login-btn').disabled = false;
 }
 
@@ -272,6 +273,7 @@ function showAuthSignup() {
   show('auth-signup');
   hide('main-app');
   hide('signup-error');
+  hide('ai-fab');
   $('signup-btn').disabled = false;
 }
 
@@ -281,6 +283,7 @@ function showMainApp() {
   const mainApp = $('main-app');
   mainApp.classList.remove('hidden');
   mainApp.style.display = 'flex';
+  show('ai-fab');
   renderCurrentPage();
 }
 
@@ -467,14 +470,23 @@ function showToast(message, type = 'info') {
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const page = btn.dataset.page;
+    if (!page) return; // Record tab has no page
     haptic('light');
     if (page === currentPage) {
-      // Feature 4: tap active tab scrolls to top
       $('content').scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     switchPage(page);
   });
+
+// Record tab — opens activity tracker
+const recordTabBtn = $('record-tab-btn');
+if (recordTabBtn) {
+  recordTabBtn.addEventListener('click', () => {
+    haptic('medium');
+    openActivityTracker();
+  });
+}
 
   // --- Feature 12: Long-press shows tooltip ---
   let pressTimer = null;
@@ -516,9 +528,9 @@ function switchPage(page) {
   if (pageEl) pageEl.classList.add('active');
   // Show/hide FAB
   if (page === 'fitness' && fitnessSubTab === 'workouts') {
-    show('fab-add');
+    
   } else {
-    hide('fab-add');
+    
   }
   renderCurrentPage();
 
@@ -555,11 +567,11 @@ function renderFitness() {
   pc.style.display = 'none';
   dc.style.display = 'none';
   mc.style.display = 'none';
-  hide('fab-add');
+  
 
   if (fitnessSubTab === 'workouts') {
     wc.style.display = '';
-    show('fab-add');
+    
     renderWorkouts();
   } else if (fitnessSubTab === 'plans') {
     pc.style.display = '';
@@ -692,7 +704,7 @@ document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', 
 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 const initPage = $('page-' + currentPage);
 if (initPage) initPage.classList.add('active');
-if (currentPage === 'fitness' && fitnessSubTab === 'workouts') show('fab-add'); else hide('fab-add');
+if (currentPage === 'fitness' && fitnessSubTab === 'workouts')  else 
 
 // ============================================
 // DEMONSTRATION TAB
@@ -1392,12 +1404,6 @@ function renderToday() {
     html += `<div class="announce-banner"><div class="announce-banner-row"><div class="announce-banner-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="announce-banner-body"><div class="announce-banner-title">${escHtml(a.title)}</div><div class="announce-banner-msg">${escHtml(a.message)}</div></div></div></div>`;
   });
 
-  // ====== RECORD ACTIVITY BUTTON ======
-  html += `<button id="start-tracker-btn" style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;box-shadow:0 4px 15px rgba(34,197,94,.3)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>
-    Record Activity
-  </button>`;
-
   // Stats row
   html += `<div class="today-stats-row">
     <div class="today-stat"><span class="today-stat-val">${streak}</span><span class="today-stat-lbl">streak</span></div>
@@ -1508,12 +1514,6 @@ function renderToday() {
   html += '</div></div>'; // close more-body + section-card
 
   c.innerHTML = html;
-
-  // Bind "Record Activity" button
-  const trackerBtn = $('start-tracker-btn');
-  if (trackerBtn) {
-    trackerBtn.addEventListener('click', () => { haptic('medium'); openActivityTracker(); });
-  }
 
   // Bind "More Stats" toggle
   const moreToggle = $('more-toggle');
@@ -2508,68 +2508,125 @@ document.querySelectorAll('.timer-rest-btn').forEach(btn => {
 // ============================================
 function renderWorkouts() {
   const c = $('workouts-content');
-  let html = '<div class="page-title">Workouts</div>';
+  let html = '<div class="page-title">Activities</div>';
+
+  // Load stored routes for mini maps
+  let storedRoutes = {};
+  try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
 
   if (userWorkouts.length === 0) {
     html += `<div class="empty-state">
-      <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg></div>
-      <div class="empty-state-title">No Workouts Yet</div>
-      <div class="empty-state-desc">${UI_COPY.emptyStates.noWorkouts}</div>
+      <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;color:var(--muted-fg)"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg></div>
+      <div class="empty-state-title">No Activities Yet</div>
+      <div class="empty-state-desc">Tap the Record button in the nav bar to track your first ride, run, or workout with GPS.</div>
     </div>`;
   } else {
-    html += `<div class="filter-bar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828"/></svg>
-      <span class="filter-count">${userWorkouts.length} workout${userWorkouts.length!==1?'s':''}</span>
-    </div>`;
-    html += '<div class="space-y">';
-    userWorkouts.forEach(w => {
+    // Filter buttons
+    html += `<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="wo-filter-btn active" data-wofilter="all" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--primary);background:var(--primary);color:var(--primary-fg);cursor:pointer;font-weight:600">All (${userWorkouts.length})</button>`;
+    const types = ['ride','run','walk','gym'];
+    const typeIcons = {ride:'🚴',run:'🏃',walk:'🚶',gym:'🏋️'};
+    types.forEach(t => {
+      const count = userWorkouts.filter(w => (w.type || 'ride') === t || (!w.type && t === 'ride')).length;
+      if (count > 0) {
+        html += `<button class="wo-filter-btn" data-wofilter="${t}" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">${typeIcons[t]} ${capitalize(t)} (${count})</button>`;
+      }
+    });
+    // Check for tracked vs manual
+    const trackedCount = userWorkouts.filter(w => w.source === 'tracker').length;
+    const manualCount = userWorkouts.length - trackedCount;
+    if (trackedCount > 0 && manualCount > 0) {
+      html += `<button class="wo-filter-btn" data-wofilter="tracked" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">📍 GPS (${trackedCount})</button>`;
+    }
+    html += '</div>';
+
+    html += '<div class="space-y" id="wo-list">';
+    userWorkouts.forEach((w, idx) => {
       const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
-      const dateStr = date.toLocaleDateString('en-AU', {day:'numeric',month:'short',year:'numeric'});
-      const typeBadge = 'badge-' + (w.type||'ride').toLowerCase();
-      html += `
-        <div class="card wo-card">
-          <div class="card-pad">
-            <div class="wo-top">
-              <div class="wo-left">
-                <div class="wo-title-row">
-                  <span class="wo-name">${escHtml(w.name || 'Workout')}</span>
-                  <span class="badge ${typeBadge}">${capitalize(w.type || 'Ride')}</span>
-                </div>
-                <div class="wo-stats">
-                  ${w.duration ? `<span class="tabular-nums">${w.duration} min</span>` : ''}
-                  ${w.distance ? `<span class="tabular-nums">${w.distance} km</span>` : ''}
-                  ${w.heartRate ? `<span class="tabular-nums">${w.heartRate} bpm</span>` : ''}
-                  ${w.rpe ? `<span>RPE ${w.rpe}/10</span>` : ''}
-                  <span>${dateStr}</span>
-                </div>
-                ${w.notes ? `<div class="wo-notes">${escHtml(w.notes)}</div>` : ''}
+      const dateStr = date.toLocaleDateString('en-AU', {day:'numeric',month:'short'});
+      const timeStr = date.toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'});
+      const wType = w.type || 'ride';
+      const isTracked = w.source === 'tracker';
+      const routeId = w.routeId || w.id;
+      const hasRoute = isTracked && storedRoutes[routeId] && storedRoutes[routeId].length > 1;
+
+      html += `<div class="card wo-card" data-wo-type="${wType}" data-wo-source="${w.source || 'manual'}">
+        <div class="card-pad">
+          <div class="wo-top">
+            <div class="wo-left" style="flex:1;min-width:0">
+              <div class="wo-title-row">
+                <span class="wo-name">${escHtml(w.name || 'Workout')}</span>
+                <span class="activity-badge ${wType}">${isTracked ? '📍 ' : ''}${capitalize(wType)}</span>
               </div>
-              <button class="wo-delete" data-id="${w._id}" aria-label="Delete workout">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-              </button>
+              <div class="activity-stats-row">
+                ${w.duration ? `<span><strong>${w.duration}</strong> min</span>` : ''}
+                ${w.distance ? `<span><strong>${w.distance}</strong> km</span>` : ''}
+                ${w.avgSpeed ? `<span><strong>${w.avgSpeed}</strong> km/h</span>` : ''}
+                ${w.rpe ? `<span>RPE <strong>${w.rpe}</strong>/10</span>` : ''}
+              </div>
+              <div style="font-size:11px;color:var(--muted-fg);margin-top:3px">${dateStr} · ${timeStr}</div>
+              ${w.notes ? `<div class="wo-notes">${escHtml(w.notes)}</div>` : ''}
             </div>
+            <button class="wo-delete" data-id="${w._id}" aria-label="Delete">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
           </div>
+          ${hasRoute ? `<div class="activity-map-thumb" id="mini-map-${idx}" data-route-id="${routeId}"></div>` : ''}
         </div>
-      `;
+      </div>`;
     });
     html += '</div>';
   }
 
-  
   c.innerHTML = html;
 
-  // Bind delete buttons
+  // Render mini maps for tracked activities
+  c.querySelectorAll('.activity-map-thumb').forEach(el => {
+    const routeId = el.dataset.routeId;
+    const route = storedRoutes[routeId];
+    if (!route || route.length < 2) return;
+    setTimeout(() => {
+      try {
+        const miniMap = L.map(el.id, {
+          zoomControl: false, attributionControl: false, dragging: false,
+          touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false
+        });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(miniMap);
+        const latlngs = route.map(p => [p[0], p[1]]);
+        const polyline = L.polyline(latlngs, { color: '#BFFF00', weight: 3, opacity: 0.9 }).addTo(miniMap);
+        // Start marker
+        L.circleMarker(latlngs[0], { radius: 5, fillColor: '#22c55e', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
+        // End marker
+        L.circleMarker(latlngs[latlngs.length - 1], { radius: 5, fillColor: '#ef4444', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
+        miniMap.fitBounds(polyline.getBounds(), { padding: [10, 10] });
+      } catch(e) { console.warn('Mini map error:', e); }
+    }, 100);
+  });
+
+  // Filter buttons
+  c.querySelectorAll('.wo-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      c.querySelectorAll('.wo-filter-btn').forEach(b => {
+        b.style.background = 'var(--surface-alt)'; b.style.color = 'var(--muted-fg)'; b.style.borderColor = 'var(--border)';
+      });
+      btn.style.background = 'var(--primary)'; btn.style.color = 'var(--primary-fg)'; btn.style.borderColor = 'var(--primary)';
+      const filter = btn.dataset.wofilter;
+      c.querySelectorAll('.wo-card').forEach(card => {
+        if (filter === 'all') { card.style.display = ''; }
+        else if (filter === 'tracked') { card.style.display = card.dataset.woSource === 'tracker' ? '' : 'none'; }
+        else { card.style.display = card.dataset.woType === filter ? '' : 'none'; }
+      });
+    });
+  });
+
+  // Delete buttons
   c.querySelectorAll('.wo-delete').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
       if (!id || !currentUser) return;
       if (demoMode) { userWorkouts = userWorkouts.filter(w=>w._id!==id); renderWorkouts(); return; }
       if (!db) return;
-      try {
-        await deleteDoc(doc(db, 'users', currentUser.uid, 'workouts', id));
-      } catch(e) {
-        console.error('Delete error:', e);
-      }
+      try { await deleteDoc(doc(db, 'users', currentUser.uid, 'workouts', id)); } catch(e) { console.error('Delete error:', e); }
     });
   });
 }
@@ -2577,7 +2634,7 @@ function renderWorkouts() {
 // ============================================
 // FAB & Workout Log Sheet
 // ============================================
-$('fab-add').addEventListener('click', openWorkoutSheet);
+// Record moved to nav tab
 
 function openWorkoutSheet() {
   const today = new Date().toISOString().split('T')[0];
@@ -6506,6 +6563,9 @@ function showTrackerSaveScreen() {
   $('t-save-discard')?.addEventListener('click', () => closeActivityTracker());
   $('t-save-btn')?.addEventListener('click', async () => {
     const name = $('t-save-name')?.value?.trim() || (trackerType === 'ride' ? 'Ride' : trackerType === 'run' ? 'Run' : trackerType === 'walk' ? 'Walk' : 'Gym Session');
+    // Simplify GPS path — sample every 3rd point, store only lat/lng
+    const simplifiedPath = trackerPositions.filter((_, i) => i % 3 === 0 || i === trackerPositions.length - 1).map(p => [parseFloat(p.lat.toFixed(5)), parseFloat(p.lng.toFixed(5))]);
+    const workoutId = 'trk-' + Date.now();
     const workout = {
       name: name,
       duration: mins,
@@ -6517,21 +6577,34 @@ function showTrackerSaveScreen() {
       gpsPoints: trackerPositions.length,
       source: 'tracker'
     };
+    // Store GPS route in localStorage (Firestore has field size limits)
+    if (simplifiedPath.length > 1) {
+      try {
+        const routes = JSON.parse(localStorage.getItem('vf_routes') || '{}');
+        routes[workoutId] = simplifiedPath;
+        // Keep only last 50 routes to avoid storage overflow
+        const keys = Object.keys(routes);
+        if (keys.length > 50) { delete routes[keys[0]]; }
+        localStorage.setItem('vf_routes', JSON.stringify(routes));
+      } catch(e) {}
+    }
     // Save to Firestore
     if (!demoMode && db && currentUser) {
       try {
-        await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
+        const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
           ...workout,
+          routeId: workoutId,
           date: serverTimestamp()
         });
         showToast('Activity saved!', 'success');
       } catch(e) { showToast('Failed to save activity.', 'error'); }
     } else {
-      userWorkouts.unshift({ ...workout, id: 'demo-' + Date.now() });
+      userWorkouts.unshift({ ...workout, id: workoutId, routeId: workoutId });
       showToast('Activity saved (demo).', 'success');
     }
     closeActivityTracker();
     if (currentPage === 'today') renderToday();
+    if (currentPage === 'fitness') renderFitness();
   });
 }
 
