@@ -463,11 +463,6 @@ select.input{appearance:none;cursor:pointer;
 .cl-meta svg{width:11px;height:11px}
 
 /* Quick Stats */
-.qs-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
-.qs-card .card-pad{padding:12px 10px;text-align:center}
-.qs-value{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums lining-nums;line-height:1.1}
-.qs-label{font-size:10px;color:var(--muted-fg);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
-.qs-unit{font-size:10px;font-weight:400;color:var(--muted-fg)}
 
 /* Empty state */
 .empty-state{text-align:center;padding:40px 20px;color:var(--muted-fg)}
@@ -651,10 +646,6 @@ select.input{appearance:none;cursor:pointer;
 .wo-delete svg { width:16px; height:16px; }
 
 /* Active plan indicator on today page */
-.active-plan-banner { background:rgba(191,255,0,.06); border:1px solid rgba(191,255,0,.15); border-radius:var(--radius); padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
-.active-plan-banner svg { width:18px; height:18px; color:var(--primary); flex-shrink:0; }
-.active-plan-banner-text { font-size:13px; }
-.active-plan-banner-name { font-weight:600; }
 
 /* Hidden utility */
 .hidden { display:none !important; }
@@ -816,15 +807,6 @@ select.input{appearance:none;cursor:pointer;
 .race-video-heading svg{width:16px;height:16px}
 .race-video-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(191,255,0,0.04);border:1px solid rgba(191,255,0,0.12);margin-bottom:8px;text-decoration:none;color:var(--text);transition:background .2s}
 .race-video-card:active{background:rgba(191,255,0,0.1)}
-.countdown-card{background:linear-gradient(135deg,rgba(191,255,0,0.08) 0%,rgba(191,255,0,0.02) 100%);border:1px solid rgba(191,255,0,0.2);border-radius:14px;padding:16px;margin-bottom:14px}
-.countdown-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.countdown-header svg{width:18px;height:18px;color:#BFFF00}
-.countdown-race-name{font-size:14px;font-weight:700;color:var(--fg);flex:1}
-.countdown-timer{display:flex;gap:8px;justify-content:center}
-.countdown-unit{text-align:center;min-width:52px}
-.countdown-num{font-size:28px;font-weight:800;font-family:var(--font-sans);color:#BFFF00;line-height:1}
-.countdown-label{font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px}
-.countdown-details{font-size:12px;color:var(--muted-fg);margin-top:10px;text-align:center}
 .today-replay{margin-bottom:14px}
 .today-replay-header{font-size:13px;font-weight:700;color:#BFFF00;margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .today-replay-header svg{width:16px;height:16px}
@@ -2223,20 +2205,19 @@ function renderToday() {
     </div>
   `;
 
-  // Streak badges
+  // Streak badges — only show earned ones
   const badgeLevels = [
-    { days: 7, icon: '🔥', label: '7 days' },
+    { days: 7, icon: '🔥', label: '7 day streak' },
     { days: 14, icon: '⚡', label: '14 days' },
     { days: 30, icon: '🏆', label: '30 days' },
     { days: 60, icon: '💎', label: '60 days' },
     { days: 100, icon: '👑', label: '100 days' }
   ];
   const earnedBadges = badgeLevels.filter(b => streak >= b.days);
-  if (earnedBadges.length > 0 || streak >= 3) {
+  if (earnedBadges.length > 0) {
     html += '<div class="streak-badges">';
-    badgeLevels.forEach(b => {
-      const earned = streak >= b.days;
-      html += `<div class="streak-badge${earned ? ' earned' : ''}">${b.icon} ${b.label}</div>`;
+    earnedBadges.forEach(b => {
+      html += `<div class="streak-badge earned">${b.icon} ${b.label}</div>`;
     });
     html += '</div>';
   }
@@ -2349,12 +2330,6 @@ function renderToday() {
     </div>`;
   }
 
-  // Export button
-  html += `<button class="export-btn" id="export-pdf-btn">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    Export Training Report
-  </button>`;
-
   c.innerHTML = html;
 
   // Bind checklist toggles
@@ -2374,10 +2349,6 @@ function renderToday() {
       openWorkoutTimer(name, dur, exercises);
     });
   });
-
-  // Bind export
-  const exportBtn = $('export-pdf-btn');
-  if (exportBtn) exportBtn.addEventListener('click', exportTrainingReport);
 }
 
 function renderChecklistItem(workout, key, isChecked) {
@@ -3652,6 +3623,10 @@ function renderProfile() {
   html += `<div class="profile-section"><div class="profile-section-title">Your Stats</div>
     <div class="profile-row"><span class="profile-row-label">Total Workouts</span><span class="profile-row-value">${userWorkouts.length}</span></div>
     <div class="profile-row"><span class="profile-row-label">Member Since</span><span class="profile-row-value">${userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('en-AU',{month:'short',year:'numeric'}) : '—'}</span></div>
+    <button class="export-btn" id="profile-export-btn" style="width:100%">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Training Report
+    </button>
   </div>`;
 
   el.innerHTML = html;
@@ -3684,6 +3659,7 @@ function renderProfile() {
   $('strava-sync-btn')?.addEventListener('click', () => {
     stravaFetchActivities().then(() => renderStravaActivities());
   });
+  $('profile-export-btn')?.addEventListener('click', exportTrainingReport);
 
   if (isStravaConnected) renderStravaActivities();
 }
@@ -4662,24 +4638,22 @@ async function renderCoachDashboard() {
     const activeCount = students.filter(s => s.lastActive && s.lastActive >= threeDaysAgo).length;
     const inactiveCount = students.filter(s => !s.lastActive || s.lastActive < sevenDaysAgo).length;
 
-    let html = `<div style="display:flex;gap:12px;margin-bottom:12px">
+    let html = `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${students.length} students registered</div>`;
+
+    html += `<div style="display:flex;gap:8px;margin-bottom:12px">
       <div style="flex:1;padding:10px;background:rgba(34,197,94,.1);border-radius:8px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:#22c55e">${activeCount}</div>
-        <div style="font-size:10px;color:var(--muted-fg)">ACTIVE (3d)</div>
+        <div style="font-size:10px;color:var(--muted-fg)">Trained in last 3 days</div>
       </div>
       <div style="flex:1;padding:10px;background:rgba(239,68,68,.1);border-radius:8px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:#ef4444">${inactiveCount}</div>
-        <div style="font-size:10px;color:var(--muted-fg)">INACTIVE (7d+)</div>
-      </div>
-      <div style="flex:1;padding:10px;background:rgba(191,255,0,.1);border-radius:8px;text-align:center">
-        <div style="font-size:20px;font-weight:700;color:var(--primary)">${students.length}</div>
-        <div style="font-size:10px;color:var(--muted-fg)">TOTAL</div>
+        <div style="font-size:10px;color:var(--muted-fg)">No activity 7+ days</div>
       </div>
     </div>`;
 
     html += '<div class="coach-sort-bar">';
     ['recent','inactive','workouts','rpe'].forEach(s => {
-      const labels = { recent:'Recently Active', inactive:'Least Active', workouts:'Most Workouts', rpe:'Highest RPE' };
+      const labels = { recent:'Most Recent', inactive:'Needs Follow-up', workouts:'Most Workouts', rpe:'Highest Effort' };
       html += `<button class="coach-sort-btn${coachSort === s ? ' active' : ''}" data-coach-sort="${s}">${labels[s]}</button>`;
     });
     html += '</div>';
@@ -4690,17 +4664,17 @@ async function renderCoachDashboard() {
       const isInactive = !s.lastActive || s.lastActive < sevenDaysAgo;
       const lastStr = s.lastActive ? getTimeAgo(s.lastActive.toISOString()) : 'Never';
       const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
-      html += `<div class="coach-card${isInactive ? ' style="border-color:rgba(239,68,68,.3)"' : ''}">
+      const borderStyle = isInactive ? 'border-color:rgba(239,68,68,.3)' : '';
+      html += `<div class="coach-card" style="${borderStyle}">
         <div class="coach-card-top">
           <div class="coach-card-name">${escHtml(s.name)}</div>
           <span class="coach-card-badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : isInactive ? 'Inactive' : 'Idle'}</span>
         </div>
         <div class="coach-card-stats">
-          <span>${s.year}</span>
-          <span style="color:${tierColors[s.tier] || '#3b82f6'}">${capitalize(s.tier)}</span>
+          <span>${s.year} · <span style="color:${tierColors[s.tier] || '#3b82f6'}">${capitalize(s.tier)}</span></span>
           <span><strong>${s.workouts}</strong> workouts</span>
-          <span>RPE: <strong>${s.avgRpe ? s.avgRpe.toFixed(1) : '—'}</strong></span>
-          <span>Last: ${lastStr}</span>
+          ${s.avgRpe ? `<span>RPE <strong>${s.avgRpe.toFixed(1)}</strong></span>` : ''}
+          <span>Last active: ${lastStr}</span>
         </div>
       </div>`;
     });
