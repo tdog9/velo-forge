@@ -1329,13 +1329,10 @@ function renderToday() {
   const now = new Date();
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const dateStr = dayNames[now.getDay()] + ', ' + now.getDate() + ' ' + monthNames[now.getMonth()] + ' ' + now.getFullYear();
+  const dateStr = dayNames[now.getDay()] + ', ' + now.getDate() + ' ' + monthNames[now.getMonth()];
 
-  // Active plan
   const activePlanId = userProfile?.activePlanId;
   const activePlan = findPlan(activePlanId);
-
-  // Quick stats
   const totalWorkouts = userWorkouts.length;
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - now.getDay());
@@ -1345,125 +1342,84 @@ function renderToday() {
     return d && d >= weekStart;
   }).length;
 
-  // Streak calculation (days in a row with workouts)
+  // Streak
   let streak = 0;
   if (userWorkouts.length > 0) {
-    const today = new Date();
-    today.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0,0,0,0);
     const workoutDates = new Set();
     userWorkouts.forEach(w => {
       const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-      if (d) {
-        const key = d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
-        workoutDates.add(key);
-      }
+      if (d) workoutDates.add(d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate());
     });
     let check = new Date(today);
-    // Check today first, if no workout today, check yesterday
     let todayKey = check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate();
-    if (!workoutDates.has(todayKey)) {
-      check.setDate(check.getDate() - 1);
-    }
+    if (!workoutDates.has(todayKey)) check.setDate(check.getDate() - 1);
     while (true) {
       const key = check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate();
-      if (workoutDates.has(key)) {
-        streak++;
-        check.setDate(check.getDate() - 1);
-      } else {
-        break;
-      }
+      if (workoutDates.has(key)) { streak++; check.setDate(check.getDate() - 1); } else break;
     }
   }
 
-  // --- Next Race Countdown ---
-  const allRaces = getActiveRaces();
-  const todayStr = now.toISOString().split('T')[0];
-  const futureRaces = allRaces.filter(r => r.date >= todayStr).sort((a,b) => a.date.localeCompare(b.date));
-  const nextRace = futureRaces[0];
+  // XP level inline
+  const xp = calcXp();
+  const lvl = getXpLevel(xp);
 
-  let html = `
-    <div class="today-date">${dateStr}</div>
-  `;
+  // === BUILD HTML — clean layout ===
+  let html = '';
 
-  // Announcements — keep at top but compact
+  // Header: date + level badge
+  html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div class="today-date" style="margin:0">${dateStr}</div>
+    <div style="font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:4px">${lvl.icon} ${lvl.name} · ${xp} XP</div>
+  </div>`;
+
+  // XP progress bar (thin)
+  html += `<div style="height:4px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
+
+  // Announcements (compact)
   const activeAnns = adminAnnouncements.filter(a => a.active);
   activeAnns.forEach(a => {
-    const isNew = a.createdAt && (Date.now() - new Date(a.createdAt).getTime()) < 86400000 * 3;
-    html += `
-      <div class="announce-banner">
-        <div class="announce-banner-row">
-          <div class="announce-banner-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          </div>
-          <div class="announce-banner-body">
-            <div class="announce-banner-title">${escHtml(a.title)}${isNew ? '<span class="announce-banner-new">NEW</span>' : ''}</div>
-            <div class="announce-banner-msg">${escHtml(a.message)}</div>
-          </div>
-        </div>
-      </div>
-    `;
+    html += `<div class="announce-banner"><div class="announce-banner-row"><div class="announce-banner-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="announce-banner-body"><div class="announce-banner-title">${escHtml(a.title)}</div><div class="announce-banner-msg">${escHtml(a.message)}</div></div></div></div>`;
   });
 
-  // Inline stats row
-  html += `
-    <div class="today-stats-row">
-      <div class="today-stat"><span class="today-stat-val">${streak}</span><span class="today-stat-lbl">streak</span></div>
-      <div class="today-stat-sep"></div>
-      <div class="today-stat"><span class="today-stat-val">${workoutsThisWeek}</span><span class="today-stat-lbl">this week</span></div>
-      <div class="today-stat-sep"></div>
-      <div class="today-stat"><span class="today-stat-val">${totalWorkouts}</span><span class="today-stat-lbl">total</span></div>
-    </div>
-  `;
+  // ====== RECORD ACTIVITY BUTTON ======
+  html += `<button id="start-tracker-btn" style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;box-shadow:0 4px 15px rgba(34,197,94,.3)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:20px;height:20px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>
+    Record Activity
+  </button>`;
 
-  // Streak badges — only show earned ones
-  const badgeLevels = [
-    { days: 7, icon: '🔥', label: '7 day streak' },
-    { days: 14, icon: '⚡', label: '14 days' },
-    { days: 30, icon: '🏆', label: '30 days' },
-    { days: 60, icon: '💎', label: '60 days' },
-    { days: 100, icon: '👑', label: '100 days' }
-  ];
+  // Stats row
+  html += `<div class="today-stats-row">
+    <div class="today-stat"><span class="today-stat-val">${streak}</span><span class="today-stat-lbl">streak</span></div>
+    <div class="today-stat-sep"></div>
+    <div class="today-stat"><span class="today-stat-val">${workoutsThisWeek}</span><span class="today-stat-lbl">this week</span></div>
+    <div class="today-stat-sep"></div>
+    <div class="today-stat"><span class="today-stat-val">${totalWorkouts}</span><span class="today-stat-lbl">total</span></div>
+  </div>`;
+
+  // Streak badges (compact)
+  const badgeLevels = [{days:7,icon:'🔥',label:'7d'},{days:14,icon:'⚡',label:'14d'},{days:30,icon:'🏆',label:'30d'},{days:60,icon:'💎',label:'60d'},{days:100,icon:'👑',label:'100d'}];
   const earnedBadges = badgeLevels.filter(b => streak >= b.days);
   if (earnedBadges.length > 0) {
-    html += '<div class="streak-badges">';
-    earnedBadges.forEach(b => {
-      html += `<div class="streak-badge earned">${b.icon} ${b.label}</div>`;
-    });
-    html += '</div>';
+    html += '<div class="streak-badges">' + earnedBadges.map(b => `<div class="streak-badge earned">${b.icon} ${b.label}</div>`).join('') + '</div>';
   }
 
-  // Weekly summary (show if today is Monday or there's data to compare)
-  const lastWeekStart = new Date(weekStart);
-  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-  const workoutsLastWeek = userWorkouts.filter(w => {
-    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-    return d && d >= lastWeekStart && d < weekStart;
-  }).length;
-  if (totalWorkouts > 0 && (now.getDay() <= 1 || workoutsLastWeek > 0)) {
-    const diff = workoutsThisWeek - workoutsLastWeek;
-    const msg = diff > 0 ? `<strong>${workoutsThisWeek}</strong> workouts this week — <strong>${diff} more</strong> than last week!`
-      : diff === 0 ? `<strong>${workoutsThisWeek}</strong> workouts this week — matching last week. Keep it up.`
-      : `<strong>${workoutsThisWeek}</strong> workouts this week. Last week you did <strong>${workoutsLastWeek}</strong>.`;
-    html += `<div class="weekly-summary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><div class="weekly-summary-text">${msg}</div></div>`;
-  }
+  // Team Challenge (prominent if active)
+  html += renderTeamChallenge();
 
-  // Race countdown — compact single line
+  // Race countdown
+  const allRaces = getActiveRaces();
+  const todayStr2 = now.toISOString().split('T')[0];
+  const futureRaces = allRaces.filter(r => r.date >= todayStr2).sort((a,b) => a.date.localeCompare(b.date));
+  const nextRace = futureRaces[0];
   if (nextRace) {
     const raceDate = new Date(nextRace.date + 'T09:00:00+10:00');
-    const diffMs = raceDate - now;
-    const diffDays = Math.max(0, Math.floor(diffMs / 86400000));
-    html += `
-      <div class="today-race-row">
-        <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-        <span class="today-race-name">${escHtml(nextRace.name)}</span>
-        <span class="today-race-days"><strong>${diffDays}</strong> day${diffDays !== 1 ? 's' : ''}</span>
-      </div>
-    `;
+    const diffDays = Math.max(0, Math.floor((raceDate - now) / 86400000));
+    html += `<div class="today-race-row"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span class="today-race-name">${escHtml(nextRace.name)}</span><span class="today-race-days"><strong>${diffDays}</strong> day${diffDays!==1?'s':''}</span></div>`;
   }
 
   // TODAY'S TRAINING
   if (activePlan) {
-    // Plan progress bar
     const pdData = getPlanDisplayData(activePlan);
     const totalPlanWorkouts = activePlan.workouts.length;
     let completedPlanWorkouts = 0;
@@ -1474,13 +1430,7 @@ function renderToday() {
     const progressPct = totalPlanWorkouts > 0 ? Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100) : 0;
 
     html += `<div class="section-title" style="margin-top:4px">Today's Training</div>`;
-    html += `<div class="plan-progress">
-      <div class="plan-progress-text">
-        <span>${escHtml(pdData.name)}</span>
-        <span>${completedPlanWorkouts}/${totalPlanWorkouts} sessions · ${progressPct}%</span>
-      </div>
-      <div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div>
-    </div>`;
+    html += `<div class="plan-progress"><div class="plan-progress-text"><span>${escHtml(pdData.name)}</span><span>${completedPlanWorkouts}/${totalPlanWorkouts} · ${progressPct}%</span></div><div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div></div>`;
 
     const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
     const todayDay = now.getDay();
@@ -1498,70 +1448,76 @@ function renderToday() {
       });
       html += '</div>';
     } else {
-      html += `<div class="today-rest">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px;color:var(--muted-fg)"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-        <span>Rest day — no training scheduled. Recovery is part of the plan.</span>
-      </div>`;
+      html += `<div class="today-rest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px;color:var(--muted-fg)"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><span>Rest day — no training scheduled.</span></div>`;
     }
   } else {
-    html += `<div class="today-no-plan">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-      <div><strong>No plan active</strong></div>
-      <div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one for your year level.</div>
-    </div>`;
+    const recHtml = renderPlanRecommendation();
+    if (recHtml) {
+      html += recHtml;
+    } else {
+      html += `<div class="today-no-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><div><strong>No plan active</strong></div><div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one.</div></div>`;
+    }
   }
 
-  // Progress chart — workouts per week, last 8 weeks
+  // Personal Goals (compact)
+  html += renderGoals();
+
+  // Collapsible "More Stats" section
+  const moreOpen = localStorage.getItem('vf_more_open') === 'true';
+  html += `<div class="section-card" style="margin-top:12px"><div class="section-title" id="more-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">More Stats <span style="font-size:16px;transition:transform .2s;transform:rotate(${moreOpen ? '0' : '-90'}deg)">▾</span></div>`;
+  html += `<div id="more-body" style="${moreOpen ? '' : 'display:none'}">`;
+
+  // Progress chart
   if (totalWorkouts > 0) {
     const weeks = [];
     for (let i = 7; i >= 0; i--) {
-      const wStart = new Date(now);
-      wStart.setDate(now.getDate() - now.getDay() - (i * 7));
-      wStart.setHours(0,0,0,0);
-      const wEnd = new Date(wStart);
+      const wStart2 = new Date(now);
+      wStart2.setDate(now.getDate() - now.getDay() - (i * 7));
+      wStart2.setHours(0,0,0,0);
+      const wEnd = new Date(wStart2);
       wEnd.setDate(wEnd.getDate() + 7);
       const count = userWorkouts.filter(w => {
         const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-        return d && d >= wStart && d < wEnd;
+        return d && d >= wStart2 && d < wEnd;
       }).length;
-      const label = (wStart.getDate()) + '/' + (wStart.getMonth()+1);
-      weeks.push({ count, label, isCurrent: i === 0 });
+      weeks.push({ count, label: wStart2.getDate() + '/' + (wStart2.getMonth()+1), isCurrent: i === 0 });
     }
     const maxCount = Math.max(...weeks.map(w => w.count), 1);
-    html += `<div class="progress-chart">
-      <div class="progress-chart-title">Workouts per week</div>
-      <div class="chart-bars">
-        ${weeks.map(w => `<div class="chart-bar-col">
-          <div class="chart-bar-val">${w.count || ''}</div>
-          <div class="chart-bar${w.count > 0 ? ' has-data' : ''}${w.isCurrent ? ' current' : ''}" style="height:${Math.max(2, (w.count / maxCount) * 60)}px"></div>
-          <div class="chart-bar-label">${w.label}</div>
-        </div>`).join('')}
-      </div>
-    </div>`;
+    html += `<div class="progress-chart"><div class="progress-chart-title">Workouts per week</div><div class="chart-bars">${weeks.map(w => `<div class="chart-bar-col"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.count > 0 ? ' has-data' : ''}${w.isCurrent ? ' current' : ''}" style="height:${Math.max(2, (w.count / maxCount) * 60)}px"></div><div class="chart-bar-label">${w.label}</div></div>`).join('')}</div></div>`;
   }
-
-  // Workout Calendar
-  html += renderWorkoutCalendar(now);
-
-  // XP & Level
-  html += renderXpBar();
-
-  // Personal Goals
-  html += renderGoals();
-
-  // Smart Plan Recommendation
-  html += renderPlanRecommendation();
-
-  // Team Challenge
-  html += renderTeamChallenge();
 
   // Personal Bests
   html += renderPersonalBests(now, totalWorkouts, streak);
 
-  // Team Activity Feed
+  // Calendar
+  html += renderWorkoutCalendar(now);
+
+  // Team feed
   html += renderTeamFeed();
 
+  html += '</div></div>'; // close more-body + section-card
+
   c.innerHTML = html;
+
+  // Bind "Record Activity" button
+  const trackerBtn = $('start-tracker-btn');
+  if (trackerBtn) {
+    trackerBtn.addEventListener('click', () => { haptic('medium'); openActivityTracker(); });
+  }
+
+  // Bind "More Stats" toggle
+  const moreToggle = $('more-toggle');
+  if (moreToggle) {
+    moreToggle.addEventListener('click', () => {
+      const body = $('more-body');
+      const chevron = moreToggle.querySelector('span');
+      if (!body) return;
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : '';
+      if (chevron) chevron.style.transform = 'rotate(' + (isOpen ? '-90' : '0') + 'deg)';
+      localStorage.setItem('vf_more_open', isOpen ? 'false' : 'true');
+    });
+  }
 
   // Bind calendar collapse toggle
   const calToggle = $('cal-toggle');
@@ -6280,6 +6236,304 @@ function openRaceLogForm(existing, editIdx) {
     }
     renderRaceLog();
   });
+}
+
+// ============================================
+// GPS ACTIVITY TRACKER
+// ============================================
+let trackerState = 'idle'; // idle | tracking | paused | saving
+let trackerType = 'ride'; // ride | run | walk | gym
+let trackerWatchId = null;
+let trackerPositions = []; // [{lat,lng,time,speed,alt}]
+let trackerStartTime = null;
+let trackerElapsed = 0; // seconds
+let trackerInterval = null;
+let trackerMap = null;
+let trackerPolyline = null;
+let trackerMarker = null;
+let trackerWakeLock = null;
+
+function openActivityTracker() {
+  trackerState = 'idle';
+  trackerPositions = [];
+  trackerElapsed = 0;
+  trackerStartTime = null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'tracker-overlay';
+  overlay.className = 'tracker-overlay';
+  overlay.innerHTML = `
+    <div class="tracker-header">
+      <span class="tracker-header-title">Record Activity</span>
+      <button class="tracker-close" id="tracker-close-btn">✕</button>
+    </div>
+    <div class="tracker-type-bar">
+      <button class="tracker-type-btn active" data-ttype="ride">🚴 Ride</button>
+      <button class="tracker-type-btn" data-ttype="run">🏃 Run</button>
+      <button class="tracker-type-btn" data-ttype="walk">🚶 Walk</button>
+      <button class="tracker-type-btn" data-ttype="gym">🏋️ Gym</button>
+    </div>
+    <div class="tracker-map"><div id="tracker-map-el"></div></div>
+    <div class="tracker-stats">
+      <div class="tracker-stat big"><div class="tracker-stat-val" id="t-time">00:00</div><div class="tracker-stat-lbl">Duration</div></div>
+      <div class="tracker-stat"><div class="tracker-stat-val" id="t-dist">0.00</div><div class="tracker-stat-lbl">Distance (km)</div></div>
+      <div class="tracker-stat"><div class="tracker-stat-val" id="t-speed">0.0</div><div class="tracker-stat-lbl">Speed (km/h)</div></div>
+      <div class="tracker-stat"><div class="tracker-stat-val" id="t-pace">--:--</div><div class="tracker-stat-lbl">Pace (min/km)</div></div>
+      <div class="tracker-stat"><div class="tracker-stat-val" id="t-alt">--</div><div class="tracker-stat-lbl">Elevation (m)</div></div>
+    </div>
+    <div class="tracker-controls" id="tracker-controls">
+      <button class="tracker-btn start" id="t-start-btn"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21"/></svg></button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // Init map
+  setTimeout(() => {
+    trackerMap = L.map('tracker-map-el', { zoomControl: false, attributionControl: false }).setView([-37.81, 144.96], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(trackerMap);
+    trackerPolyline = L.polyline([], { color: '#BFFF00', weight: 4, opacity: 0.9 }).addTo(trackerMap);
+
+    // Try to get initial position
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        trackerMap.setView([pos.coords.latitude, pos.coords.longitude], 16);
+        trackerMarker = L.circleMarker([pos.coords.latitude, pos.coords.longitude], { radius: 8, fillColor: '#BFFF00', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
+      }, () => {}, { enableHighAccuracy: true });
+    }
+  }, 100);
+
+  // Bind type buttons
+  overlay.querySelectorAll('.tracker-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      overlay.querySelectorAll('.tracker-type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      trackerType = btn.dataset.ttype;
+    });
+  });
+
+  // Bind close
+  $('tracker-close-btn').addEventListener('click', () => {
+    if (trackerState === 'tracking' || trackerState === 'paused') {
+      if (!confirm('Discard this activity?')) return;
+    }
+    closeActivityTracker();
+  });
+
+  // Bind start
+  $('t-start-btn').addEventListener('click', () => startTracking());
+}
+
+function startTracking() {
+  trackerState = 'tracking';
+  trackerStartTime = Date.now() - (trackerElapsed * 1000);
+  haptic('medium');
+
+  // Wake lock
+  if (navigator.wakeLock) {
+    navigator.wakeLock.request('screen').then(wl => { trackerWakeLock = wl; }).catch(() => {});
+  }
+
+  // Timer
+  trackerInterval = setInterval(updateTrackerDisplay, 1000);
+
+  // GPS
+  if (navigator.geolocation) {
+    trackerWatchId = navigator.geolocation.watchPosition(pos => {
+      const { latitude, longitude, speed, altitude } = pos.coords;
+      const point = { lat: latitude, lng: longitude, time: Date.now(), speed: speed || 0, alt: altitude || 0 };
+      trackerPositions.push(point);
+      // Update map
+      if (trackerMap) {
+        const ll = [latitude, longitude];
+        trackerPolyline.addLatLng(ll);
+        if (trackerMarker) trackerMarker.setLatLng(ll);
+        else trackerMarker = L.circleMarker(ll, { radius: 8, fillColor: '#BFFF00', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
+        trackerMap.panTo(ll);
+      }
+    }, err => { console.warn('GPS error:', err.message); }, {
+      enableHighAccuracy: true, maximumAge: 2000, timeout: 10000
+    });
+  }
+
+  updateTrackerControls();
+}
+
+function pauseTracking() {
+  trackerState = 'paused';
+  trackerElapsed = Math.floor((Date.now() - trackerStartTime) / 1000);
+  clearInterval(trackerInterval);
+  if (trackerWatchId !== null) { navigator.geolocation.clearWatch(trackerWatchId); trackerWatchId = null; }
+  if (trackerWakeLock) { trackerWakeLock.release().catch(() => {}); trackerWakeLock = null; }
+  haptic('light');
+  updateTrackerControls();
+}
+
+function resumeTracking() {
+  startTracking();
+}
+
+function stopTracking() {
+  pauseTracking();
+  trackerState = 'saving';
+  haptic('medium');
+  showTrackerSaveScreen();
+}
+
+function updateTrackerControls() {
+  const el = $('tracker-controls');
+  if (!el) return;
+  if (trackerState === 'idle') {
+    el.innerHTML = '<button class="tracker-btn start" id="t-start-btn"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21"/></svg></button>';
+    $('t-start-btn')?.addEventListener('click', () => startTracking());
+  } else if (trackerState === 'tracking') {
+    el.innerHTML = '<button class="tracker-btn discard" id="t-discard-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button><button class="tracker-btn pause" id="t-pause-btn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button><button class="tracker-btn stop" id="t-stop-btn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>';
+    $('t-pause-btn')?.addEventListener('click', () => pauseTracking());
+    $('t-stop-btn')?.addEventListener('click', () => stopTracking());
+    $('t-discard-btn')?.addEventListener('click', () => { if (confirm('Discard this activity?')) closeActivityTracker(); });
+  } else if (trackerState === 'paused') {
+    el.innerHTML = '<button class="tracker-btn discard" id="t-discard-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button><button class="tracker-btn resume" id="t-resume-btn"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21"/></svg></button><button class="tracker-btn stop" id="t-stop-btn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>';
+    $('t-resume-btn')?.addEventListener('click', () => resumeTracking());
+    $('t-stop-btn')?.addEventListener('click', () => stopTracking());
+    $('t-discard-btn')?.addEventListener('click', () => { if (confirm('Discard this activity?')) closeActivityTracker(); });
+  }
+}
+
+function updateTrackerDisplay() {
+  const elapsed = Math.floor((Date.now() - trackerStartTime) / 1000);
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  const hrs = Math.floor(mins / 60);
+  const timeEl = $('t-time');
+  if (timeEl) timeEl.textContent = hrs > 0 ? hrs + ':' + String(mins % 60).padStart(2,'0') + ':' + String(secs).padStart(2,'0') : String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
+
+  // Distance
+  const dist = calcTrackerDistance();
+  const distEl = $('t-dist');
+  if (distEl) distEl.textContent = dist.toFixed(2);
+
+  // Speed (current from last GPS point)
+  const lastPt = trackerPositions[trackerPositions.length - 1];
+  const speedKmh = lastPt ? (lastPt.speed * 3.6) : 0;
+  const speedEl = $('t-speed');
+  if (speedEl) speedEl.textContent = speedKmh.toFixed(1);
+
+  // Pace
+  const paceEl = $('t-pace');
+  if (paceEl) {
+    if (dist > 0.01) {
+      const paceMinPerKm = (elapsed / 60) / dist;
+      const pMins = Math.floor(paceMinPerKm);
+      const pSecs = Math.round((paceMinPerKm - pMins) * 60);
+      paceEl.textContent = pMins + ':' + String(pSecs).padStart(2,'0');
+    } else {
+      paceEl.textContent = '--:--';
+    }
+  }
+
+  // Altitude
+  const altEl = $('t-alt');
+  if (altEl && lastPt && lastPt.alt) altEl.textContent = Math.round(lastPt.alt);
+}
+
+function calcTrackerDistance() {
+  let dist = 0;
+  for (let i = 1; i < trackerPositions.length; i++) {
+    dist += haversine(trackerPositions[i-1].lat, trackerPositions[i-1].lng, trackerPositions[i].lat, trackerPositions[i].lng);
+  }
+  return dist;
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function showTrackerSaveScreen() {
+  const overlay = $('tracker-overlay');
+  if (!overlay) return;
+  const dist = calcTrackerDistance();
+  const elapsed = trackerElapsed;
+  const mins = Math.floor(elapsed / 60);
+  const avgSpeed = elapsed > 0 ? (dist / (elapsed / 3600)) : 0;
+  const typeLabels = { ride: '🚴 Ride', run: '🏃 Run', walk: '🚶 Walk', gym: '🏋️ Gym' };
+
+  const saveDiv = document.createElement('div');
+  saveDiv.className = 'tracker-save-overlay';
+  saveDiv.innerHTML = `<div class="tracker-save-card">
+    <h3>Save Activity</h3>
+    <div style="font-size:13px;color:var(--muted-fg);margin-bottom:12px">${typeLabels[trackerType] || trackerType}</div>
+    <div class="tracker-save-stats">
+      <div class="tracker-save-stat"><div class="val">${dist.toFixed(2)} km</div><div class="lbl">Distance</div></div>
+      <div class="tracker-save-stat"><div class="val">${mins} min</div><div class="lbl">Duration</div></div>
+      <div class="tracker-save-stat"><div class="val">${avgSpeed.toFixed(1)} km/h</div><div class="lbl">Avg Speed</div></div>
+      <div class="tracker-save-stat"><div class="val">${trackerPositions.length}</div><div class="lbl">GPS Points</div></div>
+    </div>
+    <input class="input" id="t-save-name" type="text" placeholder="Activity name (optional)" style="margin-bottom:8px;width:100%">
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--muted-fg);line-height:32px">RPE:</span>
+      <div id="t-save-rpe" style="display:flex;gap:3px">${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="t-rpe-btn" data-rpe="${n}" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);font-size:11px;cursor:pointer">${n}</button>`).join('')}</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="t-save-discard" class="btn" style="flex:1;background:var(--surface-alt);color:var(--muted-fg)">Discard</button>
+      <button id="t-save-btn" class="btn btn-primary" style="flex:1">Save Activity</button>
+    </div>
+  </div>`;
+  overlay.appendChild(saveDiv);
+
+  let selectedRpe = null;
+  saveDiv.querySelectorAll('.t-rpe-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      saveDiv.querySelectorAll('.t-rpe-btn').forEach(b => { b.style.background = 'var(--surface-alt)'; b.style.color = 'var(--muted-fg)'; });
+      btn.style.background = 'var(--primary)';
+      btn.style.color = 'var(--primary-fg)';
+      selectedRpe = parseInt(btn.dataset.rpe);
+    });
+  });
+
+  $('t-save-discard')?.addEventListener('click', () => closeActivityTracker());
+  $('t-save-btn')?.addEventListener('click', async () => {
+    const name = $('t-save-name')?.value?.trim() || (trackerType === 'ride' ? 'Ride' : trackerType === 'run' ? 'Run' : trackerType === 'walk' ? 'Walk' : 'Gym Session');
+    const workout = {
+      name: name,
+      duration: mins,
+      date: new Date(),
+      type: trackerType,
+      distance: parseFloat(dist.toFixed(2)),
+      avgSpeed: parseFloat(avgSpeed.toFixed(1)),
+      rpe: selectedRpe,
+      gpsPoints: trackerPositions.length,
+      source: 'tracker'
+    };
+    // Save to Firestore
+    if (!demoMode && db && currentUser) {
+      try {
+        await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
+          ...workout,
+          date: serverTimestamp()
+        });
+        showToast('Activity saved!', 'success');
+      } catch(e) { showToast('Failed to save activity.', 'error'); }
+    } else {
+      userWorkouts.unshift({ ...workout, id: 'demo-' + Date.now() });
+      showToast('Activity saved (demo).', 'success');
+    }
+    closeActivityTracker();
+    if (currentPage === 'today') renderToday();
+  });
+}
+
+function closeActivityTracker() {
+  clearInterval(trackerInterval);
+  if (trackerWatchId !== null) { navigator.geolocation.clearWatch(trackerWatchId); trackerWatchId = null; }
+  if (trackerWakeLock) { trackerWakeLock.release().catch(() => {}); trackerWakeLock = null; }
+  if (trackerMap) { trackerMap.remove(); trackerMap = null; }
+  trackerPolyline = null;
+  trackerMarker = null;
+  trackerState = 'idle';
+  const overlay = $('tracker-overlay');
+  if (overlay) overlay.remove();
 }
 
 // Start
