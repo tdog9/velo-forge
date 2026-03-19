@@ -1277,7 +1277,7 @@ if (currentTheme === 'light') document.documentElement.classList.add('light-them
 
 // Strava integration
 const STRAVA_CLIENT_ID = '213628'; // Set your Strava API client ID here
-const STRAVA_REDIRECT_URI = window.location.origin + window.location.pathname;
+const STRAVA_REDIRECT_URI = 'https://veloforge.netlify.app';
 let stravaTokens = null; // { access_token, refresh_token, expires_at, athlete }
 let stravaActivities = []; // cached recent activities
 let userWorkouts = [];
