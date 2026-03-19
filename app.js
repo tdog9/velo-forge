@@ -2510,7 +2510,7 @@ document.querySelectorAll('.timer-rest-btn').forEach(btn => {
 // ============================================
 function renderWorkouts() {
   const c = $('workouts-content');
-  let html = '<div class="page-title">Activities</div>';
+  let html = '<div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Log Manually</button></div>';
 
   // Load stored routes for mini maps
   let storedRoutes = {};
@@ -2520,7 +2520,7 @@ function renderWorkouts() {
     html += `<div class="empty-state">
       <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;color:var(--muted-fg)"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg></div>
       <div class="empty-state-title">No Activities Yet</div>
-      <div class="empty-state-desc">Tap the Record button in the nav bar to track your first ride, run, or workout with GPS.</div>
+      <div class="empty-state-desc">Tap Record in the nav bar to track with GPS, or Log Manually above to enter a workout.</div>
     </div>`;
   } else {
     // Filter buttons
@@ -2536,9 +2536,13 @@ function renderWorkouts() {
     });
     // Check for tracked vs manual
     const trackedCount = userWorkouts.filter(w => w.source === 'tracker').length;
-    const manualCount = userWorkouts.length - trackedCount;
-    if (trackedCount > 0 && manualCount > 0) {
+    const stravaCount = userWorkouts.filter(w => w.source === 'strava').length;
+    const manualCount = userWorkouts.length - trackedCount - stravaCount;
+    if (trackedCount > 0) {
       html += `<button class="wo-filter-btn" data-wofilter="tracked" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">📍 GPS (${trackedCount})</button>`;
+    }
+    if (stravaCount > 0) {
+      html += `<button class="wo-filter-btn" data-wofilter="strava" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">⬡ Strava (${stravaCount})</button>`;
     }
     html += '</div>';
 
@@ -2549,8 +2553,10 @@ function renderWorkouts() {
       const timeStr = date.toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'});
       const wType = w.type || 'ride';
       const isTracked = w.source === 'tracker';
+      const isStrava = w.source === 'strava';
       const routeId = w.routeId || w.id;
-      const hasRoute = isTracked && storedRoutes[routeId] && storedRoutes[routeId].length > 1;
+      const hasRoute = (isTracked || isStrava) && storedRoutes[routeId] && storedRoutes[routeId].length > 1;
+      const sourceIcon = isStrava ? '⬡ ' : isTracked ? '📍 ' : '';
 
       html += `<div class="card wo-card" data-wo-type="${wType}" data-wo-source="${w.source || 'manual'}">
         <div class="card-pad">
@@ -2558,16 +2564,16 @@ function renderWorkouts() {
             <div class="wo-left" style="flex:1;min-width:0">
               <div class="wo-title-row">
                 <span class="wo-name">${escHtml(w.name || 'Workout')}</span>
-                <span class="activity-badge ${wType}">${isTracked ? '📍 ' : ''}${capitalize(wType)}</span>
+                <span class="activity-badge ${wType}${isStrava ? ' strava' : ''}">${sourceIcon}${capitalize(wType)}</span>
               </div>
               <div class="activity-stats-row">
                 ${w.duration ? `<span><strong>${w.duration}</strong> min</span>` : ''}
                 ${w.distance ? `<span><strong>${w.distance}</strong> km</span>` : ''}
                 ${w.avgSpeed ? `<span><strong>${w.avgSpeed}</strong> km/h</span>` : ''}
+                ${w.heartRate ? `<span><strong>${w.heartRate}</strong> bpm</span>` : ''}
                 ${w.rpe ? `<span>RPE <strong>${w.rpe}</strong>/10</span>` : ''}
               </div>
               <div style="font-size:11px;color:var(--muted-fg);margin-top:3px">${dateStr} · ${timeStr}</div>
-              ${w.notes ? `<div class="wo-notes">${escHtml(w.notes)}</div>` : ''}
             </div>
             <button class="wo-delete" data-id="${w._id}" aria-label="Delete">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -2593,7 +2599,7 @@ function renderWorkouts() {
           zoomControl: false, attributionControl: false, dragging: false,
           touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false
         });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(miniMap);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(miniMap);
         const latlngs = route.map(p => [p[0], p[1]]);
         const polyline = L.polyline(latlngs, { color: '#BFFF00', weight: 3, opacity: 0.9 }).addTo(miniMap);
         // Start marker
@@ -2616,6 +2622,7 @@ function renderWorkouts() {
       c.querySelectorAll('.wo-card').forEach(card => {
         if (filter === 'all') { card.style.display = ''; }
         else if (filter === 'tracked') { card.style.display = card.dataset.woSource === 'tracker' ? '' : 'none'; }
+        else if (filter === 'strava') { card.style.display = card.dataset.woSource === 'strava' ? '' : 'none'; }
         else { card.style.display = card.dataset.woType === filter ? '' : 'none'; }
       });
     });
@@ -2631,6 +2638,12 @@ function renderWorkouts() {
       try { await deleteDoc(doc(db, 'users', currentUser.uid, 'workouts', id)); } catch(e) { console.error('Delete error:', e); }
     });
   });
+
+  // Manual log button
+  const manualBtn = $('manual-log-btn');
+  if (manualBtn) {
+    manualBtn.addEventListener('click', () => { haptic('light'); openWorkoutSheet(); });
+  }
 }
 
 // ============================================
@@ -3804,6 +3817,84 @@ function loadStravaTokens() {
   }
 }
 
+// Auto-sync Strava activities on login
+async function stravaAutoSync() {
+  if (!stravaTokens?.access_token) return;
+  try {
+    await stravaFetchActivities();
+    if (stravaActivities.length === 0) return;
+    // Auto-import any new activities not already in workouts
+    const importedIds = new Set();
+    userWorkouts.forEach(w => { if (w.stravaId) importedIds.add(String(w.stravaId)); });
+    let imported = 0;
+    for (const a of stravaActivities) {
+      if (importedIds.has(String(a.id))) continue;
+      const name = a.name || 'Strava Activity';
+      const duration = a.moving_time ? Math.round(a.moving_time / 60) : 0;
+      const distance = a.distance ? parseFloat((a.distance / 1000).toFixed(2)) : null;
+      const avgSpeed = a.average_speed ? parseFloat((a.average_speed * 3.6).toFixed(1)) : null;
+      const dateObj = a.start_date_local ? new Date(a.start_date_local) : new Date();
+      const typeMap = { Ride: 'ride', Run: 'run', Walk: 'walk', Hike: 'walk', WeightTraining: 'gym', Workout: 'gym' };
+      const type = typeMap[a.type] || 'ride';
+      const routeId = 'strava-' + a.id;
+      // Decode and store polyline route
+      if (a.map && a.map.summary_polyline) {
+        try {
+          const path = decodePolyline(a.map.summary_polyline);
+          if (path.length > 1) {
+            const routes = JSON.parse(localStorage.getItem('vf_routes') || '{}');
+            routes[routeId] = path.map(p => [parseFloat(p[0].toFixed(5)), parseFloat(p[1].toFixed(5))]);
+            const keys = Object.keys(routes);
+            if (keys.length > 80) delete routes[keys[0]];
+            localStorage.setItem('vf_routes', JSON.stringify(routes));
+          }
+        } catch(e) {}
+      }
+      const workout = {
+        name, type, duration, distance, avgSpeed,
+        notes: 'Synced from Strava',
+        stravaId: String(a.id),
+        routeId: routeId,
+        source: 'strava',
+        heartRate: a.average_heartrate ? Math.round(a.average_heartrate) : null,
+        rpe: null
+      };
+      if (!demoMode && db && currentUser) {
+        try {
+          await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
+            ...workout,
+            date: Timestamp.fromDate(dateObj),
+            createdAt: serverTimestamp()
+          });
+          imported++;
+        } catch(e) { console.error('Strava auto-import error:', e); }
+      } else if (demoMode) {
+        userWorkouts.unshift({ ...workout, _id: 'd' + Date.now() + imported, date: dateObj });
+        imported++;
+      }
+    }
+    if (imported > 0) {
+      showToast(imported + ' activit' + (imported > 1 ? 'ies' : 'y') + ' synced from Strava!', 'success');
+    }
+  } catch(e) { console.error('Strava auto-sync error:', e); }
+}
+
+// Decode Google encoded polyline → [[lat, lng], ...]
+function decodePolyline(encoded) {
+  const points = [];
+  let index = 0, lat = 0, lng = 0;
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+    points.push([lat / 1e5, lng / 1e5]);
+  }
+  return points;
+}
+
 function openCreateTeamSheet() {
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Create Team</div>
@@ -4197,6 +4288,7 @@ function startApp() {
         await loadExerciseDemoVideos();
         setupAnnouncementListener(); // Real-time announcement notifications
         loadStravaTokens(); // Load Strava connection from profile
+        stravaAutoSync(); // Auto-import new Strava activities (runs async, no await)
         await loadCustomPlans(); // Load AI-generated custom plans
         await loadTeamFeed(); // Load team activity feed
         await loadTeamChallenge(); // Load active team challenge
@@ -4223,6 +4315,10 @@ function startApp() {
       const startPage = $('page-' + currentPage);
       if (startPage) startPage.classList.add('active');
       showMainApp();
+      // Check training reminders
+      checkTrainingReminder();
+      // Request notification permission on first interaction
+      requestNotificationPermission();
     } else {
       currentUser = null;
       userProfile = null;
@@ -4376,6 +4472,67 @@ function checkForNewAnnouncements(announcements) {
 }
 
 // Listen for announcements in real-time (triggers notification for new ones)
+// --- Training Reminder Notifications ---
+function checkTrainingReminder() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (userWorkouts.length === 0) return;
+
+  // Only remind once per day
+  const today = new Date().toISOString().split('T')[0];
+  const lastReminder = localStorage.getItem('vf_reminder_date');
+  if (lastReminder === today) return;
+
+  // Find most recent workout date
+  let latestDate = null;
+  userWorkouts.forEach(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    if (d && (!latestDate || d > latestDate)) latestDate = d;
+  });
+  if (!latestDate) return;
+
+  const daysSince = Math.floor((Date.now() - latestDate.getTime()) / 86400000);
+
+  if (daysSince >= 2) {
+    localStorage.setItem('vf_reminder_date', today);
+    const messages = [
+      'Your streak is at risk! Log a workout today to keep it going.',
+      'It\'s been ' + daysSince + ' days since your last session. Your competitors are training right now!',
+      'Hey ' + (userProfile?.displayName || 'champ') + '! Time to get back into it. Even a short session counts.',
+      'Don\'t break the chain! A quick workout today keeps the momentum going.'
+    ];
+    const msg = messages[Math.floor(Math.random() * messages.length)];
+    try {
+      new Notification('VeloForge Training Reminder', {
+        body: msg,
+        tag: 'training-reminder',
+        requireInteraction: false
+      });
+    } catch(e) {}
+  }
+
+  // Also schedule periodic check via setInterval (every 4 hours while app is open)
+  setInterval(() => {
+    const now = new Date();
+    const todayKey = now.toISOString().split('T')[0];
+    if (localStorage.getItem('vf_reminder_date') !== todayKey && now.getHours() >= 16) {
+      // Afternoon reminder if no workout logged today
+      const todayWorkouts = userWorkouts.filter(w => {
+        const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+        return d && d.toISOString().split('T')[0] === todayKey;
+      });
+      if (todayWorkouts.length === 0 && Notification.permission === 'granted') {
+        localStorage.setItem('vf_reminder_date', todayKey);
+        try {
+          new Notification('VeloForge', {
+            body: 'No workout logged today yet. There\'s still time!',
+            tag: 'afternoon-reminder'
+          });
+        } catch(e) {}
+      }
+    }
+  }, 4 * 60 * 60 * 1000); // every 4 hours
+}
+
 function setupAnnouncementListener() {
   if (!db) return;
   try {
@@ -4758,6 +4915,140 @@ async function renderCoachDashboard() {
   }
 
   render('recent');
+
+  // --- Challenge Manager (below student list) ---
+  const challengeEl = document.createElement('div');
+  challengeEl.style.cssText = 'margin-top:16px;border-top:1px solid var(--border);padding-top:16px';
+  let chHtml = '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:10px">🏆 Team Challenge Manager</div>';
+
+  if (activeChallenge) {
+    const cEnd = new Date(activeChallenge.endDate);
+    const cDaysLeft = Math.max(0, Math.ceil((cEnd - new Date()) / 86400000));
+    chHtml += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">${escHtml(activeChallenge.title || 'Active Challenge')}</div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:8px">${cDaysLeft > 0 ? cDaysLeft + ' days remaining' : 'Ended'} · Repeat: ${activeChallenge.repeat ? 'On' : 'Off'}</div>`;
+    // Editable team scores
+    const rawT = activeChallenge.teams || {};
+    Object.entries(rawT).forEach(([key, val]) => {
+      const tName = (val && val.name) || key;
+      const tScore = (val && val.score) || 0;
+      chHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <input class="input ch-team-name" data-ch-key="${key}" value="${escHtml(tName)}" style="flex:1;font-size:12px;padding:6px 8px">
+        <input class="input ch-team-score" data-ch-key="${key}" type="number" value="${tScore}" style="width:70px;font-size:12px;padding:6px 8px;text-align:center">
+      </div>`;
+    });
+    chHtml += `<div style="display:flex;gap:6px;margin-top:8px">
+      <button id="ch-save-scores" class="btn btn-primary" style="flex:1;font-size:12px;padding:8px">Save Changes</button>
+      <button id="ch-reset-scores" class="btn" style="font-size:12px;padding:8px;background:var(--surface-alt);color:var(--muted-fg)">Reset Scores</button>
+      <button id="ch-end-challenge" class="btn" style="font-size:12px;padding:8px;background:rgba(239,68,68,.1);color:#ef4444">End</button>
+    </div></div>`;
+  } else {
+    chHtml += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:8px">No active challenge. Create one below.</div>';
+  }
+
+  // Create new challenge form
+  chHtml += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px">
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">${activeChallenge ? 'Start New Challenge' : 'Create Challenge'}</div>
+    <input class="input" id="ch-new-title" type="text" placeholder="Challenge title" value="Monthly Minutes Challenge" style="margin-bottom:6px;width:100%;font-size:12px">
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <select class="input" id="ch-new-duration" style="flex:1;font-size:12px;padding:6px"><option value="7">1 Week</option><option value="14">2 Weeks</option><option value="30" selected>1 Month</option><option value="60">2 Months</option></select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted-fg);white-space:nowrap"><input type="checkbox" id="ch-new-repeat" checked> Auto-repeat</label>
+    </div>
+    <div id="ch-new-teams" style="margin-bottom:8px">
+      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Teams:</div>
+      ${[1,2,3,4,5].map(n => `<input class="input ch-new-team-name" type="text" placeholder="Team ${n} name" value="Team ${n}" style="margin-bottom:4px;width:100%;font-size:12px;padding:6px 8px">`).join('')}
+    </div>
+    <button id="ch-create-btn" class="btn btn-primary" style="width:100%;font-size:12px;padding:8px">Create Challenge</button>
+  </div>`;
+
+  challengeEl.innerHTML = chHtml;
+  el.appendChild(challengeEl);
+
+  // --- Challenge event handlers ---
+  // Save score changes
+  $('ch-save-scores')?.addEventListener('click', async () => {
+    if (!activeChallenge || demoMode || !db) { showToast('Cannot save in demo mode.', 'warn'); return; }
+    const updatedTeams = { ...activeChallenge.teams };
+    challengeEl.querySelectorAll('.ch-team-name').forEach(inp => {
+      const k = inp.dataset.chKey;
+      if (updatedTeams[k]) updatedTeams[k].name = inp.value.trim() || k;
+    });
+    challengeEl.querySelectorAll('.ch-team-score').forEach(inp => {
+      const k = inp.dataset.chKey;
+      if (updatedTeams[k]) updatedTeams[k].score = parseInt(inp.value) || 0;
+    });
+    try {
+      await setDoc(doc(db, 'config', 'activeChallenge'), { ...activeChallenge, teams: updatedTeams });
+      activeChallenge.teams = updatedTeams;
+      showToast('Challenge updated!', 'success');
+    } catch(e) { showToast('Failed to save.', 'error'); }
+  });
+
+  // Reset all scores to 0
+  $('ch-reset-scores')?.addEventListener('click', async () => {
+    if (!activeChallenge || demoMode || !db) return;
+    if (!confirm('Reset all team scores to 0?')) return;
+    const reset = {};
+    Object.entries(activeChallenge.teams || {}).forEach(([k, v]) => {
+      reset[k] = { name: (v && v.name) || k, score: 0 };
+    });
+    try {
+      await setDoc(doc(db, 'config', 'activeChallenge'), { ...activeChallenge, teams: reset });
+      activeChallenge.teams = reset;
+      showToast('Scores reset!', 'success');
+      renderCoachDashboard();
+    } catch(e) { showToast('Failed to reset.', 'error'); }
+  });
+
+  // End challenge
+  $('ch-end-challenge')?.addEventListener('click', async () => {
+    if (!activeChallenge || demoMode || !db) return;
+    if (!confirm('End this challenge? It will be removed.')) return;
+    try {
+      await deleteDoc(doc(db, 'config', 'activeChallenge'));
+      activeChallenge = null;
+      showToast('Challenge ended.', 'success');
+      renderCoachDashboard();
+    } catch(e) { showToast('Failed to end challenge.', 'error'); }
+  });
+
+  // Create new challenge
+  $('ch-create-btn')?.addEventListener('click', async () => {
+    const title = $('ch-new-title')?.value?.trim();
+    const days = parseInt($('ch-new-duration')?.value) || 30;
+    const repeat = $('ch-new-repeat')?.checked || false;
+    if (!title) { showToast('Enter a challenge title.', 'warn'); return; }
+    const teamInputs = challengeEl.querySelectorAll('.ch-new-team-name');
+    const teams = {};
+    let idx = 1;
+    teamInputs.forEach(inp => {
+      const name = inp.value.trim();
+      if (name) { teams['team' + idx] = { name, score: 0 }; idx++; }
+    });
+    if (Object.keys(teams).length < 2) { showToast('Need at least 2 teams.', 'warn'); return; }
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setDate(endDate.getDate() + days);
+    const challenge = {
+      title, type: 'minutes', repeat,
+      startDate: now.toISOString(),
+      endDate: endDate.toISOString(),
+      teams
+    };
+    if (demoMode) {
+      activeChallenge = challenge;
+      showToast('Challenge created (demo).', 'success');
+      renderCoachDashboard();
+      return;
+    }
+    if (!db) return;
+    try {
+      await setDoc(doc(db, 'config', 'activeChallenge'), challenge);
+      activeChallenge = challenge;
+      showToast('Challenge created!', 'success');
+      renderCoachDashboard();
+    } catch(e) { showToast('Failed to create challenge.', 'error'); }
+  });
 }
 
 // --- ANNOUNCEMENTS ---
@@ -6359,7 +6650,7 @@ function openActivityTracker() {
   // Init map
   setTimeout(() => {
     trackerMap = L.map('tracker-map-el', { zoomControl: false, attributionControl: false }).setView([-37.81, 144.96], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(trackerMap);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(trackerMap);
     trackerPolyline = L.polyline([], { color: '#BFFF00', weight: 4, opacity: 0.9 }).addTo(trackerMap);
 
     // Try to get initial position
