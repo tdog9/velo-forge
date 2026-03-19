@@ -2270,30 +2270,56 @@ async function loadTeamFeed() {
 async function loadTeamChallenge() {
   activeChallenge = null;
   if (demoMode) {
-    // Demo challenge
     activeChallenge = {
       id: 'demo-challenge',
-      title: 'Weekly Minutes Challenge',
+      title: 'Monthly Minutes Challenge',
       type: 'minutes',
+      repeat: true,
       startDate: new Date(Date.now() - 3 * 86400000).toISOString(),
-      endDate: new Date(Date.now() + 4 * 86400000).toISOString(),
+      endDate: new Date(Date.now() + 27 * 86400000).toISOString(),
       teams: {
-        a: { name: 'Team Alpha', score: 245 },
-        b: { name: 'Team Beta', score: 198 },
-        c: { name: 'Team Gamma', score: 312 }
+        team1: { name: 'Team Alpha', score: 245 },
+        team2: { name: 'Team Beta', score: 198 },
+        team3: { name: 'Team Gamma', score: 312 },
+        team4: { name: 'Team Delta', score: 156 },
+        team5: { name: 'Team Omega', score: 280 }
       }
     };
     return;
   }
-  if (!db || !currentUser || !userProfile?.teamId) return;
+  if (!db || !currentUser) return;
   try {
     const challengeRef = doc(db, 'config', 'activeChallenge');
     const snap = await getDoc(challengeRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (data.endDate && new Date(data.endDate) > new Date()) {
-        activeChallenge = data;
-      }
+    if (!snap.exists()) return;
+    const data = snap.data();
+    const now = new Date();
+    const end = new Date(data.endDate);
+
+    if (end > now) {
+      // Challenge is still active
+      activeChallenge = data;
+    } else if (data.repeat) {
+      // Challenge expired but repeat is on — auto-create next month
+      const newStart = new Date(end);
+      const newEnd = new Date(end);
+      newEnd.setMonth(newEnd.getMonth() + 1);
+      // Reset all team scores to 0
+      const resetTeams = {};
+      Object.entries(data.teams || {}).forEach(([k, v]) => {
+        resetTeams[k] = { name: v.name, score: 0 };
+      });
+      const newChallenge = {
+        ...data,
+        startDate: newStart.toISOString(),
+        endDate: newEnd.toISOString(),
+        teams: resetTeams
+      };
+      // Save the new challenge back to Firestore
+      try {
+        await setDoc(challengeRef, newChallenge);
+      } catch(e) { console.error('Auto-repeat save error:', e); }
+      activeChallenge = newChallenge;
     }
   } catch(e) { console.error('Load challenge error:', e); }
 }
