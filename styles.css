@@ -941,30 +941,32 @@ select.input{appearance:none;cursor:pointer;
 .plan-rec-btn:active{opacity:.8}
 /* GPS Activity Tracker */
 .tracker-overlay{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column}
-.tracker-map{flex:1;position:relative;background:#0a0b0f}
-.tracker-map #tracker-map-el{width:100%;height:100%}
-.tracker-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border)}
-.tracker-stat{background:var(--bg);padding:12px 8px;text-align:center}
-.tracker-stat-val{font-size:28px;font-weight:800;color:var(--text);font-family:'Cabinet Grotesk',system-ui;line-height:1.1}
-.tracker-stat-lbl{font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
-.tracker-stat.big{grid-column:span 2}
-.tracker-stat.big .tracker-stat-val{font-size:48px;color:var(--primary)}
-.tracker-controls{display:flex;align-items:center;justify-content:center;gap:16px;padding:16px;padding-bottom:calc(16px + var(--safe-b));background:var(--bg)}
-.tracker-btn{width:64px;height:64px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
-.tracker-btn:active{transform:scale(.92)}
-.tracker-btn.start{background:#22c55e;width:72px;height:72px}
-.tracker-btn.pause{background:#f59e0b;width:72px;height:72px}
-.tracker-btn.resume{background:#22c55e;width:72px;height:72px}
-.tracker-btn.stop{background:#ef4444}
-.tracker-btn.discard{background:var(--surface-alt);border:1px solid var(--border)}
-.tracker-btn svg{width:28px;height:28px;color:#fff}
-.tracker-btn.discard svg{color:var(--muted-fg)}
-.tracker-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;padding-top:calc(8px + var(--safe-t));background:rgba(0,0,0,.5);position:absolute;top:0;left:0;right:0;z-index:2}
-.tracker-header-title{font-size:14px;font-weight:700;color:#fff}
-.tracker-close{background:none;border:none;color:#fff;font-size:24px;padding:4px 8px;cursor:pointer}
-.tracker-type-bar{display:flex;gap:6px;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border)}
-.tracker-type-btn{flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt);color:var(--muted-fg);font-size:12px;font-weight:600;text-align:center;cursor:pointer}
+.tracker-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;padding-top:calc(10px + var(--safe-t));background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;z-index:2}
+.tracker-header-title{font-size:15px;font-weight:700;color:var(--text)}
+.tracker-close{background:none;border:none;color:var(--muted-fg);font-size:22px;padding:4px 8px;cursor:pointer}
+.tracker-type-bar{display:flex;gap:6px;padding:8px 14px;background:var(--bg);flex-shrink:0;z-index:1}
+.tracker-type-btn{flex:1;padding:10px 4px;border:1px solid var(--border);border-radius:10px;background:var(--surface-alt);color:var(--muted-fg);font-size:13px;font-weight:600;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all .15s}
+.tracker-type-btn:active{transform:scale(.96)}
 .tracker-type-btn.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.tracker-map{flex:1;position:relative;background:#0a0b0f;min-height:0}
+.tracker-map #tracker-map-el{width:100%;height:100%}
+.tracker-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);flex-shrink:0}
+.tracker-stat{background:var(--bg);padding:10px 8px;text-align:center}
+.tracker-stat-val{font-size:24px;font-weight:800;color:var(--text);font-family:'Cabinet Grotesk',system-ui;line-height:1.1}
+.tracker-stat-lbl{font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.tracker-stat.big{grid-column:span 2}
+.tracker-stat.big .tracker-stat-val{font-size:40px;color:var(--primary)}
+.tracker-controls{display:flex;align-items:center;justify-content:center;gap:20px;padding:14px 20px;padding-bottom:calc(14px + var(--safe-b));background:var(--bg);border-top:1px solid var(--border);flex-shrink:0}
+.tracker-btn{width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.tracker-btn:active{transform:scale(.9)}
+.tracker-btn.start{background:#22c55e;width:68px;height:68px;box-shadow:0 4px 15px rgba(34,197,94,.4)}
+.tracker-btn.pause{background:#f59e0b;width:68px;height:68px;box-shadow:0 4px 15px rgba(245,158,11,.3)}
+.tracker-btn.resume{background:#22c55e;width:68px;height:68px;box-shadow:0 4px 15px rgba(34,197,94,.4)}
+.tracker-btn.stop{background:#ef4444;box-shadow:0 4px 12px rgba(239,68,68,.3)}
+.tracker-btn.discard{background:var(--surface-alt);border:1px solid var(--border)}
+.tracker-btn svg{width:24px;height:24px;color:#fff}
+.tracker-btn.start svg,.tracker-btn.pause svg,.tracker-btn.resume svg{width:28px;height:28px}
+.tracker-btn.discard svg{color:var(--muted-fg);width:20px;height:20px}
 .tracker-save-overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);z-index:5;display:flex;align-items:center;justify-content:center;padding:20px}
 .tracker-save-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:340px}
 .tracker-save-card h3{font-size:18px;font-weight:700;color:var(--text);margin-bottom:16px}
@@ -974,8 +976,8 @@ select.input{appearance:none;cursor:pointer;
 .tracker-save-stat .lbl{font-size:10px;color:var(--muted-fg);text-transform:uppercase}
 /* Record tab center button */
 .record-tab{position:relative}
-.record-tab-circle{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;margin:-18px auto 0;box-shadow:0 4px 15px rgba(34,197,94,.35);color:#fff}
-.record-tab .tab-btn-label{margin-top:2px}
+.record-tab-circle{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;margin:-18px auto 0;box-shadow:0 4px 15px rgba(34,197,94,.35);color:#fff;pointer-events:none}
+.record-tab .tab-btn-label{margin-top:2px;pointer-events:none}
 /* AI FAB left position */
 /* ai-fab positioned via main class */
 /* Activity card with mini map */
