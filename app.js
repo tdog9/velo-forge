@@ -2589,27 +2589,27 @@ function renderWorkouts() {
   c.innerHTML = html;
 
   // Render mini maps for tracked activities
-  c.querySelectorAll('.activity-map-thumb').forEach(el => {
-    const routeId = el.dataset.routeId;
-    const route = storedRoutes[routeId];
-    if (!route || route.length < 2) return;
-    setTimeout(() => {
-      try {
-        const miniMap = L.map(el.id, {
-          zoomControl: false, attributionControl: false, dragging: false,
-          touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false
-        });
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(miniMap);
-        const latlngs = route.map(p => [p[0], p[1]]);
-        const polyline = L.polyline(latlngs, { color: '#BFFF00', weight: 3, opacity: 0.9 }).addTo(miniMap);
-        // Start marker
-        L.circleMarker(latlngs[0], { radius: 5, fillColor: '#22c55e', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
-        // End marker
-        L.circleMarker(latlngs[latlngs.length - 1], { radius: 5, fillColor: '#ef4444', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
-        miniMap.fitBounds(polyline.getBounds(), { padding: [10, 10] });
-      } catch(e) { console.warn('Mini map error:', e); }
-    }, 100);
-  });
+  if (typeof L !== 'undefined') {
+    c.querySelectorAll('.activity-map-thumb').forEach(el => {
+      const routeId = el.dataset.routeId;
+      const route = storedRoutes[routeId];
+      if (!route || route.length < 2) return;
+      setTimeout(() => {
+        try {
+          const miniMap = L.map(el.id, {
+            zoomControl: false, attributionControl: false, dragging: false,
+            touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false
+          });
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(miniMap);
+          const latlngs = route.map(p => [p[0], p[1]]);
+          const polyline = L.polyline(latlngs, { color: '#BFFF00', weight: 3, opacity: 0.9 }).addTo(miniMap);
+          L.circleMarker(latlngs[0], { radius: 5, fillColor: '#22c55e', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
+          L.circleMarker(latlngs[latlngs.length - 1], { radius: 5, fillColor: '#ef4444', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
+          miniMap.fitBounds(polyline.getBounds(), { padding: [10, 10] });
+        } catch(e) { console.warn('Mini map error:', e); }
+      }, 100);
+    });
+  }
 
   // Filter buttons
   c.querySelectorAll('.wo-filter-btn').forEach(btn => {
@@ -6647,40 +6647,54 @@ function openActivityTracker() {
     </div>`;
   document.body.appendChild(overlay);
 
-  // Init map
+  // Init map (safe — works even if Leaflet is missing)
   setTimeout(() => {
-    trackerMap = L.map('tracker-map-el', { zoomControl: false, attributionControl: false }).setView([-37.81, 144.96], 15);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(trackerMap);
-    trackerPolyline = L.polyline([], { color: '#BFFF00', weight: 4, opacity: 0.9 }).addTo(trackerMap);
-
-    // Try to get initial position
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        trackerMap.setView([pos.coords.latitude, pos.coords.longitude], 16);
-        trackerMarker = L.circleMarker([pos.coords.latitude, pos.coords.longitude], { radius: 8, fillColor: '#BFFF00', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
-      }, () => {}, { enableHighAccuracy: true });
-    }
-  }, 100);
+    try {
+      if (typeof L !== 'undefined') {
+        trackerMap = L.map('tracker-map-el', { zoomControl: false, attributionControl: false }).setView([-37.81, 144.96], 15);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(trackerMap);
+        trackerPolyline = L.polyline([], { color: '#BFFF00', weight: 4, opacity: 0.9 }).addTo(trackerMap);
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(pos => {
+            trackerMap.setView([pos.coords.latitude, pos.coords.longitude], 16);
+            trackerMarker = L.circleMarker([pos.coords.latitude, pos.coords.longitude], { radius: 8, fillColor: '#BFFF00', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
+          }, () => {}, { enableHighAccuracy: true });
+        }
+      } else {
+        const mapEl = $('tracker-map-el');
+        if (mapEl) mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted-fg);font-size:13px">Map unavailable — GPS tracking still works</div>';
+      }
+    } catch(e) { console.error('Map init error:', e); }
+  }, 150);
 
   // Bind type buttons
   overlay.querySelectorAll('.tracker-type-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       overlay.querySelectorAll('.tracker-type-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       trackerType = btn.dataset.ttype;
+      haptic('light');
     });
   });
 
   // Bind close
-  $('tracker-close-btn').addEventListener('click', () => {
-    if (trackerState === 'tracking' || trackerState === 'paused') {
-      if (!confirm('Discard this activity?')) return;
-    }
-    closeActivityTracker();
-  });
+  const closeBtn = $('tracker-close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (trackerState === 'tracking' || trackerState === 'paused') {
+        if (!confirm('Discard this activity?')) return;
+      }
+      closeActivityTracker();
+    });
+  }
 
   // Bind start
-  $('t-start-btn').addEventListener('click', () => startTracking());
+  const startBtn = $('t-start-btn');
+  if (startBtn) {
+    startBtn.addEventListener('click', (e) => { e.stopPropagation(); startTracking(); });
+  }
 }
 
 function startTracking() {
@@ -6689,31 +6703,37 @@ function startTracking() {
   haptic('medium');
 
   // Wake lock
-  if (navigator.wakeLock) {
-    navigator.wakeLock.request('screen').then(wl => { trackerWakeLock = wl; }).catch(() => {});
-  }
+  try {
+    if (navigator.wakeLock) {
+      navigator.wakeLock.request('screen').then(wl => { trackerWakeLock = wl; }).catch(() => {});
+    }
+  } catch(e) {}
 
   // Timer
   trackerInterval = setInterval(updateTrackerDisplay, 1000);
 
   // GPS
-  if (navigator.geolocation) {
-    trackerWatchId = navigator.geolocation.watchPosition(pos => {
-      const { latitude, longitude, speed, altitude } = pos.coords;
-      const point = { lat: latitude, lng: longitude, time: Date.now(), speed: speed || 0, alt: altitude || 0 };
-      trackerPositions.push(point);
-      // Update map
-      if (trackerMap) {
-        const ll = [latitude, longitude];
-        trackerPolyline.addLatLng(ll);
-        if (trackerMarker) trackerMarker.setLatLng(ll);
-        else trackerMarker = L.circleMarker(ll, { radius: 8, fillColor: '#BFFF00', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
-        trackerMap.panTo(ll);
-      }
-    }, err => { console.warn('GPS error:', err.message); }, {
-      enableHighAccuracy: true, maximumAge: 2000, timeout: 10000
-    });
-  }
+  try {
+    if (navigator.geolocation) {
+      trackerWatchId = navigator.geolocation.watchPosition(pos => {
+        const { latitude, longitude, speed, altitude } = pos.coords;
+        const point = { lat: latitude, lng: longitude, time: Date.now(), speed: speed || 0, alt: altitude || 0 };
+        trackerPositions.push(point);
+        // Update map (safe)
+        try {
+          if (trackerMap && trackerPolyline) {
+            const ll = [latitude, longitude];
+            trackerPolyline.addLatLng(ll);
+            if (trackerMarker) trackerMarker.setLatLng(ll);
+            else if (typeof L !== 'undefined') trackerMarker = L.circleMarker(ll, { radius: 8, fillColor: '#BFFF00', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
+            trackerMap.panTo(ll);
+          }
+        } catch(e) {}
+      }, err => { console.warn('GPS error:', err.message); }, {
+        enableHighAccuracy: true, maximumAge: 2000, timeout: 10000
+      });
+    }
+  } catch(e) { console.error('GPS init error:', e); }
 
   updateTrackerControls();
 }
@@ -6744,17 +6764,23 @@ function updateTrackerControls() {
   if (!el) return;
   if (trackerState === 'idle') {
     el.innerHTML = '<button class="tracker-btn start" id="t-start-btn"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21"/></svg></button>';
-    $('t-start-btn')?.addEventListener('click', () => startTracking());
+    $('t-start-btn')?.addEventListener('click', (e) => { e.stopPropagation(); startTracking(); });
   } else if (trackerState === 'tracking') {
-    el.innerHTML = '<button class="tracker-btn discard" id="t-discard-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button><button class="tracker-btn pause" id="t-pause-btn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button><button class="tracker-btn stop" id="t-stop-btn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>';
-    $('t-pause-btn')?.addEventListener('click', () => pauseTracking());
-    $('t-stop-btn')?.addEventListener('click', () => stopTracking());
-    $('t-discard-btn')?.addEventListener('click', () => { if (confirm('Discard this activity?')) closeActivityTracker(); });
+    el.innerHTML = `
+      <button class="tracker-btn discard" id="t-discard-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="tracker-btn pause" id="t-pause-btn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg></button>
+      <button class="tracker-btn stop" id="t-stop-btn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>`;
+    $('t-pause-btn')?.addEventListener('click', (e) => { e.stopPropagation(); pauseTracking(); });
+    $('t-stop-btn')?.addEventListener('click', (e) => { e.stopPropagation(); stopTracking(); });
+    $('t-discard-btn')?.addEventListener('click', (e) => { e.stopPropagation(); if (confirm('Discard this activity?')) closeActivityTracker(); });
   } else if (trackerState === 'paused') {
-    el.innerHTML = '<button class="tracker-btn discard" id="t-discard-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button><button class="tracker-btn resume" id="t-resume-btn"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21"/></svg></button><button class="tracker-btn stop" id="t-stop-btn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>';
-    $('t-resume-btn')?.addEventListener('click', () => resumeTracking());
-    $('t-stop-btn')?.addEventListener('click', () => stopTracking());
-    $('t-discard-btn')?.addEventListener('click', () => { if (confirm('Discard this activity?')) closeActivityTracker(); });
+    el.innerHTML = `
+      <button class="tracker-btn discard" id="t-discard-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="tracker-btn resume" id="t-resume-btn"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21"/></svg></button>
+      <button class="tracker-btn stop" id="t-stop-btn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>`;
+    $('t-resume-btn')?.addEventListener('click', (e) => { e.stopPropagation(); resumeTracking(); });
+    $('t-stop-btn')?.addEventListener('click', (e) => { e.stopPropagation(); stopTracking(); });
+    $('t-discard-btn')?.addEventListener('click', (e) => { e.stopPropagation(); if (confirm('Discard this activity?')) closeActivityTracker(); });
   }
 }
 
