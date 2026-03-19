@@ -88,6 +88,73 @@ let userWorkouts = [];
 let userChecklist = {};
 let workoutsUnsubscribe = null;
 let checklistUnsubscribe = null;
+
+// XP & Levelling
+const XP_LEVELS = [
+  { name: 'Rookie', min: 0, icon: '🟢' },
+  { name: 'Racer', min: 100, icon: '🔵' },
+  { name: 'Athlete', min: 300, icon: '🟣' },
+  { name: 'Champion', min: 600, icon: '🟠' },
+  { name: 'Legend', min: 1000, icon: '🔴' },
+  { name: 'Elite', min: 1500, icon: '👑' }
+];
+function getXpLevel(xp) {
+  let lvl = XP_LEVELS[0];
+  for (const l of XP_LEVELS) { if (xp >= l.min) lvl = l; }
+  const idx = XP_LEVELS.indexOf(lvl);
+  const next = XP_LEVELS[idx + 1] || null;
+  const pct = next ? Math.min(100, ((xp - lvl.min) / (next.min - lvl.min)) * 100) : 100;
+  return { ...lvl, xp, next, pct, idx };
+}
+function calcXp() {
+  let xp = 0;
+  xp += userWorkouts.length * 10; // 10 XP per workout
+  // Streak bonus
+  const dates = [...new Set(userWorkouts.map(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    return d ? d.toISOString().split('T')[0] : null;
+  }).filter(Boolean))].sort();
+  let streak = 0, best = 0, cur = 0;
+  dates.forEach((d, i) => {
+    if (i === 0) { cur = 1; } else {
+      const diff = (new Date(d) - new Date(dates[i-1])) / 86400000;
+      cur = diff === 1 ? cur + 1 : 1;
+    }
+    if (cur > best) best = cur;
+  });
+  if (best >= 7) xp += 25;
+  if (best >= 14) xp += 50;
+  if (best >= 30) xp += 100;
+  // Plan completion bonus
+  if (userProfile?.activePlanId) {
+    const plan = findPlan(userProfile.activePlanId);
+    if (plan && plan.workouts) {
+      const total = plan.workouts.length;
+      let done = 0;
+      plan.workouts.forEach((w, i) => {
+        const k = userProfile.activePlanId + '-' + w.week + '-' + w.day + '-' + (plan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
+        if (userChecklist[k]) done++;
+      });
+      if (done >= total && total > 0) xp += 75; // completed plan bonus
+    }
+  }
+  // RPE logging bonus (5 XP per workout with RPE)
+  xp += userWorkouts.filter(w => w.rpe).length * 5;
+  return xp;
+}
+
+// Personal Goals
+let userGoals = []; // [{id, type, target, current, label, createdAt}]
+function loadGoals() {
+  try { userGoals = JSON.parse(localStorage.getItem('vf_goals') || '[]'); } catch(e) { userGoals = []; }
+}
+function saveGoals() {
+  try { localStorage.setItem('vf_goals', JSON.stringify(userGoals)); } catch(e) {}
+}
+
+// Team Challenges
+let activeChallenge = null; // {id, title, type, startDate, endDate, teams: {teamId: {name, score}}}
+
 let raceTimerInterval = null;
 let firebaseReady = false;
 let raceFootage = {}; // {raceId: [{label, url, type}]} — admin-managed footage links
@@ -1105,6 +1172,142 @@ function renderPersonalBests(now, totalWorkouts, streak) {
   return html;
 }
 
+// --- XP & Level Bar ---
+function renderXpBar() {
+  const xp = calcXp();
+  const lvl = getXpLevel(xp);
+  let html = '<div class="xp-bar-wrap">';
+  html += '<div class="xp-header"><span class="xp-level-badge">' + lvl.icon + ' ' + lvl.name + '</span><span class="xp-amount">' + xp + ' XP</span></div>';
+  html += '<div class="xp-track"><div class="xp-fill" style="width:' + lvl.pct + '%"></div></div>';
+  if (lvl.next) {
+    html += '<div class="xp-next">' + (lvl.next.min - xp) + ' XP to ' + lvl.next.icon + ' ' + lvl.next.name + '</div>';
+  } else {
+    html += '<div class="xp-next">Max level reached!</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+// --- Personal Goals ---
+function renderGoals() {
+  loadGoals();
+  let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">My Goals</div>';
+  if (userGoals.length === 0) {
+    html += '<div style="font-size:12px;color:var(--muted-fg);padding:4px 0">Set a goal to stay motivated!</div>';
+  }
+  userGoals.forEach((g, idx) => {
+    // Calculate current progress
+    let current = 0;
+    if (g.type === 'workouts') current = userWorkouts.length;
+    else if (g.type === 'streak') {
+      const dates = [...new Set(userWorkouts.map(w => {
+        const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+        return d ? d.toISOString().split('T')[0] : null;
+      }).filter(Boolean))].sort();
+      let s = 0, c = 0;
+      const today = new Date(); today.setHours(0,0,0,0);
+      for (let i = dates.length - 1; i >= 0; i--) {
+        const diff = Math.floor((today - new Date(dates[i])) / 86400000);
+        if (diff === c) { s++; c++; }
+        else if (i === dates.length - 1 && diff <= 1) { s = 1; c = diff + 1; }
+        else break;
+      }
+      current = s;
+    } else if (g.type === 'minutes') {
+      current = userWorkouts.reduce((sum, w) => sum + (w.duration || 0), 0);
+    }
+    const pct = g.target > 0 ? Math.min(100, (current / g.target) * 100) : 0;
+    const radius = 22, circ = 2 * Math.PI * radius, offset = circ - (pct / 100) * circ;
+    const done = current >= g.target;
+    html += '<div class="goal-card">';
+    html += '<div class="goal-ring-wrap">';
+    html += '<div class="goal-ring"><svg viewBox="0 0 56 56" width="56" height="56">';
+    html += '<circle cx="28" cy="28" r="' + radius + '" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="4"/>';
+    html += '<circle cx="28" cy="28" r="' + radius + '" fill="none" stroke="' + (done ? '#22c55e' : 'var(--primary)') + '" stroke-width="4" stroke-dasharray="' + circ + '" stroke-dashoffset="' + offset + '" stroke-linecap="round"/>';
+    html += '</svg><div class="goal-ring-text">' + (done ? '✓' : Math.round(pct) + '%') + '</div></div>';
+    html += '<div class="goal-info"><div class="goal-label">' + (done ? '🎉 ' : '') + escHtml(g.label) + '</div>';
+    html += '<div class="goal-progress">' + current + ' / ' + g.target + ' ' + g.type + '</div></div></div>';
+    html += '<div class="goal-actions"><button class="goal-del" data-goal-del="' + idx + '">Remove</button></div>';
+    html += '</div>';
+  });
+  html += '<button class="goal-add-btn" id="goal-add-btn">+ Add a Goal</button>';
+  html += '</div>';
+  return html;
+}
+
+// --- Team Challenge ---
+function renderTeamChallenge() {
+  if (!activeChallenge) return '';
+  const now = new Date();
+  const end = new Date(activeChallenge.endDate);
+  const daysLeft = Math.max(0, Math.ceil((end - now) / 86400000));
+  const teams = Object.values(activeChallenge.teams || {});
+  const maxScore = Math.max(1, ...teams.map(t => t.score));
+  const colors = ['#BFFF00', '#7c3aed', '#f97316', '#3b82f6'];
+  let html = '<div class="challenge-card">';
+  html += '<div class="challenge-title">🏆 ' + escHtml(activeChallenge.title) + '</div>';
+  html += '<div class="challenge-meta">' + (daysLeft > 0 ? daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' remaining' : 'Challenge ended!') + '</div>';
+  teams.sort((a, b) => b.score - a.score);
+  teams.forEach((t, i) => {
+    const pct = (t.score / maxScore) * 100;
+    html += '<div class="challenge-team">';
+    html += '<div class="challenge-team-name">' + (i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : '') + escHtml(t.name) + '</div>';
+    html += '<div class="challenge-team-bar"><div class="challenge-team-fill" style="width:' + pct + '%;background:' + (colors[i] || colors[3]) + '"></div></div>';
+    html += '<div class="challenge-team-score">' + t.score + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// --- Smart Plan Recommendation ---
+function renderPlanRecommendation() {
+  if (!userProfile) return '';
+  const activePlanId = userProfile.activePlanId;
+  // Only show if no active plan OR active plan is complete
+  if (activePlanId) {
+    const plan = findPlan(activePlanId);
+    if (plan && plan.workouts) {
+      const total = plan.workouts.length;
+      let done = 0;
+      plan.workouts.forEach((w, i) => {
+        const k = activePlanId + '-' + w.week + '-' + w.day + '-' + (plan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
+        if (userChecklist[k]) done++;
+      });
+      if (done < total) return ''; // Plan still in progress
+    }
+  }
+  const year = userProfile.yearLevel || 'Y9';
+  const tier = userProfile.fitnessLevel || 'basic';
+  // Suggest next tier or same tier in a different category
+  const tiers = ['basic', 'average', 'intense'];
+  const cats = ['invehicle', 'floor', 'machine'];
+  const currentCat = activePlanId ? (findPlan(activePlanId)?.category || 'invehicle') : 'invehicle';
+  const tierIdx = tiers.indexOf(tier);
+  // Try: different category same tier, then same category next tier
+  let rec = null;
+  for (const cat of cats) {
+    if (cat === currentCat) continue;
+    rec = ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier && p.category === cat && p.id !== activePlanId);
+    if (rec) break;
+  }
+  if (!rec && tierIdx < tiers.length - 1) {
+    rec = ALL_PLANS.find(p => p.yearLevel === year && p.tier === tiers[tierIdx + 1] && p.category === currentCat);
+  }
+  if (!rec) {
+    rec = ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier && p.id !== activePlanId);
+  }
+  if (!rec) return '';
+  const catLabels = { invehicle: '🚴 In Vehicle', floor: '🏠 Floor & Home', machine: '🏋️ Machine' };
+  let html = '<div class="plan-rec-card">';
+  html += '<div class="plan-rec-title">' + (activePlanId ? '🎉 Plan complete! Try next:' : '📋 Recommended for you:') + '</div>';
+  html += '<div class="plan-rec-name">' + escHtml(rec.name) + '</div>';
+  html += '<div class="plan-rec-desc">' + (catLabels[rec.category] || '') + ' · ' + rec.yearLevel + ' · ' + capitalize(rec.tier) + ' · ' + rec.durationWeeks + ' weeks</div>';
+  html += '<button class="plan-rec-btn" data-rec-plan="' + rec.id + '">Start This Plan</button>';
+  html += '</div>';
+  return html;
+}
+
 // --- Team Activity Feed ---
 function renderTeamFeed() {
   if (!teamFeedCache || teamFeedCache.length === 0) return '';
@@ -1340,6 +1543,18 @@ function renderToday() {
   // Workout Calendar
   html += renderWorkoutCalendar(now);
 
+  // XP & Level
+  html += renderXpBar();
+
+  // Personal Goals
+  html += renderGoals();
+
+  // Smart Plan Recommendation
+  html += renderPlanRecommendation();
+
+  // Team Challenge
+  html += renderTeamChallenge();
+
   // Personal Bests
   html += renderPersonalBests(now, totalWorkouts, streak);
 
@@ -1396,6 +1611,68 @@ function renderToday() {
       }
     });
   });
+
+  // Bind goal delete buttons
+  c.querySelectorAll('.goal-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.goalDel);
+      userGoals.splice(idx, 1);
+      saveGoals();
+      renderToday();
+    });
+  });
+  // Bind goal add button
+  const goalAddBtn = $('goal-add-btn');
+  if (goalAddBtn) {
+    goalAddBtn.addEventListener('click', () => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;display:flex;align-items:center;justify-content:center;padding:20px';
+      overlay.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:320px">
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px">Set a Goal</div>
+        <select id="goal-type-sel" class="input" style="margin-bottom:8px;width:100%">
+          <option value="workouts">Total Workouts</option>
+          <option value="streak">Day Streak</option>
+          <option value="minutes">Total Minutes</option>
+        </select>
+        <input id="goal-target-inp" class="input" type="number" placeholder="Target number" style="margin-bottom:8px;width:100%">
+        <input id="goal-label-inp" class="input" type="text" placeholder="Label (e.g. &quot;20 workouts this term&quot;)" style="margin-bottom:12px;width:100%">
+        <div style="display:flex;gap:8px">
+          <button id="goal-cancel" class="btn" style="flex:1;background:var(--surface-alt);color:var(--muted-fg)">Cancel</button>
+          <button id="goal-save" class="btn btn-primary" style="flex:1">Save Goal</button>
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+      $('goal-cancel').addEventListener('click', () => overlay.remove());
+      $('goal-save').addEventListener('click', () => {
+        const type = $('goal-type-sel').value;
+        const target = parseInt($('goal-target-inp').value);
+        const label = $('goal-label-inp').value.trim();
+        if (!target || target <= 0) { showToast('Enter a target number.', 'warn'); return; }
+        userGoals.push({ id: Date.now().toString(), type, target, label: label || (target + ' ' + type), createdAt: new Date().toISOString() });
+        saveGoals();
+        overlay.remove();
+        renderToday();
+        showToast('Goal set!', 'success');
+      });
+    });
+  }
+  // Bind plan recommendation button
+  const recBtn = c.querySelector('[data-rec-plan]');
+  if (recBtn) {
+    recBtn.addEventListener('click', async () => {
+      const planId = recBtn.dataset.recPlan;
+      haptic('medium');
+      if (demoMode) { userProfile.activePlanId = planId; renderToday(); return; }
+      if (db && currentUser) {
+        try {
+          await updateDoc(doc(db, 'users', currentUser.uid), { activePlanId: planId });
+          userProfile.activePlanId = planId;
+          showToast('Plan activated!', 'success');
+          renderToday();
+        } catch(e) { showToast('Failed to activate plan.', 'error'); }
+      }
+    });
+  }
 
   // Bind checklist toggles
   c.querySelectorAll('.cl-check').forEach(el => {
@@ -1987,6 +2264,38 @@ async function loadTeamFeed() {
     feed.sort((a, b) => b.date - a.date);
     teamFeedCache = feed.slice(0, 10);
   } catch(e) { console.error('Load team feed error:', e); }
+}
+
+// --- Team Challenge loader ---
+async function loadTeamChallenge() {
+  activeChallenge = null;
+  if (demoMode) {
+    // Demo challenge
+    activeChallenge = {
+      id: 'demo-challenge',
+      title: 'Weekly Minutes Challenge',
+      type: 'minutes',
+      startDate: new Date(Date.now() - 3 * 86400000).toISOString(),
+      endDate: new Date(Date.now() + 4 * 86400000).toISOString(),
+      teams: {
+        a: { name: 'Team Alpha', score: 245 },
+        b: { name: 'Team Beta', score: 198 },
+        c: { name: 'Team Gamma', score: 312 }
+      }
+    };
+    return;
+  }
+  if (!db || !currentUser || !userProfile?.teamId) return;
+  try {
+    const challengeRef = doc(db, 'config', 'activeChallenge');
+    const snap = await getDoc(challengeRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.endDate && new Date(data.endDate) > new Date()) {
+        activeChallenge = data;
+      }
+    }
+  } catch(e) { console.error('Load challenge error:', e); }
 }
 
 // ============================================
@@ -3838,6 +4147,8 @@ function startApp() {
         loadStravaTokens(); // Load Strava connection from profile
         await loadCustomPlans(); // Load AI-generated custom plans
         await loadTeamFeed(); // Load team activity feed
+        await loadTeamChallenge(); // Load active team challenge
+        loadGoals(); // Load personal goals from localStorage
         const initial = (userProfile?.displayName || user.displayName || user.email || 'U').charAt(0).toUpperCase();
         $('user-avatar-btn').textContent = initial;
       } catch(e) {
