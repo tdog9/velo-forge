@@ -4120,7 +4120,8 @@ function renderAdmin() {
     { id: 'announcements', label: 'Announcements' },
     { id: 'races', label: 'Races' },
     { id: 'users', label: 'Users' },
-    { id: 'plans', label: 'Plans' }
+    { id: 'plans', label: 'Plans' },
+    { id: 'coach', label: 'Coach' }
   ];
   // Filter tabs to only show features the current admin has access to
   const tabs = allTabs.filter(t => currentAdminPerms.includes(t.id));
