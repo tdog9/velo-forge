@@ -941,7 +941,7 @@ select.input{appearance:none;cursor:pointer;
 .plan-rec-btn:active{opacity:.8}
 /* GPS Activity Tracker */
 .tracker-overlay{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column}
-.tracker-map{flex:1;position:relative;background:#1a1a2e}
+.tracker-map{flex:1;position:relative;background:#0a0b0f}
 .tracker-map #tracker-map-el{width:100%;height:100%}
 .tracker-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border)}
 .tracker-stat{background:var(--bg);padding:12px 8px;text-align:center}
@@ -979,7 +979,7 @@ select.input{appearance:none;cursor:pointer;
 /* AI FAB left position */
 /* ai-fab positioned via main class */
 /* Activity card with mini map */
-.activity-map-thumb{width:100%;height:100px;border-radius:8px;overflow:hidden;margin-top:8px;position:relative}
+.activity-map-thumb{width:100%;height:120px;border-radius:8px;overflow:hidden;margin-top:8px;position:relative;background:#1a1a2e}
 .activity-map-thumb .leaflet-container{width:100%;height:100%;pointer-events:none}
 .activity-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;background:rgba(34,197,94,.12);color:#22c55e}
 .activity-badge.ride{background:rgba(59,130,246,.12);color:#3b82f6}
@@ -1001,3 +1001,5 @@ select.input{appearance:none;cursor:pointer;
 .wo-stats-grid{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px}
 .wo-stats-grid span{font-size:12px;color:var(--muted-fg)}
 .wo-stats-grid strong{color:var(--text)}
+/* Strava activity badge */
+.activity-badge.strava{background:rgba(252,82,0,.12);color:#fc5200}
