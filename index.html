@@ -1085,11 +1085,13 @@ select.input{appearance:none;cursor:pointer;
             <button class="fitness-sub-tab active" data-fitness-sub="workouts" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;transition:all .15s">Workouts</button>
             <button class="fitness-sub-tab" data-fitness-sub="plans" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Plans</button>
             <button class="fitness-sub-tab" data-fitness-sub="demos" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Demos</button>
+            <button class="fitness-sub-tab" data-fitness-sub="myplans" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">My Plans</button>
           </div>
         </div>
         <div id="workouts-content"></div>
         <div id="plans-content" style="display:none"></div>
         <div id="demos-content" style="display:none"></div>
+        <div id="myplans-content" style="display:none"></div>
       </div>
       <!-- RACES page -->
       <div id="page-races" class="page">
@@ -1321,7 +1323,7 @@ let app, auth, db;
 let currentUser = null;
 let userProfile = null;
 let currentPage = 'today';
-let fitnessSubTab = 'workouts'; // 'workouts' | 'plans' | 'demos'
+let fitnessSubTab = 'workouts'; // 'workouts' | 'plans' | 'demos' | 'myplans'
 let demosCat = 'all'; // 'all' | 'invehicle' | 'floor' | 'machine'
 let demosSearch = '';
 let lbSubTab = 'global'; // 'global' | 'team'
@@ -1629,7 +1631,7 @@ try {
     currentPage = saved;
   }
   const savedFitSub = localStorage.getItem('vf_fitnessSub');
-  if (savedFitSub && ['workouts','plans','demos'].includes(savedFitSub)) {
+  if (savedFitSub && ['workouts','plans','demos','myplans'].includes(savedFitSub)) {
     fitnessSubTab = savedFitSub;
   }
 } catch(e) {}
@@ -1726,9 +1728,11 @@ function renderFitness() {
   const wc = $('workouts-content');
   const pc = $('plans-content');
   const dc = $('demos-content');
+  const mc = $('myplans-content');
   wc.style.display = 'none';
   pc.style.display = 'none';
   dc.style.display = 'none';
+  mc.style.display = 'none';
   hide('fab-add');
 
   if (fitnessSubTab === 'workouts') {
@@ -1741,6 +1745,9 @@ function renderFitness() {
   } else if (fitnessSubTab === 'demos') {
     dc.style.display = '';
     renderDemonstration();
+  } else if (fitnessSubTab === 'myplans') {
+    mc.style.display = '';
+    renderMyPlans();
   }
 }
 
@@ -1757,7 +1764,7 @@ document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
 
 // --- Feature 5: Swipe between fitness sub-tabs ---
 const fitnessPage = $('page-fitness');
-const fitSubOrder = ['workouts', 'plans', 'demos'];
+const fitSubOrder = ['workouts', 'plans', 'demos', 'myplans'];
 let swipeStartX = 0, swipeStartY = 0, swipeDeltaX = 0, swiping = false;
 fitnessPage.addEventListener('touchstart', (e) => {
   swipeStartX = e.touches[0].clientX;
@@ -2187,6 +2194,70 @@ function renderDemonstration() {
       });
     });
   }
+}
+
+// ============================================
+// MY PLANS TAB (AI-generated custom plans)
+// ============================================
+function renderMyPlans() {
+  const c = $('myplans-content');
+  const activePlanId = userProfile?.activePlanId;
+
+  let html = '<div class="page-title">My Plans</div>';
+
+  // Generate button
+  html += `<button class="strava-connect" id="myplans-generate-btn" style="background:linear-gradient(135deg,#7c3aed,#a855f7);margin-bottom:14px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
+    Generate a New Plan with AI
+  </button>`;
+
+  if (customPlans.length === 0) {
+    html += `<div class="empty-state" style="padding:32px 16px">
+      <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;color:var(--muted-fg)"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2"/></svg></div>
+      <div class="empty-state-title">No Custom Plans Yet</div>
+      <div class="empty-state-desc">Tap "Generate a New Plan" above to create a personalised training plan with AI. You can also share plans with your team.</div>
+    </div>`;
+  } else {
+    html += '<div class="space-y">';
+    customPlans.forEach((plan, idx) => {
+      const isActive = plan.id === activePlanId;
+      const isMine = plan.createdBy === (currentUser?.uid || 'demo');
+      html += `<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted-fg);margin-bottom:-8px;margin-top:4px">
+        <span class="custom-plan-badge">AI Plan</span>
+        ${plan.shared ? '<span class="shared-plan-badge">Shared</span>' : ''}
+        <span style="flex:1">${isMine ? 'Created by you' : 'by ' + escHtml(plan.createdByName || 'Unknown')}</span>
+        <button class="delete-ai-plan-btn" data-plan-idx="${idx}" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:4px 6px;font-size:16px;line-height:1" title="Delete plan">✕</button>
+      </div>`;
+      html += renderPlanCard(plan, isActive);
+    });
+    html += '</div>';
+  }
+
+  c.innerHTML = html;
+
+  // Bind delete buttons
+  c.querySelectorAll('.delete-ai-plan-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.planIdx);
+      if (confirm('Delete this AI plan?')) {
+        deleteCustomPlan(idx);
+      }
+    });
+  });
+
+  // Bind generate button
+  const genBtn = $('myplans-generate-btn');
+  if (genBtn) {
+    genBtn.addEventListener('click', () => {
+      haptic('light');
+      openAiCoach();
+      startPlanGeneration();
+    });
+  }
+
+  // Bind plan cards (same as Plans tab)
+  bindPlanSearchAndCards(c);
 }
 
 // ============================================
@@ -2863,14 +2934,20 @@ async function saveAiPlan(shareWithTeam) {
   if (!pendingAiPlan) return;
   const plan = { ...pendingAiPlan, shared: shareWithTeam };
 
-  if (demoMode) {
-    customPlans.unshift(plan);
-  } else if (db && currentUser) {
+  // Always add to local array first
+  customPlans.unshift(plan);
+
+  // Always persist to localStorage (primary storage)
+  saveCustomPlansLocal();
+
+  // Also save to Firestore (secondary sync)
+  if (!demoMode && db && currentUser) {
     try {
       await setDoc(doc(db, 'users', currentUser.uid, 'customPlans', plan.id), plan);
     } catch(e) { console.error('Save plan error:', e); }
   }
 
+  // Share with team
   if (shareWithTeam && userProfile?.teamId) {
     if (!demoMode && db) {
       try {
@@ -2884,29 +2961,68 @@ async function saveAiPlan(shareWithTeam) {
   const msg = document.createElement('div');
   msg.className = 'ai-msg ai';
   msg.textContent = shareWithTeam
-    ? '"' + plan.name + '" saved and shared with your team! Find it in Fitness → Plans by searching for it.'
-    : '"' + plan.name + '" saved! Find it in Fitness → Plans by searching for it.';
+    ? '"' + plan.name + '" saved and shared with your team! Find it in Fitness → My Plans.'
+    : '"' + plan.name + '" saved! Find it in Fitness → My Plans.';
   messagesEl.appendChild(msg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+  // Refresh My Plans tab
+  if (fitnessSubTab === 'myplans') renderMyPlans();
 }
 
+// Save custom plans to localStorage
+function saveCustomPlansLocal() {
+  try { localStorage.setItem('vf_customPlans', JSON.stringify(customPlans)); } catch(e) {}
+}
+
+// Delete a custom plan by index
+async function deleteCustomPlan(idx) {
+  const plan = customPlans[idx];
+  if (!plan) return;
+  customPlans.splice(idx, 1);
+  saveCustomPlansLocal();
+  // Also delete from Firestore
+  if (!demoMode && db && currentUser) {
+    try {
+      await deleteDoc(doc(db, 'users', currentUser.uid, 'customPlans', plan.id));
+    } catch(e) { console.error('Delete plan Firestore error:', e); }
+  }
+  renderMyPlans();
+}
+
+// Load from localStorage (always), then merge Firestore (when available)
 async function loadCustomPlans() {
-  if (demoMode || !db || !currentUser) return;
+  // 1. Always load from localStorage first
   try {
-    const mySnap = await getDocs(collection(db, 'users', currentUser.uid, 'customPlans'));
-    const myPlans = mySnap.docs.map(d => ({ ...d.data(), id: d.id }));
-    let teamPlans = [];
-    if (userProfile?.teamId) {
-      try {
-        const teamSnap = await getDocs(collection(db, 'teams', userProfile.teamId, 'sharedPlans'));
-        teamPlans = teamSnap.docs.map(d => ({ ...d.data(), id: d.id }));
-      } catch(e) {}
+    const stored = localStorage.getItem('vf_customPlans');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        customPlans = parsed;
+      }
     }
-    const planMap = {};
-    teamPlans.forEach(p => { planMap[p.id] = { ...p, _source: 'team' }; });
-    myPlans.forEach(p => { planMap[p.id] = { ...p, _source: 'mine' }; });
-    customPlans = Object.values(planMap);
-  } catch(e) { console.error('Load custom plans error:', e); }
+  } catch(e) {}
+
+  // 2. Try merging from Firestore
+  if (!demoMode && db && currentUser) {
+    try {
+      const mySnap = await getDocs(collection(db, 'users', currentUser.uid, 'customPlans'));
+      const myPlans = mySnap.docs.map(d => ({ ...d.data(), id: d.id }));
+      let teamPlans = [];
+      if (userProfile?.teamId) {
+        try {
+          const teamSnap = await getDocs(collection(db, 'teams', userProfile.teamId, 'sharedPlans'));
+          teamPlans = teamSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+        } catch(e) {}
+      }
+      // Merge: keep localStorage plans + add any Firestore-only plans
+      const planMap = {};
+      customPlans.forEach(p => { planMap[p.id] = p; });
+      teamPlans.forEach(p => { if (!planMap[p.id]) planMap[p.id] = { ...p, _source: 'team' }; });
+      myPlans.forEach(p => { planMap[p.id] = { ...p, _source: 'mine' }; });
+      customPlans = Object.values(planMap);
+      saveCustomPlansLocal(); // sync merged result back to localStorage
+    } catch(e) { console.error('Load custom plans error:', e); }
+  }
 }
 
 // ============================================
@@ -3352,13 +3468,12 @@ function renderPlans() {
   </div>`;
 
   const visiblePlans = getVisiblePlans();
-  const allPlansWithCustom = [...visiblePlans, ...customPlans];
   const activePlanId = userProfile?.activePlanId;
 
-  // SEARCH MODE — show results across all categories/years/tiers
+  // SEARCH MODE
   if (plansSearch.trim()) {
     const q = plansSearch.toLowerCase().trim();
-    const results = allPlansWithCustom.filter(p => {
+    const results = visiblePlans.filter(p => {
       const pd = getPlanDisplayData(p);
       return pd.name.toLowerCase().includes(q)
         || pd.description.toLowerCase().includes(q)
@@ -3380,9 +3495,7 @@ function renderPlans() {
       html += '<div class="space-y">';
       results.forEach(plan => {
         const isActive = plan.id === activePlanId;
-        const isCustom = plan.id.startsWith('ai-plan-');
-        const label = plan.yearLevel + ' · ' + (catLabels[plan.category] || plan.category) + (isCustom ? ' · <span class="custom-plan-badge">AI Plan</span>' : '') + (plan.shared ? ' · <span class="shared-plan-badge">Shared</span>' : '');
-        html += `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:-8px;margin-top:4px">${label}</div>`;
+        html += `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:-8px;margin-top:4px">${plan.yearLevel} · ${catLabels[plan.category] || plan.category}</div>`;
         html += renderPlanCard(plan, isActive);
       });
       html += '</div>';
@@ -3449,9 +3562,8 @@ function renderPlans() {
 
   // Filter plans
   const filtered = visiblePlans.filter(p => p.category === plansCategory && p.yearLevel === plansYear && p.tier === plansTier);
-  const customFiltered = customPlans.filter(p => p.category === plansCategory && p.yearLevel === plansYear && p.tier === plansTier);
 
-  if (filtered.length === 0 && customFiltered.length === 0) {
+  if (filtered.length === 0) {
     html += `<div class="empty-state" style="padding:32px 16px">
       <div class="empty-state-title">No Plans Found</div>
       <div class="empty-state-desc">No training plans match this combination. Try a different category, year level, or fitness tier.</div>
@@ -3460,11 +3572,6 @@ function renderPlans() {
     html += '<div class="space-y" style="margin-top:12px">';
     filtered.forEach(plan => {
       const isActive = plan.id === activePlanId;
-      html += renderPlanCard(plan, isActive);
-    });
-    customFiltered.forEach(plan => {
-      const isActive = plan.id === activePlanId;
-      html += `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:-8px;margin-top:4px"><span class="custom-plan-badge">AI Plan</span>${plan.shared ? ' <span class="shared-plan-badge">Shared</span>' : ''} by ${escHtml(plan.createdByName || 'Unknown')}</div>`;
       html += renderPlanCard(plan, isActive);
     });
     html += '</div>';
