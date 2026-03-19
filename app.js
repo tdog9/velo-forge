@@ -479,15 +479,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     switchPage(page);
   });
 
-// Record tab — opens activity tracker
-const recordTabBtn = $('record-tab-btn');
-if (recordTabBtn) {
-  recordTabBtn.addEventListener('click', () => {
-    haptic('medium');
-    openActivityTracker();
-  });
-}
-
   // --- Feature 12: Long-press shows tooltip ---
   let pressTimer = null;
   let tooltip = null;
@@ -509,6 +500,15 @@ if (recordTabBtn) {
   btn.addEventListener('touchcancel', clearTooltip, { passive: true });
   btn.addEventListener('touchmove', clearTooltip, { passive: true });
 });
+
+// Record tab — opens activity tracker (outside forEach)
+const recordTabBtn = $('record-tab-btn');
+if (recordTabBtn) {
+  recordTabBtn.addEventListener('click', () => {
+    haptic('medium');
+    openActivityTracker();
+  });
+}
 
 function switchPage(page) {
   // Feature 3: Save scroll position before leaving
