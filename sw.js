@@ -1,8 +1,11 @@
 // VeloForge Service Worker — Offline Support
-const CACHE_NAME = 'veloforge-v1';
+const CACHE_NAME = 'veloforge-v2';
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html'
+  '/index.html',
+  '/styles.css',
+  '/plans.js',
+  '/app.js'
 ];
 
 // Install: cache core assets
