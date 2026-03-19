@@ -170,7 +170,7 @@ input,select,textarea{font:inherit;color:inherit;-webkit-tap-highlight-color:tra
 
 /* Scroll-to-top button */
 .scroll-top-btn{
-  position:fixed;bottom:calc(var(--tab-h) + 16px);right:16px;z-index:35;
+  position:fixed;bottom:calc(var(--tab-h) + 16px);left:16px;z-index:35;
   width:40px;height:40px;border-radius:50%;
   background:var(--primary);color:var(--primary-fg);
   display:flex;align-items:center;justify-content:center;
@@ -439,6 +439,38 @@ select.input{appearance:none;cursor:pointer;
 .strava-import-btn{font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(252,76,2,.1);border:1px solid rgba(252,76,2,.2);color:#FC4C02;font-weight:600;cursor:pointer;white-space:nowrap}
 .strava-import-btn:active{background:#FC4C02;color:#fff}
 .strava-import-btn.imported{background:var(--muted);color:var(--muted-fg);border-color:var(--border);cursor:default}
+
+/* AI Coach */
+.ai-fab{position:fixed;bottom:calc(var(--tab-h) + 16px);right:16px;z-index:36;width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(124,58,237,.4);-webkit-tap-highlight-color:transparent}
+.ai-fab:active{transform:scale(0.93)}
+.ai-fab svg{width:22px;height:22px}
+.ai-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--safe-t)}
+.ai-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.ai-header-back{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--muted)}
+.ai-header-back svg{width:18px;height:18px;color:var(--fg)}
+.ai-header-title{font-size:16px;font-weight:600;flex:1}
+.ai-header-badge{font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(124,58,237,.15);color:#a855f7;font-weight:600}
+.ai-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.ai-msg{max-width:85%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5}
+.ai-msg.user{align-self:flex-end;background:var(--primary);color:var(--primary-fg);border-bottom-right-radius:4px}
+.ai-msg.ai{align-self:flex-start;background:var(--card);border:1px solid var(--border);color:var(--fg);border-bottom-left-radius:4px}
+.ai-msg.ai .ai-typing{display:inline-block;width:40px}.ai-typing span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted-fg);margin:0 1px;animation:aiDot 1.2s infinite}
+.ai-typing span:nth-child(2){animation-delay:.2s}.ai-typing span:nth-child(3){animation-delay:.4s}
+@keyframes aiDot{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+.ai-input-bar{display:flex;gap:8px;padding:12px 16px;padding-bottom:calc(12px + var(--safe-b));border-top:1px solid var(--border);background:var(--bg)}
+.ai-input{flex:1;padding:10px 14px;border-radius:20px;border:1px solid var(--border);background:var(--card);font-size:14px;color:var(--fg);outline:none}
+.ai-input:focus{border-color:var(--ring)}
+.ai-send{width:40px;height:40px;border-radius:50%;background:#7c3aed;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ai-send:active{opacity:0.8}
+.ai-send svg{width:18px;height:18px}
+.ai-quick-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.ai-quick-btn{padding:6px 12px;border-radius:16px;font-size:12px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);color:#a855f7;font-weight:500;cursor:pointer;white-space:nowrap}
+.ai-quick-btn:active{background:#7c3aed;color:#fff}
+
+/* Explain plan button */
+.plan-explain-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);color:#a855f7;font-size:11px;font-weight:600;cursor:pointer;margin-top:6px}
+.plan-explain-btn:active{background:#7c3aed;color:#fff}
+.plan-explain-btn svg{width:12px;height:12px}
 .today-sub{font-size:13px;color:var(--muted-fg);margin-bottom:16px}
 
 .checklist-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;
@@ -1104,6 +1136,37 @@ select.input{appearance:none;cursor:pointer;
   <button id="scroll-top-btn" class="scroll-top-btn" aria-label="Scroll to top">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
   </button>
+
+  <!-- AI Coach FAB -->
+  <button id="ai-fab" class="ai-fab" aria-label="AI Coach">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
+  </button>
+
+  <!-- AI Coach Overlay -->
+  <div id="ai-overlay" class="ai-overlay" style="display:none">
+    <div class="ai-header">
+      <button class="ai-header-back" id="ai-close-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="ai-header-title">AI Coach</div>
+      <div class="ai-header-badge">Powered by Claude</div>
+    </div>
+    <div class="ai-messages" id="ai-messages">
+      <div class="ai-msg ai">Hey! I'm your VeloForge AI Coach. Ask me anything about training, plans, exercises, recovery, or race prep.</div>
+      <div class="ai-quick-btns" id="ai-quick-btns">
+        <button class="ai-quick-btn" data-q="What plan should I pick for my year level?">Pick a plan</button>
+        <button class="ai-quick-btn" data-q="How should I warm up before a race?">Race warm-up</button>
+        <button class="ai-quick-btn" data-q="My legs are really sore, should I train today?">Sore legs</button>
+        <button class="ai-quick-btn" data-q="What should I eat before training?">Nutrition tips</button>
+      </div>
+    </div>
+    <div class="ai-input-bar">
+      <input class="ai-input" type="text" id="ai-input" placeholder="Ask your coach..." autocomplete="off">
+      <button class="ai-send" id="ai-send-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
 
   <div id="sheet-overlay" class="sheet-overlay" style="display:none"></div>
   <!-- Bottom Sheet -->
@@ -2480,6 +2543,161 @@ ${recent.map(w => {
 }
 
 // ============================================
+// AI COACH
+// ============================================
+let aiChatHistory = [];
+
+function openAiCoach(prefill) {
+  $('ai-overlay').style.display = 'flex';
+  if (prefill) {
+    $('ai-input').value = prefill;
+    sendAiMessage(prefill);
+  } else {
+    $('ai-input').focus();
+  }
+}
+
+function closeAiCoach() {
+  $('ai-overlay').style.display = 'none';
+}
+
+$('ai-fab').addEventListener('click', () => { haptic('light'); openAiCoach(); });
+$('ai-close-btn').addEventListener('click', closeAiCoach);
+
+// Quick question buttons
+document.querySelectorAll('.ai-quick-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const q = btn.dataset.q;
+    if (q) sendAiMessage(q);
+    // Remove quick buttons after first use
+    const qb = $('ai-quick-btns');
+    if (qb) qb.remove();
+  });
+});
+
+// Send on enter or button click
+$('ai-send-btn').addEventListener('click', () => {
+  const msg = $('ai-input').value.trim();
+  if (msg) sendAiMessage(msg);
+});
+$('ai-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const msg = $('ai-input').value.trim();
+    if (msg) sendAiMessage(msg);
+  }
+});
+
+async function sendAiMessage(message) {
+  const messagesEl = $('ai-messages');
+  const input = $('ai-input');
+  input.value = '';
+
+  // Remove quick buttons
+  const qb = $('ai-quick-btns');
+  if (qb) qb.remove();
+
+  // Add user message
+  const userMsg = document.createElement('div');
+  userMsg.className = 'ai-msg user';
+  userMsg.textContent = message;
+  messagesEl.appendChild(userMsg);
+
+  // Add typing indicator
+  const typingMsg = document.createElement('div');
+  typingMsg.className = 'ai-msg ai';
+  typingMsg.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
+  messagesEl.appendChild(typingMsg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  // Build context from user profile
+  const ctx = [];
+  if (userProfile?.displayName) ctx.push('Name: ' + userProfile.displayName);
+  if (userProfile?.yearLevel) ctx.push('Year level: ' + userProfile.yearLevel);
+  if (userProfile?.fitnessLevel) ctx.push('Fitness tier: ' + userProfile.fitnessLevel);
+  if (userProfile?.activePlanId) {
+    const plan = ALL_PLANS.find(p => p.id === userProfile.activePlanId);
+    if (plan) ctx.push('Active plan: ' + plan.name + ' (' + plan.category + ')');
+  }
+  ctx.push('Total workouts logged: ' + userWorkouts.length);
+
+  try {
+    const resp = await fetch('/.netlify/functions/ai-coach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        context: ctx.join('. ')
+      })
+    });
+
+    const data = await resp.json();
+
+    if (!resp.ok) throw new Error(data.error || 'Request failed');
+
+    typingMsg.innerHTML = '';
+    typingMsg.textContent = data.reply;
+  } catch(e) {
+    typingMsg.innerHTML = '';
+    typingMsg.textContent = 'Sorry, I could not get a response. Make sure the AI Coach function is deployed on Netlify with the ANTHROPIC_API_KEY environment variable.';
+    console.error('AI Coach error:', e);
+  }
+
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// Explain plan function — called from plan cards
+async function explainPlan(planId) {
+  const plan = ALL_PLANS.find(p => p.id === planId);
+  if (!plan) return;
+  const pd = getPlanDisplayData(plan);
+  const workoutNames = plan.workouts.map(w => w.name).join(', ');
+  const prompt = `Explain this training plan in simple terms for a ${plan.yearLevel} student:
+Plan name: ${pd.name}
+Category: ${plan.category}
+Tier: ${plan.tier}
+Duration: ${pd.durationWeeks} weeks, ${pd.sessionsPerWeek} sessions per week
+Workouts: ${workoutNames}
+Description: ${pd.description}
+
+Explain: what this plan trains, why the workouts are in this order, what the student should expect each week, and how hard it will feel. Keep it encouraging.`;
+
+  openAiCoach();
+
+  // Show the question
+  const messagesEl = $('ai-messages');
+  const qb = $('ai-quick-btns');
+  if (qb) qb.remove();
+
+  const userMsg = document.createElement('div');
+  userMsg.className = 'ai-msg user';
+  userMsg.textContent = 'Explain the plan: ' + pd.name;
+  messagesEl.appendChild(userMsg);
+
+  const typingMsg = document.createElement('div');
+  typingMsg.className = 'ai-msg ai';
+  typingMsg.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
+  messagesEl.appendChild(typingMsg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  try {
+    const resp = await fetch('/.netlify/functions/ai-coach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: prompt, context: '' })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Request failed');
+    typingMsg.innerHTML = '';
+    typingMsg.textContent = data.reply;
+  } catch(e) {
+    typingMsg.innerHTML = '';
+    typingMsg.textContent = 'Sorry, could not explain this plan right now. Check that the AI Coach function is deployed.';
+  }
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// ============================================
 // WORKOUT TIMER
 // ============================================
 let timerInterval = null;
@@ -3074,6 +3292,15 @@ function bindPlanSearchAndCards(c) {
     });
   }
 
+  // Bind explain plan buttons
+  c.querySelectorAll('.plan-explain-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      haptic('light');
+      explainPlan(btn.dataset.explainPlan);
+    });
+  });
+
   // Bind plan expand/collapse
   c.querySelectorAll('.plan-header').forEach(hdr => {
     hdr.addEventListener('click', () => {
@@ -3205,6 +3432,10 @@ function renderPlanCard(plan, isActive) {
             <span class="badge" style="background:${tierColor}22;color:${tierColor}">${capitalize(plan.tier)}</span>
             ${isActive ? '<span class="badge badge-primary">Active</span>' : ''}
           </div>
+          <button class="plan-explain-btn" data-explain-plan="${plan.id}" onclick="event.stopPropagation()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
+            Explain Plan
+          </button>
         </div>
         <div class="plan-actions">
           <svg class="plan-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
