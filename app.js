@@ -1,5 +1,14 @@
 // VeloForge HPV Training App
-import { ALL_PLANS } from './plans.js';
+
+// Load plans data (dynamic import with fallback)
+let ALL_PLANS = [];
+try {
+  const plansMod = await import('./plans.js');
+  ALL_PLANS = plansMod.ALL_PLANS || [];
+} catch(e) {
+  console.error('Failed to load plans.js:', e);
+  ALL_PLANS = [];
+}
 
 // ============================================
 // Firebase SDK Imports (dynamic, with fallback)
@@ -251,8 +260,8 @@ function enterDemoMode() {
 // DOM Helpers
 // ============================================
 const $ = id => document.getElementById(id);
-function show(el) { if (typeof el === 'string') el = $(el); el.classList.remove('hidden'); el.style.display = ''; }
-function hide(el) { if (typeof el === 'string') el = $(el); el.classList.add('hidden'); el.style.display = 'none'; }
+function show(el) { if (typeof el === 'string') el = $(el); if (!el) return; el.classList.remove('hidden'); el.style.display = ''; }
+function hide(el) { if (typeof el === 'string') el = $(el); if (!el) return; el.classList.add('hidden'); el.style.display = 'none'; }
 function showLoading(text='Loading...') { $('loading-text').textContent = text; show('loading-overlay'); }
 function hideLoading() { hide('loading-overlay'); }
 
@@ -526,12 +535,6 @@ function switchPage(page) {
   });
   const pageEl = $('page-' + page);
   if (pageEl) pageEl.classList.add('active');
-  // Show/hide FAB
-  if (page === 'fitness' && fitnessSubTab === 'workouts') {
-    
-  } else {
-    
-  }
   renderCurrentPage();
 
   // Feature 3: Restore scroll position
@@ -704,7 +707,6 @@ document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', 
 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 const initPage = $('page-' + currentPage);
 if (initPage) initPage.classList.add('active');
-if (currentPage === 'fitness' && fitnessSubTab === 'workouts')  else 
 
 // ============================================
 // DEMONSTRATION TAB
