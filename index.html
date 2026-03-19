@@ -471,6 +471,19 @@ select.input{appearance:none;cursor:pointer;
 .plan-explain-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);color:#a855f7;font-size:11px;font-weight:600;cursor:pointer;margin-top:6px}
 .plan-explain-btn:active{background:#7c3aed;color:#fff}
 .plan-explain-btn svg{width:12px;height:12px}
+
+/* Custom AI Plans */
+.ai-gen-plan-card{background:var(--card);border:1px solid rgba(124,58,237,.3);border-radius:var(--radius);padding:14px;margin-top:10px}
+.ai-gen-plan-title{font-size:15px;font-weight:700;margin-bottom:4px}
+.ai-gen-plan-meta{font-size:12px;color:var(--muted-fg);margin-bottom:8px}
+.ai-gen-plan-btns{display:flex;gap:8px;margin-top:10px}
+.ai-gen-plan-btns button{flex:1;padding:8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.ai-gen-save{background:#7c3aed;color:#fff;border:none}
+.ai-gen-save:active{opacity:0.8}
+.ai-gen-share{background:var(--card);color:var(--primary);border:1px solid var(--primary)}
+.ai-gen-share:active{background:var(--primary);color:var(--primary-fg)}
+.custom-plan-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(124,58,237,.15);color:#a855f7}
+.shared-plan-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(34,197,94,.15);color:#22c55e}
 .today-sub{font-size:13px;color:var(--muted-fg);margin-bottom:16px}
 
 .checklist-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;
@@ -1157,7 +1170,7 @@ select.input{appearance:none;cursor:pointer;
         <button class="ai-quick-btn" data-q="What plan should I pick for my year level?">Pick a plan</button>
         <button class="ai-quick-btn" data-q="How should I warm up before a race?">Race warm-up</button>
         <button class="ai-quick-btn" data-q="My legs are really sore, should I train today?">Sore legs</button>
-        <button class="ai-quick-btn" data-q="What should I eat before training?">Nutrition tips</button>
+        <button class="ai-quick-btn ai-gen-trigger" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.3);color:#a855f7">✨ Generate a Plan</button>
       </div>
     </div>
     <div class="ai-input-bar">
@@ -1340,6 +1353,7 @@ let plansCategory = 'invehicle';
 let plansYear = 'Y7';
 let plansTier = 'basic';
 let plansSearch = '';
+let customPlans = []; // user-created AI plans [{id, ...planData, createdBy, createdByName, shared}]
 
 // Team state
 let teamData = null; // {id, name, code, members:[]}
@@ -2565,26 +2579,50 @@ $('ai-fab').addEventListener('click', () => { haptic('light'); openAiCoach(); })
 $('ai-close-btn').addEventListener('click', closeAiCoach);
 
 // Quick question buttons
-document.querySelectorAll('.ai-quick-btn').forEach(btn => {
+document.querySelectorAll('.ai-quick-btn:not(.ai-gen-trigger)').forEach(btn => {
   btn.addEventListener('click', () => {
     const q = btn.dataset.q;
     if (q) sendAiMessage(q);
-    // Remove quick buttons after first use
     const qb = $('ai-quick-btns');
     if (qb) qb.remove();
   });
 });
 
-// Send on enter or button click
-$('ai-send-btn').addEventListener('click', () => {
-  const msg = $('ai-input').value.trim();
-  if (msg) sendAiMessage(msg);
+// Generate plan trigger
+document.querySelectorAll('.ai-gen-trigger').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const qb = $('ai-quick-btns');
+    if (qb) qb.remove();
+    startPlanGeneration();
+  });
 });
+
 $('ai-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     const msg = $('ai-input').value.trim();
-    if (msg) sendAiMessage(msg);
+    if (!msg) return;
+    const input = $('ai-input');
+    if (input.dataset.planMode === 'custom') {
+      delete input.dataset.planMode;
+      generateAiPlan(null, userProfile?.yearLevel || 'Y10', userProfile?.fitnessLevel || 'basic', msg);
+      input.value = '';
+    } else {
+      sendAiMessage(msg);
+    }
+  }
+});
+
+$('ai-send-btn').addEventListener('click', () => {
+  const msg = $('ai-input').value.trim();
+  if (!msg) return;
+  const input = $('ai-input');
+  if (input.dataset.planMode === 'custom') {
+    delete input.dataset.planMode;
+    generateAiPlan(null, userProfile?.yearLevel || 'Y10', userProfile?.fitnessLevel || 'basic', msg);
+    input.value = '';
+  } else {
+    sendAiMessage(msg);
   }
 });
 
@@ -2695,6 +2733,180 @@ Explain: what this plan trains, why the workouts are in this order, what the stu
     typingMsg.textContent = 'Sorry, could not explain this plan right now. Check that the AI Coach function is deployed.';
   }
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// ============================================
+// AI PLAN GENERATION
+// ============================================
+let pendingAiPlan = null;
+
+function startPlanGeneration() {
+  const messagesEl = $('ai-messages');
+  const year = userProfile?.yearLevel || 'Y10';
+  const tier = userProfile?.fitnessLevel || 'basic';
+
+  const aiMsg = document.createElement('div');
+  aiMsg.className = 'ai-msg ai';
+  aiMsg.innerHTML = `What kind of plan do you want?<br><br>
+    <div class="ai-quick-btns" style="margin-top:8px">
+      <button class="ai-quick-btn ai-plan-type" data-ptype="invehicle">🚴 In Vehicle</button>
+      <button class="ai-quick-btn ai-plan-type" data-ptype="floor">🏠 Floor & Home</button>
+      <button class="ai-quick-btn ai-plan-type" data-ptype="machine">🏋️ Machine</button>
+      <button class="ai-quick-btn ai-plan-type" data-ptype="custom">🎯 Custom goal</button>
+    </div>`;
+  messagesEl.appendChild(aiMsg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  messagesEl.querySelectorAll('.ai-plan-type').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ptype = btn.dataset.ptype;
+      if (ptype === 'custom') {
+        const userMsg = document.createElement('div');
+        userMsg.className = 'ai-msg user';
+        userMsg.textContent = 'I want a custom plan';
+        messagesEl.appendChild(userMsg);
+        const promptMsg = document.createElement('div');
+        promptMsg.className = 'ai-msg ai';
+        promptMsg.textContent = 'Describe what you want — e.g. "I want to get faster for a race in 2 weeks" or "a bodyweight plan I can do at home in 20 minutes"';
+        messagesEl.appendChild(promptMsg);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        $('ai-input').dataset.planMode = 'custom';
+      } else {
+        generateAiPlan(ptype, year, tier);
+      }
+    });
+  });
+}
+
+async function generateAiPlan(category, yearLevel, tier, customGoal) {
+  const messagesEl = $('ai-messages');
+
+  const userMsg = document.createElement('div');
+  userMsg.className = 'ai-msg user';
+  userMsg.textContent = customGoal || 'Generate a ' + category + ' plan for ' + yearLevel + ' ' + tier;
+  messagesEl.appendChild(userMsg);
+
+  const typingMsg = document.createElement('div');
+  typingMsg.className = 'ai-msg ai';
+  typingMsg.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
+  messagesEl.appendChild(typingMsg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  const catNames = { invehicle: 'In Vehicle (HPV riding)', floor: 'Floor & Home (bodyweight)', machine: 'Fitness Machine (gym)' };
+  const prompt = customGoal
+    ? 'Create a training plan: "' + customGoal + '". Student is ' + yearLevel + ', ' + tier + ' tier.'
+    : 'Create a ' + (catNames[category] || category) + ' training plan for ' + yearLevel + ' at ' + tier + ' tier.';
+
+  try {
+    const resp = await fetch('/.netlify/functions/ai-coach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: prompt,
+        context: 'PLAN_GENERATION_MODE: Respond with ONLY valid JSON, no markdown or explanation. Structure: {"name":"...","description":"...","category":"' + (category||'floor') + '","yearLevel":"' + yearLevel + '","tier":"' + tier + '","durationWeeks":2,"sessionsPerWeek":3,"workouts":[{"week":1,"day":"Mon","name":"...","description":"detailed workout description","duration":40,"intensity":"easy|moderate|hard"}]}. intensity must be easy, moderate, or hard. day must be Mon-Sun. Make ' + (yearLevel === 'Y7' || yearLevel === 'Y8' ? '2-3 sessions/week, 30-45 min, easy to moderate' : yearLevel === 'Y9' || yearLevel === 'Y10' ? '3-4 sessions/week, 40-60 min, one hard max' : '4-5 sessions/week, 50-80 min, 1-2 hard') + '. Write workout descriptions in motivating coaching voice with specific exercises, reps, and rest times. Australian English.'
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Failed');
+
+    let planData;
+    try {
+      const clean = (data.reply || '').replace(/```json|```/g, '').trim();
+      planData = JSON.parse(clean);
+    } catch(e) {
+      typingMsg.innerHTML = '';
+      typingMsg.textContent = data.reply || 'Could not generate a structured plan. Try again.';
+      return;
+    }
+
+    if (!planData.name || !planData.workouts || !Array.isArray(planData.workouts)) {
+      typingMsg.innerHTML = '';
+      typingMsg.textContent = 'The plan was incomplete. Try again.';
+      return;
+    }
+
+    planData.id = 'ai-plan-' + Date.now();
+    planData.category = planData.category || category || 'floor';
+    planData.yearLevel = planData.yearLevel || yearLevel;
+    planData.tier = planData.tier || tier;
+    planData.durationWeeks = planData.durationWeeks || 2;
+    planData.sessionsPerWeek = planData.sessionsPerWeek || 3;
+    planData.createdBy = currentUser?.uid || 'demo';
+    planData.createdByName = userProfile?.displayName || 'Unknown';
+    planData.createdAt = new Date().toISOString();
+    planData.shared = false;
+
+    pendingAiPlan = planData;
+
+    const workoutList = planData.workouts.map(w => 'W' + w.week + ' ' + w.day + ': ' + w.name + ' (' + w.duration + 'min)').join('<br>');
+    typingMsg.innerHTML = '<div class="ai-gen-plan-card">' +
+      '<div class="ai-gen-plan-title">' + escHtml(planData.name) + '</div>' +
+      '<div class="ai-gen-plan-meta">' + planData.yearLevel + ' · ' + capitalize(planData.tier) + ' · ' + planData.durationWeeks + ' weeks · ' + planData.sessionsPerWeek + 'x/week</div>' +
+      '<div style="font-size:12px;color:var(--muted-fg);margin-top:6px">' + escHtml(planData.description) + '</div>' +
+      '<div style="font-size:11px;color:var(--muted-fg);margin-top:8px;line-height:1.6">' + workoutList + '</div>' +
+      '<div class="ai-gen-plan-btns">' +
+        '<button class="ai-gen-save" id="ai-plan-save">Save Plan</button>' +
+        '<button class="ai-gen-share" id="ai-plan-share">Save & Share with Team</button>' +
+      '</div></div>';
+
+    $('ai-plan-save')?.addEventListener('click', () => saveAiPlan(false));
+    $('ai-plan-share')?.addEventListener('click', () => saveAiPlan(true));
+
+  } catch(e) {
+    typingMsg.innerHTML = '';
+    typingMsg.textContent = 'Could not generate plan. Check the AI function is deployed.';
+  }
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+async function saveAiPlan(shareWithTeam) {
+  if (!pendingAiPlan) return;
+  const plan = { ...pendingAiPlan, shared: shareWithTeam };
+
+  if (demoMode) {
+    customPlans.unshift(plan);
+  } else if (db && currentUser) {
+    try {
+      await setDoc(doc(db, 'users', currentUser.uid, 'customPlans', plan.id), plan);
+    } catch(e) { console.error('Save plan error:', e); }
+  }
+
+  if (shareWithTeam && userProfile?.teamId) {
+    if (!demoMode && db) {
+      try {
+        await setDoc(doc(db, 'teams', userProfile.teamId, 'sharedPlans', plan.id), plan);
+      } catch(e) { console.error('Share plan error:', e); }
+    }
+  }
+
+  pendingAiPlan = null;
+  const messagesEl = $('ai-messages');
+  const msg = document.createElement('div');
+  msg.className = 'ai-msg ai';
+  msg.textContent = shareWithTeam
+    ? '"' + plan.name + '" saved and shared with your team! Find it in Fitness → Plans by searching for it.'
+    : '"' + plan.name + '" saved! Find it in Fitness → Plans by searching for it.';
+  messagesEl.appendChild(msg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+async function loadCustomPlans() {
+  if (demoMode || !db || !currentUser) return;
+  try {
+    const mySnap = await getDocs(collection(db, 'users', currentUser.uid, 'customPlans'));
+    const myPlans = mySnap.docs.map(d => ({ ...d.data(), id: d.id }));
+    let teamPlans = [];
+    if (userProfile?.teamId) {
+      try {
+        const teamSnap = await getDocs(collection(db, 'teams', userProfile.teamId, 'sharedPlans'));
+        teamPlans = teamSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+      } catch(e) {}
+    }
+    const planMap = {};
+    teamPlans.forEach(p => { planMap[p.id] = { ...p, _source: 'team' }; });
+    myPlans.forEach(p => { planMap[p.id] = { ...p, _source: 'mine' }; });
+    customPlans = Object.values(planMap);
+  } catch(e) { console.error('Load custom plans error:', e); }
 }
 
 // ============================================
@@ -3140,12 +3352,13 @@ function renderPlans() {
   </div>`;
 
   const visiblePlans = getVisiblePlans();
+  const allPlansWithCustom = [...visiblePlans, ...customPlans];
   const activePlanId = userProfile?.activePlanId;
 
   // SEARCH MODE — show results across all categories/years/tiers
   if (plansSearch.trim()) {
     const q = plansSearch.toLowerCase().trim();
-    const results = visiblePlans.filter(p => {
+    const results = allPlansWithCustom.filter(p => {
       const pd = getPlanDisplayData(p);
       return pd.name.toLowerCase().includes(q)
         || pd.description.toLowerCase().includes(q)
@@ -3167,7 +3380,9 @@ function renderPlans() {
       html += '<div class="space-y">';
       results.forEach(plan => {
         const isActive = plan.id === activePlanId;
-        html += `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:-8px;margin-top:4px">${plan.yearLevel} · ${catLabels[plan.category] || plan.category}</div>`;
+        const isCustom = plan.id.startsWith('ai-plan-');
+        const label = plan.yearLevel + ' · ' + (catLabels[plan.category] || plan.category) + (isCustom ? ' · <span class="custom-plan-badge">AI Plan</span>' : '') + (plan.shared ? ' · <span class="shared-plan-badge">Shared</span>' : '');
+        html += `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:-8px;margin-top:4px">${label}</div>`;
         html += renderPlanCard(plan, isActive);
       });
       html += '</div>';
@@ -3234,8 +3449,9 @@ function renderPlans() {
 
   // Filter plans
   const filtered = visiblePlans.filter(p => p.category === plansCategory && p.yearLevel === plansYear && p.tier === plansTier);
+  const customFiltered = customPlans.filter(p => p.category === plansCategory && p.yearLevel === plansYear && p.tier === plansTier);
 
-  if (filtered.length === 0) {
+  if (filtered.length === 0 && customFiltered.length === 0) {
     html += `<div class="empty-state" style="padding:32px 16px">
       <div class="empty-state-title">No Plans Found</div>
       <div class="empty-state-desc">No training plans match this combination. Try a different category, year level, or fitness tier.</div>
@@ -3244,6 +3460,11 @@ function renderPlans() {
     html += '<div class="space-y" style="margin-top:12px">';
     filtered.forEach(plan => {
       const isActive = plan.id === activePlanId;
+      html += renderPlanCard(plan, isActive);
+    });
+    customFiltered.forEach(plan => {
+      const isActive = plan.id === activePlanId;
+      html += `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:-8px;margin-top:4px"><span class="custom-plan-badge">AI Plan</span>${plan.shared ? ' <span class="shared-plan-badge">Shared</span>' : ''} by ${escHtml(plan.createdByName || 'Unknown')}</div>`;
       html += renderPlanCard(plan, isActive);
     });
     html += '</div>';
@@ -4538,6 +4759,7 @@ function startApp() {
         await loadExerciseDemoVideos();
         setupAnnouncementListener(); // Real-time announcement notifications
         loadStravaTokens(); // Load Strava connection from profile
+        await loadCustomPlans(); // Load AI-generated custom plans
         const initial = (userProfile?.displayName || user.displayName || user.email || 'U').charAt(0).toUpperCase();
         $('user-avatar-btn').textContent = initial;
       } catch(e) {
