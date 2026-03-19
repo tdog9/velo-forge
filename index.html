@@ -961,9 +961,48 @@ select.input{appearance:none;cursor:pointer;
 .demo-workout-name{font-size:13px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .demo-workout-url{flex:1;min-width:0}
 .demo-workout-url input{width:100%;font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);box-sizing:border-box}
+/* Toast Notifications */
+.toast-container{position:fixed;top:calc(var(--safe-t) + 8px);left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:6px;pointer-events:none;width:90%;max-width:380px}
+.toast{padding:12px 16px;border-radius:10px;font-size:13px;font-weight:500;color:#fff;pointer-events:auto;animation:toastIn .3s ease,toastOut .3s ease 2.7s forwards;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.toast.success{background:#16a34a}.toast.error{background:#dc2626}.toast.info{background:#2563eb}.toast.warn{background:#d97706}
+@keyframes toastIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-10px)}}
+/* Workout Calendar */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:8px}
+.cal-header{font-size:10px;text-align:center;color:var(--muted-fg);font-weight:600;padding:4px 0;text-transform:uppercase}
+.cal-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:6px;color:var(--muted-fg);position:relative;cursor:default}
+.cal-day.today{font-weight:700;color:var(--primary);box-shadow:inset 0 0 0 1.5px var(--primary)}
+.cal-day.has-workout{background:var(--primary);color:var(--primary-fg);font-weight:700;border-radius:50%;cursor:pointer}
+.cal-day.has-workout:active{opacity:.8}
+.cal-day.empty{visibility:hidden}
+.cal-day.other-month{opacity:.3}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.cal-nav button{background:none;border:none;color:var(--primary);font-size:18px;padding:6px 12px;cursor:pointer;font-weight:700}
+.cal-nav-title{font-size:14px;font-weight:600;color:var(--text)}
+.cal-day-detail{background:var(--card);border-radius:10px;padding:12px;margin-top:8px;border:1px solid var(--border)}
+.cal-day-detail h4{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
+.cal-day-detail .cal-workout-item{font-size:12px;color:var(--muted-fg);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.cal-day-detail .cal-workout-item:last-child{border-bottom:none}
+/* Personal Bests */
+.pb-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}
+.pb-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.pb-icon{font-size:24px;margin-bottom:4px}
+.pb-val{font-size:18px;font-weight:700;color:var(--primary)}
+.pb-lbl{font-size:11px;color:var(--muted-fg);margin-top:2px;text-transform:uppercase;letter-spacing:.3px}
+/* Social Feed */
+.feed-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.feed-item:last-child{border-bottom:none}
+.feed-avatar{width:32px;height:32px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--primary-fg);flex-shrink:0}
+.feed-body{flex:1;min-width:0}
+.feed-name{font-size:13px;font-weight:600;color:var(--text)}
+.feed-action{font-size:12px;color:var(--muted-fg);margin-top:1px}
+.feed-time{font-size:11px;color:var(--muted-fg);opacity:.7;margin-top:2px}
+/* Bulk message */
+.bulk-msg-form textarea{width:100%;min-height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);font-size:13px;resize:vertical;font-family:inherit}
 </style>
 </head>
 <body>
+<div class="toast-container" id="toast-container"></div>
 <div id="app">
   <!-- Auth Screen (Login) -->
   <div id="auth-login" class="auth-screen">
@@ -1332,6 +1371,9 @@ let globalLbLoading = false;
 
 // Theme
 let currentTheme = 'dark';
+let calViewMonth = new Date().getMonth();
+let calViewYear = new Date().getFullYear();
+let teamFeedCache = [];
 try { currentTheme = localStorage.getItem('vf_theme') || 'dark'; } catch(e) {}
 if (currentTheme === 'light') document.documentElement.classList.add('light-theme');
 
@@ -1639,6 +1681,17 @@ try {
 // --- Feature 10: Haptic feedback helper ---
 function haptic(style) {
   try { if (navigator.vibrate) navigator.vibrate(style === 'light' ? 8 : style === 'medium' ? 15 : 5); } catch(e) {}
+}
+
+// Toast notification system
+function showToast(message, type = 'info') {
+  const container = $('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => { toast.remove(); }, 3100);
 }
 
 // --- Tab click handler (features 4 + 10) ---
@@ -1992,7 +2045,7 @@ function extractAllExercises() {
       plans: []
     };
     floorExKeys[key].forEach(planId => {
-      const plan = ALL_PLANS.find(p => p.id === planId);
+      const plan = findPlan(planId);
       if (plan) {
         const pd = getPlanDisplayData(plan);
         exerciseMap[key].plans.push({ id: plan.id, name: pd.name, year: plan.yearLevel, tier: plan.tier });
@@ -2263,6 +2316,107 @@ function renderMyPlans() {
 // ============================================
 // TODAY PAGE
 // ============================================
+// --- Workout Calendar ---
+function renderWorkoutCalendar(now) {
+  const year = calViewYear;
+  const month = calViewMonth;
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dayLabels = ['S','M','T','W','T','F','S'];
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+
+  // Build set of dates with workouts
+  const workoutDates = new Set();
+  userWorkouts.forEach(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    if (d) workoutDates.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
+  });
+
+  let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Workout Calendar</div>';
+  html += '<div class="cal-nav"><button class="cal-nav-btn" data-cal-dir="-1">‹</button>';
+  html += '<span class="cal-nav-title">' + monthNames[month] + ' ' + year + '</span>';
+  html += '<button class="cal-nav-btn" data-cal-dir="1">›</button></div>';
+  html += '<div class="cal-grid">';
+  dayLabels.forEach(d => { html += '<div class="cal-header">' + d + '</div>'; });
+  for (let i = 0; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateKey = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const isToday = dateKey === todayStr;
+    const hasWorkout = workoutDates.has(dateKey);
+    const cls = 'cal-day' + (isToday ? ' today' : '') + (hasWorkout ? ' has-workout' : '');
+    html += '<div class="' + cls + '" data-date-key="' + dateKey + '">' + d + '</div>';
+  }
+  html += '</div><div id="cal-detail" class="cal-day-detail" style="display:none" data-showing=""></div></div>';
+  return html;
+}
+
+// --- Personal Bests ---
+function renderPersonalBests(now, totalWorkouts, streak) {
+  if (totalWorkouts === 0) return '';
+
+  // Best streak (longest consecutive days)
+  let bestStreak = 0, tempStreak = 0, lastDate = null;
+  const sortedDates = [];
+  userWorkouts.forEach(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    if (d) sortedDates.push(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime());
+  });
+  const uniqueDates = [...new Set(sortedDates)].sort();
+  uniqueDates.forEach((t, i) => {
+    if (i === 0) { tempStreak = 1; }
+    else if (t - uniqueDates[i-1] === 86400000) { tempStreak++; }
+    else { tempStreak = 1; }
+    if (tempStreak > bestStreak) bestStreak = tempStreak;
+  });
+
+  // Best week (most workouts in 7 days)
+  let bestWeek = 0;
+  for (let i = 0; i < uniqueDates.length; i++) {
+    const windowEnd = uniqueDates[i] + 7 * 86400000;
+    let count = 0;
+    for (let j = i; j < uniqueDates.length && uniqueDates[j] < windowEnd; j++) count++;
+    if (count > bestWeek) bestWeek = count;
+  }
+
+  // Longest workout
+  let longestWorkout = 0;
+  userWorkouts.forEach(w => { if (w.duration && w.duration > longestWorkout) longestWorkout = w.duration; });
+
+  // Highest RPE
+  let highestRpe = 0;
+  userWorkouts.forEach(w => { if (w.rpe && w.rpe > highestRpe) highestRpe = w.rpe; });
+
+  let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Personal Bests</div>';
+  html += '<div class="pb-grid">';
+  html += '<div class="pb-card"><div class="pb-icon">🔥</div><div class="pb-val">' + bestStreak + '</div><div class="pb-lbl">Best Streak</div></div>';
+  html += '<div class="pb-card"><div class="pb-icon">📅</div><div class="pb-val">' + bestWeek + '</div><div class="pb-lbl">Best Week</div></div>';
+  html += '<div class="pb-card"><div class="pb-icon">⏱️</div><div class="pb-val">' + longestWorkout + '<span style="font-size:11px">m</span></div><div class="pb-lbl">Longest Session</div></div>';
+  if (highestRpe > 0) {
+    html += '<div class="pb-card"><div class="pb-icon">💪</div><div class="pb-val">' + highestRpe + '/10</div><div class="pb-lbl">Highest Effort</div></div>';
+  } else {
+    html += '<div class="pb-card"><div class="pb-icon">🏋️</div><div class="pb-val">' + totalWorkouts + '</div><div class="pb-lbl">Total Sessions</div></div>';
+  }
+  html += '</div></div>';
+  return html;
+}
+
+// --- Team Activity Feed ---
+function renderTeamFeed() {
+  if (!teamFeedCache || teamFeedCache.length === 0) return '';
+  let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Team Activity</div>';
+  teamFeedCache.slice(0, 8).forEach(item => {
+    const initials = (item.name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+    html += '<div class="feed-item">';
+    html += '<div class="feed-avatar">' + initials + '</div>';
+    html += '<div class="feed-body"><div class="feed-name">' + escHtml(item.name || 'Unknown') + '</div>';
+    html += '<div class="feed-action">' + escHtml(item.action) + '</div>';
+    html += '<div class="feed-time">' + item.timeAgo + '</div></div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
 function renderToday() {
   const c = $('today-content');
   const now = new Date();
@@ -2272,7 +2426,7 @@ function renderToday() {
 
   // Active plan
   const activePlanId = userProfile?.activePlanId;
-  const activePlan = activePlanId ? ALL_PLANS.find(p => p.id === activePlanId) : null;
+  const activePlan = findPlan(activePlanId);
 
   // Quick stats
   const totalWorkouts = userWorkouts.length;
@@ -2479,7 +2633,52 @@ function renderToday() {
     </div>`;
   }
 
+  // Workout Calendar
+  html += renderWorkoutCalendar(now);
+
+  // Personal Bests
+  html += renderPersonalBests(now, totalWorkouts, streak);
+
+  // Team Activity Feed
+  html += renderTeamFeed();
+
   c.innerHTML = html;
+
+  // Bind calendar navigation
+  c.querySelectorAll('.cal-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dir = parseInt(btn.dataset.calDir);
+      calViewMonth += dir;
+      if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+      if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+      renderToday();
+    });
+  });
+  // Bind calendar day clicks
+  c.querySelectorAll('.cal-day.has-workout').forEach(el => {
+    el.addEventListener('click', () => {
+      const dateKey = el.dataset.dateKey;
+      const detail = $('cal-detail');
+      if (detail && detail.dataset.showing === dateKey) {
+        detail.style.display = 'none';
+        detail.innerHTML = '';
+        detail.dataset.showing = '';
+        return;
+      }
+      const dayWorkouts = userWorkouts.filter(w => {
+        const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+        if (!d) return false;
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') === dateKey;
+      });
+      if (detail && dayWorkouts.length > 0) {
+        detail.dataset.showing = dateKey;
+        detail.style.display = '';
+        detail.innerHTML = '<h4>' + dateKey + '</h4>' + dayWorkouts.map(w =>
+          '<div class="cal-workout-item">' + escHtml(w.name || 'Workout') + ' · ' + (w.duration || '?') + 'min' + (w.rpe ? ' · RPE ' + w.rpe : '') + '</div>'
+        ).join('');
+      }
+    });
+  });
 
   // Bind checklist toggles
   c.querySelectorAll('.cl-check').forEach(el => {
@@ -2725,7 +2924,7 @@ async function sendAiMessage(message) {
   if (userProfile?.yearLevel) ctx.push('Year level: ' + userProfile.yearLevel);
   if (userProfile?.fitnessLevel) ctx.push('Fitness tier: ' + userProfile.fitnessLevel);
   if (userProfile?.activePlanId) {
-    const plan = ALL_PLANS.find(p => p.id === userProfile.activePlanId);
+    const plan = findPlan(userProfile.activePlanId);
     if (plan) ctx.push('Active plan: ' + plan.name + ' (' + plan.category + ')');
   }
   ctx.push('Total workouts logged: ' + userWorkouts.length);
@@ -2757,7 +2956,7 @@ async function sendAiMessage(message) {
 
 // Explain plan function — called from plan cards
 async function explainPlan(planId) {
-  const plan = ALL_PLANS.find(p => p.id === planId);
+  const plan = findPlan(planId);
   if (!plan) return;
   const pd = getPlanDisplayData(plan);
   const workoutNames = plan.workouts.map(w => w.name).join(', ');
@@ -3023,6 +3222,54 @@ async function loadCustomPlans() {
       saveCustomPlansLocal(); // sync merged result back to localStorage
     } catch(e) { console.error('Load custom plans error:', e); }
   }
+}
+
+// --- Team Activity Feed loader ---
+function timeAgo(date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  if (s < 604800) return Math.floor(s / 86400) + 'd ago';
+  return date.toLocaleDateString();
+}
+
+async function loadTeamFeed() {
+  teamFeedCache = [];
+  if (demoMode || !db || !currentUser || !userProfile?.teamId) return;
+  try {
+    // Get team members
+    const teamSnap = await getDoc(doc(db, 'teams', userProfile.teamId));
+    if (!teamSnap.exists()) return;
+    const team = teamSnap.data();
+    const memberIds = team.members || [];
+    if (memberIds.length === 0) return;
+    // Load recent workouts from each member (limited)
+    const feed = [];
+    const limit8 = memberIds.slice(0, 15); // cap at 15 members
+    for (const uid of limit8) {
+      if (uid === currentUser.uid) continue; // skip self
+      try {
+        const wSnap = await getDocs(query(collection(db, 'users', uid, 'workouts'), orderBy('date', 'desc')));
+        const docs = wSnap.docs.slice(0, 3); // latest 3 per member
+        const profileSnap = await getDoc(doc(db, 'users', uid));
+        const profile = profileSnap.exists() ? profileSnap.data() : {};
+        const name = profile.displayName || 'Unknown';
+        docs.forEach(d => {
+          const w = d.data();
+          const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
+          feed.push({
+            name,
+            action: 'Logged ' + (w.name || 'a workout') + ' · ' + (w.duration || '?') + 'min',
+            date,
+            timeAgo: timeAgo(date)
+          });
+        });
+      } catch(e) {}
+    }
+    feed.sort((a, b) => b.date - a.date);
+    teamFeedCache = feed.slice(0, 10);
+  } catch(e) { console.error('Load team feed error:', e); }
 }
 
 // ============================================
@@ -3387,8 +3634,8 @@ async function saveWorkout(rpe) {
   const dateVal = $('wo-date').value;
   const rpeVal = rpe || null;
 
-  if (!name) { alert('Please enter a workout name.'); return; }
-  if (!duration) { alert('Please enter duration.'); return; }
+  if (!name) { showToast('Please enter a workout name.', 'warn'); return; }
+  if (!duration) { showToast('Please enter duration.', 'warn'); return; }
 
   closeSheet();
   const dateObj = dateVal ? new Date(dateVal + 'T12:00:00') : new Date();
@@ -3408,7 +3655,7 @@ async function saveWorkout(rpe) {
   } catch(e) {
     hideLoading();
     console.error('Save workout error:', e);
-    alert('Failed to save workout. Please try again.');
+    showToast('Failed to save workout.', 'error');
   }
 }
 
@@ -3661,7 +3908,7 @@ function bindPlanSearchAndCards(c) {
       } catch(e) {
         hideLoading();
         console.error('Activate plan error:', e);
-        alert('Failed to activate plan. Please try again.');
+        showToast('Failed to activate plan.', 'error');
       }
     });
   });
@@ -3698,7 +3945,7 @@ function bindPlanSearchAndCards(c) {
       } catch(e) {
         hideLoading();
         console.error('Cancel plan error:', e);
-        alert('Failed to cancel plan. Please try again.');
+        showToast('Failed to cancel plan.', 'error');
       }
     });
   });
@@ -4309,7 +4556,7 @@ async function updateProfileField(field, value) {
 // STRAVA INTEGRATION
 // ============================================
 function stravaStartAuth() {
-  if (!STRAVA_CLIENT_ID) { alert('Strava Client ID not configured.'); return; }
+  if (!STRAVA_CLIENT_ID) { showToast('Strava Client ID not configured.', 'error'); return; }
   const scope = 'activity:read_all';
   const url = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent(STRAVA_REDIRECT_URI)}&response_type=code&scope=${scope}&approval_prompt=auto`;
   window.location.href = url;
@@ -4347,7 +4594,7 @@ async function stravaHandleCallback() {
     renderProfile();
   } catch(e) {
     console.error('Strava auth error:', e);
-    alert('Failed to connect Strava. Make sure the Netlify function is deployed.');
+    showToast('Failed to connect Strava.', 'error');
   }
 }
 
@@ -4509,7 +4756,7 @@ function openJoinTeamSheet() {
 
 async function createTeam() {
   const name = $('team-name-input').value.trim();
-  if (!name) { alert('Please enter a team name.'); return; }
+  if (!name) { showToast('Please enter a team name.', 'warn'); return; }
   if (!currentUser) return;
 
   closeSheet();
@@ -4556,7 +4803,7 @@ async function createTeam() {
   } catch(e) {
     hideLoading();
     console.error('Create team error:', e);
-    alert('Failed to create team. Please try again.');
+    showToast('Failed to create team.', 'error');
   }
 }
 
@@ -4602,7 +4849,7 @@ async function joinTeam() {
   } catch(e) {
     hideLoading();
     console.error('Join team error:', e);
-    alert('Failed to join team. Please try again.');
+    showToast('Failed to join team.', 'error');
   }
 }
 
@@ -4633,7 +4880,7 @@ async function leaveTeam() {
   } catch(e) {
     hideLoading();
     console.error('Leave team error:', e);
-    alert('Failed to leave team. Please try again.');
+    showToast('Failed to leave team.', 'error');
   }
 }
 
@@ -4729,6 +4976,12 @@ async function loadTeamData() {
 // ============================================
 function capitalize(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+
+// Find a plan by ID from built-in + custom plans
+function findPlan(id) {
+  if (!id) return null;
+  return ALL_PLANS.find(p => p.id === id) || customPlans.find(p => p.id === id) || null;
 }
 
 function getTimeAgo(dateStr) {
@@ -4867,6 +5120,7 @@ function startApp() {
         setupAnnouncementListener(); // Real-time announcement notifications
         loadStravaTokens(); // Load Strava connection from profile
         await loadCustomPlans(); // Load AI-generated custom plans
+        await loadTeamFeed(); // Load team activity feed
         const initial = (userProfile?.displayName || user.displayName || user.email || 'U').charAt(0).toUpperCase();
         $('user-avatar-btn').textContent = initial;
       } catch(e) {
@@ -5277,6 +5531,7 @@ async function renderCoachDashboard() {
     </div>`;
 
     html += '<div class="coach-sort-bar">';
+    html += '<button class="coach-sort-btn" id="coach-export-csv" style="background:var(--primary);color:var(--primary-fg);font-weight:700">⬇ Export CSV</button>';
     ['recent','inactive','workouts','rpe'].forEach(s => {
       const labels = { recent:'Most Recent', inactive:'Needs Follow-up', workouts:'Most Workouts', rpe:'Highest Effort' };
       html += `<button class="coach-sort-btn${coachSort === s ? ' active' : ''}" data-coach-sort="${s}">${labels[s]}</button>`;
@@ -5310,6 +5565,26 @@ async function renderCoachDashboard() {
     el.querySelectorAll('.coach-sort-btn').forEach(btn => {
       btn.addEventListener('click', () => render(btn.dataset.coachSort));
     });
+    const exportBtn = $('coach-export-csv');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        let csv = 'Name,Year,Tier,Workouts,Avg RPE,Last Active\n';
+        students.forEach(s => {
+          csv += [
+            '"' + (s.name || '').replace(/"/g, '""') + '"',
+            s.year, capitalize(s.tier), s.workouts,
+            s.avgRpe ? s.avgRpe.toFixed(1) : '',
+            s.lastActive ? s.lastActive.toISOString().split('T')[0] : 'Never'
+          ].join(',') + '\n';
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'veloforge-students-' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        showToast('CSV downloaded!', 'success');
+      });
+    }
   }
 
   render('recent');
@@ -5356,8 +5631,8 @@ function renderAdminAnnouncements() {
   $('ann-add-btn').addEventListener('click', async () => {
     const title = $('ann-title').value.trim();
     const message = $('ann-message').value.trim();
-    if (!title) { alert('Enter a title.'); return; }
-    if (!message) { alert('Enter a message.'); return; }
+    if (!title) { showToast('Enter a title.', 'warn'); return; }
+    if (!message) { showToast('Enter a message.', 'warn'); return; }
     adminAnnouncements.unshift({ id: 'ann-' + Date.now(), title, message, active: true, createdAt: new Date().toISOString() });
     await saveAnnouncements();
     renderAdminAnnouncements();
@@ -5391,7 +5666,7 @@ async function saveAnnouncements() {
     await setDoc(doc(db, 'config', 'announcements'), { items: adminAnnouncements });
   } catch(e) {
     console.error('Save announcements error:', e);
-    alert('Failed to save. Please try again.');
+    showToast('Failed to save.', 'error');
   }
 }
 
@@ -5417,7 +5692,7 @@ async function saveRaceFootage() {
     await setDoc(doc(db, 'config', 'raceFootage'), { footage: raceFootage });
   } catch(e) {
     console.error('Save race footage error:', e);
-    alert('Failed to save footage links.');
+    showToast('Failed to save footage links.', 'error');
   }
 }
 
@@ -5437,7 +5712,7 @@ async function saveRaceLogVideos() {
     await setDoc(doc(db, 'config', 'raceLogVideos'), { videos: raceLogVideos });
   } catch(e) {
     console.error('Save race log videos error:', e);
-    alert('Failed to save videos.');
+    showToast('Failed to save videos.', 'error');
   }
 }
 
@@ -5486,7 +5761,7 @@ function renderRaceFootageSection(parentEl) {
       const urlInput = footageDiv.querySelector(`[data-footage-url="${raceId}"]`);
       const labelInput = footageDiv.querySelector(`[data-footage-label="${raceId}"]`);
       const url = urlInput.value.trim();
-      if (!url) { alert('Paste a URL first.'); return; }
+      if (!url) { showToast('Paste a URL first.', 'warn'); return; }
       const label = labelInput.value.trim() || 'Race Footage';
       const type = url.includes('youtube') || url.includes('youtu.be') ? 'stream' : (url.includes('result') || url.includes('timing') ? 'results' : 'footage');
       if (!raceFootage[raceId]) raceFootage[raceId] = [];
@@ -5573,8 +5848,8 @@ function renderAdminRaceLogVideos(parentEl) {
       const url = videosDiv.querySelector('#admin-video-url').value.trim();
       const title = videosDiv.querySelector('#admin-video-title').value.trim();
       const raceId = videosDiv.querySelector('#admin-video-race').value;
-      if (!url) { alert('Paste a video URL first.'); return; }
-      if (!title) { alert('Enter a video title.'); return; }
+      if (!url) { showToast('Paste a video URL first.', 'warn'); return; }
+      if (!title) { showToast('Enter a video title.', 'warn'); return; }
       raceLogVideos.push({
         title,
         url,
@@ -5646,7 +5921,7 @@ function renderAdminRaces() {
     const location = $('race-location').value.trim();
     const distance = parseInt($('race-distance').value) || 0;
     const notes = $('race-notes').value.trim();
-    if (!name || !date) { alert('Enter a name and date.'); return; }
+    if (!name || !date) { showToast('Enter a name and date.', 'warn'); return; }
     const newRaces = [...(adminRaces || RACES)];
     newRaces.push({ id: 'r-' + Date.now(), name, date, location, distance, type: 'endurance', notes });
     newRaces.sort((a, b) => a.date.localeCompare(b.date));
@@ -5680,7 +5955,7 @@ async function saveRaces() {
     await setDoc(doc(db, 'config', 'races'), { races: adminRaces });
   } catch(e) {
     console.error('Save races error:', e);
-    alert('Failed to save. Please try again.');
+    showToast('Failed to save.', 'error');
   }
 }
 
@@ -5786,7 +6061,7 @@ async function renderUsersAll(el) {
         setTimeout(() => { btn.textContent = 'Save'; }, 1500);
       } catch(e) {
         console.error('Save user error:', e);
-        alert('Failed to save.');
+        showToast('Failed to save.', 'error');
       }
     });
   });
@@ -5887,16 +6162,16 @@ function renderUsersPermissions(el) {
 
   $('perm-add-btn').addEventListener('click', async () => {
     const email = $('perm-email').value.trim().toLowerCase();
-    if (!email || !email.includes('@')) { alert('Enter a valid email.'); return; }
-    if (email === ADMIN_EMAIL.toLowerCase()) { alert('This is already the owner account.'); return; }
-    if (adminPerms.some(e => (e.email || '').toLowerCase() === email)) { alert('Already an admin.'); return; }
-    if (adminEmails.some(e => (e || '').toLowerCase() === email)) { alert('Already an admin (legacy). Upgrade them first.'); return; }
+    if (!email || !email.includes('@')) { showToast('Enter a valid email.', 'warn'); return; }
+    if (email === ADMIN_EMAIL.toLowerCase()) { showToast('This is already the owner account.', 'warn'); return; }
+    if (adminPerms.some(e => (e.email || '').toLowerCase() === email)) { showToast('Already an admin.', 'warn'); return; }
+    if (adminEmails.some(e => (e || '').toLowerCase() === email)) { showToast('Already an admin (legacy).', 'warn'); return; }
 
     const selectedPerms = [];
     el.querySelectorAll('#perm-new-features .perm-feature-toggle.active').forEach(t => {
       selectedPerms.push(t.dataset.feat);
     });
-    if (selectedPerms.length === 0) { alert('Select at least one feature to grant.'); return; }
+    if (selectedPerms.length === 0) { showToast('Select at least one permission.', 'warn'); return; }
 
     adminPerms.push({ email, perms: selectedPerms });
     await saveAdminEmails();
@@ -6290,7 +6565,7 @@ async function saveHiddenPlans() {
     await setDoc(doc(db, 'config', 'hiddenPlans'), { ids: [...hiddenPlans] });
   } catch(e) {
     console.error('Save hidden plans error:', e);
-    alert('Failed to save. Please try again.');
+    showToast('Failed to save.', 'error');
   }
 }
 
@@ -6325,7 +6600,7 @@ async function saveAdminEmails() {
     await setDoc(doc(db, 'config', 'adminEmails'), { emails: adminEmails, perms: adminPerms });
   } catch(e) {
     console.error('Save admin emails error:', e);
-    alert('Failed to save. Please try again.');
+    showToast('Failed to save.', 'error');
   }
 }
 
@@ -6350,7 +6625,7 @@ async function saveExerciseOverrides() {
     await setDoc(doc(db, 'config', 'exerciseOverrides'), { overrides: exerciseOverrides });
   } catch(e) {
     console.error('Save exercise overrides error:', e);
-    alert('Failed to save exercise changes.');
+    showToast('Failed to save exercises.', 'error');
   }
 }
 
@@ -6370,7 +6645,7 @@ async function savePlanOverrides() {
     await setDoc(doc(db, 'config', 'planOverrides'), { overrides: planOverrides });
   } catch(e) {
     console.error('Save plan overrides error:', e);
-    alert('Failed to save plan changes.');
+    showToast('Failed to save plan changes.', 'error');
   }
 }
 
@@ -6390,7 +6665,7 @@ async function saveExerciseDemoVideos() {
     await setDoc(doc(db, 'config', 'exerciseDemoVideos'), { videos: exerciseDemoVideos });
   } catch(e) {
     console.error('Save exercise demo videos error:', e);
-    alert('Failed to save. Please try again.');
+    showToast('Failed to save.', 'error');
   }
 }
 
@@ -6497,7 +6772,7 @@ async function saveVideoOverrides() {
     await setDoc(doc(db, 'config', 'videoOverrides'), { overrides: videoOverrides });
   } catch(e) {
     console.error('Save video overrides error:', e);
-    alert('Failed to save. Please try again.');
+    showToast('Failed to save.', 'error');
   }
 }
 
@@ -6828,7 +7103,7 @@ function openRaceLogForm(existing, editIdx) {
   // Save
   $('rl-save-btn').addEventListener('click', async () => {
     let trackName = trackSel.value === '__custom' ? trackCustom.value.trim() : (trackSel.value || trackCustom.value.trim());
-    if (!trackName) { alert('Please select or enter a track name.'); return; }
+    if (!trackName) { showToast('Please select a track name.', 'warn'); return; }
 
     const entry = {
       trackName,
@@ -6855,7 +7130,7 @@ function openRaceLogForm(existing, editIdx) {
         }
       } catch(e) {
         console.error('Save race log error:', e);
-        alert('Failed to save. Please try again.');
+        showToast('Failed to save.', 'error');
         return;
       }
     }
@@ -6865,6 +7140,11 @@ function openRaceLogForm(existing, editIdx) {
 
 // Start
 startApp();
+
+// Register service worker for offline support
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
