@@ -1241,18 +1241,28 @@ function renderTeamChallenge() {
   const now = new Date();
   const end = new Date(activeChallenge.endDate);
   const daysLeft = Math.max(0, Math.ceil((end - now) / 86400000));
-  const teams = Object.values(activeChallenge.teams || {});
+  // Build teams array — handle both {name,score} and nested Firestore maps
+  const rawTeams = activeChallenge.teams || {};
+  const teams = [];
+  Object.entries(rawTeams).forEach(([key, val]) => {
+    if (val && typeof val === 'object') {
+      teams.push({ name: val.name || key, score: val.score || 0 });
+    } else {
+      teams.push({ name: key, score: 0 });
+    }
+  });
+  if (teams.length === 0) return '';
   const maxScore = Math.max(1, ...teams.map(t => t.score));
-  const colors = ['#BFFF00', '#7c3aed', '#f97316', '#3b82f6'];
+  const colors = ['#BFFF00', '#7c3aed', '#f97316', '#3b82f6', '#ec4899'];
   let html = '<div class="challenge-card">';
-  html += '<div class="challenge-title">🏆 ' + escHtml(activeChallenge.title) + '</div>';
+  html += '<div class="challenge-title">🏆 ' + escHtml(activeChallenge.title || 'Team Challenge') + '</div>';
   html += '<div class="challenge-meta">' + (daysLeft > 0 ? daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' remaining' : 'Challenge ended!') + '</div>';
   teams.sort((a, b) => b.score - a.score);
   teams.forEach((t, i) => {
-    const pct = (t.score / maxScore) * 100;
+    const pct = maxScore > 0 ? (t.score / maxScore) * 100 : 0;
     html += '<div class="challenge-team">';
-    html += '<div class="challenge-team-name">' + (i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : '') + escHtml(t.name) + '</div>';
-    html += '<div class="challenge-team-bar"><div class="challenge-team-fill" style="width:' + pct + '%;background:' + (colors[i] || colors[3]) + '"></div></div>';
+    html += '<div class="challenge-team-name">' + (i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '') + escHtml(t.name) + '</div>';
+    html += '<div class="challenge-team-bar"><div class="challenge-team-fill" style="width:' + pct + '%;background:' + (colors[i] || colors[4]) + '"></div></div>';
     html += '<div class="challenge-team-score">' + t.score + '</div>';
     html += '</div>';
   });
@@ -2263,7 +2273,7 @@ async function loadTeamChallenge() {
       // Reset all team scores to 0
       const resetTeams = {};
       Object.entries(data.teams || {}).forEach(([k, v]) => {
-        resetTeams[k] = { name: v.name, score: 0 };
+        resetTeams[k] = { name: (v && v.name) || k, score: 0 };
       });
       const newChallenge = {
         ...data,
@@ -4009,6 +4019,7 @@ function getTimeAgo(dateStr) {
 }
 
 function escHtml(s) {
+  if (s == null) return '';
   const div = document.createElement('div');
   div.textContent = s;
   return div.innerHTML;
