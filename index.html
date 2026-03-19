@@ -2333,7 +2333,9 @@ function renderWorkoutCalendar(now) {
     if (d) workoutDates.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
   });
 
-  let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Workout Calendar</div>';
+  const calOpen = localStorage.getItem('vf_cal_open') !== 'false';
+  let html = '<div class="section-card" style="margin-top:12px"><div class="section-title" id="cal-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">Workout Calendar<span style="font-size:16px;transition:transform .2s;transform:rotate(' + (calOpen ? '0' : '-90') + 'deg)">▾</span></div>';
+  html += '<div id="cal-body" style="' + (calOpen ? '' : 'display:none') + '">';
   html += '<div class="cal-nav"><button class="cal-nav-btn" data-cal-dir="-1">‹</button>';
   html += '<span class="cal-nav-title">' + monthNames[month] + ' ' + year + '</span>';
   html += '<button class="cal-nav-btn" data-cal-dir="1">›</button></div>';
@@ -2347,7 +2349,7 @@ function renderWorkoutCalendar(now) {
     const cls = 'cal-day' + (isToday ? ' today' : '') + (hasWorkout ? ' has-workout' : '');
     html += '<div class="' + cls + '" data-date-key="' + dateKey + '">' + d + '</div>';
   }
-  html += '</div><div id="cal-detail" class="cal-day-detail" style="display:none" data-showing=""></div></div>';
+  html += '</div><div id="cal-detail" class="cal-day-detail" style="display:none" data-showing=""></div></div></div>';
   return html;
 }
 
@@ -2644,6 +2646,19 @@ function renderToday() {
 
   c.innerHTML = html;
 
+  // Bind calendar collapse toggle
+  const calToggle = $('cal-toggle');
+  if (calToggle) {
+    calToggle.addEventListener('click', () => {
+      const body = $('cal-body');
+      const chevron = calToggle.querySelector('span');
+      if (!body) return;
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : '';
+      if (chevron) chevron.style.transform = 'rotate(' + (isOpen ? '-90' : '0') + 'deg)';
+      localStorage.setItem('vf_cal_open', isOpen ? 'false' : 'true');
+    });
+  }
   // Bind calendar navigation
   c.querySelectorAll('.cal-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -5501,6 +5516,24 @@ async function renderCoachDashboard() {
   const now = new Date();
   const threeDaysAgo = new Date(now.getTime() - 86400000 * 3);
   const sevenDaysAgo = new Date(now.getTime() - 86400000 * 7);
+  const fiveDaysAgo = new Date(now.getTime() - 86400000 * 5);
+
+  // Coach notification for inactive students
+  const needsFollowUp = students.filter(s => s.lastActive && s.lastActive < fiveDaysAgo && s.lastActive > new Date(now.getTime() - 86400000 * 30));
+  if (needsFollowUp.length > 0 && Notification.permission === 'granted') {
+    const lastNotif = localStorage.getItem('vf_coach_notif_date');
+    const today = now.toISOString().split('T')[0];
+    if (lastNotif !== today) {
+      localStorage.setItem('vf_coach_notif_date', today);
+      try {
+        new Notification('VeloForge Coach Alert', {
+          body: needsFollowUp.length + ' student' + (needsFollowUp.length > 1 ? 's haven\'t' : ' hasn\'t') + ' trained in 5+ days: ' + needsFollowUp.map(s => s.name).slice(0, 3).join(', ') + (needsFollowUp.length > 3 ? '...' : ''),
+          icon: '🏋️',
+          tag: 'coach-inactive'
+        });
+      } catch(e) {}
+    }
+  }
 
   // Sort options
   let coachSort = 'recent';
@@ -5528,6 +5561,27 @@ async function renderCoachDashboard() {
         <div style="font-size:20px;font-weight:700;color:#ef4444">${inactiveCount}</div>
         <div style="font-size:10px;color:var(--muted-fg)">No activity 7+ days</div>
       </div>
+    </div>`;
+
+    // Inactive student alerts
+    const inactiveStudents = students.filter(s => !s.lastActive || s.lastActive < sevenDaysAgo);
+    if (inactiveStudents.length > 0) {
+      html += `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;color:#ef4444;margin-bottom:6px">⚠️ Students needing follow-up</div>
+        <div style="font-size:12px;color:var(--muted-fg)">${inactiveStudents.map(s => escHtml(s.name) + ' (' + (s.lastActive ? Math.floor((now - s.lastActive) / 86400000) + 'd ago' : 'never') + ')').join(', ')}</div>
+      </div>`;
+    }
+
+    // Bulk message section
+    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Send Message to Students</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <button class="bulk-target-btn active" data-bulk-target="all" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--primary);background:var(--primary);color:var(--primary-fg);cursor:pointer;font-weight:600">All</button>
+        ${['Y7','Y8','Y9','Y10','Y11','Y12'].map(y => `<button class="bulk-target-btn" data-bulk-target="${y}" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">${y}</button>`).join('')}
+        <button class="bulk-target-btn" data-bulk-target="inactive" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">Inactive Only</button>
+      </div>
+      <textarea id="bulk-msg-text" class="input" placeholder="Type your message to students..." style="width:100%;min-height:60px;resize:vertical;font-size:13px;margin-bottom:8px"></textarea>
+      <button class="btn btn-primary" id="bulk-msg-send" style="font-size:12px;padding:8px 16px">Post as Announcement</button>
     </div>`;
 
     html += '<div class="coach-sort-bar">';
@@ -5583,6 +5637,56 @@ async function renderCoachDashboard() {
         a.download = 'veloforge-students-' + new Date().toISOString().split('T')[0] + '.csv';
         a.click();
         showToast('CSV downloaded!', 'success');
+      });
+    }
+    // Bulk message target buttons
+    let bulkTarget = 'all';
+    el.querySelectorAll('.bulk-target-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        el.querySelectorAll('.bulk-target-btn').forEach(b => {
+          b.style.background = 'var(--surface-alt)';
+          b.style.color = 'var(--muted-fg)';
+          b.style.borderColor = 'var(--border)';
+        });
+        btn.style.background = 'var(--primary)';
+        btn.style.color = 'var(--primary-fg)';
+        btn.style.borderColor = 'var(--primary)';
+        bulkTarget = btn.dataset.bulkTarget;
+      });
+    });
+    // Bulk message send
+    const sendBtn = $('bulk-msg-send');
+    if (sendBtn) {
+      sendBtn.addEventListener('click', async () => {
+        const text = $('bulk-msg-text')?.value?.trim();
+        if (!text) { showToast('Enter a message.', 'warn'); return; }
+        const title = bulkTarget === 'all' ? 'Coach Message'
+          : bulkTarget === 'inactive' ? 'Coach Check-In'
+          : 'Message for ' + bulkTarget;
+        const newAnn = {
+          id: Date.now().toString(),
+          title: title,
+          message: text + (bulkTarget !== 'all' ? ' [To: ' + bulkTarget + ']' : ''),
+          date: new Date().toISOString(),
+          by: userProfile?.displayName || 'Coach'
+        };
+        if (!demoMode && db) {
+          try {
+            const configRef = doc(db, 'config', 'announcements');
+            const snap = await getDoc(configRef);
+            const items = snap.exists() ? (snap.data().items || []) : [];
+            items.unshift(newAnn);
+            await setDoc(configRef, { items });
+            showToast('Message posted as announcement!', 'success');
+            $('bulk-msg-text').value = '';
+          } catch(e) {
+            showToast('Failed to send message.', 'error');
+          }
+        } else {
+          adminAnnouncements.unshift(newAnn);
+          showToast('Message posted (demo mode).', 'success');
+          $('bulk-msg-text').value = '';
+        }
       });
     }
   }
