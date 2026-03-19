@@ -1,5 +1,5 @@
 // AI Coach — Netlify Serverless Function
-// Uses Anthropic Claude API to answer training questions
+// Uses Anthropic Claude API to answer training questions and generate plans
 //
 // SETUP: Add ANTHROPIC_API_KEY to Netlify environment variables
 
@@ -36,7 +36,16 @@ exports.handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing message' }) };
   }
 
-  const systemPrompt = `You are the VeloForge AI Coach — a friendly, knowledgeable sports science coach for a school Human Powered Vehicle (HPV) racing team in Victoria, Australia. HPV racing involves students pedalling recumbent vehicles in endurance and sprint events.
+  const isPlanMode = context && context.startsWith('PLAN_GENERATION_MODE:');
+
+  let systemPrompt;
+  let maxTokens;
+
+  if (isPlanMode) {
+    systemPrompt = context.replace('PLAN_GENERATION_MODE: ', '');
+    maxTokens = 2000;
+  } else {
+    systemPrompt = `You are the VeloForge AI Coach — a friendly, knowledgeable sports science coach for a school Human Powered Vehicle (HPV) racing team in Victoria, Australia. HPV racing involves students pedalling recumbent vehicles in endurance and sprint events.
 
 Your role:
 - Answer training questions in plain, encouraging language suitable for students aged 12-18
@@ -49,6 +58,8 @@ Your role:
 - Be motivating and positive, but honest about what it takes to improve
 
 ${context ? 'Student context: ' + context : ''}`;
+    maxTokens = 500;
+  }
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -60,7 +71,7 @@ ${context ? 'Student context: ' + context : ''}`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 500,
+        max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: message }]
       })
