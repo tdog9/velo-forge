@@ -939,3 +939,36 @@ select.input{appearance:none;cursor:pointer;
 .plan-rec-desc{font-size:12px;color:var(--muted-fg);margin-bottom:10px;line-height:1.5}
 .plan-rec-btn{padding:8px 16px;border:none;border-radius:8px;background:var(--primary);color:var(--primary-fg);font-weight:700;font-size:12px;cursor:pointer}
 .plan-rec-btn:active{opacity:.8}
+/* GPS Activity Tracker */
+.tracker-overlay{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column}
+.tracker-map{flex:1;position:relative;background:#1a1a2e}
+.tracker-map #tracker-map-el{width:100%;height:100%}
+.tracker-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border)}
+.tracker-stat{background:var(--bg);padding:12px 8px;text-align:center}
+.tracker-stat-val{font-size:28px;font-weight:800;color:var(--text);font-family:'Cabinet Grotesk',system-ui;line-height:1.1}
+.tracker-stat-lbl{font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.tracker-stat.big{grid-column:span 2}
+.tracker-stat.big .tracker-stat-val{font-size:48px;color:var(--primary)}
+.tracker-controls{display:flex;align-items:center;justify-content:center;gap:16px;padding:16px;padding-bottom:calc(16px + var(--safe-b));background:var(--bg)}
+.tracker-btn{width:64px;height:64px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.tracker-btn:active{transform:scale(.92)}
+.tracker-btn.start{background:#22c55e;width:72px;height:72px}
+.tracker-btn.pause{background:#f59e0b;width:72px;height:72px}
+.tracker-btn.resume{background:#22c55e;width:72px;height:72px}
+.tracker-btn.stop{background:#ef4444}
+.tracker-btn.discard{background:var(--surface-alt);border:1px solid var(--border)}
+.tracker-btn svg{width:28px;height:28px;color:#fff}
+.tracker-btn.discard svg{color:var(--muted-fg)}
+.tracker-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;padding-top:calc(8px + var(--safe-t));background:rgba(0,0,0,.5);position:absolute;top:0;left:0;right:0;z-index:2}
+.tracker-header-title{font-size:14px;font-weight:700;color:#fff}
+.tracker-close{background:none;border:none;color:#fff;font-size:24px;padding:4px 8px;cursor:pointer}
+.tracker-type-bar{display:flex;gap:6px;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border)}
+.tracker-type-btn{flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt);color:var(--muted-fg);font-size:12px;font-weight:600;text-align:center;cursor:pointer}
+.tracker-type-btn.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.tracker-save-overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);z-index:5;display:flex;align-items:center;justify-content:center;padding:20px}
+.tracker-save-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:340px}
+.tracker-save-card h3{font-size:18px;font-weight:700;color:var(--text);margin-bottom:16px}
+.tracker-save-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}
+.tracker-save-stat{text-align:center;padding:8px;background:var(--surface-alt);border-radius:8px}
+.tracker-save-stat .val{font-size:18px;font-weight:700;color:var(--primary)}
+.tracker-save-stat .lbl{font-size:10px;color:var(--muted-fg);text-transform:uppercase}
