@@ -37,6 +37,12 @@ exports.handler = async (event) => {
   }
 
   const isPlanMode = context && context.startsWith('PLAN_GENERATION_MODE:');
+  const isSpecialMode = context && (
+    context.startsWith('PLAN_EDIT_MODE') ||
+    context.startsWith('WEEKLY_REVIEW') ||
+    context.startsWith('RACE_PREP_MODE') ||
+    context.startsWith('INJURY_MODE')
+  );
 
   let systemPrompt;
   let maxTokens;
@@ -44,6 +50,19 @@ exports.handler = async (event) => {
   if (isPlanMode) {
     systemPrompt = context.replace('PLAN_GENERATION_MODE: ', '');
     maxTokens = 2000;
+  } else if (isSpecialMode) {
+    // Special AI modes get more tokens and a focused system prompt
+    systemPrompt = `You are the VeloForge AI Coach — a sports science expert for a school HPV (Human Powered Vehicle) racing team in Victoria, Australia. Students aged 12-18 pedal recumbent vehicles in endurance and sprint events.
+
+Rules:
+- Use Australian English
+- Be specific, practical, and encouraging
+- Never give medical advice — always tell students to see their coach or doctor for real pain
+- Keep responses well-structured with clear sections
+- For workout modifications, give specific exercises with sets, reps, and rest times
+
+${context}`;
+    maxTokens = 1000;
   } else {
     systemPrompt = `You are the VeloForge AI Coach — a friendly, knowledgeable sports science coach for a school Human Powered Vehicle (HPV) racing team in Victoria, Australia. HPV racing involves students pedalling recumbent vehicles in endurance and sprint events.
 
