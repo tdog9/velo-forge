@@ -350,7 +350,7 @@ export async function renderCoachDashboard() {
       if (updatedTeams[k]) updatedTeams[k].score = parseInt(inp.value) || 0;
     });
     try {
-      await A.setDoc(A.doc(A.db, 'config', 'A.activeChallenge'), { ...A.activeChallenge, teams: updatedTeams });
+      await A.setDoc(A.doc(A.db, 'config', 'activeChallenge'), { ...A.activeChallenge, teams: updatedTeams });
       A.activeChallenge.teams = updatedTeams;
       A.showToast('Challenge updated!', 'success');
     } catch(e) { A.showToast('Failed to save.', 'error'); }
@@ -365,7 +365,7 @@ export async function renderCoachDashboard() {
       reset[k] = { name: (v && v.name) || k, score: 0 };
     });
     try {
-      await A.setDoc(A.doc(A.db, 'config', 'A.activeChallenge'), { ...A.activeChallenge, teams: reset });
+      await A.setDoc(A.doc(A.db, 'config', 'activeChallenge'), { ...A.activeChallenge, teams: reset });
       A.activeChallenge.teams = reset;
       A.showToast('Scores reset!', 'success');
       renderCoachDashboard();
@@ -377,7 +377,7 @@ export async function renderCoachDashboard() {
     if (!A.activeChallenge || A.demoMode || !A.db) return;
     if (!confirm('End this challenge? It will be removed.')) return;
     try {
-      await A.deleteDoc(A.doc(A.db, 'config', 'A.activeChallenge'));
+      await A.deleteDoc(A.doc(A.db, 'config', 'activeChallenge'));
       A.activeChallenge = null;
       A.showToast('Challenge ended.', 'success');
       renderCoachDashboard();
@@ -415,7 +415,7 @@ export async function renderCoachDashboard() {
     }
     if (!A.db) return;
     try {
-      await A.setDoc(A.doc(A.db, 'config', 'A.activeChallenge'), challenge);
+      await A.setDoc(A.doc(A.db, 'config', 'activeChallenge'), challenge);
       A.activeChallenge = challenge;
       A.showToast('Challenge created!', 'success');
       renderCoachDashboard();
@@ -512,7 +512,7 @@ async function saveAnnouncements() {
 export async function loadRaceFootage() {
   if (!A.db) return;
   try {
-    const snap = await A.getDoc(A.doc(A.db, 'config', 'A.raceFootage'));
+    const snap = await A.getDoc(A.doc(A.db, 'config', 'raceFootage'));
     A.raceFootage = snap.exists() ? (snap.data().footage || {}) : {};
   } catch(e) {
     A.raceFootage = {};
@@ -522,7 +522,7 @@ export async function loadRaceFootage() {
 async function saveRaceFootage() {
   if (!A.db) return;
   try {
-    await A.setDoc(A.doc(A.db, 'config', 'A.raceFootage'), { footage: A.raceFootage });
+    await A.setDoc(A.doc(A.db, 'config', 'raceFootage'), { footage: A.raceFootage });
   } catch(e) {
     console.error('Save race footage error:', e);
     A.showToast('Failed to save footage links.', 'error');
@@ -532,7 +532,7 @@ async function saveRaceFootage() {
 export async function loadRaceLogVideos() {
   if (!A.db) return;
   try {
-    const snap = await A.getDoc(A.doc(A.db, 'config', 'A.raceLogVideos'));
+    const snap = await A.getDoc(A.doc(A.db, 'config', 'raceLogVideos'));
     A.raceLogVideos = snap.exists() ? (snap.data().videos || []) : [];
   } catch(e) {
     A.raceLogVideos = [];
@@ -542,7 +542,7 @@ export async function loadRaceLogVideos() {
 async function saveRaceLogVideos() {
   if (!A.db) return;
   try {
-    await A.setDoc(A.doc(A.db, 'config', 'A.raceLogVideos'), { videos: A.raceLogVideos });
+    await A.setDoc(A.doc(A.db, 'config', 'raceLogVideos'), { videos: A.raceLogVideos });
   } catch(e) {
     console.error('Save race log videos error:', e);
     A.showToast('Failed to save videos.', 'error');
@@ -1392,10 +1392,20 @@ function renderPlansVideos(el) {
   });
 }
 
+export async function loadHiddenPlans() {
+  if (!A.db) return;
+  try {
+    const hpSnap = await A.getDoc(A.doc(A.db, 'config', 'hiddenPlans'));
+    A.hiddenPlans = new Set(hpSnap.exists() ? (hpSnap.data().ids || []) : []);
+  } catch(e) {
+    A.hiddenPlans = new Set();
+  }
+}
+
 export async function saveHiddenPlans() {
   if (!A.db) return;
   try {
-    await A.setDoc(A.doc(A.db, 'config', 'A.hiddenPlans'), { ids: [...A.hiddenPlans] });
+    await A.setDoc(A.doc(A.db, 'config', 'hiddenPlans'), { ids: [...A.hiddenPlans] });
   } catch(e) {
     console.error('Save hidden plans error:', e);
     A.showToast('Failed to save.', 'error');
@@ -1411,7 +1421,7 @@ export async function saveHiddenPlans() {
 export async function loadAdminEmails() {
   if (!A.db) return;
   try {
-    const snap = await A.getDoc(A.doc(A.db, 'config', 'A.adminEmails'));
+    const snap = await A.getDoc(A.doc(A.db, 'config', 'adminEmails'));
     if (snap.exists()) {
       const data = snap.data();
       // Support both old format (emails: string[]) and new format (perms: [{email, perms}])
@@ -1430,7 +1440,7 @@ export async function loadAdminEmails() {
 export async function saveAdminEmails() {
   if (!A.db) return;
   try {
-    await A.setDoc(A.doc(A.db, 'config', 'A.adminEmails'), { emails: A.adminEmails, perms: A.adminPerms });
+    await A.setDoc(A.doc(A.db, 'config', 'adminEmails'), { emails: A.adminEmails, perms: A.adminPerms });
   } catch(e) {
     console.error('Save admin emails error:', e);
     A.showToast('Failed to save.', 'error');
@@ -1445,7 +1455,7 @@ export async function saveAdminEmails() {
 export async function loadExerciseOverrides() {
   if (!A.db) return;
   try {
-    const snap = await A.getDoc(A.doc(A.db, 'config', 'A.exerciseOverrides'));
+    const snap = await A.getDoc(A.doc(A.db, 'config', 'exerciseOverrides'));
     A.exerciseOverrides = snap.exists() ? (snap.data().overrides || {}) : {};
   } catch(e) {
     A.exerciseOverrides = {};
@@ -1455,7 +1465,7 @@ export async function loadExerciseOverrides() {
 export async function saveExerciseOverrides() {
   if (!A.db) return;
   try {
-    await A.setDoc(A.doc(A.db, 'config', 'A.exerciseOverrides'), { overrides: A.exerciseOverrides });
+    await A.setDoc(A.doc(A.db, 'config', 'exerciseOverrides'), { overrides: A.exerciseOverrides });
   } catch(e) {
     console.error('Save exercise overrides error:', e);
     A.showToast('Failed to save exercises.', 'error');
@@ -1465,7 +1475,7 @@ export async function saveExerciseOverrides() {
 export async function loadPlanOverrides() {
   if (!A.db) return;
   try {
-    const snap = await A.getDoc(A.doc(A.db, 'config', 'A.planOverrides'));
+    const snap = await A.getDoc(A.doc(A.db, 'config', 'planOverrides'));
     A.planOverrides = snap.exists() ? (snap.data().overrides || {}) : {};
   } catch(e) {
     A.planOverrides = {};
@@ -1475,7 +1485,7 @@ export async function loadPlanOverrides() {
 export async function savePlanOverrides() {
   if (!A.db) return;
   try {
-    await A.setDoc(A.doc(A.db, 'config', 'A.planOverrides'), { overrides: A.planOverrides });
+    await A.setDoc(A.doc(A.db, 'config', 'planOverrides'), { overrides: A.planOverrides });
   } catch(e) {
     console.error('Save plan overrides error:', e);
     A.showToast('Failed to save plan changes.', 'error');
@@ -1485,7 +1495,7 @@ export async function savePlanOverrides() {
 export async function loadExerciseDemoVideos() {
   if (!A.db) return;
   try {
-    const snap = await A.getDoc(A.doc(A.db, 'config', 'A.exerciseDemoVideos'));
+    const snap = await A.getDoc(A.doc(A.db, 'config', 'exerciseDemoVideos'));
     A.exerciseDemoVideos = snap.exists() ? (snap.data().videos || {}) : {};
   } catch(e) {
     A.exerciseDemoVideos = {};
@@ -1495,14 +1505,14 @@ export async function loadExerciseDemoVideos() {
 export async function saveExerciseDemoVideos() {
   if (!A.db) return;
   try {
-    await A.setDoc(A.doc(A.db, 'config', 'A.exerciseDemoVideos'), { videos: A.exerciseDemoVideos });
+    await A.setDoc(A.doc(A.db, 'config', 'exerciseDemoVideos'), { videos: A.exerciseDemoVideos });
   } catch(e) {
     console.error('Save exercise demo videos error:', e);
     A.showToast('Failed to save.', 'error');
   }
 }
 
-function getWorkoutData(planId, weekIdx, workout) {
+export function getWorkoutData(planId, weekIdx, workout) {
   const key = planId + '_' + weekIdx;
   const override = A.exerciseOverrides[key];
   if (override) {
@@ -1592,7 +1602,7 @@ function openExerciseEditSheet(key, originalWorkout, currentOverride) {
 export async function loadVideoOverrides() {
   if (!A.db) return;
   try {
-    const snap = await A.getDoc(A.doc(A.db, 'config', 'A.videoOverrides'));
+    const snap = await A.getDoc(A.doc(A.db, 'config', 'videoOverrides'));
     A.videoOverrides = snap.exists() ? (snap.data().overrides || {}) : {};
   } catch(e) {
     A.videoOverrides = {};
@@ -1602,14 +1612,14 @@ export async function loadVideoOverrides() {
 export async function saveVideoOverrides() {
   if (!A.db) return;
   try {
-    await A.setDoc(A.doc(A.db, 'config', 'A.videoOverrides'), { overrides: A.videoOverrides });
+    await A.setDoc(A.doc(A.db, 'config', 'videoOverrides'), { overrides: A.videoOverrides });
   } catch(e) {
     console.error('Save video overrides error:', e);
     A.showToast('Failed to save.', 'error');
   }
 }
 
-function getVideoUrl(planId, workoutIdx, defaultUrl) {
+export function getVideoUrl(planId, workoutIdx, defaultUrl) {
   if (A.videoOverrides[planId] && A.videoOverrides[planId][workoutIdx] !== undefined) {
     return A.videoOverrides[planId][workoutIdx] || defaultUrl;
   }
