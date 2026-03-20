@@ -131,8 +131,22 @@
     <div class="auth-form">
       <div id="signup-error" class="auth-error hidden"></div>
       <div class="form-group">
+        <label class="label">I am a...</label>
+        <div class="role-selector" id="role-selector">
+          <button class="role-btn active" data-role="student" type="button">🎓 Student</button>
+          <button class="role-btn" data-role="coach" type="button">🏫 Coach</button>
+          <button class="role-btn" data-role="parent" type="button">👪 Parent</button>
+        </div>
+        <input type="hidden" id="signup-role" value="student">
+      </div>
+      <div class="form-group">
         <label class="label" for="signup-name">Display Name</label>
         <input class="input" type="text" id="signup-name" placeholder="Your name" autocomplete="name">
+      </div>
+      <div class="form-group" id="signup-child-group" style="display:none">
+        <label class="label" for="signup-child-email">Your Child's Account Email</label>
+        <input class="input" type="email" id="signup-child-email" placeholder="child@email.com">
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">Enter the email your child used to sign up so you can view their progress.</div>
       </div>
       <div class="form-group">
         <label class="label" for="signup-email">Email</label>
@@ -142,31 +156,33 @@
         <label class="label" for="signup-password">Password</label>
         <input class="input" type="password" id="signup-password" placeholder="Min 6 characters" autocomplete="new-password">
       </div>
-      <div class="form-group">
-        <label class="label" for="signup-year">Year Level</label>
-        <select class="input" id="signup-year">
-          <option value="Y7">Year 7</option>
-          <option value="Y8">Year 8</option>
-          <option value="Y9">Year 9</option>
-          <option value="Y10">Year 10</option>
-          <option value="Y11">Year 11</option>
-          <option value="Y12">Year 12</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="label">Fitness Tier</label>
-        <div class="radio-group">
-          <div class="radio-option">
-            <input type="radio" name="signup-tier" id="tier-basic" value="basic" checked>
-            <label for="tier-basic">Basic</label>
-          </div>
-          <div class="radio-option">
-            <input type="radio" name="signup-tier" id="tier-average" value="average">
-            <label for="tier-average">Average</label>
-          </div>
-          <div class="radio-option">
-            <input type="radio" name="signup-tier" id="tier-intense" value="intense">
-            <label for="tier-intense">Intense</label>
+      <div id="signup-student-fields">
+        <div class="form-group">
+          <label class="label" for="signup-year">Year Level</label>
+          <select class="input" id="signup-year">
+            <option value="Y7">Year 7</option>
+            <option value="Y8">Year 8</option>
+            <option value="Y9">Year 9</option>
+            <option value="Y10">Year 10</option>
+            <option value="Y11">Year 11</option>
+            <option value="Y12">Year 12</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="label">Fitness Tier</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" name="signup-tier" id="tier-basic" value="basic" checked>
+              <label for="tier-basic">Basic</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="signup-tier" id="tier-average" value="average">
+              <label for="tier-average">Average</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="signup-tier" id="tier-intense" value="intense">
+              <label for="tier-intense">Intense</label>
+            </div>
           </div>
         </div>
       </div>
@@ -310,7 +326,11 @@
         <button class="ai-quick-btn" data-q="How should I warm up before a race?">Race warm-up</button>
         <button class="ai-quick-btn" data-q="My legs are really sore, should I train today?">Sore legs</button>
         <button class="ai-quick-btn" data-q="Show me how to use all the features in the app — recording, plans, Strava, goals, everything.">📱 App guide</button>
-        <button class="ai-quick-btn ai-gen-trigger" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.3);color:#a855f7">✨ Generate a Plan</button>
+        <button class="ai-quick-btn ai-gen-trigger" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.3);color:#a855f7">✨ Generate Plan</button>
+        <button class="ai-quick-btn ai-action-trigger" data-action="edit-plan" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.25);color:#3b82f6">✏️ Edit My Plan</button>
+        <button class="ai-quick-btn ai-action-trigger" data-action="weekly-review" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#22c55e">📊 Weekly Review</button>
+        <button class="ai-quick-btn ai-action-trigger" data-action="race-prep" style="background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#ef4444">🏁 Race Prep</button>
+        <button class="ai-quick-btn ai-action-trigger" data-action="injury-mod" style="background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.25);color:#f97316">🩹 Injury Mode</button>
       </div>
     </div>
     <div class="ai-input-bar">
