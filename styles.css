@@ -133,16 +133,6 @@ input,select,textarea{font:inherit;color:inherit;-webkit-tap-highlight-color:tra
 .btn svg{width:18px;height:18px}
 
 /* FAB */
-.fab{
-  position:fixed;right:16px;bottom:calc(var(--tab-h) + 16px);z-index:35;
-  width:56px;height:56px;border-radius:28px;
-  background:var(--primary);color:var(--primary-fg);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 20px rgba(191,255,0,0.3);
-  transition:transform .15s,box-shadow .15s;
-}
-.fab:active{transform:scale(0.92)}
-.fab svg{width:24px;height:24px}
 
 /* ===== Forms ===== */
 .input{
@@ -429,17 +419,12 @@ select.input{appearance:none;cursor:pointer;
 .kpi-icon-red{color:#DC2626}
 
 /* ===== Workouts ===== */
-.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
-.filter-bar svg{width:16px;height:16px;color:var(--muted-fg);flex-shrink:0}
-.filter-count{font-size:12px;color:var(--muted-fg);font-variant-numeric:tabular-nums;margin-left:auto}
 
 .wo-card .card-pad{padding:12px 14px}
 .wo-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .wo-left{flex:1;min-width:0}
 .wo-title-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:4px}
 .wo-name{font-weight:600;font-size:14px}
-.wo-stats{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--muted-fg)}
-.wo-stats .tabular-nums{font-variant-numeric:tabular-nums lining-nums}
 .wo-notes{font-size:12px;color:var(--muted-fg);margin-top:4px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -1000,8 +985,34 @@ select.input{appearance:none;cursor:pointer;
 .activity-type-icon.gym{background:rgba(168,85,247,.15);color:#a855f7}
 .wo-card-header{display:flex;align-items:flex-start;gap:10px}
 .wo-card-body{flex:1;min-width:0}
-.wo-stats-grid{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px}
-.wo-stats-grid span{font-size:12px;color:var(--muted-fg)}
-.wo-stats-grid strong{color:var(--text)}
 /* Strava activity badge */
 .activity-badge.strava{background:rgba(252,82,0,.12);color:#fc5200}
+/* Tutorial Overlay */
+.tutorial-overlay{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+.tutorial-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.75)}
+.tutorial-card{position:relative;z-index:1;background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px;padding-bottom:calc(24px + var(--safe-b));width:100%;max-width:420px;animation:tutSlideUp .3s ease}
+@keyframes tutSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.tutorial-icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:12px}
+.tutorial-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:6px}
+.tutorial-desc{font-size:14px;color:var(--muted-fg);line-height:1.6;margin-bottom:20px}
+.tutorial-dots{display:flex;gap:6px;justify-content:center;margin-bottom:16px}
+.tutorial-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);transition:all .2s}
+.tutorial-dot.active{background:var(--primary);width:20px;border-radius:4px}
+.tutorial-btns{display:flex;gap:10px}
+.tutorial-btn{flex:1;padding:14px;border-radius:12px;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.tutorial-btn:active{transform:scale(.97)}
+.tutorial-btn.primary{background:var(--primary);color:var(--primary-fg)}
+.tutorial-btn.secondary{background:var(--surface-alt);color:var(--muted-fg);border:1px solid var(--border)}
+.tutorial-highlight{position:absolute;border:2px solid var(--primary);border-radius:12px;box-shadow:0 0 0 4000px rgba(0,0,0,.7);z-index:59;pointer-events:none;transition:all .3s ease}
+/* Modal System */
+.modal-overlay{position:fixed;inset:0;z-index:55;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.6)}
+.modal-card{position:relative;z-index:1;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:360px;animation:tutSlideUp .25s ease}
+.modal-title{font-size:17px;font-weight:800;color:var(--text);margin-bottom:12px}
+.modal-body{margin-bottom:16px}
+.modal-btns{display:flex;gap:8px}
+.modal-btn{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:all .15s}
+.modal-btn:active{transform:scale(.97)}
+.modal-btn.primary{background:var(--primary);color:var(--primary-fg)}
+.modal-btn.secondary{background:var(--surface-alt);color:var(--muted-fg);border:1px solid var(--border)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
