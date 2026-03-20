@@ -36,7 +36,7 @@ export async function stravaHandleCallback() {
     };
     // Save to Firestore
     if (A.currentUser && A.db && !A.demoMode) {
-      await updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: A.stravaTokens });
+      await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: A.stravaTokens });
     }
     // Fetch activities
     await stravaFetchActivities();
@@ -61,7 +61,7 @@ export async function stravaRefreshToken() {
     A.stravaTokens.refresh_token = data.refresh_token;
     A.stravaTokens.expires_at = data.expires_at;
     if (A.currentUser && A.db && !A.demoMode) {
-      await updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: A.stravaTokens });
+      await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: A.stravaTokens });
     }
     return true;
   } catch(e) { return false; }
@@ -164,7 +164,7 @@ export async function stravaDisconnect() {
   A.stravaTokens = null;
   A.stravaActivities = [];
   if (A.currentUser && A.db && !A.demoMode) {
-    try { await updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: null }); } catch(e) {}
+    try { await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: null }); } catch(e) {}
   }
   A.renderProfile();
 }
