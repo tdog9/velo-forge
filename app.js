@@ -1,8 +1,36 @@
 // VeloForge HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
-import { initAdmin, renderAdmin, renderCoachDashboard, loadAdminEmails, loadExerciseOverrides, savePlanOverrides, loadPlanOverrides, loadExerciseDemoVideos, saveExerciseDemoVideos, loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides, loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } from './admin.js';
-import { initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities, renderStravaActivities, stravaDisconnect, loadStravaTokens, stravaUploadActivity, stravaAutoSync } from './strava.js';
+
+// Dynamic imports for extracted modules (won't crash login if files are missing/cached)
+let renderAdmin = () => {}, renderCoachDashboard = async () => {}, loadAdminEmails = async () => {},
+    loadExerciseOverrides = async () => {}, savePlanOverrides = async () => {},
+    loadPlanOverrides = async () => {}, loadExerciseDemoVideos = async () => {},
+    saveExerciseDemoVideos = async () => {}, loadRaceFootage = async () => {},
+    loadRaceLogVideos = async () => {}, loadVideoOverrides = async () => {},
+    saveVideoOverrides = async () => {}, loadHiddenPlans = async () => {},
+    saveHiddenPlans = async () => {}, getWorkoutData = () => null, getVideoUrl = (a,b,c) => c,
+    initAdmin = () => {};
+let stravaStartAuth = () => {}, stravaHandleCallback = async () => {},
+    stravaFetchActivities = async () => {}, renderStravaActivities = () => {},
+    stravaDisconnect = async () => {}, loadStravaTokens = () => {},
+    stravaUploadActivity = async () => false, stravaAutoSync = async () => {},
+    initStrava = () => {};
+
+try {
+  const adminMod = await import('./admin.js');
+  ({ initAdmin, renderAdmin, renderCoachDashboard, loadAdminEmails, loadExerciseOverrides,
+     savePlanOverrides, loadPlanOverrides, loadExerciseDemoVideos, saveExerciseDemoVideos,
+     loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides,
+     loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } = adminMod);
+} catch(e) { console.warn('admin.js load failed:', e); }
+
+try {
+  const stravaMod = await import('./strava.js');
+  ({ initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities,
+     renderStravaActivities, stravaDisconnect, loadStravaTokens,
+     stravaUploadActivity, stravaAutoSync } = stravaMod);
+} catch(e) { console.warn('strava.js load failed:', e); }
 
 // Load plans data (dynamic import with fallback)
 let ALL_PLANS = [];
@@ -4369,6 +4397,9 @@ function startApp() {
       try {
         await loadUserProfile(user.uid);
         setupListeners(user.uid);
+        // Initialize modules FIRST so their functions can access app context
+        initAdmin(buildModuleCtx());
+        initStrava(buildModuleCtx());
         // Load admin emails FIRST so checkAdmin has the full list
         await loadAdminEmails();
         await loadVideoOverrides();
@@ -4439,10 +4470,6 @@ function startApp() {
           if (currentPage === 'fitness') renderFitness();
         }
       });
-      // Initialize admin module
-      initAdmin(buildModuleCtx());
-      // Initialize strava module
-      initStrava(buildModuleCtx());
       showMainApp();
       // Show tutorial for new users
       if (shouldShowTutorial()) {
