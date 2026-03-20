@@ -277,7 +277,21 @@ export function openActivityDetail(workoutIdx) {
   if (w.duration) html += stat(w.duration,'Minutes');
   if (w.distance) html += stat(w.distance,'Kilometres');
   if (w.avgSpeed) html += stat(w.avgSpeed,'Avg km/h','var(--text)');
-  if (w.heartRate) html += stat(w.heartRate,'Avg BPM','#ef4444');
+  if (w.heartRate) {
+    // Show HR with zone indicator
+    const maxHr = 220 - (parseInt(ctx.getUserAge?.() || '15'));
+    const zones = [
+      { name: 'Z1 Recovery', min: Math.round(maxHr*0.5), max: Math.round(maxHr*0.6), color: '#94a3b8' },
+      { name: 'Z2 Endurance', min: Math.round(maxHr*0.6), max: Math.round(maxHr*0.7), color: '#3b82f6' },
+      { name: 'Z3 Tempo', min: Math.round(maxHr*0.7), max: Math.round(maxHr*0.8), color: '#22c55e' },
+      { name: 'Z4 Threshold', min: Math.round(maxHr*0.8), max: Math.round(maxHr*0.9), color: '#f59e0b' },
+      { name: 'Z5 VO2 Max', min: Math.round(maxHr*0.9), max: maxHr, color: '#ef4444' },
+    ];
+    let zone = zones[0];
+    for (let i = zones.length - 1; i >= 0; i--) { if (w.heartRate >= zones[i].min) { zone = zones[i]; break; } }
+    html += stat(w.heartRate, 'Avg BPM', zone.color);
+    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center"><div style="font-size:14px;font-weight:700;color:${zone.color}">${zone.name}</div><div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">HR Zone</div></div>`;
+  }
   if (w.rpe) html += stat(w.rpe+'/10','RPE','var(--text)');
   if (w.duration && w.distance && w.distance > 0) html += stat((w.duration/w.distance).toFixed(1),'Min/km','var(--text)');
   html += '</div>';
