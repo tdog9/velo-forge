@@ -16,6 +16,11 @@ let stravaStartAuth = () => {}, stravaHandleCallback = async () => {},
     stravaDisconnect = async () => {}, loadStravaTokens = () => {},
     stravaUploadActivity = async () => false, stravaAutoSync = async () => {},
     initStrava = () => {};
+let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
+    openRaceLogForm = () => {}, getFootageForRace = () => [],
+    getStreamForRace = () => null, renderFootageLinks = () => '',
+    getCompletedRacesNeedingLogs = () => [], initRaceLog = () => {};
+let openWorkoutTimer = () => {}, closeWorkoutTimer = () => {}, initTimer = () => {};
 
 try {
   const adminMod = await import('./admin.js');
@@ -31,6 +36,18 @@ try {
      renderStravaActivities, stravaDisconnect, loadStravaTokens,
      stravaUploadActivity, stravaAutoSync } = stravaMod);
 } catch(e) { console.warn('strava.js load failed:', e); }
+
+try {
+  const racelogMod = await import('./racelog.js');
+  ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
+     getFootageForRace, getStreamForRace, renderFootageLinks,
+     getCompletedRacesNeedingLogs } = racelogMod);
+} catch(e) { console.warn('racelog.js load failed:', e); }
+
+try {
+  const timerMod = await import('./timer.js');
+  ({ initTimer, openWorkoutTimer, closeWorkoutTimer } = timerMod);
+} catch(e) { console.warn('timer.js load failed:', e); }
 
 // Load plans data (dynamic import with fallback)
 let ALL_PLANS = [];
@@ -2583,219 +2600,6 @@ async function loadTeamChallenge() {
 // ============================================
 // WORKOUT TIMER
 // ============================================
-let timerInterval = null;
-let timerSeconds = 0;
-let timerTotal = 0;
-let timerRunning = false;
-let timerExercises = []; // for machine workouts
-let timerCurrentStep = -1;
-
-// Audio beep using Web Audio API
-function playBeep(freq, dur, count) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    let t = ctx.currentTime;
-    for (let i = 0; i < (count || 1); i++) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = freq || 880;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0.3, t);
-      gain.gain.exponentialRampToValueAtTime(0.01, t + (dur || 0.15));
-      osc.start(t);
-      osc.stop(t + (dur || 0.15));
-      t += (dur || 0.15) + 0.08;
-    }
-  } catch(e) {}
-}
-
-function updateTimerDisplay() {
-  const mins = Math.floor(timerSeconds / 60);
-  const secs = timerSeconds % 60;
-  $('timer-minutes').textContent = String(mins).padStart(2, '0');
-  $('timer-seconds').textContent = String(secs).padStart(2, '0');
-  // Progress bar
-  if (timerTotal > 0) {
-    const pct = Math.max(0, ((timerTotal - timerSeconds) / timerTotal) * 100);
-    $('timer-progress').style.width = pct + '%';
-  }
-  // Running state
-  const overlay = $('timer-overlay');
-  if (timerRunning) overlay.classList.add('timer-running');
-  else overlay.classList.remove('timer-running');
-}
-
-function timerTick() {
-  if (timerSeconds <= 0) {
-    stopTimer();
-    playBeep(880, 0.2, 3);
-    haptic('medium');
-    $('timer-label').textContent = 'Done!';
-    // Auto-advance to next step if in exercise mode
-    if (timerExercises.length > 0 && timerCurrentStep < timerExercises.length - 1) {
-      setTimeout(() => advanceTimerStep(), 1000);
-    }
-    return;
-  }
-  timerSeconds--;
-  updateTimerDisplay();
-  // Warning beep at 3, 2, 1
-  if (timerSeconds <= 3 && timerSeconds > 0) {
-    playBeep(660, 0.1, 1);
-  }
-}
-
-function startTimer() {
-  if (timerSeconds <= 0) return;
-  timerRunning = true;
-  $('timer-play-icon').style.display = 'none';
-  $('timer-pause-icon').style.display = '';
-  timerInterval = setInterval(timerTick, 1000);
-  updateTimerDisplay();
-}
-
-function pauseTimer() {
-  timerRunning = false;
-  clearInterval(timerInterval);
-  timerInterval = null;
-  $('timer-play-icon').style.display = '';
-  $('timer-pause-icon').style.display = 'none';
-  updateTimerDisplay();
-}
-
-function stopTimer() {
-  pauseTimer();
-  timerSeconds = 0;
-  updateTimerDisplay();
-}
-
-function resetTimer() {
-  pauseTimer();
-  timerSeconds = timerTotal;
-  $('timer-progress').style.width = '0%';
-  updateTimerDisplay();
-}
-
-function setTimerDuration(seconds, label) {
-  pauseTimer();
-  timerSeconds = seconds;
-  timerTotal = seconds;
-  $('timer-label').textContent = label || '';
-  $('timer-progress').style.width = '0%';
-  updateTimerDisplay();
-}
-
-function advanceTimerStep() {
-  timerCurrentStep++;
-  renderTimerSteps();
-  if (timerCurrentStep < timerExercises.length) {
-    const ex = timerExercises[timerCurrentStep];
-    const dur = parseExerciseDuration(ex);
-    setTimerDuration(dur, ex.name + (ex.sets ? ' · ' + ex.sets + ' sets' : ''));
-    startTimer();
-  }
-}
-
-function parseExerciseDuration(ex) {
-  // Try to extract seconds from duration string like "5 min", "30 sec", "2 min fast / 2 min easy"
-  if (ex.duration) {
-    const minMatch = ex.duration.match(/(\d+)\s*min/);
-    if (minMatch) return parseInt(minMatch[1]) * 60;
-    const secMatch = ex.duration.match(/(\d+)\s*sec/);
-    if (secMatch) return parseInt(secMatch[1]);
-  }
-  // Default: 60 seconds per exercise
-  return 60;
-}
-
-function renderTimerSteps() {
-  const stepsEl = $('timer-steps');
-  if (timerExercises.length === 0) { stepsEl.innerHTML = ''; return; }
-  let html = '';
-  timerExercises.forEach((ex, i) => {
-    const state = i < timerCurrentStep ? 'done' : i === timerCurrentStep ? 'active' : '';
-    const meta = [ex.duration, ex.sets ? ex.sets + ' sets' : '', ex.reps ? ex.reps + ' reps' : ''].filter(Boolean).join(' · ');
-    html += `<div class="timer-step ${state}">
-      <div class="timer-step-num">${i + 1}</div>
-      <div class="timer-step-info">
-        <div class="timer-step-name">${escHtml(ex.name)}</div>
-        ${meta ? '<div class="timer-step-meta">' + escHtml(meta) + '</div>' : ''}
-      </div>
-    </div>`;
-  });
-  stepsEl.innerHTML = html;
-}
-
-function openWorkoutTimer(workoutName, durationMin, exercises) {
-  const overlay = $('timer-overlay');
-  overlay.style.display = 'flex';
-  $('timer-workout-name').textContent = workoutName || 'Workout';
-
-  timerExercises = exercises || [];
-  timerCurrentStep = -1;
-
-  if (timerExercises.length > 0) {
-    // Machine workout with exercise steps — start first exercise
-    $('timer-rest-presets').style.display = '';
-    advanceTimerStep();
-  } else {
-    // Simple timer for the whole workout
-    const totalSec = (durationMin || 30) * 60;
-    setTimerDuration(totalSec, (durationMin || 30) + ' minute workout');
-    $('timer-rest-presets').style.display = '';
-    renderTimerSteps();
-  }
-
-  // Keep screen awake
-  if (navigator.wakeLock) {
-    navigator.wakeLock.request('screen').catch(() => {});
-  }
-}
-
-function closeWorkoutTimer() {
-  pauseTimer();
-  $('timer-overlay').style.display = 'none';
-  timerExercises = [];
-  timerCurrentStep = -1;
-}
-
-// Bind timer controls
-$('timer-close').addEventListener('click', closeWorkoutTimer);
-$('timer-play').addEventListener('click', () => {
-  haptic('light');
-  if (timerRunning) pauseTimer();
-  else startTimer();
-});
-$('timer-reset').addEventListener('click', () => {
-  haptic('light');
-  resetTimer();
-});
-$('timer-skip').addEventListener('click', () => {
-  haptic('light');
-  if (timerExercises.length > 0 && timerCurrentStep < timerExercises.length - 1) {
-    advanceTimerStep();
-  } else {
-    stopTimer();
-    $('timer-label').textContent = 'Complete!';
-    playBeep(880, 0.2, 2);
-  }
-});
-
-// Rest timer presets
-document.querySelectorAll('.timer-rest-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    haptic('light');
-    const sec = parseInt(btn.dataset.rest);
-    setTimerDuration(sec, 'Rest');
-    startTimer();
-  });
-});
-
-// ============================================
-// WORKOUTS PAGE
-// ============================================
 function renderWorkouts() {
   const c = $('workouts-content');
   let html = '<div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Log Manually</button></div>';
@@ -4400,6 +4204,8 @@ function startApp() {
         // Initialize modules FIRST so their functions can access app context
         initAdmin(buildModuleCtx());
         initStrava(buildModuleCtx());
+        initRaceLog(buildModuleCtx());
+        initTimer(buildModuleCtx());
         // Load admin emails FIRST so checkAdmin has the full list
         await loadAdminEmails();
         await loadVideoOverrides();
@@ -4791,353 +4597,6 @@ let usersSubTab = 'all'; // all | permissions
 // RACE LOG (all users)
 // ============================================
 
-async function loadUserRaceLogs() {
-  if (!currentUser || !db) { userRaceLogs = []; return; }
-  try {
-    const snap = await getDocs(collection(db, 'users', currentUser.uid, 'raceLogs'));
-    userRaceLogs = [];
-    snap.forEach(d => {
-      userRaceLogs.push({ _id: d.id, ...d.data() });
-    });
-    userRaceLogs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  } catch(e) {
-    console.error('Load race logs error:', e);
-    userRaceLogs = [];
-  }
-}
-
-function getFootageForRace(raceId) {
-  // Check admin-managed footage, then default race data
-  if (raceFootage[raceId] && raceFootage[raceId].length) return raceFootage[raceId];
-  const race = getActiveRaces().find(r => r.id === raceId);
-  if (race && race.footageUrls && race.footageUrls.length) return race.footageUrls;
-  return [];
-}
-
-function getStreamForRace(raceId) {
-  const race = getActiveRaces().find(r => r.id === raceId);
-  return (race && race.streamUrl) || '';
-}
-
-function renderFootageLinks(raceId) {
-  const footage = getFootageForRace(raceId);
-  const stream = getStreamForRace(raceId);
-  if (!footage.length && !stream) return '';
-  let h = '<div class="race-footage-section">';
-  if (stream && !footage.some(f => f.url === stream)) {
-    h += `<a href="${stream}" target="_blank" rel="noopener" class="race-footage-link">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
-      <div class="race-footage-label">Race Livestream<small>Watch the full race</small></div>
-    </a>`;
-  }
-  footage.forEach(f => {
-    const icon = f.type === 'results'
-      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>'
-      : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>';
-    h += `<a href="${f.url}" target="_blank" rel="noopener" class="race-footage-link">
-      ${icon}
-      <div class="race-footage-label">${escHtml(f.label)}<small>${f.type === 'results' ? 'View results' : 'Watch footage'}</small></div>
-    </a>`;
-  });
-  h += '</div>';
-  return h;
-}
-
-function getCompletedRacesNeedingLogs() {
-  const races = getActiveRaces();
-  const today = new Date().toISOString().split('T')[0];
-  const loggedTracks = new Set(userRaceLogs.map(l => (l.trackName || '').toLowerCase()));
-  return races.filter(r => {
-    if (!r.date || r.date > today) return false;
-    // Check if user already logged this specific race
-    const trackLower = (r.location || r.name || '').toLowerCase();
-    const nameLower = (r.name || '').toLowerCase();
-    return !userRaceLogs.some(l => {
-      const lt = (l.trackName || '').toLowerCase();
-      return (lt === trackLower || lt.includes(trackLower.split(',')[0].toLowerCase()) || nameLower.includes(lt)) && l.date === r.date;
-    });
-  });
-}
-
-function renderRaceLog() {
-  const c = $('racelog-content');
-  let html = '<div class="page-title" style="margin-top:8px">Race Log</div>';
-
-  // Add entry button
-  html += `
-    <button class="btn btn-primary" style="width:100%;margin-bottom:16px" id="racelog-add-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Log New Race
-    </button>
-  `;
-
-  // --- Completed races needing logs ---
-  const needsLog = getCompletedRacesNeedingLogs();
-  if (needsLog.length > 0) {
-    html += '<div style="font-size:13px;font-weight:700;color:#BFFF00;margin-bottom:8px">Races to Log</div>';
-    needsLog.forEach(race => {
-      const footage = getFootageForRace(race.id);
-      const stream = getStreamForRace(race.id);
-      html += `
-        <div class="race-prompt-card">
-          <div class="race-prompt-header">
-            <div class="race-prompt-track">${escHtml(race.name)}</div>
-            <span class="race-prompt-badge">Completed</span>
-          </div>
-          <div class="race-prompt-date">${race.date} · ${escHtml(race.location || '')}</div>
-          <div class="race-prompt-desc">${escHtml(race.notes || '')}</div>
-          ${renderFootageLinks(race.id)}
-          <button class="btn btn-primary" style="width:100%;margin-top:10px" data-log-race="${race.id}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            Log Your Results
-          </button>
-        </div>
-      `;
-    });
-  }
-
-  // --- Existing logs ---
-  if (userRaceLogs.length === 0 && needsLog.length === 0) {
-    html += `<div class="empty-state" style="padding:32px 16px">
-      <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>
-      <div class="empty-state-title">No Race Data Yet</div>
-      <div class="empty-state-desc">Log your race results to track your progress across different tracks — average lap times, fastest laps, and more.</div>
-    </div>`;
-  }
-
-  if (userRaceLogs.length > 0) {
-    if (needsLog.length > 0) html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin:16px 0 8px">Your Race History</div>';
-    html += '<div class="space-y">';
-    userRaceLogs.forEach((entry, i) => {
-      // Find matching race for footage
-      const matchingRace = getActiveRaces().find(r => {
-        const lt = (entry.trackName || '').toLowerCase();
-        const rl = (r.location || '').toLowerCase();
-        const rn = (r.name || '').toLowerCase();
-        return (lt === rl || rl.includes(lt.split(',')[0]) || rn.includes(lt) || lt.includes(rl.split(',')[0])) && entry.date === r.date;
-      });
-      const raceId = matchingRace ? matchingRace.id : null;
-
-      html += `
-        <div class="race-log-card">
-          <div class="race-log-header">
-            <div class="race-log-track">${escHtml(entry.trackName || 'Unknown Track')}</div>
-            <div class="race-log-date">${entry.date || ''}</div>
-          </div>
-          <div class="race-log-grid">
-            <div class="race-log-stat">Avg Lap<br><strong>${entry.avgLapTime || '—'}</strong></div>
-            <div class="race-log-stat">Fastest Lap<br><strong>${entry.fastestLap || '—'}</strong></div>
-            <div class="race-log-stat">Total Laps<br><strong>${entry.totalLaps || '—'}</strong></div>
-            <div class="race-log-stat">Total Time<br><strong>${entry.totalTime || '—'}</strong></div>
-            <div class="race-log-stat">Avg HR<br><strong>${entry.avgHR || '—'}</strong></div>
-            <div class="race-log-stat">Max HR<br><strong>${entry.maxHR || '—'}</strong></div>
-          </div>
-          ${entry.notes ? '<div class="race-log-notes">"' + escHtml(entry.notes) + '"</div>' : ''}
-          ${raceId ? renderFootageLinks(raceId) : ''}
-          <div class="race-log-actions">
-            <button class="admin-edit-btn" data-racelog-edit="${i}">Edit</button>
-            <button class="admin-del-btn" data-racelog-del="${i}">Delete</button>
-          </div>
-        </div>
-      `;
-    });
-    html += '</div>';
-  }
-
-  // --- Admin-curated Race Videos ---
-  if (raceLogVideos.length > 0) {
-    html += '<div class="race-video-section">';
-    html += '<div class="race-video-heading"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg> Race Videos</div>';
-    raceLogVideos.forEach(v => {
-      const matchedRace = v.raceId ? getActiveRaces().find(r => r.id === v.raceId) : null;
-      const meta = matchedRace ? escHtml(matchedRace.name) : 'General';
-      html += `
-        <a href="${v.url}" target="_blank" rel="noopener" class="race-video-card">
-          <div class="race-video-thumb">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
-          </div>
-          <div class="race-video-info">
-            <div class="race-video-title">${escHtml(v.title)}</div>
-            <div class="race-video-meta">${meta}</div>
-          </div>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--text-muted);flex-shrink:0"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      `;
-    });
-    html += '</div>';
-  }
-
-  
-  c.innerHTML = html;
-
-  // Bind add
-  $('racelog-add-btn').addEventListener('click', () => openRaceLogForm());
-
-  // Bind "Log Your Results" for completed race prompts
-  c.querySelectorAll('[data-log-race]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const raceId = btn.dataset.logRace;
-      const race = getActiveRaces().find(r => r.id === raceId);
-      if (race) {
-        openRaceLogForm({ trackName: race.location || race.name, date: race.date });
-      }
-    });
-  });
-
-  // Bind edits
-  c.querySelectorAll('[data-racelog-edit]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.racelogEdit);
-      openRaceLogForm(userRaceLogs[idx], idx);
-    });
-  });
-
-  // Bind deletes
-  c.querySelectorAll('[data-racelog-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Delete this race log entry?')) return;
-      const idx = parseInt(btn.dataset.racelogDel);
-      const entry = userRaceLogs[idx];
-      if (entry._id && db && currentUser) {
-        try {
-          await deleteDoc(doc(db, 'users', currentUser.uid, 'raceLogs', entry._id));
-        } catch(e) { console.error('Delete race log error:', e); }
-      }
-      userRaceLogs.splice(idx, 1);
-      renderRaceLog();
-    });
-  });
-}
-
-function openRaceLogForm(existing, editIdx) {
-  const c = $('racelog-content');
-  const isEdit = existing !== undefined;
-  const e = existing || {};
-
-  // Build track options from RACES
-  const races = getActiveRaces();
-  let trackOptions = '<option value="">Select a track...</option>';
-  const trackNames = [...new Set(races.map(r => r.location || r.name))];
-  trackNames.forEach(t => {
-    trackOptions += `<option value="${escHtml(t)}"${e.trackName === t ? ' selected' : ''}>${escHtml(t)}</option>`;
-  });
-  trackOptions += '<option value="__custom">Other (type below)</option>';
-
-  let html = '<div class="page-title">' + (isEdit ? 'Edit Race Log' : 'Log New Race') + '</div>';
-  html += `
-    <div class="card">
-      <div class="admin-form">
-        <div class="label">Track / Location</div>
-        <select class="input" id="rl-track-select">${trackOptions}</select>
-        <input class="input" type="text" id="rl-track-custom" placeholder="Custom track name" value="${escHtml(e.trackName || '')}" style="${trackNames.includes(e.trackName) ? 'display:none' : ''}">
-
-        <div class="label">Date</div>
-        <input class="input" type="date" id="rl-date" value="${e.date || new Date().toISOString().split('T')[0]}">
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <div class="label">Avg Lap Time</div>
-            <input class="input" type="text" id="rl-avg-lap" placeholder="e.g. 2:34" value="${escHtml(e.avgLapTime || '')}">
-          </div>
-          <div>
-            <div class="label">Fastest Lap</div>
-            <input class="input" type="text" id="rl-fastest" placeholder="e.g. 2:18" value="${escHtml(e.fastestLap || '')}">
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <div class="label">Total Laps</div>
-            <input class="input" type="number" id="rl-laps" placeholder="e.g. 42" value="${e.totalLaps || ''}">
-          </div>
-          <div>
-            <div class="label">Total Time</div>
-            <input class="input" type="text" id="rl-totaltime" placeholder="e.g. 3h 24m" value="${escHtml(e.totalTime || '')}">
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <div class="label">Avg Heart Rate</div>
-            <input class="input" type="number" id="rl-avghr" placeholder="e.g. 155" value="${e.avgHR || ''}">
-          </div>
-          <div>
-            <div class="label">Max Heart Rate</div>
-            <input class="input" type="number" id="rl-maxhr" placeholder="e.g. 182" value="${e.maxHR || ''}">
-          </div>
-        </div>
-
-        <div class="label">Notes</div>
-        <textarea class="input" id="rl-notes" placeholder="How did it feel? Weather, strategy, etc.">${escHtml(e.notes || '')}</textarea>
-
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" id="rl-save-btn" style="flex:1">${isEdit ? 'Update' : 'Save Entry'}</button>
-          <button class="btn btn-secondary" id="rl-cancel-btn" style="flex:1">Cancel</button>
-        </div>
-      </div>
-    </div>
-  `;
-  c.innerHTML = html;
-
-  // Track select logic
-  const trackSel = $('rl-track-select');
-  const trackCustom = $('rl-track-custom');
-  if (e.trackName && !trackNames.includes(e.trackName)) {
-    trackSel.value = '__custom';
-    trackCustom.style.display = '';
-  }
-  trackSel.addEventListener('change', () => {
-    if (trackSel.value === '__custom') {
-      trackCustom.style.display = '';
-      trackCustom.value = '';
-      trackCustom.focus();
-    } else {
-      trackCustom.style.display = 'none';
-      trackCustom.value = trackSel.value;
-    }
-  });
-
-  // Cancel
-  $('rl-cancel-btn').addEventListener('click', () => renderRaceLog());
-
-  // Save
-  $('rl-save-btn').addEventListener('click', async () => {
-    let trackName = trackSel.value === '__custom' ? trackCustom.value.trim() : (trackSel.value || trackCustom.value.trim());
-    if (!trackName) { showToast('Please select a track name.', 'warn'); return; }
-
-    const entry = {
-      trackName,
-      date: $('rl-date').value,
-      avgLapTime: $('rl-avg-lap').value.trim(),
-      fastestLap: $('rl-fastest').value.trim(),
-      totalLaps: $('rl-laps').value ? parseInt($('rl-laps').value) : null,
-      totalTime: $('rl-totaltime').value.trim(),
-      avgHR: $('rl-avghr').value ? parseInt($('rl-avghr').value) : null,
-      maxHR: $('rl-maxhr').value ? parseInt($('rl-maxhr').value) : null,
-      notes: $('rl-notes').value.trim(),
-      updatedAt: new Date().toISOString()
-    };
-
-    if (db && currentUser) {
-      try {
-        if (isEdit && existing._id) {
-          await updateDoc(doc(db, 'users', currentUser.uid, 'raceLogs', existing._id), entry);
-          userRaceLogs[editIdx] = { _id: existing._id, ...entry };
-        } else {
-          entry.createdAt = new Date().toISOString();
-          const ref = await addDoc(collection(db, 'users', currentUser.uid, 'raceLogs'), entry);
-          userRaceLogs.unshift({ _id: ref.id, ...entry });
-        }
-      } catch(e) {
-        console.error('Save race log error:', e);
-        showToast('Failed to save.', 'error');
-        return;
-      }
-    }
-    renderRaceLog();
-  });
-}
-
 // GPS Tracker — imported from tracker.js (see import at top of file)
 
 // ============================================
@@ -5219,55 +4678,127 @@ const TUTORIAL_STEPS = [
   {
     icon: '👋', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
     title: 'Welcome to VeloForge!',
-    desc: 'This quick tour shows you how to get the most out of your HPV training app. You can skip this anytime or redo it later from your profile.',
+    desc: 'Hey! Welcome to your HPV training app. This tour takes about 2 minutes and shows you everything you need to start training like a champion. You can skip anytime or redo it later from your Profile.',
     highlight: null
   },
   {
     icon: '📊', bg: 'linear-gradient(135deg,#3b82f6,#60a5fa)',
-    title: 'Today — Your Home Base',
-    desc: 'The Today page shows your streak, XP level, goals, team challenge scores, and today\'s scheduled training. Everything you need at a glance.',
+    title: 'Today — Your Dashboard',
+    desc: 'This is your home base. At the top you\'ll see your XP level and streak count — these track how consistent you are. Below that is today\'s scheduled workout from your active training plan, plus your personal goals and team challenge scores.',
     highlight: '[data-page="today"]'
   },
   {
+    icon: '⭐', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+    title: 'XP & Levelling Up',
+    desc: 'Every workout you log earns 10 XP. Rating your effort (RPE) earns 5 XP. Streaks earn bonus XP at 7, 14, and 30 days. Completing a full training plan gives 75 XP. Level up from Rookie → Racer → Athlete → Champion → Legend → Elite!',
+    highlight: null
+  },
+  {
+    icon: '🏅', bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
+    title: 'Achievement Badges',
+    desc: 'There are 14 badges to earn — from your first workout to covering 50km total distance. Badges appear on your Today page. Some are easy (log 1 workout), some take real dedication (30-day streak). How many can you collect?',
+    highlight: null
+  },
+  {
+    icon: '🎯', bg: 'linear-gradient(135deg,#22c55e,#4ade80)',
+    title: 'Personal Goals',
+    desc: 'Scroll down on Today to find "My Goals". Tap "+ Add a Goal" to set targets like "Complete 20 workouts" or "Build a 7-day streak". Each goal shows a progress ring so you can see exactly how close you are.',
+    highlight: null
+  },
+  {
     icon: '🏋️', bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
-    title: 'Fitness — Your Activities & Plans',
-    desc: 'View all your recorded activities with route maps, browse 54 training plans for every year level, watch exercise demos, and manage AI-generated plans.',
+    title: 'Fitness — Activities',
+    desc: 'The Fitness tab has 4 sub-tabs. "Activities" shows every workout you\'ve done — GPS-tracked rides with route maps, Strava imports, and manual logs. Tap any activity card to see the full detail view with your route, stats, pace, and heart rate zone.',
     highlight: '[data-page="fitness"]'
   },
   {
+    icon: '📋', bg: 'linear-gradient(135deg,#3b82f6,#60a5fa)',
+    title: 'Fitness — Training Plans',
+    desc: 'The "Plans" sub-tab has 54 training plans across 3 categories: In Vehicle (HPV riding), Floor (bodyweight), and Machine (gym). Each plan is tailored to your year level (Y7-Y12) and fitness tier (basic, average, intense). Tap any plan to preview it, then hit "Start This Plan" to activate it.',
+    highlight: null
+  },
+  {
+    icon: '🎬', bg: 'linear-gradient(135deg,#8b5cf6,#a78bfa)',
+    title: 'Fitness — Exercise Demos',
+    desc: 'The "Demos" sub-tab has video demonstrations for exercises in your plans. Search for any exercise by name to see how to perform it correctly. Good technique means better results and fewer injuries.',
+    highlight: null
+  },
+  {
     icon: '🟢', bg: 'linear-gradient(135deg,#22c55e,#16a34a)',
-    title: 'Record — Track with GPS',
-    desc: 'Tap the green Record button to start tracking your rides, runs, or walks with live GPS mapping. Choose your activity type, hit start, and your route is drawn in real-time.',
+    title: 'Record — GPS Tracker',
+    desc: 'The green Record button in the centre of the nav bar opens a full-screen GPS tracker. Pick your activity type (Ride, Run, Walk, or Gym), tap the play button, and it tracks your route on a live map with distance, speed, pace, and elevation — all in real time.',
     highlight: '#record-tab-btn'
   },
   {
+    icon: '⏸️', bg: 'linear-gradient(135deg,#16a34a,#22c55e)',
+    title: 'Recording Controls',
+    desc: 'While recording: the pause button freezes tracking (great for rest stops), resume continues, and stop opens the save screen. You can rate your effort 1-10, give it a name, then save. Your route map appears in Activities with a green start dot and red finish dot.',
+    highlight: null
+  },
+  {
+    icon: '✏️', bg: 'linear-gradient(135deg,#64748b,#94a3b8)',
+    title: 'Manual Logging',
+    desc: 'Don\'t want GPS? No worries. Go to Fitness → Activities and tap "Log Manually" in the top right. Enter the workout name, type, duration, distance, heart rate, and effort rating. It counts for XP, streaks, and team challenges just the same.',
+    highlight: null
+  },
+  {
     icon: '🏁', bg: 'linear-gradient(135deg,#ef4444,#f87171)',
-    title: 'Races — Events & Race Log',
-    desc: 'See upcoming race events with countdown timers. After races, log your lap times, positions, and race reflections to track your progress across the season.',
+    title: 'Races — Calendar',
+    desc: 'The Races tab shows all upcoming HPV race events with countdown timers. Tap the footage links when they\'re available to watch race replays. Your coach adds new events throughout the season.',
     highlight: '[data-page="races"]'
+  },
+  {
+    icon: '📝', bg: 'linear-gradient(135deg,#ef4444,#f87171)',
+    title: 'Race Results',
+    desc: 'After a race, the app prompts you to log your result. Enter your finishing position, total time, fastest lap, number of laps, and a reflection on what went well. This builds your race history across the season so you can see your improvement.',
+    highlight: null
   },
   {
     icon: '🏆', bg: 'linear-gradient(135deg,#f97316,#fb923c)',
     title: 'Leaderboard — XP Rankings',
-    desc: 'Compete with teammates on the XP leaderboard. Earn XP by logging workouts, maintaining streaks, rating effort, and completing training plans.',
+    desc: 'The Leaderboard tab ranks everyone by XP. The top 3 get a podium with their level badges. Below that is the full table showing everyone\'s XP, level, and streak. This is where friendly competition drives everyone to train harder.',
     highlight: '[data-page="team"]'
   },
   {
-    icon: '🤖', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
-    title: 'AI Coach — Your Training Assistant',
-    desc: 'Tap the purple button in the bottom-left corner anytime to chat with your AI coach. Ask about training, get plan recommendations, or generate a custom workout plan.',
-    highlight: '#ai-fab'
-  },
-  {
-    icon: '⬡', bg: 'linear-gradient(135deg,#fc5200,#ff7043)',
-    title: 'Strava Sync — Two-Way',
-    desc: 'Connect Strava in your Profile to auto-import Apple Watch workouts with route maps and heart rate. Activities you record in VeloForge also sync back to Strava.',
+    icon: '👥', bg: 'linear-gradient(135deg,#f97316,#fb923c)',
+    title: 'Teams & Challenges',
+    desc: 'Join or create a team in the Leaderboard tab. Teams compete in monthly challenges (like "Total Training Minutes") set by your coach. The scoreboard shows live rankings with medals for the top 3 teams. Your workout minutes auto-count toward your team\'s score.',
     highlight: null
   },
   {
+    icon: '🤖', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+    title: 'AI Coach',
+    desc: 'The purple button in the bottom-left corner is your AI training assistant. Ask it anything — "What plan should I pick?", "How do I warm up for a race?", "My legs are sore, should I train?" It knows your year level, fitness tier, and current plan.',
+    highlight: '#ai-fab'
+  },
+  {
+    icon: '✨', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+    title: 'AI Plan Generator',
+    desc: 'Inside the AI Coach, tap "✨ Generate a Plan" to create a custom training plan. Choose In Vehicle, Floor, Machine, Off-Season, Holiday, or describe your own goal. The AI builds a complete multi-week plan tailored to your level. Find your generated plans in Fitness → My Plans.',
+    highlight: null
+  },
+  {
+    icon: '⬡', bg: 'linear-gradient(135deg,#fc5200,#ff7043)',
+    title: 'Strava — Two-Way Sync',
+    desc: 'Connect Strava in your Profile to automatically import your Apple Watch or Garmin workouts — including route maps, heart rate, and distance. Activities you record in VeloForge also appear on your Strava profile. It\'s fully two-way.',
+    highlight: null
+  },
+  {
+    icon: '❤️', bg: 'linear-gradient(135deg,#ef4444,#f87171)',
+    title: 'Heart Rate Zones',
+    desc: 'If your workouts have heart rate data (from Strava or a watch), the app shows which HR zone you trained in — from Zone 1 (easy recovery) to Zone 5 (max effort). Most HPV training should be in Zones 2-3, with race efforts in Zones 4-5.',
+    highlight: null
+  },
+  {
+    icon: '👤', bg: 'linear-gradient(135deg,#64748b,#94a3b8)',
+    title: 'Your Profile',
+    desc: 'Tap your avatar in the top-right corner to open your Profile. Here you can change your display name, year level, fitness tier, toggle dark/light mode, connect Strava, export a training report, and redo this tutorial anytime.',
+    highlight: '#user-avatar-btn'
+  },
+  {
     icon: '🚀', bg: 'linear-gradient(135deg,var(--primary),#a3e635)',
-    title: 'You\'re All Set!',
-    desc: 'Start by picking a training plan in Fitness → Plans, or hit Record to track your first activity. You can redo this tour anytime from your Profile. Let\'s get training!',
+    title: 'You\'re Ready!',
+    desc: 'Here\'s what to do first:\n\n1. Go to Fitness → Plans and start a training plan\n2. Hit Record to track your first ride or run\n3. Check back on the Today page to see your streak grow\n\nYou can redo this tour anytime from Profile → Help. Now let\'s get training!',
     highlight: null
   }
 ];
@@ -5304,14 +4835,16 @@ function renderTutorialStep() {
   const isFirst = tutorialStep === 0;
   const isLast = tutorialStep === TUTORIAL_STEPS.length - 1;
   const dots = TUTORIAL_STEPS.map((_, i) => `<div class="tutorial-dot${i === tutorialStep ? ' active' : ''}"></div>`).join('');
+  const stepCount = `<div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-bottom:8px">${tutorialStep + 1} of ${TUTORIAL_STEPS.length}</div>`;
 
   tutorialOverlay.innerHTML = `
     <div class="tutorial-backdrop" id="tut-backdrop"></div>
     ${highlightHtml}
     <div class="tutorial-card">
+      ${stepCount}
       <div class="tutorial-icon" style="background:${step.bg}">${step.icon}</div>
       <div class="tutorial-title">${step.title}</div>
-      <div class="tutorial-desc">${step.desc}</div>
+      <div class="tutorial-desc" style="max-height:180px;overflow-y:auto">${step.desc.replace(/\n/g, '<br>')}</div>
       <div class="tutorial-dots">${dots}</div>
       <div class="tutorial-btns">
         ${isFirst
@@ -5324,12 +4857,14 @@ function renderTutorialStep() {
                <button class="tutorial-btn primary" id="tut-next">Next →</button>`
         }
       </div>
+      ${!isFirst && !isLast ? '<div style="text-align:center;margin-top:8px"><button id="tut-skip-mid" style="background:none;border:none;color:var(--muted-fg);font-size:12px;cursor:pointer;padding:4px">Skip tour</button></div>' : ''}
     </div>`;
 
   document.body.appendChild(tutorialOverlay);
 
   // Bindings
   $('tut-skip')?.addEventListener('click', () => closeTutorial());
+  $('tut-skip-mid')?.addEventListener('click', () => closeTutorial());
   $('tut-next')?.addEventListener('click', () => { tutorialStep++; renderTutorialStep(); });
   $('tut-back')?.addEventListener('click', () => { tutorialStep--; renderTutorialStep(); });
   $('tut-finish')?.addEventListener('click', () => closeTutorial());
