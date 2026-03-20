@@ -1,5 +1,8 @@
 // VeloForge HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
+import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
+import { initAdmin, renderAdmin, renderCoachDashboard, loadAdminEmails, loadExerciseOverrides, savePlanOverrides, loadPlanOverrides, loadExerciseDemoVideos, saveExerciseDemoVideos, loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides, loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } from './admin.js';
+import { initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities, renderStravaActivities, stravaDisconnect, loadStravaTokens, stravaUploadActivity, stravaAutoSync } from './strava.js';
 
 // Load plans data (dynamic import with fallback)
 let ALL_PLANS = [];
@@ -106,23 +109,7 @@ let userChecklist = {};
 let workoutsUnsubscribe = null;
 let checklistUnsubscribe = null;
 
-// XP & Levelling
-const XP_LEVELS = [
-  { name: 'Rookie', min: 0, icon: '🟢' },
-  { name: 'Racer', min: 100, icon: '🔵' },
-  { name: 'Athlete', min: 300, icon: '🟣' },
-  { name: 'Champion', min: 600, icon: '🟠' },
-  { name: 'Legend', min: 1000, icon: '🔴' },
-  { name: 'Elite', min: 1500, icon: '👑' }
-];
-function getXpLevel(xp) {
-  let lvl = XP_LEVELS[0];
-  for (const l of XP_LEVELS) { if (xp >= l.min) lvl = l; }
-  const idx = XP_LEVELS.indexOf(lvl);
-  const next = XP_LEVELS[idx + 1] || null;
-  const pct = next ? Math.min(100, ((xp - lvl.min) / (next.min - lvl.min)) * 100) : 100;
-  return { ...lvl, xp, next, pct, idx };
-}
+// XP & Levelling (imported from state.js)
 function calcXp() {
   let xp = 0;
   xp += userWorkouts.length * 10; // 10 XP per workout
@@ -167,6 +154,270 @@ function loadGoals() {
 }
 function saveGoals() {
   try { localStorage.setItem('vf_goals', JSON.stringify(userGoals)); } catch(e) {}
+}
+
+// ============================================
+// ACHIEVEMENT BADGES
+// ============================================
+const BADGES = [
+  { id: 'first_workout', icon: '🎯', name: 'First Step', desc: 'Log your first workout' },
+  { id: 'ten_workouts', icon: '💪', name: 'Getting Serious', desc: 'Complete 10 workouts' },
+  { id: 'fifty_workouts', icon: '⭐', name: 'Dedicated Athlete', desc: '50 workouts logged' },
+  { id: 'streak_7', icon: '🔥', name: '7-Day Streak', desc: 'Train 7 days in a row' },
+  { id: 'streak_14', icon: '⚡', name: 'Fortnight Fighter', desc: '14-day streak' },
+  { id: 'streak_30', icon: '🏆', name: 'Monthly Monster', desc: '30-day streak' },
+  { id: 'plan_complete', icon: '📋', name: 'Plan Crusher', desc: 'Complete a training plan' },
+  { id: 'first_gps', icon: '📍', name: 'Explorer', desc: 'Record a GPS activity' },
+  { id: 'strava_sync', icon: '⬡', name: 'Connected', desc: 'Sync from Strava' },
+  { id: 'rpe_10', icon: '📊', name: 'Data Driven', desc: 'Log RPE on 10 workouts' },
+  { id: 'century_mins', icon: '⏱️', name: 'Century Club', desc: '100 training minutes' },
+  { id: 'distance_50k', icon: '🗺️', name: 'Half Century', desc: '50km total distance' },
+  { id: 'xp_racer', icon: '🔵', name: 'Racer Level', desc: 'Reach 100 XP' },
+  { id: 'xp_champion', icon: '🟠', name: 'Champion Level', desc: 'Reach 600 XP' },
+];
+
+function getEarnedBadges() {
+  const earned = [];
+  const xp = calcXp();
+  const totalMins = userWorkouts.reduce((s, w) => s + (w.duration || 0), 0);
+  const totalDist = userWorkouts.reduce((s, w) => s + (w.distance || 0), 0);
+  const streak = calcStreak();
+  const rpeCount = userWorkouts.filter(w => w.rpe).length;
+  const planDone = userProfile?.activePlanId && calcPlanPct() >= 100;
+
+  if (userWorkouts.length >= 1) earned.push('first_workout');
+  if (userWorkouts.length >= 10) earned.push('ten_workouts');
+  if (userWorkouts.length >= 50) earned.push('fifty_workouts');
+  if (streak >= 7) earned.push('streak_7');
+  if (streak >= 14) earned.push('streak_14');
+  if (streak >= 30) earned.push('streak_30');
+  if (planDone) earned.push('plan_complete');
+  if (userWorkouts.some(w => w.source === 'tracker')) earned.push('first_gps');
+  if (userWorkouts.some(w => w.source === 'strava')) earned.push('strava_sync');
+  if (rpeCount >= 10) earned.push('rpe_10');
+  if (totalMins >= 100) earned.push('century_mins');
+  if (totalDist >= 50) earned.push('distance_50k');
+  if (xp >= 100) earned.push('xp_racer');
+  if (xp >= 600) earned.push('xp_champion');
+  return earned;
+}
+
+function calcStreak() {
+  const dates = [...new Set(userWorkouts.map(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    return d ? d.toISOString().split('T')[0] : null;
+  }).filter(Boolean))].sort();
+  let cur = 0, best = 0;
+  dates.forEach((d, i) => {
+    if (i === 0) cur = 1;
+    else cur = (new Date(d) - new Date(dates[i-1])) / 86400000 === 1 ? cur + 1 : 1;
+    if (cur > best) best = cur;
+  });
+  return best;
+}
+
+function calcPlanPct() {
+  if (!userProfile?.activePlanId) return 0;
+  const plan = findPlan(userProfile.activePlanId);
+  if (!plan?.workouts?.length) return 0;
+  let done = 0;
+  plan.workouts.forEach((w, i) => {
+    const k = userProfile.activePlanId + '-' + w.week + '-' + w.day + '-' + (plan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
+    if (userChecklist[k]) done++;
+  });
+  return Math.round((done / plan.workouts.length) * 100);
+}
+
+function renderBadges() {
+  const earned = getEarnedBadges();
+  let html = '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+  BADGES.forEach(b => {
+    const has = earned.includes(b.id);
+    html += `<div style="display:flex;flex-direction:column;align-items:center;width:60px;opacity:${has ? 1 : 0.25}" title="${b.desc}">
+      <span style="font-size:24px">${b.icon}</span>
+      <span style="font-size:9px;color:${has ? 'var(--text)' : 'var(--muted-fg)'};text-align:center;margin-top:2px;line-height:1.1">${b.name}</span>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+// ============================================
+// HR ZONES (from Strava data)
+// ============================================
+function calcHrZones(maxHr) {
+  if (!maxHr) maxHr = 195; // default for teens
+  return [
+    { name: 'Zone 1 · Recovery', min: Math.round(maxHr * 0.5), max: Math.round(maxHr * 0.6), color: '#94a3b8' },
+    { name: 'Zone 2 · Endurance', min: Math.round(maxHr * 0.6), max: Math.round(maxHr * 0.7), color: '#3b82f6' },
+    { name: 'Zone 3 · Tempo', min: Math.round(maxHr * 0.7), max: Math.round(maxHr * 0.8), color: '#22c55e' },
+    { name: 'Zone 4 · Threshold', min: Math.round(maxHr * 0.8), max: Math.round(maxHr * 0.9), color: '#f59e0b' },
+    { name: 'Zone 5 · VO2 Max', min: Math.round(maxHr * 0.9), max: maxHr, color: '#ef4444' },
+  ];
+}
+
+function getHrZone(hr, maxHr) {
+  const zones = calcHrZones(maxHr);
+  for (let i = zones.length - 1; i >= 0; i--) {
+    if (hr >= zones[i].min) return zones[i];
+  }
+  return zones[0];
+}
+
+// ============================================
+// MODAL SYSTEM (replaces prompt() calls)
+// ============================================
+function showModal(title, content, onConfirm) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'vf-modal';
+  overlay.innerHTML = `<div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-title">${title}</div>
+      <div class="modal-body">${content}</div>
+      <div class="modal-btns">
+        <button class="modal-btn secondary" id="modal-cancel">Cancel</button>
+        <button class="modal-btn primary" id="modal-confirm">Confirm</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  $('modal-cancel').addEventListener('click', () => overlay.remove());
+  $('modal-backdrop')?.addEventListener('click', () => overlay.remove());
+  $('modal-confirm').addEventListener('click', () => {
+    if (onConfirm) onConfirm(overlay);
+    overlay.remove();
+  });
+  // Focus first input if present
+  setTimeout(() => {
+    const inp = overlay.querySelector('input, select');
+    if (inp) inp.focus();
+  }, 100);
+  return overlay;
+}
+
+function showEditModal(title, inputId, currentValue, onSave) {
+  showModal(title, `<input class="input" id="${inputId}" type="text" value="${escHtml(currentValue)}" style="width:100%">`, (ov) => {
+    const val = ov.querySelector('#' + inputId)?.value?.trim();
+    if (val) onSave(val);
+  });
+}
+
+function showSelectModal(title, options, currentValue, onSave) {
+  const optHtml = options.map(o => `<option value="${o.value}"${o.value === currentValue ? ' selected' : ''}>${o.label}</option>`).join('');
+  showModal(title, `<select class="input" id="modal-select" style="width:100%">${optHtml}</select>`, (ov) => {
+    const val = ov.querySelector('#modal-select')?.value;
+    if (val) onSave(val);
+  });
+}
+
+// ============================================
+// WHAT'S NEW CHANGELOG
+// ============================================
+const APP_VERSION = '2.4.0';
+const CHANGELOG = [
+  { version: '2.4.0', date: 'Mar 2026', items: [
+    '🎓 App tour for new users',
+    '🏅 14 achievement badges to earn',
+    '❤️ Heart rate zones from Strava',
+    '🏁 Race result logging with form',
+    '📱 AI Coach now gives app navigation help',
+    '⬡ Two-way Strava sync',
+    '🗂️ App split into modules for performance',
+    '☀️ Off-season & holiday plan generation'
+  ]},
+  { version: '2.3.0', date: 'Mar 2026', items: [
+    '📍 GPS activity tracker',
+    '🗺️ Dark/light map tiles',
+    '🏆 XP leaderboard',
+    '⚡ Auto team challenge scoring',
+    '📊 Activity detail view with route maps'
+  ]}
+];
+
+function checkWhatsNew() {
+  try {
+    const seen = localStorage.getItem('vf_changelog_seen');
+    if (seen === APP_VERSION) return;
+  } catch(e) {}
+  setTimeout(() => showWhatsNew(), 1500);
+}
+
+function showWhatsNew() {
+  const latest = CHANGELOG[0];
+  if (!latest) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'whatsnew-overlay';
+  let items = latest.items.map(i => `<div style="padding:6px 0;font-size:13px;color:var(--text)">${i}</div>`).join('');
+  overlay.innerHTML = `<div class="modal-backdrop"></div>
+    <div class="modal-card" style="max-width:340px">
+      <div style="text-align:center;font-size:32px;margin-bottom:8px">🎉</div>
+      <div class="modal-title" style="text-align:center">What's New in v${latest.version}</div>
+      <div style="margin:12px 0;max-height:250px;overflow-y:auto">${items}</div>
+      <button class="modal-btn primary" id="whatsnew-close" style="width:100%">Got it!</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  $('whatsnew-close').addEventListener('click', () => {
+    overlay.remove();
+    try { localStorage.setItem('vf_changelog_seen', APP_VERSION); } catch(e) {}
+  });
+  overlay.querySelector('.modal-backdrop').addEventListener('click', () => {
+    overlay.remove();
+    try { localStorage.setItem('vf_changelog_seen', APP_VERSION); } catch(e) {}
+  });
+}
+
+// ============================================
+// RACE RESULT FORM
+// ============================================
+function openRaceResultForm(raceName, raceDate) {
+  const content = `
+    <div class="form-group" style="margin-bottom:10px">
+      <label class="label">Race</label>
+      <div style="font-weight:700;color:var(--text)">${escHtml(raceName)}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div class="form-group"><label class="label">Position</label><input class="input" id="rr-position" type="number" min="1" placeholder="#"></div>
+      <div class="form-group"><label class="label">Total Time</label><input class="input" id="rr-time" type="text" placeholder="e.g. 45:30"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div class="form-group"><label class="label">Fastest Lap</label><input class="input" id="rr-fastlap" type="text" placeholder="e.g. 2:15"></div>
+      <div class="form-group"><label class="label">Total Laps</label><input class="input" id="rr-laps" type="number" min="0" placeholder="#"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:10px"><label class="label">How did it go?</label><textarea class="input" id="rr-reflection" rows="3" placeholder="What went well? What would you change?"></textarea></div>
+    <div class="form-group"><label class="label">Rate your effort (RPE)</label>
+      <div style="display:flex;gap:4px;margin-top:4px" id="rr-rpe-row">${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="rr-rpe-btn" data-rpe="${n}" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);font-size:11px;cursor:pointer">${n}</button>`).join('')}</div>
+    </div>`;
+
+  const ov = showModal('Log Race Result', content, async (overlay) => {
+    const result = {
+      raceName, raceDate,
+      position: parseInt($('rr-position')?.value) || null,
+      totalTime: $('rr-time')?.value?.trim() || null,
+      fastestLap: $('rr-fastlap')?.value?.trim() || null,
+      totalLaps: parseInt($('rr-laps')?.value) || null,
+      reflection: $('rr-reflection')?.value?.trim() || null,
+      rpe: parseInt(overlay.querySelector('.rr-rpe-btn[style*="primary"]')?.dataset?.rpe) || null,
+      loggedAt: new Date().toISOString()
+    };
+    if (!demoMode && db && currentUser) {
+      try {
+        await addDoc(collection(db, 'users', currentUser.uid, 'raceResults'), { ...result, createdAt: serverTimestamp() });
+        showToast('Race result saved!', 'success');
+      } catch(e) { showToast('Failed to save.', 'error'); }
+    } else {
+      showToast('Race result saved (demo).', 'success');
+    }
+  });
+
+  // RPE button bindings
+  let selectedRpe = null;
+  ov.querySelectorAll('.rr-rpe-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      ov.querySelectorAll('.rr-rpe-btn').forEach(b => { b.style.background = 'var(--surface-alt)'; b.style.color = 'var(--muted-fg)'; });
+      btn.style.background = 'var(--primary)'; btn.style.color = 'var(--primary-fg)';
+    });
+  });
 }
 
 // Team Challenges
@@ -1488,6 +1739,14 @@ function renderToday() {
   // Personal Goals (compact)
   html += renderGoals();
 
+  // Achievement Badges
+  const earned = getEarnedBadges();
+  if (earned.length > 0 || userWorkouts.length > 0) {
+    html += `<div class="section-card" style="margin-top:12px"><div class="section-title">Badges · ${earned.length}/${BADGES.length}</div>`;
+    html += renderBadges();
+    html += '</div>';
+  }
+
   // Collapsible "More Stats" section
   const moreOpen = localStorage.getItem('vf_more_open') === 'true';
   html += `<div class="section-card" style="margin-top:12px"><div class="section-title" id="more-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">More Stats <span style="font-size:16px;transition:transform .2s;transform:rotate(${moreOpen ? '0' : '-90'}deg)">▾</span></div>`;
@@ -1992,6 +2251,8 @@ function startPlanGeneration() {
       <button class="ai-quick-btn ai-plan-type" data-ptype="invehicle">🚴 In Vehicle</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="floor">🏠 Floor & Home</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="machine">🏋️ Machine</button>
+      <button class="ai-quick-btn ai-plan-type" data-ptype="offseason">☀️ Off-Season</button>
+      <button class="ai-quick-btn ai-plan-type" data-ptype="holiday">🏖️ Holiday</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="custom">🎯 Custom goal</button>
     </div>`;
   messagesEl.appendChild(aiMsg);
@@ -2032,7 +2293,7 @@ async function generateAiPlan(category, yearLevel, tier, customGoal) {
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
-  const catNames = { invehicle: 'In Vehicle (HPV riding)', floor: 'Floor & Home (bodyweight)', machine: 'Fitness Machine (gym)' };
+  const catNames = { invehicle: 'In Vehicle (HPV riding)', floor: 'Floor & Home (bodyweight)', machine: 'Fitness Machine (gym)', offseason: 'Off-Season (fun cross-training to maintain fitness)', holiday: 'Holiday (short 15-20 min sessions doable anywhere)' };
   const prompt = customGoal
     ? 'Create a training plan: "' + customGoal + '". Student is ' + yearLevel + ', ' + tier + ' tier.'
     : 'Create a ' + (catNames[category] || category) + ' training plan for ' + yearLevel + ' at ' + tier + ' tier.';
@@ -2195,15 +2456,6 @@ async function loadCustomPlans() {
 }
 
 // --- Team Activity Feed loader ---
-function timeAgo(date) {
-  const s = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return Math.floor(s / 60) + 'm ago';
-  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
-  if (s < 604800) return Math.floor(s / 86400) + 'd ago';
-  return date.toLocaleDateString();
-}
-
 async function loadTeamFeed() {
   teamFeedCache = [];
   if (demoMode || !db || !currentUser || !userProfile?.teamId) return;
@@ -3630,29 +3882,39 @@ function renderProfile() {
     </button>
   </div>`;
 
+  // Help & Tutorial
+  html += '<div class="profile-section"><div class="profile-section-title">Help</div>';
+  html += `<div class="profile-row" id="profile-redo-tutorial" style="cursor:pointer">
+    <span class="profile-row-label">🎓 App Tour</span>
+    <span class="profile-row-action">Redo Tutorial</span>
+  </div>`;
+  html += `<div class="profile-row" id="profile-open-coach" style="cursor:pointer">
+    <span class="profile-row-label">🤖 AI Coach</span>
+    <span class="profile-row-action">Ask a Question</span>
+  </div>`;
+  html += '</div>';
+
   el.innerHTML = html;
 
   // Bindings
   $('theme-toggle-btn')?.addEventListener('click', toggleTheme);
 
   $('profile-edit-name')?.addEventListener('click', () => {
-    const newName = prompt('Enter your display name:', name);
-    if (newName && newName.trim()) {
-      updateProfileField('displayName', newName.trim());
-    }
+    showEditModal('Edit Display Name', 'modal-name', name, (val) => {
+      updateProfileField('displayName', val);
+    });
   });
   $('profile-edit-year')?.addEventListener('click', () => {
-    const years = ['Y7','Y8','Y9','Y10','Y11','Y12'];
-    const choice = prompt('Enter year level (Y7-Y12):', year);
-    if (choice && years.includes(choice.toUpperCase())) {
-      updateProfileField('yearLevel', choice.toUpperCase());
-    }
+    showSelectModal('Change Year Level', [
+      {value:'Y7',label:'Year 7'},{value:'Y8',label:'Year 8'},{value:'Y9',label:'Year 9'},
+      {value:'Y10',label:'Year 10'},{value:'Y11',label:'Year 11'},{value:'Y12',label:'Year 12'}
+    ], year, (val) => updateProfileField('yearLevel', val));
   });
   $('profile-edit-tier')?.addEventListener('click', () => {
-    const choice = prompt('Enter fitness tier (basic, average, intense):', userProfile?.fitnessLevel || 'basic');
-    if (choice && ['basic','average','intense'].includes(choice.toLowerCase())) {
-      updateProfileField('fitnessLevel', choice.toLowerCase());
-    }
+    showSelectModal('Change Fitness Tier', [
+      {value:'basic',label:'Basic — Starting out'},{value:'average',label:'Average — Solid base'},
+      {value:'intense',label:'Intense — Competitive'}
+    ], userProfile?.fitnessLevel || 'basic', (val) => updateProfileField('fitnessLevel', val));
   });
 
   $('strava-connect-btn')?.addEventListener('click', stravaStartAuth);
@@ -3661,6 +3923,17 @@ function renderProfile() {
     stravaFetchActivities().then(() => renderStravaActivities());
   });
   $('profile-export-btn')?.addEventListener('click', exportTrainingReport);
+
+  // Tutorial & Help bindings
+  $('profile-redo-tutorial')?.addEventListener('click', () => {
+    closeProfile();
+    try { localStorage.removeItem('vf_tutorial_seen'); } catch(e) {}
+    setTimeout(() => showTutorial(), 300);
+  });
+  $('profile-open-coach')?.addEventListener('click', () => {
+    closeProfile();
+    setTimeout(() => openAiCoach(), 300);
+  });
 
   if (isStravaConnected) renderStravaActivities();
 }
@@ -3685,300 +3958,6 @@ async function updateProfileField(field, value) {
 // ============================================
 // STRAVA INTEGRATION
 // ============================================
-function stravaStartAuth() {
-  if (!STRAVA_CLIENT_ID) { showToast('Strava Client ID not configured.', 'error'); return; }
-  const scope = 'activity:read_all,activity:write';
-  const url = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent(STRAVA_REDIRECT_URI)}&response_type=code&scope=${scope}&approval_prompt=auto`;
-  window.location.href = url;
-}
-
-async function stravaHandleCallback() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
-  if (!code) return;
-
-  // Clean URL
-  window.history.replaceState({}, '', window.location.pathname);
-
-  try {
-    // Exchange code for tokens via Netlify Function
-    const resp = await fetch('/.netlify/functions/strava-auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
-    });
-    if (!resp.ok) throw new Error('Token exchange failed');
-    const data = await resp.json();
-    stravaTokens = {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: data.expires_at,
-      athlete: data.athlete || {}
-    };
-    // Save to Firestore
-    if (currentUser && db && !demoMode) {
-      await updateDoc(doc(db, 'users', currentUser.uid), { stravaTokens });
-    }
-    // Fetch activities
-    await stravaFetchActivities();
-    renderProfile();
-  } catch(e) {
-    console.error('Strava auth error:', e);
-    showToast('Failed to connect Strava.', 'error');
-  }
-}
-
-async function stravaRefreshToken() {
-  if (!stravaTokens?.refresh_token) return false;
-  try {
-    const resp = await fetch('/.netlify/functions/strava-auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: stravaTokens.refresh_token, grant_type: 'refresh_token' })
-    });
-    if (!resp.ok) return false;
-    const data = await resp.json();
-    stravaTokens.access_token = data.access_token;
-    stravaTokens.refresh_token = data.refresh_token;
-    stravaTokens.expires_at = data.expires_at;
-    if (currentUser && db && !demoMode) {
-      await updateDoc(doc(db, 'users', currentUser.uid), { stravaTokens });
-    }
-    return true;
-  } catch(e) { return false; }
-}
-
-async function stravaFetchActivities() {
-  if (!stravaTokens?.access_token) return;
-
-  // Check if token expired
-  if (stravaTokens.expires_at && Date.now() / 1000 > stravaTokens.expires_at) {
-    const refreshed = await stravaRefreshToken();
-    if (!refreshed) { stravaDisconnect(); return; }
-  }
-
-  try {
-    const resp = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=20', {
-      headers: { 'Authorization': 'Bearer ' + stravaTokens.access_token }
-    });
-    if (resp.status === 401) {
-      const refreshed = await stravaRefreshToken();
-      if (refreshed) return stravaFetchActivities();
-      stravaDisconnect(); return;
-    }
-    if (!resp.ok) throw new Error('Fetch failed');
-    stravaActivities = await resp.json();
-  } catch(e) {
-    console.error('Strava fetch error:', e);
-  }
-}
-
-function renderStravaActivities() {
-  const list = $('strava-activities-list');
-  if (!list) return;
-  if (stravaActivities.length === 0) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--muted-fg);padding:8px 0">No recent activities found.</div>';
-    return;
-  }
-
-  // Check which activities are already imported
-  const importedIds = new Set();
-  userWorkouts.forEach(w => { if (w.stravaId) importedIds.add(w.stravaId); });
-
-  let html = '';
-  stravaActivities.slice(0, 10).forEach(a => {
-    const date = new Date(a.start_date_local || a.start_date);
-    const dateStr = date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
-    const dist = a.distance ? (a.distance / 1000).toFixed(1) + ' km' : '';
-    const dur = a.moving_time ? Math.round(a.moving_time / 60) + ' min' : '';
-    const isImported = importedIds.has(String(a.id));
-
-    html += `<div class="strava-activity">
-      <div class="strava-activity-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg></div>
-      <div class="strava-activity-info">
-        <div class="strava-activity-name">${escHtml(a.name || 'Activity')}</div>
-        <div class="strava-activity-meta">${dateStr}${dist ? ' · ' + dist : ''}${dur ? ' · ' + dur : ''}</div>
-      </div>
-      ${isImported
-        ? '<span class="strava-import-btn imported">Imported</span>'
-        : `<button class="strava-import-btn" data-strava-id="${a.id}" data-strava-name="${escHtml(a.name || 'Strava Activity')}" data-strava-dur="${Math.round((a.moving_time || 0) / 60)}" data-strava-dist="${a.distance ? (a.distance / 1000).toFixed(1) : ''}" data-strava-date="${a.start_date_local || a.start_date}" data-strava-type="${a.type || 'Ride'}">Import</button>`
-      }
-    </div>`;
-  });
-  list.innerHTML = html;
-
-  // Bind import buttons
-  list.querySelectorAll('.strava-import-btn:not(.imported)').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const stravaId = btn.dataset.stravaId;
-      const name = btn.dataset.stravaName;
-      const duration = parseInt(btn.dataset.stravaDur) || 0;
-      const distance = parseFloat(btn.dataset.stravaDist) || null;
-      const dateStr = btn.dataset.stravaDate;
-      const type = btn.dataset.stravaType === 'Ride' ? 'Ride' : btn.dataset.stravaType === 'Run' ? 'Cardio' : 'Ride';
-      const dateObj = dateStr ? new Date(dateStr) : new Date();
-
-      btn.textContent = 'Importing...';
-      btn.disabled = true;
-
-      if (demoMode) {
-        userWorkouts.unshift({ _id: 'd' + Date.now(), name, type, duration, distance, heartRate: null, notes: 'Imported from Strava', rpe: null, stravaId: String(stravaId), date: dateObj, createdAt: new Date() });
-      } else if (db && currentUser) {
-        try {
-          await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
-            name, type, duration, distance, heartRate: null, notes: 'Imported from Strava', rpe: null,
-            stravaId: String(stravaId),
-            date: Timestamp.fromDate(dateObj),
-            createdAt: serverTimestamp()
-          });
-        } catch(e) { console.error('Strava import error:', e); }
-      }
-
-      btn.textContent = 'Imported';
-      btn.classList.add('imported');
-      btn.disabled = true;
-    });
-  });
-}
-
-async function stravaDisconnect() {
-  stravaTokens = null;
-  stravaActivities = [];
-  if (currentUser && db && !demoMode) {
-    try { await updateDoc(doc(db, 'users', currentUser.uid), { stravaTokens: null }); } catch(e) {}
-  }
-  renderProfile();
-}
-
-// Load Strava tokens from user profile on login
-function loadStravaTokens() {
-  if (userProfile?.stravaTokens) {
-    stravaTokens = userProfile.stravaTokens;
-  }
-}
-
-// Upload a VeloForge activity to Strava
-async function stravaUploadActivity(workout) {
-  if (!stravaTokens?.access_token) return false;
-  // Refresh token if needed
-  if (stravaTokens.expires_at && Date.now() / 1000 > stravaTokens.expires_at) {
-    const refreshed = await stravaRefreshToken();
-    if (!refreshed) return false;
-  }
-  try {
-    const typeMap = { ride: 'Ride', run: 'Run', walk: 'Walk', gym: 'Workout' };
-    const stravaType = typeMap[workout.type] || 'Workout';
-    const startDate = workout.date ? (workout.date.toDate ? workout.date.toDate() : new Date(workout.date)) : new Date();
-    const body = {
-      name: workout.name || 'VeloForge Activity',
-      type: stravaType,
-      sport_type: stravaType,
-      start_date_local: startDate.toISOString(),
-      elapsed_time: (workout.duration || 0) * 60,
-      description: 'Recorded with VeloForge HPV Training',
-      distance: workout.distance ? workout.distance * 1000 : undefined,
-      trainer: workout.type === 'gym' ? 1 : 0
-    };
-    // Remove undefined fields
-    Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
-    const resp = await fetch('https://www.strava.com/api/v3/activities', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + stravaTokens.access_token,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      return data.id; // Return Strava activity ID
-    }
-    console.error('Strava upload failed:', resp.status);
-    return false;
-  } catch(e) {
-    console.error('Strava upload error:', e);
-    return false;
-  }
-}
-
-// Auto-sync Strava activities on login
-async function stravaAutoSync() {
-  if (!stravaTokens?.access_token) return;
-  try {
-    await stravaFetchActivities();
-    if (stravaActivities.length === 0) return;
-    // Auto-import any new activities not already in workouts
-    const importedIds = new Set();
-    userWorkouts.forEach(w => { if (w.stravaId) importedIds.add(String(w.stravaId)); });
-    let imported = 0;
-    for (const a of stravaActivities) {
-      if (importedIds.has(String(a.id))) continue;
-      const name = a.name || 'Strava Activity';
-      const duration = a.moving_time ? Math.round(a.moving_time / 60) : 0;
-      const distance = a.distance ? parseFloat((a.distance / 1000).toFixed(2)) : null;
-      const avgSpeed = a.average_speed ? parseFloat((a.average_speed * 3.6).toFixed(1)) : null;
-      const dateObj = a.start_date_local ? new Date(a.start_date_local) : new Date();
-      const typeMap = { Ride: 'ride', Run: 'run', Walk: 'walk', Hike: 'walk', WeightTraining: 'gym', Workout: 'gym' };
-      const type = typeMap[a.type] || 'ride';
-      const routeId = 'strava-' + a.id;
-      // Decode and store polyline route
-      if (a.map && a.map.summary_polyline) {
-        try {
-          const path = decodePolyline(a.map.summary_polyline);
-          if (path.length > 1) {
-            const routes = JSON.parse(localStorage.getItem('vf_routes') || '{}');
-            routes[routeId] = path.map(p => [parseFloat(p[0].toFixed(5)), parseFloat(p[1].toFixed(5))]);
-            const keys = Object.keys(routes);
-            if (keys.length > 80) delete routes[keys[0]];
-            localStorage.setItem('vf_routes', JSON.stringify(routes));
-          }
-        } catch(e) {}
-      }
-      const workout = {
-        name, type, duration, distance, avgSpeed,
-        notes: 'Synced from Strava',
-        stravaId: String(a.id),
-        routeId: routeId,
-        source: 'strava',
-        heartRate: a.average_heartrate ? Math.round(a.average_heartrate) : null,
-        rpe: null
-      };
-      if (!demoMode && db && currentUser) {
-        try {
-          await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
-            ...workout,
-            date: Timestamp.fromDate(dateObj),
-            createdAt: serverTimestamp()
-          });
-          imported++;
-        } catch(e) { console.error('Strava auto-import error:', e); }
-      } else if (demoMode) {
-        userWorkouts.unshift({ ...workout, _id: 'd' + Date.now() + imported, date: dateObj });
-        imported++;
-      }
-    }
-    if (imported > 0) {
-      showToast(imported + ' activit' + (imported > 1 ? 'ies' : 'y') + ' synced from Strava!', 'success');
-    }
-  } catch(e) { console.error('Strava auto-sync error:', e); }
-}
-
-// Decode Google encoded polyline → [[lat, lng], ...]
-function decodePolyline(encoded) {
-  const points = [];
-  let index = 0, lat = 0, lng = 0;
-  while (index < encoded.length) {
-    let b, shift = 0, result = 0;
-    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
-    shift = 0; result = 0;
-    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
-    points.push([lat / 1e5, lng / 1e5]);
-  }
-  return points;
-}
-
 function openCreateTeamSheet() {
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Create Team</div>
@@ -4224,11 +4203,8 @@ async function loadTeamData() {
 }
 
 // ============================================
-// Utilities
+// Utilities (escHtml, capitalize imported from state.js)
 // ============================================
-function capitalize(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
-}
 
 // Find a plan by ID from built-in + custom plans
 function findPlan(id) {
@@ -4250,13 +4226,6 @@ function getTimeAgo(dateStr) {
     if (days < 7) return days + 'd ago';
     return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
   } catch(e) { return ''; }
-}
-
-function escHtml(s) {
-  if (s == null) return '';
-  const div = document.createElement('div');
-  div.textContent = s;
-  return div.innerHTML;
 }
 
 function getEmbedUrl(url) {
@@ -4343,6 +4312,53 @@ async function loadUserProfile(uid) {
 // ============================================
 // Auth State Observer
 // ============================================
+// Build context object for sub-modules (admin.js, strava.js)
+// Uses getters so modules always read fresh state
+function buildModuleCtx() {
+  return {
+    // DOM + UI helpers
+    $, show, hide, showToast, showLoading, hideLoading, haptic, openSheet, closeSheet,
+    // Firebase refs (getters for fresh values)
+    get db() { return db; },
+    get currentUser() { return currentUser; },
+    get userProfile() { return userProfile; },
+    get demoMode() { return demoMode; },
+    get isAdmin() { return isAdmin; },
+    // Firebase functions
+    doc, getDoc, setDoc, updateDoc, collection, getDocs, addDoc, deleteDoc,
+    serverTimestamp, Timestamp, where, query, orderBy, onSnapshot, arrayUnion, arrayRemove,
+    // State (getters)
+    get adminAnnouncements() { return adminAnnouncements; }, set adminAnnouncements(v) { adminAnnouncements = v; },
+    get adminRaces() { return adminRaces; }, set adminRaces(v) { adminRaces = v; },
+    get allUsersCache() { return allUsersCache; }, set allUsersCache(v) { allUsersCache = v; },
+    get hiddenPlans() { return hiddenPlans; }, set hiddenPlans(v) { hiddenPlans = v; },
+    get adminEmails() { return adminEmails; }, set adminEmails(v) { adminEmails = v; },
+    get adminPerms() { return adminPerms; }, set adminPerms(v) { adminPerms = v; },
+    get currentAdminPerms() { return currentAdminPerms; },
+    get adminActiveTab() { return adminActiveTab; }, set adminActiveTab(v) { adminActiveTab = v; },
+    get videoOverrides() { return videoOverrides; }, set videoOverrides(v) { videoOverrides = v; },
+    get planOverrides() { return planOverrides; }, set planOverrides(v) { planOverrides = v; },
+    get exerciseDemoVideos() { return exerciseDemoVideos; }, set exerciseDemoVideos(v) { exerciseDemoVideos = v; },
+    get exerciseOverrides() { return exerciseOverrides; }, set exerciseOverrides(v) { exerciseOverrides = v; },
+    get raceFootage() { return raceFootage; }, set raceFootage(v) { raceFootage = v; },
+    get raceLogVideos() { return raceLogVideos; }, set raceLogVideos(v) { raceLogVideos = v; },
+    get activeChallenge() { return activeChallenge; }, set activeChallenge(v) { activeChallenge = v; },
+    get customPlans() { return customPlans; },
+    get teamData() { return teamData; },
+    get teamMembers() { return teamMembers; },
+    get userWorkouts() { return userWorkouts; }, set userWorkouts(v) { userWorkouts = v; },
+    get ALL_PLANS() { return ALL_PLANS; },
+    get stravaTokens() { return stravaTokens; }, set stravaTokens(v) { stravaTokens = v; },
+    get stravaActivities() { return stravaActivities; }, set stravaActivities(v) { stravaActivities = v; },
+    ADMIN_EMAIL, ALL_ADMIN_FEATURES,
+    STRAVA_CLIENT_ID, STRAVA_REDIRECT_URI,
+    // Function refs
+    findPlan, getActiveRaces, getVisiblePlans, getPlanDisplayData, getEmbedUrl,
+    getMapTileUrl, renderToday, renderFitness, renderPlans, renderProfile,
+    stravaUploadActivity, autoUpdateChallengeScore,
+  };
+}
+
 function startApp() {
   if (!initFirebase()) return;
 
@@ -4423,7 +4439,17 @@ function startApp() {
           if (currentPage === 'fitness') renderFitness();
         }
       });
+      // Initialize admin module
+      initAdmin(buildModuleCtx());
+      // Initialize strava module
+      initStrava(buildModuleCtx());
       showMainApp();
+      // Show tutorial for new users
+      if (shouldShowTutorial()) {
+        setTimeout(() => showTutorial(), 500);
+      } else {
+        checkWhatsNew();
+      }
       // Check training reminders
       checkTrainingReminder();
       // Request notification permission on first interaction
@@ -4711,16 +4737,6 @@ async function loadFirestoreRaces() {
   }
 }
 
-async function loadHiddenPlans() {
-  if (!db) return;
-  try {
-    const hpSnap = await getDoc(doc(db, 'config', 'hiddenPlans'));
-    hiddenPlans = new Set(hpSnap.exists() ? (hpSnap.data().ids || []) : []);
-  } catch(e) {
-    hiddenPlans = new Set();
-  }
-}
-
 function getActiveRaces() {
   return adminRaces || RACES;
 }
@@ -4743,1621 +4759,6 @@ function getPlanDisplayData(plan) {
 let adminActiveTab = 'announcements';
 let plansSubTab = 'manage'; // manage | workouts | videos
 let usersSubTab = 'all'; // all | permissions
-
-function renderAdmin() {
-  if (!isAdmin) return;
-  const c = $('admin-content');
-  const allTabs = [
-    { id: 'announcements', label: 'Announcements' },
-    { id: 'races', label: 'Races' },
-    { id: 'users', label: 'Users' },
-    { id: 'plans', label: 'Plans' },
-    { id: 'coach', label: 'Coach' }
-  ];
-  // Filter tabs to only show features the current admin has access to
-  const tabs = allTabs.filter(t => currentAdminPerms.includes(t.id));
-
-  // If no tabs, show restricted message
-  if (tabs.length === 0) {
-    c.innerHTML = '<div class="page-title">Admin Panel</div><div class="empty-state" style="padding:32px 16px"><div class="empty-state-title">No Permissions</div><div class="empty-state-desc">Your admin account doesn\'t have any features enabled yet. Ask the owner to grant you access.</div></div>';
-    return;
-  }
-
-  // If active tab not in allowed list, switch to first allowed
-  if (!tabs.some(t => t.id === adminActiveTab)) adminActiveTab = tabs[0].id;
-
-  let html = '<div class="page-title">Admin Panel</div>';
-  html += '<div class="admin-tabs">';
-  tabs.forEach(t => {
-    html += `<button class="admin-tab${adminActiveTab === t.id ? ' active' : ''}" data-admin-tab="${t.id}">${t.label}</button>`;
-  });
-  html += '</div>';
-
-  // Create section containers for allowed tabs only
-  tabs.forEach(t => {
-    html += '<div id="admin-' + t.id + '" class="admin-section' + (adminActiveTab === t.id ? ' active' : '') + '"></div>';
-  });
-
-  
-  c.innerHTML = html;
-
-  // Bind admin tabs
-  c.querySelectorAll('.admin-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      adminActiveTab = btn.dataset.adminTab;
-      renderAdmin();
-    });
-  });
-
-  // Render active section
-  switch (adminActiveTab) {
-    case 'announcements': renderAdminAnnouncements(); break;
-    case 'races': renderAdminRaces(); break;
-    case 'users': renderAdminUsersMerged(); break;
-    case 'plans': renderAdminPlansMerged(); break;
-    case 'coach': renderCoachDashboard(); break;
-  }
-}
-
-// --- COACH DASHBOARD ---
-async function renderCoachDashboard() {
-  const el = $('admin-coach');
-  if (!el) return;
-  el.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div><div style="margin-top:8px;color:var(--muted-fg);font-size:13px">Loading student data...</div></div>';
-
-  let students = [];
-  try {
-    if (demoMode) {
-      students = [
-        { name: 'Alex M.', year: 'Y11', tier: 'intense', workouts: 34, lastActive: new Date(Date.now() - 86400000), streak: 7, avgRpe: 7.2 },
-        { name: 'Sam K.', year: 'Y10', tier: 'average', workouts: 28, lastActive: new Date(Date.now() - 172800000), streak: 5, avgRpe: 6.8 },
-        { name: 'Jordan T.', year: 'Y12', tier: 'intense', workouts: 22, lastActive: new Date(Date.now() - 86400000 * 5), streak: 0, avgRpe: 8.1 },
-        { name: 'Riley W.', year: 'Y9', tier: 'basic', workouts: 19, lastActive: new Date(Date.now() - 86400000 * 2), streak: 4, avgRpe: 5.5 },
-        { name: 'Chris B.', year: 'Y10', tier: 'average', workouts: 15, lastActive: new Date(Date.now() - 86400000 * 8), streak: 0, avgRpe: null },
-        { name: 'Pat H.', year: 'Y11', tier: 'basic', workouts: 12, lastActive: new Date(Date.now() - 86400000 * 12), streak: 0, avgRpe: 6.0 },
-      ];
-    } else if (db) {
-      const usersSnap = await getDocs(collection(db, 'users'));
-      for (const d of usersSnap.docs) {
-        const u = d.data();
-        let wCount = 0, lastDate = null, rpeSum = 0, rpeCount = 0;
-        try {
-          const wSnap = await getDocs(collection(db, 'users', d.id, 'workouts'));
-          wCount = wSnap.size;
-          wSnap.docs.forEach(wd => {
-            const wData = wd.data();
-            const dt = wData.date ? (wData.date.toDate ? wData.date.toDate() : new Date(wData.date)) : null;
-            if (dt && (!lastDate || dt > lastDate)) lastDate = dt;
-            if (wData.rpe) { rpeSum += wData.rpe; rpeCount++; }
-          });
-        } catch(e) {}
-        students.push({
-          name: u.displayName || 'Unknown',
-          year: u.yearLevel || '',
-          tier: u.fitnessLevel || 'basic',
-          workouts: wCount,
-          lastActive: lastDate,
-          streak: 0,
-          avgRpe: rpeCount > 0 ? (rpeSum / rpeCount) : null
-        });
-      }
-    }
-  } catch(e) {
-    el.innerHTML = '<div style="padding:20px;color:var(--muted-fg)">Failed to load student data.</div>';
-    return;
-  }
-
-  const now = new Date();
-  const threeDaysAgo = new Date(now.getTime() - 86400000 * 3);
-  const sevenDaysAgo = new Date(now.getTime() - 86400000 * 7);
-  const fiveDaysAgo = new Date(now.getTime() - 86400000 * 5);
-
-  // Coach notification for inactive students
-  const needsFollowUp = students.filter(s => s.lastActive && s.lastActive < fiveDaysAgo && s.lastActive > new Date(now.getTime() - 86400000 * 30));
-  if (needsFollowUp.length > 0 && Notification.permission === 'granted') {
-    const lastNotif = localStorage.getItem('vf_coach_notif_date');
-    const today = now.toISOString().split('T')[0];
-    if (lastNotif !== today) {
-      localStorage.setItem('vf_coach_notif_date', today);
-      try {
-        new Notification('VeloForge Coach Alert', {
-          body: needsFollowUp.length + ' student' + (needsFollowUp.length > 1 ? 's haven\'t' : ' hasn\'t') + ' trained in 5+ days: ' + needsFollowUp.map(s => s.name).slice(0, 3).join(', ') + (needsFollowUp.length > 3 ? '...' : ''),
-          icon: '🏋️',
-          tag: 'coach-inactive'
-        });
-      } catch(e) {}
-    }
-  }
-
-  // Sort options
-  let coachSort = 'recent';
-  function render(sort) {
-    coachSort = sort || coachSort;
-    const sorted = [...students].sort((a, b) => {
-      if (coachSort === 'recent') return (b.lastActive || 0) - (a.lastActive || 0);
-      if (coachSort === 'inactive') return (a.lastActive || 0) - (b.lastActive || 0);
-      if (coachSort === 'workouts') return b.workouts - a.workouts;
-      if (coachSort === 'rpe') return (b.avgRpe || 0) - (a.avgRpe || 0);
-      return 0;
-    });
-
-    const activeCount = students.filter(s => s.lastActive && s.lastActive >= threeDaysAgo).length;
-    const inactiveCount = students.filter(s => !s.lastActive || s.lastActive < sevenDaysAgo).length;
-
-    let html = `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${students.length} students registered</div>`;
-
-    html += `<div style="display:flex;gap:8px;margin-bottom:12px">
-      <div style="flex:1;padding:10px;background:rgba(34,197,94,.1);border-radius:8px;text-align:center">
-        <div style="font-size:20px;font-weight:700;color:#22c55e">${activeCount}</div>
-        <div style="font-size:10px;color:var(--muted-fg)">Trained in last 3 days</div>
-      </div>
-      <div style="flex:1;padding:10px;background:rgba(239,68,68,.1);border-radius:8px;text-align:center">
-        <div style="font-size:20px;font-weight:700;color:#ef4444">${inactiveCount}</div>
-        <div style="font-size:10px;color:var(--muted-fg)">No activity 7+ days</div>
-      </div>
-    </div>`;
-
-    // Inactive student alerts
-    const inactiveStudents = students.filter(s => !s.lastActive || s.lastActive < sevenDaysAgo);
-    if (inactiveStudents.length > 0) {
-      html += `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:13px;font-weight:600;color:#ef4444;margin-bottom:6px">⚠️ Students needing follow-up</div>
-        <div style="font-size:12px;color:var(--muted-fg)">${inactiveStudents.map(s => escHtml(s.name) + ' (' + (s.lastActive ? Math.floor((now - s.lastActive) / 86400000) + 'd ago' : 'never') + ')').join(', ')}</div>
-      </div>`;
-    }
-
-    // Bulk message section
-    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Send Message to Students</div>
-      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        <button class="bulk-target-btn active" data-bulk-target="all" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--primary);background:var(--primary);color:var(--primary-fg);cursor:pointer;font-weight:600">All</button>
-        ${['Y7','Y8','Y9','Y10','Y11','Y12'].map(y => `<button class="bulk-target-btn" data-bulk-target="${y}" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">${y}</button>`).join('')}
-        <button class="bulk-target-btn" data-bulk-target="inactive" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">Inactive Only</button>
-      </div>
-      <textarea id="bulk-msg-text" class="input" placeholder="Type your message to students..." style="width:100%;min-height:60px;resize:vertical;font-size:13px;margin-bottom:8px"></textarea>
-      <button class="btn btn-primary" id="bulk-msg-send" style="font-size:12px;padding:8px 16px">Post as Announcement</button>
-    </div>`;
-
-    html += '<div class="coach-sort-bar">';
-    html += '<button class="coach-sort-btn" id="coach-export-csv" style="background:var(--primary);color:var(--primary-fg);font-weight:700">⬇ Export CSV</button>';
-    ['recent','inactive','workouts','rpe'].forEach(s => {
-      const labels = { recent:'Most Recent', inactive:'Needs Follow-up', workouts:'Most Workouts', rpe:'Highest Effort' };
-      html += `<button class="coach-sort-btn${coachSort === s ? ' active' : ''}" data-coach-sort="${s}">${labels[s]}</button>`;
-    });
-    html += '</div>';
-
-    html += '<div class="coach-grid">';
-    sorted.forEach(s => {
-      const isActive = s.lastActive && s.lastActive >= threeDaysAgo;
-      const isInactive = !s.lastActive || s.lastActive < sevenDaysAgo;
-      const lastStr = s.lastActive ? getTimeAgo(s.lastActive.toISOString()) : 'Never';
-      const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
-      const borderStyle = isInactive ? 'border-color:rgba(239,68,68,.3)' : '';
-      html += `<div class="coach-card" style="${borderStyle}">
-        <div class="coach-card-top">
-          <div class="coach-card-name">${escHtml(s.name)}</div>
-          <span class="coach-card-badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : isInactive ? 'Inactive' : 'Idle'}</span>
-        </div>
-        <div class="coach-card-stats">
-          <span>${s.year} · <span style="color:${tierColors[s.tier] || '#3b82f6'}">${capitalize(s.tier)}</span></span>
-          <span><strong>${s.workouts}</strong> workouts</span>
-          ${s.avgRpe ? `<span>RPE <strong>${s.avgRpe.toFixed(1)}</strong></span>` : ''}
-          <span>Last active: ${lastStr}</span>
-        </div>
-      </div>`;
-    });
-    html += '</div>';
-
-    el.innerHTML = html;
-
-    el.querySelectorAll('.coach-sort-btn').forEach(btn => {
-      btn.addEventListener('click', () => render(btn.dataset.coachSort));
-    });
-    const exportBtn = $('coach-export-csv');
-    if (exportBtn) {
-      exportBtn.addEventListener('click', () => {
-        let csv = 'Name,Year,Tier,Workouts,Avg RPE,Last Active\n';
-        students.forEach(s => {
-          csv += [
-            '"' + (s.name || '').replace(/"/g, '""') + '"',
-            s.year, capitalize(s.tier), s.workouts,
-            s.avgRpe ? s.avgRpe.toFixed(1) : '',
-            s.lastActive ? s.lastActive.toISOString().split('T')[0] : 'Never'
-          ].join(',') + '\n';
-        });
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'veloforge-students-' + new Date().toISOString().split('T')[0] + '.csv';
-        a.click();
-        showToast('CSV downloaded!', 'success');
-      });
-    }
-    // Bulk message target buttons
-    let bulkTarget = 'all';
-    el.querySelectorAll('.bulk-target-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        el.querySelectorAll('.bulk-target-btn').forEach(b => {
-          b.style.background = 'var(--surface-alt)';
-          b.style.color = 'var(--muted-fg)';
-          b.style.borderColor = 'var(--border)';
-        });
-        btn.style.background = 'var(--primary)';
-        btn.style.color = 'var(--primary-fg)';
-        btn.style.borderColor = 'var(--primary)';
-        bulkTarget = btn.dataset.bulkTarget;
-      });
-    });
-    // Bulk message send
-    const sendBtn = $('bulk-msg-send');
-    if (sendBtn) {
-      sendBtn.addEventListener('click', async () => {
-        const text = $('bulk-msg-text')?.value?.trim();
-        if (!text) { showToast('Enter a message.', 'warn'); return; }
-        const title = bulkTarget === 'all' ? 'Coach Message'
-          : bulkTarget === 'inactive' ? 'Coach Check-In'
-          : 'Message for ' + bulkTarget;
-        const newAnn = {
-          id: Date.now().toString(),
-          title: title,
-          message: text + (bulkTarget !== 'all' ? ' [To: ' + bulkTarget + ']' : ''),
-          date: new Date().toISOString(),
-          by: userProfile?.displayName || 'Coach'
-        };
-        if (!demoMode && db) {
-          try {
-            const configRef = doc(db, 'config', 'announcements');
-            const snap = await getDoc(configRef);
-            const items = snap.exists() ? (snap.data().items || []) : [];
-            items.unshift(newAnn);
-            await setDoc(configRef, { items });
-            showToast('Message posted as announcement!', 'success');
-            $('bulk-msg-text').value = '';
-          } catch(e) {
-            showToast('Failed to send message.', 'error');
-          }
-        } else {
-          adminAnnouncements.unshift(newAnn);
-          showToast('Message posted (demo mode).', 'success');
-          $('bulk-msg-text').value = '';
-        }
-      });
-    }
-  }
-
-  render('recent');
-
-  // --- Challenge Manager (below student list) ---
-  const challengeEl = document.createElement('div');
-  challengeEl.style.cssText = 'margin-top:16px;border-top:1px solid var(--border);padding-top:16px';
-  let chHtml = '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:10px">🏆 Team Challenge Manager</div>';
-
-  if (activeChallenge) {
-    const cEnd = new Date(activeChallenge.endDate);
-    const cDaysLeft = Math.max(0, Math.ceil((cEnd - new Date()) / 86400000));
-    chHtml += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">${escHtml(activeChallenge.title || 'Active Challenge')}</div>
-      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:8px">${cDaysLeft > 0 ? cDaysLeft + ' days remaining' : 'Ended'} · Repeat: ${activeChallenge.repeat ? 'On' : 'Off'}</div>`;
-    // Editable team scores
-    const rawT = activeChallenge.teams || {};
-    Object.entries(rawT).forEach(([key, val]) => {
-      const tName = (val && val.name) || key;
-      const tScore = (val && val.score) || 0;
-      chHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <input class="input ch-team-name" data-ch-key="${key}" value="${escHtml(tName)}" style="flex:1;font-size:12px;padding:6px 8px">
-        <input class="input ch-team-score" data-ch-key="${key}" type="number" value="${tScore}" style="width:70px;font-size:12px;padding:6px 8px;text-align:center">
-      </div>`;
-    });
-    chHtml += `<div style="display:flex;gap:6px;margin-top:8px">
-      <button id="ch-save-scores" class="btn btn-primary" style="flex:1;font-size:12px;padding:8px">Save Changes</button>
-      <button id="ch-reset-scores" class="btn" style="font-size:12px;padding:8px;background:var(--surface-alt);color:var(--muted-fg)">Reset Scores</button>
-      <button id="ch-end-challenge" class="btn" style="font-size:12px;padding:8px;background:rgba(239,68,68,.1);color:#ef4444">End</button>
-    </div></div>`;
-  } else {
-    chHtml += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:8px">No active challenge. Create one below.</div>';
-  }
-
-  // Create new challenge form
-  chHtml += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px">
-    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">${activeChallenge ? 'Start New Challenge' : 'Create Challenge'}</div>
-    <input class="input" id="ch-new-title" type="text" placeholder="Challenge title" value="Monthly Minutes Challenge" style="margin-bottom:6px;width:100%;font-size:12px">
-    <div style="display:flex;gap:6px;margin-bottom:6px">
-      <select class="input" id="ch-new-duration" style="flex:1;font-size:12px;padding:6px"><option value="7">1 Week</option><option value="14">2 Weeks</option><option value="30" selected>1 Month</option><option value="60">2 Months</option></select>
-      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted-fg);white-space:nowrap"><input type="checkbox" id="ch-new-repeat" checked> Auto-repeat</label>
-    </div>
-    <div id="ch-new-teams" style="margin-bottom:8px">
-      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Teams:</div>
-      ${[1,2,3,4,5].map(n => `<input class="input ch-new-team-name" type="text" placeholder="Team ${n} name" value="Team ${n}" style="margin-bottom:4px;width:100%;font-size:12px;padding:6px 8px">`).join('')}
-    </div>
-    <button id="ch-create-btn" class="btn btn-primary" style="width:100%;font-size:12px;padding:8px">Create Challenge</button>
-  </div>`;
-
-  challengeEl.innerHTML = chHtml;
-  el.appendChild(challengeEl);
-
-  // --- Challenge event handlers ---
-  // Save score changes
-  $('ch-save-scores')?.addEventListener('click', async () => {
-    if (!activeChallenge || demoMode || !db) { showToast('Cannot save in demo mode.', 'warn'); return; }
-    const updatedTeams = { ...activeChallenge.teams };
-    challengeEl.querySelectorAll('.ch-team-name').forEach(inp => {
-      const k = inp.dataset.chKey;
-      if (updatedTeams[k]) updatedTeams[k].name = inp.value.trim() || k;
-    });
-    challengeEl.querySelectorAll('.ch-team-score').forEach(inp => {
-      const k = inp.dataset.chKey;
-      if (updatedTeams[k]) updatedTeams[k].score = parseInt(inp.value) || 0;
-    });
-    try {
-      await setDoc(doc(db, 'config', 'activeChallenge'), { ...activeChallenge, teams: updatedTeams });
-      activeChallenge.teams = updatedTeams;
-      showToast('Challenge updated!', 'success');
-    } catch(e) { showToast('Failed to save.', 'error'); }
-  });
-
-  // Reset all scores to 0
-  $('ch-reset-scores')?.addEventListener('click', async () => {
-    if (!activeChallenge || demoMode || !db) return;
-    if (!confirm('Reset all team scores to 0?')) return;
-    const reset = {};
-    Object.entries(activeChallenge.teams || {}).forEach(([k, v]) => {
-      reset[k] = { name: (v && v.name) || k, score: 0 };
-    });
-    try {
-      await setDoc(doc(db, 'config', 'activeChallenge'), { ...activeChallenge, teams: reset });
-      activeChallenge.teams = reset;
-      showToast('Scores reset!', 'success');
-      renderCoachDashboard();
-    } catch(e) { showToast('Failed to reset.', 'error'); }
-  });
-
-  // End challenge
-  $('ch-end-challenge')?.addEventListener('click', async () => {
-    if (!activeChallenge || demoMode || !db) return;
-    if (!confirm('End this challenge? It will be removed.')) return;
-    try {
-      await deleteDoc(doc(db, 'config', 'activeChallenge'));
-      activeChallenge = null;
-      showToast('Challenge ended.', 'success');
-      renderCoachDashboard();
-    } catch(e) { showToast('Failed to end challenge.', 'error'); }
-  });
-
-  // Create new challenge
-  $('ch-create-btn')?.addEventListener('click', async () => {
-    const title = $('ch-new-title')?.value?.trim();
-    const days = parseInt($('ch-new-duration')?.value) || 30;
-    const repeat = $('ch-new-repeat')?.checked || false;
-    if (!title) { showToast('Enter a challenge title.', 'warn'); return; }
-    const teamInputs = challengeEl.querySelectorAll('.ch-new-team-name');
-    const teams = {};
-    let idx = 1;
-    teamInputs.forEach(inp => {
-      const name = inp.value.trim();
-      if (name) { teams['team' + idx] = { name, score: 0 }; idx++; }
-    });
-    if (Object.keys(teams).length < 2) { showToast('Need at least 2 teams.', 'warn'); return; }
-    const now = new Date();
-    const endDate = new Date(now);
-    endDate.setDate(endDate.getDate() + days);
-    const challenge = {
-      title, type: 'minutes', repeat,
-      startDate: now.toISOString(),
-      endDate: endDate.toISOString(),
-      teams
-    };
-    if (demoMode) {
-      activeChallenge = challenge;
-      showToast('Challenge created (demo).', 'success');
-      renderCoachDashboard();
-      return;
-    }
-    if (!db) return;
-    try {
-      await setDoc(doc(db, 'config', 'activeChallenge'), challenge);
-      activeChallenge = challenge;
-      showToast('Challenge created!', 'success');
-      renderCoachDashboard();
-    } catch(e) { showToast('Failed to create challenge.', 'error'); }
-  });
-}
-
-// --- ANNOUNCEMENTS ---
-function renderAdminAnnouncements() {
-  const el = $('admin-announcements');
-  let html = '';
-
-  // Add form
-  html += `
-    <div class="card" style="margin-bottom:12px">
-      <div class="admin-form">
-        <div class="label">New Announcement</div>
-        <input class="input" type="text" id="ann-title" placeholder="Title">
-        <textarea class="input" id="ann-message" placeholder="Message for all students"></textarea>
-        <button class="btn btn-primary" id="ann-add-btn" style="align-self:flex-start">Post Announcement</button>
-      </div>
-    </div>
-  `;
-
-  if (adminAnnouncements.length === 0) {
-    html += '<div class="admin-empty">No announcements yet.</div>';
-  } else {
-    html += '<div class="card">';
-    adminAnnouncements.forEach((a, i) => {
-      html += `
-        <div class="admin-item">
-          <div class="admin-item-info">
-            <div class="admin-item-title">${escHtml(a.title || 'Untitled')}</div>
-            <div class="admin-item-meta">${escHtml(a.message || '').substring(0, 80)}${(a.message||'').length > 80 ? '...' : ''}</div>
-          </div>
-          <button class="admin-toggle${a.active ? ' on' : ''}" data-ann-idx="${i}" title="${a.active ? 'Active' : 'Inactive'}"></button>
-          <button class="admin-del-btn" data-ann-del="${i}">Delete</button>
-        </div>
-      `;
-    });
-    html += '</div>';
-  }
-  el.innerHTML = html;
-
-  // Bind add
-  $('ann-add-btn').addEventListener('click', async () => {
-    const title = $('ann-title').value.trim();
-    const message = $('ann-message').value.trim();
-    if (!title) { showToast('Enter a title.', 'warn'); return; }
-    if (!message) { showToast('Enter a message.', 'warn'); return; }
-    adminAnnouncements.unshift({ id: 'ann-' + Date.now(), title, message, active: true, createdAt: new Date().toISOString() });
-    await saveAnnouncements();
-    renderAdminAnnouncements();
-  });
-
-  // Bind toggles
-  el.querySelectorAll('.admin-toggle').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const idx = parseInt(btn.dataset.annIdx);
-      adminAnnouncements[idx].active = !adminAnnouncements[idx].active;
-      await saveAnnouncements();
-      renderAdminAnnouncements();
-    });
-  });
-
-  // Bind deletes
-  el.querySelectorAll('[data-ann-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Delete this announcement?')) return;
-      const idx = parseInt(btn.dataset.annDel);
-      adminAnnouncements.splice(idx, 1);
-      await saveAnnouncements();
-      renderAdminAnnouncements();
-    });
-  });
-}
-
-async function saveAnnouncements() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'announcements'), { items: adminAnnouncements });
-  } catch(e) {
-    console.error('Save announcements error:', e);
-    showToast('Failed to save.', 'error');
-  }
-}
-
-// --- RACES ---
-
-// ============================================
-// RACE FOOTAGE (Admin-managed)
-// ============================================
-
-async function loadRaceFootage() {
-  if (!db) return;
-  try {
-    const snap = await getDoc(doc(db, 'config', 'raceFootage'));
-    raceFootage = snap.exists() ? (snap.data().footage || {}) : {};
-  } catch(e) {
-    raceFootage = {};
-  }
-}
-
-async function saveRaceFootage() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'raceFootage'), { footage: raceFootage });
-  } catch(e) {
-    console.error('Save race footage error:', e);
-    showToast('Failed to save footage links.', 'error');
-  }
-}
-
-async function loadRaceLogVideos() {
-  if (!db) return;
-  try {
-    const snap = await getDoc(doc(db, 'config', 'raceLogVideos'));
-    raceLogVideos = snap.exists() ? (snap.data().videos || []) : [];
-  } catch(e) {
-    raceLogVideos = [];
-  }
-}
-
-async function saveRaceLogVideos() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'raceLogVideos'), { videos: raceLogVideos });
-  } catch(e) {
-    console.error('Save race log videos error:', e);
-    showToast('Failed to save videos.', 'error');
-  }
-}
-
-function renderRaceFootageSection(parentEl) {
-  const races = getActiveRaces();
-  let html = '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">';
-  html += '<div class="label" style="margin-bottom:8px">Race Footage & Stream Links</div>';
-  html += '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Add livestream and footage links for each race. These appear in the Race Log for all users.</div>';
-  
-  races.forEach(race => {
-    const existing = raceFootage[race.id] || race.footageUrls || [];
-    const isPast = race.date <= new Date().toISOString().split('T')[0];
-    html += `
-      <div class="footage-admin-item">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <strong style="font-size:13px;color:var(--text);flex:1">${escHtml(race.name)}</strong>
-          ${isPast ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(191,255,0,0.15);color:#BFFF00;font-weight:600">DONE</span>' : '<span style="font-size:10px;color:var(--text-muted)">' + race.date + '</span>'}
-        </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">${existing.length} link${existing.length !== 1 ? 's' : ''} attached</div>
-        <div style="display:flex;gap:6px">
-          <input class="input" type="url" placeholder="Paste stream/footage URL" style="flex:1;font-size:12px" data-footage-url="${race.id}">
-          <input class="input" type="text" placeholder="Label" style="width:80px;font-size:12px" data-footage-label="${race.id}">
-          <button class="admin-edit-btn" data-footage-add="${race.id}" style="flex-shrink:0">Add</button>
-        </div>
-        ${existing.length > 0 ? '<div style="margin-top:6px">' + existing.map((f, fi) => `
-          <div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px">
-            <span style="flex:1;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.label || f.url)}</span>
-            <button class="admin-del-btn" data-footage-del="${race.id}:${fi}" style="font-size:11px">×</button>
-          </div>
-        `).join('') + '</div>' : ''}
-      </div>
-    `;
-  });
-  
-  html += '</div>';
-  
-  // Create a container and append
-  const footageDiv = document.createElement('div');
-  footageDiv.innerHTML = html;
-  parentEl.appendChild(footageDiv);
-  
-  // Bind add footage
-  footageDiv.querySelectorAll('[data-footage-add]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const raceId = btn.dataset.footageAdd;
-      const urlInput = footageDiv.querySelector(`[data-footage-url="${raceId}"]`);
-      const labelInput = footageDiv.querySelector(`[data-footage-label="${raceId}"]`);
-      const url = urlInput.value.trim();
-      if (!url) { showToast('Paste a URL first.', 'warn'); return; }
-      const label = labelInput.value.trim() || 'Race Footage';
-      const type = url.includes('youtube') || url.includes('youtu.be') ? 'stream' : (url.includes('result') || url.includes('timing') ? 'results' : 'footage');
-      if (!raceFootage[raceId]) raceFootage[raceId] = [];
-      raceFootage[raceId].push({ label, url, type });
-      await saveRaceFootage();
-      renderAdminRaces();
-    });
-  });
-  
-  // Bind delete footage
-  footageDiv.querySelectorAll('[data-footage-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const [raceId, idxStr] = btn.dataset.footageDel.split(':');
-      const idx = parseInt(idxStr);
-      if (raceFootage[raceId]) {
-        raceFootage[raceId].splice(idx, 1);
-        if (raceFootage[raceId].length === 0) delete raceFootage[raceId];
-        await saveRaceFootage();
-        renderAdminRaces();
-      }
-    });
-  });
-}
-
-function getYouTubeThumbUrl(url) {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  return m ? 'https://img.youtube.com/vi/' + m[1] + '/mqdefault.jpg' : '';
-}
-
-function renderAdminRaceLogVideos(parentEl) {
-  const races = getActiveRaces();
-  let html = '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">';
-  html += '<div class="label" style="margin-bottom:8px">Race Log Videos</div>';
-  html += '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Add video links (YouTube, Vimeo, etc.) that appear in the Race Log for all users. Great for race highlights, team footage, and onboard camera.</div>';
-  
-  // Add video form
-  html += `
-    <div style="margin-bottom:12px">
-      <input class="input" type="url" id="admin-video-url" placeholder="Paste video URL (YouTube, Vimeo, etc.)" style="font-size:12px;margin-bottom:6px">
-      <input class="input" type="text" id="admin-video-title" placeholder="Video title" style="font-size:12px;margin-bottom:6px">
-      <div style="display:flex;gap:6px;align-items:center">
-        <select class="input" id="admin-video-race" style="font-size:12px;flex:1">
-          <option value="">Link to race (optional)</option>
-          ${races.map(r => '<option value="' + r.id + '">' + escHtml(r.name) + '</option>').join('')}
-        </select>
-        <button class="btn btn-primary" id="admin-video-add-btn" style="flex-shrink:0;padding:8px 16px;font-size:12px">Add Video</button>
-      </div>
-    </div>
-  `;
-  
-  // List existing videos
-  if (raceLogVideos.length > 0) {
-    html += '<div class="video-admin-grid">';
-    raceLogVideos.forEach((v, i) => {
-      const raceName = v.raceId ? (races.find(r => r.id === v.raceId)?.name || '') : '';
-      html += `
-        <div class="video-admin-row">
-          <div style="width:40px;height:30px;border-radius:4px;background:rgba(191,255,0,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;color:#BFFF00"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
-          </div>
-          <div class="video-info">
-            <strong style="color:var(--text)">${escHtml(v.title)}</strong>
-            ${raceName ? '<br><span style="font-size:11px">' + escHtml(raceName) + '</span>' : ''}
-          </div>
-          <button class="admin-del-btn" data-video-del="${i}" style="font-size:11px">×</button>
-        </div>
-      `;
-    });
-    html += '</div>';
-  } else {
-    html += '<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:12px;border:1px dashed var(--border);border-radius:8px">No videos added yet</div>';
-  }
-  
-  html += '</div>';
-  
-  const videosDiv = document.createElement('div');
-  videosDiv.innerHTML = html;
-  parentEl.appendChild(videosDiv);
-  
-  // Bind add video
-  const addBtn = videosDiv.querySelector('#admin-video-add-btn');
-  if (addBtn) {
-    addBtn.addEventListener('click', async () => {
-      const url = videosDiv.querySelector('#admin-video-url').value.trim();
-      const title = videosDiv.querySelector('#admin-video-title').value.trim();
-      const raceId = videosDiv.querySelector('#admin-video-race').value;
-      if (!url) { showToast('Paste a video URL first.', 'warn'); return; }
-      if (!title) { showToast('Enter a video title.', 'warn'); return; }
-      raceLogVideos.push({
-        title,
-        url,
-        raceId: raceId || null,
-        addedBy: currentUser?.email || 'admin',
-        timestamp: new Date().toISOString()
-      });
-      await saveRaceLogVideos();
-      renderAdminRaces();
-    });
-  }
-  
-  // Bind delete video
-  videosDiv.querySelectorAll('[data-video-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const idx = parseInt(btn.dataset.videoDel);
-      if (!confirm('Delete this video?')) return;
-      raceLogVideos.splice(idx, 1);
-      await saveRaceLogVideos();
-      renderAdminRaces();
-    });
-  });
-}
-
-
-function renderAdminRaces() {
-  const el = $('admin-races');
-  const races = getActiveRaces();
-  let html = '';
-
-  // Add form
-  html += `
-    <div class="card" style="margin-bottom:12px">
-      <div class="admin-form">
-        <div class="label">Add Race</div>
-        <input class="input" type="text" id="race-name" placeholder="Race name">
-        <input class="input" type="date" id="race-date">
-        <input class="input" type="text" id="race-location" placeholder="Location">
-        <input class="input" type="number" id="race-distance" placeholder="Distance (km)">
-        <textarea class="input" id="race-notes" placeholder="Notes (time, details, etc.)"></textarea>
-        <button class="btn btn-primary" id="race-add-btn" style="align-self:flex-start">Add Race</button>
-      </div>
-    </div>
-  `;
-
-  if (races.length === 0) {
-    html += '<div class="admin-empty">No races configured.</div>';
-  } else {
-    html += '<div class="card">';
-    races.forEach((r, i) => {
-      html += `
-        <div class="admin-item">
-          <div class="admin-item-info">
-            <div class="admin-item-title">${escHtml(r.name)}</div>
-            <div class="admin-item-meta">${r.date} · ${escHtml(r.location || '')} · ${r.distance}km</div>
-          </div>
-          <button class="admin-del-btn" data-race-del="${i}">Delete</button>
-        </div>
-      `;
-    });
-    html += '</div>';
-  }
-  el.innerHTML = html;
-
-  // Bind add
-  $('race-add-btn').addEventListener('click', async () => {
-    const name = $('race-name').value.trim();
-    const date = $('race-date').value;
-    const location = $('race-location').value.trim();
-    const distance = parseInt($('race-distance').value) || 0;
-    const notes = $('race-notes').value.trim();
-    if (!name || !date) { showToast('Enter a name and date.', 'warn'); return; }
-    const newRaces = [...(adminRaces || RACES)];
-    newRaces.push({ id: 'r-' + Date.now(), name, date, location, distance, type: 'endurance', notes });
-    newRaces.sort((a, b) => a.date.localeCompare(b.date));
-    adminRaces = newRaces;
-    await saveRaces();
-    renderAdminRaces();
-  });
-
-  // Bind deletes
-  el.querySelectorAll('[data-race-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Delete this race?')) return;
-      const idx = parseInt(btn.dataset.raceDel);
-      const newRaces = [...(adminRaces || RACES)];
-      newRaces.splice(idx, 1);
-      adminRaces = newRaces;
-      await saveRaces();
-      renderAdminRaces();
-    });
-  });
-
-  // --- Race Footage Management Section ---
-  if (isAdmin) renderRaceFootageSection(el);
-  // --- Race Log Videos Management ---
-  if (isAdmin) renderAdminRaceLogVideos(el);
-}
-
-async function saveRaces() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'races'), { races: adminRaces });
-  } catch(e) {
-    console.error('Save races error:', e);
-    showToast('Failed to save.', 'error');
-  }
-}
-
-// --- USERS ---
-function renderAdminUsersMerged() {
-  const el = $('admin-users');
-  if (!el) return;
-
-  const subTabs = [
-    { id: 'all', label: 'All Users' },
-    { id: 'permissions', label: 'Admin Access' }
-  ];
-
-  let html = '<div style="display:flex;gap:6px;margin-bottom:14px">';
-  subTabs.forEach(t => {
-    html += `<button class="btn ${usersSubTab === t.id ? 'btn-primary' : 'btn-secondary'}" style="flex:1;font-size:12px;padding:8px 0;min-height:36px" data-users-sub="${t.id}">${t.label}</button>`;
-  });
-  html += '</div>';
-  html += '<div id="users-sub-content"></div>';
-  el.innerHTML = html;
-
-  el.querySelectorAll('[data-users-sub]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      usersSubTab = btn.dataset.usersSub;
-      renderAdminUsersMerged();
-    });
-  });
-
-  const sc = $('users-sub-content');
-  switch (usersSubTab) {
-    case 'all': renderUsersAll(sc); break;
-    case 'permissions': renderUsersPermissions(sc); break;
-  }
-}
-
-async function renderUsersAll(el) {
-  el.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div><div style="margin-top:8px;color:var(--muted-fg);font-size:13px">Loading users...</div></div>';
-
-  try {
-    const usersSnap = await getDocs(collection(db, 'users'));
-    allUsersCache = [];
-    for (const d of usersSnap.docs) {
-      const u = d.data();
-      let wCount = 0;
-      try {
-        const wSnap = await getDocs(collection(db, 'users', d.id, 'workouts'));
-        wCount = wSnap.size;
-      } catch(e) {}
-      allUsersCache.push({ uid: d.id, ...u, workoutCount: wCount });
-    }
-  } catch(e) {
-    el.innerHTML = '<div class="admin-empty">Failed to load users.</div>';
-    console.error('Load users error:', e);
-    return;
-  }
-
-  let html = `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${allUsersCache.length} registered user${allUsersCache.length !== 1 ? 's' : ''}</div>`;
-
-  if (allUsersCache.length === 0) {
-    html += '<div class="admin-empty">No users yet.</div>';
-  } else {
-    allUsersCache.forEach(u => {
-      const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
-      const tc = tierColors[u.fitnessLevel] || '#3b82f6';
-      html += `
-        <div class="card" style="margin-bottom:8px">
-          <div class="card-pad" style="padding:12px 14px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-              <div style="font-size:15px;font-weight:600;color:var(--fg);flex:1">${escHtml(u.displayName || 'Unknown')}</div>
-              <div style="font-size:11px;color:var(--muted-fg)">${escHtml(u.email || '')}</div>
-            </div>
-            <div class="admin-user-grid">
-              <div class="admin-user-stat">Year: <strong>${u.yearLevel || '—'}</strong></div>
-              <div class="admin-user-stat">Tier: <strong style="color:${tc}">${capitalize(u.fitnessLevel || 'basic')}</strong></div>
-              <div class="admin-user-stat">Workouts: <strong>${u.workoutCount || 0}</strong></div>
-              <div class="admin-user-stat">Team: <strong>${escHtml(u.teamName || 'None')}</strong></div>
-            </div>
-            <div style="display:flex;gap:6px;margin-top:8px">
-              <select class="input admin-year-select" data-uid="${u.uid}" style="flex:1;padding:6px 8px;font-size:12px">
-                ${['Y7','Y8','Y9','Y10','Y11','Y12'].map(y => `<option value="${y}"${u.yearLevel === y ? ' selected' : ''}>${y}</option>`).join('')}
-              </select>
-              <select class="input admin-tier-select" data-uid="${u.uid}" style="flex:1;padding:6px 8px;font-size:12px">
-                ${['basic','average','intense'].map(t => `<option value="${t}"${u.fitnessLevel === t ? ' selected' : ''}>${capitalize(t)}</option>`).join('')}
-              </select>
-              <button class="admin-edit-btn" data-user-save="${u.uid}">Save</button>
-            </div>
-          </div>
-        </div>
-      `;
-    });
-  }
-  el.innerHTML = html;
-
-  el.querySelectorAll('[data-user-save]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const uid = btn.dataset.userSave;
-      const yearSel = el.querySelector(`.admin-year-select[data-uid="${uid}"]`);
-      const tierSel = el.querySelector(`.admin-tier-select[data-uid="${uid}"]`);
-      if (!yearSel || !tierSel) return;
-      try {
-        await updateDoc(doc(db, 'users', uid), { yearLevel: yearSel.value, fitnessLevel: tierSel.value });
-        btn.textContent = 'Saved!';
-        setTimeout(() => { btn.textContent = 'Save'; }, 1500);
-      } catch(e) {
-        console.error('Save user error:', e);
-        showToast('Failed to save.', 'error');
-      }
-    });
-  });
-}
-
-function renderUsersPermissions(el) {
-  let html = '';
-
-  // --- Add new admin form ---
-  html += `
-    <div class="card" style="margin-bottom:12px">
-      <div class="admin-form">
-        <div class="label">Grant Admin Access</div>
-        <input class="input" type="email" id="perm-email" placeholder="user@example.com">
-        <div class="label" style="margin-top:8px">Select Features</div>
-        <div class="perm-feature-grid" id="perm-new-features">
-          ${ALL_ADMIN_FEATURES.map(f => `
-            <div class="perm-feature-toggle" data-feat="${f.id}">
-              <div class="perm-check"><svg viewBox="0 0 24 24" fill="none" stroke="#0a0b0f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-              <div class="perm-feature-label">${f.label}</div>
-            </div>
-          `).join('')}
-        </div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-primary" id="perm-add-btn" style="flex:1">Add Admin</button>
-          <button class="btn btn-secondary" id="perm-select-all" style="flex-shrink:0;font-size:12px">All</button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // --- Owner card ---
-  html += '<div style="font-size:13px;color:var(--muted-fg);margin-bottom:8px">Admin Accounts</div>';
-  html += `
-    <div class="perm-admin-card">
-      <div class="perm-admin-header">
-        <div class="perm-admin-email">${escHtml(ADMIN_EMAIL)}</div>
-        <span class="admin-perm-badge">Owner</span>
-      </div>
-      <div class="perm-admin-tags">
-        ${ALL_ADMIN_FEATURES.map(f => `<span class="perm-tag">${f.label}</span>`).join('')}
-      </div>
-    </div>
-  `;
-
-  // --- Each granted admin ---
-  adminPerms.forEach((entry, i) => {
-    const perms = entry.perms || [];
-    html += `
-      <div class="perm-admin-card">
-        <div class="perm-admin-header">
-          <div class="perm-admin-email">${escHtml(entry.email)}</div>
-        </div>
-        <div class="perm-feature-grid perm-edit-grid" data-perm-idx="${i}">
-          ${ALL_ADMIN_FEATURES.map(f => `
-            <div class="perm-feature-toggle${perms.includes(f.id) ? ' active' : ''}" data-feat="${f.id}" data-perm-idx="${i}">
-              <div class="perm-check"><svg viewBox="0 0 24 24" fill="none" stroke="#0a0b0f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
-              <div class="perm-feature-label">${f.label}</div>
-            </div>
-          `).join('')}
-        </div>
-        <div class="perm-admin-actions" style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
-          <button class="admin-edit-btn" data-perm-revoke="${i}">Revoke All</button>
-          <button class="admin-del-btn" data-perm-del="${i}">Remove Admin</button>
-        </div>
-      </div>
-    `;
-  });
-
-  // --- Legacy admins ---
-  adminEmails.forEach((email, i) => {
-    if (adminPerms.some(p => (p.email || '').toLowerCase() === (email || '').toLowerCase())) return;
-    html += `
-      <div class="perm-admin-card" style="border-color:var(--muted-fg)">
-        <div class="perm-admin-header">
-          <div class="perm-admin-email">${escHtml(email)}</div>
-          <span style="font-size:11px;color:var(--muted-fg)">Legacy</span>
-          <button class="admin-edit-btn" data-legacy-migrate="${i}">Upgrade</button>
-          <button class="admin-del-btn" data-legacy-del="${i}">Remove</button>
-        </div>
-        <div class="perm-admin-tags">
-          <span class="perm-tag" style="background:rgba(255,255,255,0.08);color:var(--muted-fg)">All features (legacy)</span>
-        </div>
-      </div>
-    `;
-  });
-
-  el.innerHTML = html;
-
-  // --- Bind new feature toggles ---
-  el.querySelectorAll('#perm-new-features .perm-feature-toggle').forEach(tog => {
-    tog.addEventListener('click', () => tog.classList.toggle('active'));
-  });
-
-  $('perm-select-all').addEventListener('click', () => {
-    el.querySelectorAll('#perm-new-features .perm-feature-toggle').forEach(t => t.classList.add('active'));
-  });
-
-  $('perm-add-btn').addEventListener('click', async () => {
-    const email = $('perm-email').value.trim().toLowerCase();
-    if (!email || !email.includes('@')) { showToast('Enter a valid email.', 'warn'); return; }
-    if (email === ADMIN_EMAIL.toLowerCase()) { showToast('This is already the owner account.', 'warn'); return; }
-    if (adminPerms.some(e => (e.email || '').toLowerCase() === email)) { showToast('Already an admin.', 'warn'); return; }
-    if (adminEmails.some(e => (e || '').toLowerCase() === email)) { showToast('Already an admin (legacy).', 'warn'); return; }
-
-    const selectedPerms = [];
-    el.querySelectorAll('#perm-new-features .perm-feature-toggle.active').forEach(t => {
-      selectedPerms.push(t.dataset.feat);
-    });
-    if (selectedPerms.length === 0) { showToast('Select at least one permission.', 'warn'); return; }
-
-    adminPerms.push({ email, perms: selectedPerms });
-    await saveAdminEmails();
-    renderAdminUsersMerged();
-  });
-
-  el.querySelectorAll('.perm-edit-grid .perm-feature-toggle').forEach(tog => {
-    tog.addEventListener('click', async () => {
-      const idx = parseInt(tog.dataset.permIdx);
-      const feat = tog.dataset.feat;
-      tog.classList.toggle('active');
-      const entry = adminPerms[idx];
-      if (tog.classList.contains('active')) {
-        if (!entry.perms.includes(feat)) entry.perms.push(feat);
-      } else {
-        entry.perms = entry.perms.filter(p => p !== feat);
-      }
-      await saveAdminEmails();
-    });
-  });
-
-  el.querySelectorAll('[data-perm-revoke]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const idx = parseInt(btn.dataset.permRevoke);
-      const entry = adminPerms[idx];
-      if (!confirm(`Revoke all admin features from ${entry.email}?`)) return;
-      entry.perms = [];
-      await saveAdminEmails();
-      renderAdminUsersMerged();
-    });
-  });
-
-  el.querySelectorAll('[data-perm-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Remove admin access for this account entirely?')) return;
-      const idx = parseInt(btn.dataset.permDel);
-      adminPerms.splice(idx, 1);
-      await saveAdminEmails();
-      renderAdminUsersMerged();
-    });
-  });
-
-  el.querySelectorAll('[data-legacy-migrate]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.legacyMigrate);
-      const email = adminEmails[idx];
-      adminPerms.push({ email, perms: ALL_ADMIN_FEATURES.map(f => f.id) });
-      adminEmails.splice(idx, 1);
-      saveAdminEmails();
-      renderAdminUsersMerged();
-    });
-  });
-
-  el.querySelectorAll('[data-legacy-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Remove admin access for this account?')) return;
-      const idx = parseInt(btn.dataset.legacyDel);
-      adminEmails.splice(idx, 1);
-      await saveAdminEmails();
-      renderAdminUsersMerged();
-    });
-  });
-}
-
-// --- PLANS ---
-function renderAdminPlansMerged() {
-  const el = $('admin-plans');
-  if (!el) return;
-
-  const subTabs = [
-    { id: 'manage', label: 'Manage' },
-    { id: 'workouts', label: 'Workouts' },
-    { id: 'videos', label: 'Videos' }
-  ];
-
-  let html = '<div style="display:flex;gap:6px;margin-bottom:14px">';
-  subTabs.forEach(t => {
-    html += `<button class="btn ${plansSubTab === t.id ? 'btn-primary' : 'btn-secondary'}" style="flex:1;font-size:12px;padding:8px 0;min-height:36px" data-plans-sub="${t.id}">${t.label}</button>`;
-  });
-  html += '</div>';
-  html += '<div id="plans-sub-content"></div>';
-  el.innerHTML = html;
-
-  el.querySelectorAll('[data-plans-sub]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      plansSubTab = btn.dataset.plansSub;
-      renderAdminPlansMerged();
-    });
-  });
-
-  const sc = $('plans-sub-content');
-  switch (plansSubTab) {
-    case 'manage': renderPlansManage(sc); break;
-    case 'workouts': renderPlansWorkouts(sc); break;
-    case 'videos': renderPlansVideos(sc); break;
-  }
-}
-
-function renderPlansManage(el) {
-  const categories = [
-    { id: 'invehicle', name: 'In Vehicle' },
-    { id: 'floor', name: 'Floor & Home' },
-    { id: 'machine', name: 'Fitness Machine' }
-  ];
-
-  let html = `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${ALL_PLANS.length} plans · ${hiddenPlans.size} hidden · Tap a plan name to edit its details.</div>`;
-
-  categories.forEach(cat => {
-    const plans = ALL_PLANS.filter(p => p.category === cat.id);
-    if (plans.length === 0) return;
-    html += `<div style="font-size:14px;font-weight:700;color:var(--fg);margin:12px 0 6px">${cat.name} (${plans.length})</div>`;
-    html += '<div class="card">';
-    plans.forEach(p => {
-      const isHidden = hiddenPlans.has(p.id);
-      const pd = getPlanDisplayData(p);
-      const hasOverride = !!planOverrides[p.id];
-      html += `
-        <div class="admin-item">
-          <div class="admin-item-info" style="cursor:pointer" data-edit-plan="${p.id}">
-            <div class="admin-item-title" style="${isHidden ? 'opacity:0.4' : ''}">${escHtml(pd.name)} ${hasOverride ? '<span style="color:#BFFF00;font-size:10px">(edited)</span>' : ''}</div>
-            <div class="admin-item-meta">${p.yearLevel} · ${capitalize(p.tier)} · ${p.workouts.length} workouts · ${pd.durationWeeks}wk · ${pd.sessionsPerWeek}x/wk</div>
-          </div>
-          <span class="admin-badge ${isHidden ? 'admin-badge-hidden' : 'admin-badge-active'}">${isHidden ? 'Hidden' : 'Visible'}</span>
-          <button class="admin-toggle${isHidden ? '' : ' on'}" data-plan-toggle="${p.id}"></button>
-        </div>
-      `;
-    });
-    html += '</div>';
-  });
-  el.innerHTML = html;
-
-  // Bind toggles
-  el.querySelectorAll('[data-plan-toggle]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const pid = btn.dataset.planToggle;
-      if (hiddenPlans.has(pid)) {
-        hiddenPlans.delete(pid);
-      } else {
-        hiddenPlans.add(pid);
-      }
-      await saveHiddenPlans();
-      renderAdminPlansMerged();
-    });
-  });
-
-  // Bind plan edit clicks
-  el.querySelectorAll('[data-edit-plan]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const pid = btn.dataset.editPlan;
-      const plan = ALL_PLANS.find(p => p.id === pid);
-      if (plan) openPlanEditSheet(plan);
-    });
-  });
-}
-
-function openPlanEditSheet(plan) {
-  const ov = planOverrides[plan.id] || {};
-  const name = ov.name || plan.name;
-  const desc = ov.description || plan.description;
-  const weeks = ov.durationWeeks || plan.durationWeeks;
-  const sessions = ov.sessionsPerWeek || plan.sessionsPerWeek;
-
-  $('sheet-content').innerHTML = `
-    <div class="sheet-title">Edit Plan</div>
-    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">${plan.yearLevel} · ${capitalize(plan.tier)} · ${plan.category}</div>
-    <div class="form-group">
-      <label class="label" for="plan-edit-name">Plan Name</label>
-      <input class="input" type="text" id="plan-edit-name" value="${escHtml(name)}">
-    </div>
-    <div class="form-group">
-      <label class="label" for="plan-edit-desc">Description</label>
-      <textarea class="input" id="plan-edit-desc" rows="4" style="font-size:13px;line-height:1.5">${escHtml(desc)}</textarea>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="label" for="plan-edit-weeks">Duration (weeks)</label>
-        <input class="input" type="number" id="plan-edit-weeks" value="${weeks}" min="1" max="52">
-      </div>
-      <div class="form-group">
-        <label class="label" for="plan-edit-sessions">Sessions / week</label>
-        <input class="input" type="number" id="plan-edit-sessions" value="${sessions}" min="1" max="7">
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="btn btn-primary" style="flex:1" id="plan-edit-save">Save Changes</button>
-      ${planOverrides[plan.id] ? '<button class="btn btn-secondary" id="plan-edit-reset">Reset to Default</button>' : ''}
-    </div>
-  `;
-  openSheet();
-
-  $('plan-edit-save').addEventListener('click', async () => {
-    const newName = $('plan-edit-name').value.trim();
-    const newDesc = $('plan-edit-desc').value.trim();
-    const newWeeks = parseInt($('plan-edit-weeks').value) || plan.durationWeeks;
-    const newSessions = parseInt($('plan-edit-sessions').value) || plan.sessionsPerWeek;
-
-    const ov = {};
-    if (newName && newName !== plan.name) ov.name = newName;
-    if (newDesc && newDesc !== plan.description) ov.description = newDesc;
-    if (newWeeks !== plan.durationWeeks) ov.durationWeeks = newWeeks;
-    if (newSessions !== plan.sessionsPerWeek) ov.sessionsPerWeek = newSessions;
-
-    if (Object.keys(ov).length > 0) {
-      planOverrides[plan.id] = ov;
-    } else {
-      delete planOverrides[plan.id];
-    }
-    await savePlanOverrides();
-    closeSheet();
-    renderAdminPlansMerged();
-    if (currentPage === 'fitness' && fitnessSubTab === 'plans') renderPlans();
-    if (currentPage === 'today') renderToday();
-  });
-
-  const resetBtn = $('plan-edit-reset');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', async () => {
-      if (!confirm('Reset this plan to its original content?')) return;
-      delete planOverrides[plan.id];
-      await savePlanOverrides();
-      closeSheet();
-      renderAdminPlansMerged();
-      if (currentPage === 'fitness' && fitnessSubTab === 'plans') renderPlans();
-      if (currentPage === 'today') renderToday();
-    });
-  }
-}
-
-function renderPlansWorkouts(el) {
-  const visiblePlans = getVisiblePlans();
-  let html = '';
-  html += '<div class="label" style="margin-bottom:6px">Select Plan to Edit Workouts</div>';
-  html += '<select class="input" id="admin-exercise-plan-select" style="font-size:13px;margin-bottom:12px">';
-  html += '<option value="">— Choose a plan —</option>';
-  visiblePlans.forEach(p => {
-    html += '<option value="' + p.id + '"' + (exerciseAdminPlan === p.id ? ' selected' : '') + '>' + escHtml(p.name) + ' (' + p.yearLevel + ' ' + capitalize(p.tier) + ')</option>';
-  });
-  html += '</select>';
-
-  if (exerciseAdminPlan) {
-    const plan = visiblePlans.find(p => p.id === exerciseAdminPlan);
-    if (plan) {
-      html += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">' + plan.workouts.length + ' workouts. Tap a workout to edit its name, description, duration, or intensity.</div>';
-      const weeks = {};
-      plan.workouts.forEach((w, wi) => {
-        if (!weeks[w.week]) weeks[w.week] = [];
-        weeks[w.week].push({ workout: w, index: wi });
-      });
-      Object.keys(weeks).sort((a,b)=>a-b).forEach(wk => {
-        html += '<div style="font-size:12px;font-weight:700;color:var(--fg);margin:8px 0 4px">Week ' + wk + '</div>';
-        weeks[wk].forEach(({ workout: w, index: wi }) => {
-          const key = plan.id + '_' + wi;
-          const ov = exerciseOverrides[key];
-          const name = (ov && ov.name) || w.name;
-          const hasOverride = !!ov;
-          html += `
-            <div class="admin-exercise-card" data-exercise-key="${key}" data-plan-id="${plan.id}" data-workout-idx="${wi}">
-              <div class="admin-exercise-name">${escHtml(name)} ${hasOverride ? '<span style="color:#BFFF00;font-size:10px">(edited)</span>' : ''}</div>
-              <div class="admin-exercise-meta">${w.day} · ${w.duration}min · ${capitalize(w.intensity)}</div>
-              <button class="admin-edit-btn" data-edit-exercise="${key}">Edit</button>
-              ${hasOverride ? '<button class="admin-del-btn" data-reset-exercise="' + key + '" style="margin-left:6px">Reset</button>' : ''}
-            </div>
-          `;
-        });
-      });
-    }
-  }
-  el.innerHTML = html;
-
-  const sel = el.querySelector('#admin-exercise-plan-select');
-  if (sel) {
-    sel.addEventListener('change', () => {
-      exerciseAdminPlan = sel.value || null;
-      renderAdminPlansMerged();
-    });
-  }
-
-  el.querySelectorAll('[data-edit-exercise]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const key = btn.dataset.editExercise;
-      const [planId, wiStr] = [key.substring(0, key.lastIndexOf('_')), key.substring(key.lastIndexOf('_') + 1)];
-      const wi = parseInt(wiStr);
-      const plan = getVisiblePlans().find(p => p.id === planId);
-      if (!plan) return;
-      const w = plan.workouts[wi];
-      if (!w) return;
-      const ov = exerciseOverrides[key] || {};
-      openExerciseEditSheet(key, w, ov);
-    });
-  });
-
-  el.querySelectorAll('[data-reset-exercise]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const key = btn.dataset.resetExercise;
-      if (!confirm('Reset this workout to its original content?')) return;
-      delete exerciseOverrides[key];
-      await saveExerciseOverrides();
-      renderAdminPlansMerged();
-    });
-  });
-}
-
-function renderPlansVideos(el) {
-  const allExercises = extractAllExercises();
-  const categories = [
-    { id: 'invehicle', name: 'In Vehicle' },
-    { id: 'floor', name: 'Floor & Home' },
-    { id: 'machine', name: 'Fitness Machine' }
-  ];
-
-  const vidCount = Object.keys(exerciseDemoVideos).filter(k => exerciseDemoVideos[k]).length;
-  let html = '';
-  html += `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${allExercises.length} exercises · ${vidCount} with videos. Add YouTube URLs for the Demos tab.</div>`;
-
-  // Search
-  html += `
-    <div class="demo-search-wrap" style="margin-bottom:12px">
-      <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input class="demo-search" type="text" id="admin-vid-search" placeholder="Search exercises..." value="">
-    </div>
-  `;
-
-  categories.forEach(cat => {
-    const exercises = allExercises.filter(e => e.category === cat.id);
-    if (exercises.length === 0) return;
-    const withVid = exercises.filter(e => exerciseDemoVideos[e.key]).length;
-    html += `<div style="font-size:14px;font-weight:700;color:var(--fg);margin:12px 0 6px">${cat.name} <span style="font-weight:400;font-size:12px;color:var(--muted-fg)">(${exercises.length} exercises · ${withVid} with videos)</span></div>`;
-    html += '<div class="card admin-vid-cat" data-vid-cat="' + cat.id + '">';
-    exercises.forEach(ex => {
-      const currentUrl = exerciseDemoVideos[ex.key] || '';
-      html += `
-        <div class="admin-item" style="flex-wrap:wrap;gap:6px">
-          <div class="admin-item-info" style="flex:1;min-width:140px">
-            <div class="admin-item-title" style="font-size:13px">${escHtml(ex.name)} ${currentUrl ? '<span style="color:#BFFF00;font-size:10px">has video</span>' : ''}</div>
-          </div>
-          <div style="display:flex;gap:4px;flex:2;min-width:200px">
-            <input class="input" type="url" value="${escHtml(currentUrl)}" placeholder="YouTube URL" data-vid-key="${ex.key}" style="flex:1;height:36px;font-size:12px;padding:0 10px">
-            ${currentUrl ? '<button class="admin-del-btn" data-vid-clear="' + ex.key + '" style="height:36px;padding:0 8px;font-size:11px">Clear</button>' : ''}
-          </div>
-        </div>
-      `;
-    });
-    html += '</div>';
-  });
-
-  html += '<button class="btn btn-primary" style="width:100%;margin-top:12px" id="admin-vid-save-all">Save All Videos</button>';
-  el.innerHTML = html;
-
-  // Bind search filter
-  const searchInput = $('admin-vid-search');
-  searchInput.addEventListener('input', () => {
-    const q = searchInput.value.toLowerCase().trim();
-    el.querySelectorAll('.admin-item').forEach(item => {
-      const name = item.querySelector('.admin-item-title')?.textContent?.toLowerCase() || '';
-      item.style.display = (!q || name.includes(q)) ? '' : 'none';
-    });
-  });
-
-  // Bind clear buttons
-  el.querySelectorAll('[data-vid-clear]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const key = btn.dataset.vidClear;
-      delete exerciseDemoVideos[key];
-      await saveExerciseDemoVideos();
-      renderAdminPlansMerged();
-    });
-  });
-
-  // Bind save all
-  $('admin-vid-save-all').addEventListener('click', async () => {
-    const inputs = el.querySelectorAll('input[data-vid-key]');
-    inputs.forEach(inp => {
-      const key = inp.dataset.vidKey;
-      const val = inp.value.trim();
-      if (val) {
-        exerciseDemoVideos[key] = val;
-      } else {
-        delete exerciseDemoVideos[key];
-      }
-    });
-    await saveExerciseDemoVideos();
-    const btn = $('admin-vid-save-all');
-    btn.textContent = 'Saved!';
-    setTimeout(() => { btn.textContent = 'Save All Videos'; }, 1500);
-  });
-}
-
-async function saveHiddenPlans() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'hiddenPlans'), { ids: [...hiddenPlans] });
-  } catch(e) {
-    console.error('Save hidden plans error:', e);
-    showToast('Failed to save.', 'error');
-  }
-}
-
-
-
-// ============================================
-// ADMIN PERMISSIONS
-// ============================================
-
-async function loadAdminEmails() {
-  if (!db) return;
-  try {
-    const snap = await getDoc(doc(db, 'config', 'adminEmails'));
-    if (snap.exists()) {
-      const data = snap.data();
-      // Support both old format (emails: string[]) and new format (perms: [{email, perms}])
-      adminEmails = data.emails || [];
-      adminPerms = data.perms || [];
-    } else {
-      adminEmails = [];
-      adminPerms = [];
-    }
-  } catch(e) {
-    adminEmails = [];
-    adminPerms = [];
-  }
-}
-
-async function saveAdminEmails() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'adminEmails'), { emails: adminEmails, perms: adminPerms });
-  } catch(e) {
-    console.error('Save admin emails error:', e);
-    showToast('Failed to save.', 'error');
-  }
-}
-
-
-// ============================================
-// ADMIN: EXERCISE EDITING
-// ============================================
-
-async function loadExerciseOverrides() {
-  if (!db) return;
-  try {
-    const snap = await getDoc(doc(db, 'config', 'exerciseOverrides'));
-    exerciseOverrides = snap.exists() ? (snap.data().overrides || {}) : {};
-  } catch(e) {
-    exerciseOverrides = {};
-  }
-}
-
-async function saveExerciseOverrides() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'exerciseOverrides'), { overrides: exerciseOverrides });
-  } catch(e) {
-    console.error('Save exercise overrides error:', e);
-    showToast('Failed to save exercises.', 'error');
-  }
-}
-
-async function loadPlanOverrides() {
-  if (!db) return;
-  try {
-    const snap = await getDoc(doc(db, 'config', 'planOverrides'));
-    planOverrides = snap.exists() ? (snap.data().overrides || {}) : {};
-  } catch(e) {
-    planOverrides = {};
-  }
-}
-
-async function savePlanOverrides() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'planOverrides'), { overrides: planOverrides });
-  } catch(e) {
-    console.error('Save plan overrides error:', e);
-    showToast('Failed to save plan changes.', 'error');
-  }
-}
-
-async function loadExerciseDemoVideos() {
-  if (!db) return;
-  try {
-    const snap = await getDoc(doc(db, 'config', 'exerciseDemoVideos'));
-    exerciseDemoVideos = snap.exists() ? (snap.data().videos || {}) : {};
-  } catch(e) {
-    exerciseDemoVideos = {};
-  }
-}
-
-async function saveExerciseDemoVideos() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'exerciseDemoVideos'), { videos: exerciseDemoVideos });
-  } catch(e) {
-    console.error('Save exercise demo videos error:', e);
-    showToast('Failed to save.', 'error');
-  }
-}
-
-function getWorkoutData(planId, weekIdx, workout) {
-  const key = planId + '_' + weekIdx;
-  const override = exerciseOverrides[key];
-  if (override) {
-    return {
-      name: override.name || workout.name,
-      description: override.description || workout.description,
-      duration: override.duration || workout.duration,
-      intensity: override.intensity || workout.intensity
-    };
-  }
-  return workout;
-}
-
-let exerciseAdminPlan = null;
-
-// (Exercises now rendered within renderAdminPlansMerged → renderPlansWorkouts)
-
-function openExerciseEditSheet(key, originalWorkout, currentOverride) {
-  const name = currentOverride.name || originalWorkout.name;
-  const desc = currentOverride.description || originalWorkout.description;
-  const dur = currentOverride.duration || originalWorkout.duration;
-  const intensity = currentOverride.intensity || originalWorkout.intensity;
-  
-  $('sheet-content').innerHTML = `
-    <div class="sheet-title">Edit Workout</div>
-    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">Changes appear for all users in the plan schedule and today's training.</div>
-    <div class="form-group">
-      <label class="label" for="ex-edit-name">Workout Name</label>
-      <input class="input" type="text" id="ex-edit-name" value="${escHtml(name)}">
-    </div>
-    <div class="form-group">
-      <label class="label" for="ex-edit-desc">Description</label>
-      <textarea class="input" id="ex-edit-desc" rows="5" style="font-size:13px;line-height:1.5">${escHtml(desc)}</textarea>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="label" for="ex-edit-dur">Duration (min)</label>
-        <input class="input" type="number" id="ex-edit-dur" value="${dur}" min="1">
-      </div>
-      <div class="form-group">
-        <label class="label" for="ex-edit-int">Intensity</label>
-        <select class="input" id="ex-edit-int">
-          <option value="easy"${intensity === 'easy' ? ' selected' : ''}>Easy</option>
-          <option value="moderate"${intensity === 'moderate' ? ' selected' : ''}>Moderate</option>
-          <option value="hard"${intensity === 'hard' ? ' selected' : ''}>Hard</option>
-        </select>
-      </div>
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="ex-edit-save">Save Changes</button>
-  `;
-  openSheet();
-  
-  $('ex-edit-save').addEventListener('click', async () => {
-    const newName = $('ex-edit-name').value.trim();
-    const newDesc = $('ex-edit-desc').value.trim();
-    const newDur = parseInt($('ex-edit-dur').value) || originalWorkout.duration;
-    const newInt = $('ex-edit-int').value;
-    
-    // Only save overrides for fields that differ from original
-    const ov = {};
-    if (newName && newName !== originalWorkout.name) ov.name = newName;
-    if (newDesc && newDesc !== originalWorkout.description) ov.description = newDesc;
-    if (newDur !== originalWorkout.duration) ov.duration = newDur;
-    if (newInt !== originalWorkout.intensity) ov.intensity = newInt;
-    
-    if (Object.keys(ov).length > 0) {
-      exerciseOverrides[key] = ov;
-    } else {
-      delete exerciseOverrides[key];
-    }
-    
-    await saveExerciseOverrides();
-    closeSheet();
-    renderAdminPlansMerged();
-    // Also re-render plans and today if visible
-    if (currentPage === 'fitness' && fitnessSubTab === 'plans') renderPlans();
-    if (currentPage === 'today') renderToday();
-  });
-}
-
-// (Permissions now rendered within renderAdminUsersMerged → renderUsersPermissions)
-
-// ============================================
-// VIDEO OVERRIDE (Demo Links)
-// ============================================
-
-async function loadVideoOverrides() {
-  if (!db) return;
-  try {
-    const snap = await getDoc(doc(db, 'config', 'videoOverrides'));
-    videoOverrides = snap.exists() ? (snap.data().overrides || {}) : {};
-  } catch(e) {
-    videoOverrides = {};
-  }
-}
-
-async function saveVideoOverrides() {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'config', 'videoOverrides'), { overrides: videoOverrides });
-  } catch(e) {
-    console.error('Save video overrides error:', e);
-    showToast('Failed to save.', 'error');
-  }
-}
-
-function getVideoUrl(planId, workoutIdx, defaultUrl) {
-  if (videoOverrides[planId] && videoOverrides[planId][workoutIdx] !== undefined) {
-    return videoOverrides[planId][workoutIdx] || defaultUrl;
-  }
-  return defaultUrl;
-}
-
-let demoExpandedPlan = null;
-
-// (Demo links now rendered within renderAdminPlansMerged → renderPlansVideos)
 
 // ============================================
 // RACE LOG (all users)
@@ -6762,16 +5163,167 @@ function checkRaceResultPrompt() {
     return daysSince >= 0 && daysSince <= 7;
   });
   if (recentPast.length === 0) return;
-  // Check if already prompted
   const prompted = localStorage.getItem('vf_race_prompted') || '';
   const unprompted = recentPast.find(r => !prompted.includes(r.date));
   if (!unprompted) return;
-  // Show prompt
   setTimeout(() => {
     const rName = unprompted.name || 'recent race';
-    showToast('How did ' + rName + ' go? Tap here to log your result!', 'info');
+    // Show a clickable toast that opens the race result form
+    const container = $('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast info';
+    toast.style.cursor = 'pointer';
+    toast.textContent = 'How did ' + rName + ' go? Tap to log your result!';
+    toast.addEventListener('click', () => {
+      toast.remove();
+      openRaceResultForm(rName, unprompted.date);
+    });
+    container.appendChild(toast);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 8000);
     localStorage.setItem('vf_race_prompted', prompted + ',' + unprompted.date);
   }, 3000);
+}
+
+// ============================================
+// ONBOARDING TUTORIAL
+// ============================================
+const TUTORIAL_STEPS = [
+  {
+    icon: '👋', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+    title: 'Welcome to VeloForge!',
+    desc: 'This quick tour shows you how to get the most out of your HPV training app. You can skip this anytime or redo it later from your profile.',
+    highlight: null
+  },
+  {
+    icon: '📊', bg: 'linear-gradient(135deg,#3b82f6,#60a5fa)',
+    title: 'Today — Your Home Base',
+    desc: 'The Today page shows your streak, XP level, goals, team challenge scores, and today\'s scheduled training. Everything you need at a glance.',
+    highlight: '[data-page="today"]'
+  },
+  {
+    icon: '🏋️', bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
+    title: 'Fitness — Your Activities & Plans',
+    desc: 'View all your recorded activities with route maps, browse 54 training plans for every year level, watch exercise demos, and manage AI-generated plans.',
+    highlight: '[data-page="fitness"]'
+  },
+  {
+    icon: '🟢', bg: 'linear-gradient(135deg,#22c55e,#16a34a)',
+    title: 'Record — Track with GPS',
+    desc: 'Tap the green Record button to start tracking your rides, runs, or walks with live GPS mapping. Choose your activity type, hit start, and your route is drawn in real-time.',
+    highlight: '#record-tab-btn'
+  },
+  {
+    icon: '🏁', bg: 'linear-gradient(135deg,#ef4444,#f87171)',
+    title: 'Races — Events & Race Log',
+    desc: 'See upcoming race events with countdown timers. After races, log your lap times, positions, and race reflections to track your progress across the season.',
+    highlight: '[data-page="races"]'
+  },
+  {
+    icon: '🏆', bg: 'linear-gradient(135deg,#f97316,#fb923c)',
+    title: 'Leaderboard — XP Rankings',
+    desc: 'Compete with teammates on the XP leaderboard. Earn XP by logging workouts, maintaining streaks, rating effort, and completing training plans.',
+    highlight: '[data-page="team"]'
+  },
+  {
+    icon: '🤖', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+    title: 'AI Coach — Your Training Assistant',
+    desc: 'Tap the purple button in the bottom-left corner anytime to chat with your AI coach. Ask about training, get plan recommendations, or generate a custom workout plan.',
+    highlight: '#ai-fab'
+  },
+  {
+    icon: '⬡', bg: 'linear-gradient(135deg,#fc5200,#ff7043)',
+    title: 'Strava Sync — Two-Way',
+    desc: 'Connect Strava in your Profile to auto-import Apple Watch workouts with route maps and heart rate. Activities you record in VeloForge also sync back to Strava.',
+    highlight: null
+  },
+  {
+    icon: '🚀', bg: 'linear-gradient(135deg,var(--primary),#a3e635)',
+    title: 'You\'re All Set!',
+    desc: 'Start by picking a training plan in Fitness → Plans, or hit Record to track your first activity. You can redo this tour anytime from your Profile. Let\'s get training!',
+    highlight: null
+  }
+];
+
+let tutorialStep = 0;
+let tutorialOverlay = null;
+
+function showTutorial() {
+  tutorialStep = 0;
+  renderTutorialStep();
+}
+
+function renderTutorialStep() {
+  const step = TUTORIAL_STEPS[tutorialStep];
+  if (!step) { closeTutorial(); return; }
+
+  // Remove existing
+  if (tutorialOverlay) tutorialOverlay.remove();
+
+  tutorialOverlay = document.createElement('div');
+  tutorialOverlay.className = 'tutorial-overlay';
+  tutorialOverlay.id = 'tutorial-overlay';
+
+  // Highlight element
+  let highlightHtml = '';
+  if (step.highlight) {
+    const el = document.querySelector(step.highlight);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      highlightHtml = `<div class="tutorial-highlight" style="top:${rect.top - 4}px;left:${rect.left - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px"></div>`;
+    }
+  }
+
+  const isFirst = tutorialStep === 0;
+  const isLast = tutorialStep === TUTORIAL_STEPS.length - 1;
+  const dots = TUTORIAL_STEPS.map((_, i) => `<div class="tutorial-dot${i === tutorialStep ? ' active' : ''}"></div>`).join('');
+
+  tutorialOverlay.innerHTML = `
+    <div class="tutorial-backdrop" id="tut-backdrop"></div>
+    ${highlightHtml}
+    <div class="tutorial-card">
+      <div class="tutorial-icon" style="background:${step.bg}">${step.icon}</div>
+      <div class="tutorial-title">${step.title}</div>
+      <div class="tutorial-desc">${step.desc}</div>
+      <div class="tutorial-dots">${dots}</div>
+      <div class="tutorial-btns">
+        ${isFirst
+          ? `<button class="tutorial-btn secondary" id="tut-skip">Skip Tour</button>
+             <button class="tutorial-btn primary" id="tut-next">Let's Go →</button>`
+          : isLast
+            ? `<button class="tutorial-btn secondary" id="tut-back">← Back</button>
+               <button class="tutorial-btn primary" id="tut-finish">Start Training!</button>`
+            : `<button class="tutorial-btn secondary" id="tut-back">← Back</button>
+               <button class="tutorial-btn primary" id="tut-next">Next →</button>`
+        }
+      </div>
+    </div>`;
+
+  document.body.appendChild(tutorialOverlay);
+
+  // Bindings
+  $('tut-skip')?.addEventListener('click', () => closeTutorial());
+  $('tut-next')?.addEventListener('click', () => { tutorialStep++; renderTutorialStep(); });
+  $('tut-back')?.addEventListener('click', () => { tutorialStep--; renderTutorialStep(); });
+  $('tut-finish')?.addEventListener('click', () => closeTutorial());
+  $('tut-backdrop')?.addEventListener('click', () => { tutorialStep++; renderTutorialStep(); });
+}
+
+function closeTutorial() {
+  if (tutorialOverlay) { tutorialOverlay.remove(); tutorialOverlay = null; }
+  // Mark as seen
+  try { localStorage.setItem('vf_tutorial_seen', 'true'); } catch(e) {}
+  if (!demoMode && db && currentUser) {
+    try { updateDoc(doc(db, 'users', currentUser.uid), { tutorialSeen: true }).catch(() => {}); } catch(e) {}
+  }
+}
+
+function shouldShowTutorial() {
+  // Check localStorage first (fast)
+  try { if (localStorage.getItem('vf_tutorial_seen') === 'true') return false; } catch(e) {}
+  // Check Firestore profile
+  if (userProfile?.tutorialSeen) return false;
+  return true;
 }
 
 // Start
