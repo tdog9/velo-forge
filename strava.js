@@ -171,8 +171,8 @@ export async function stravaDisconnect() {
 
 // Load Strava tokens from user profile on login
 export function loadStravaTokens() {
-  if (A.userProfile?.A.stravaTokens) {
-    A.stravaTokens = A.userProfile.A.stravaTokens;
+  if (A.userProfile?.stravaTokens) {
+    A.stravaTokens = A.userProfile.stravaTokens;
   }
 }
 
