@@ -21,6 +21,11 @@ let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     getStreamForRace = () => null, renderFootageLinks = () => '',
     getCompletedRacesNeedingLogs = () => [], initRaceLog = () => {};
 let openWorkoutTimer = () => {}, closeWorkoutTimer = () => {}, initTimer = () => {};
+let startAiPlanEdit = () => {}, sendAiPlanEdit = async () => {},
+    startAiWeeklyReview = () => {}, startAiRacePrep = () => {},
+    generateRacePrepPlan = () => {}, startAiInjuryMod = () => {},
+    sendInjuryModification = () => {}, openInlineWorkoutEdit = () => {},
+    initAiFeatures = () => {};
 
 try {
   const adminMod = await import('./admin.js');
@@ -48,6 +53,13 @@ try {
   const timerMod = await import('./timer.js');
   ({ initTimer, openWorkoutTimer, closeWorkoutTimer } = timerMod);
 } catch(e) { console.warn('timer.js load failed:', e); }
+
+try {
+  const aifMod = await import('./aifeatures.js');
+  ({ initAiFeatures, startAiPlanEdit, sendAiPlanEdit, startAiWeeklyReview,
+     startAiRacePrep, generateRacePrepPlan, startAiInjuryMod,
+     sendInjuryModification, openInlineWorkoutEdit } = aifMod);
+} catch(e) { console.warn('aifeatures.js load failed:', e); }
 
 // Load plans data (dynamic import with fallback)
 let ALL_PLANS = [];
@@ -605,6 +617,29 @@ $('show-signup').addEventListener('click', showAuthSignup);
 $('show-login').addEventListener('click', showAuthLogin);
 $('demo-mode-btn').addEventListener('click', enterDemoMode);
 
+// Role selector toggle
+document.querySelectorAll('.role-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const role = btn.dataset.role;
+    $('signup-role').value = role;
+    // Show/hide student-specific fields
+    const studentFields = $('signup-student-fields');
+    const childGroup = $('signup-child-group');
+    if (role === 'student') {
+      if (studentFields) studentFields.style.display = '';
+      if (childGroup) childGroup.style.display = 'none';
+    } else if (role === 'parent') {
+      if (studentFields) studentFields.style.display = 'none';
+      if (childGroup) childGroup.style.display = '';
+    } else {
+      if (studentFields) studentFields.style.display = 'none';
+      if (childGroup) childGroup.style.display = 'none';
+    }
+  });
+});
+
 $('login-btn').addEventListener('click', async () => {
   const email = $('login-email').value.trim();
   const password = $('login-password').value;
@@ -636,11 +671,18 @@ $('signup-btn').addEventListener('click', async () => {
   const name = $('signup-name').value.trim();
   const email = $('signup-email').value.trim();
   const password = $('signup-password').value;
-  const yearLevel = $('signup-year').value;
-  const tier = document.querySelector('input[name="signup-tier"]:checked').value;
+  const role = $('signup-role').value || 'student';
+  const yearLevel = role === 'student' ? $('signup-year').value : null;
+  const tier = role === 'student' ? document.querySelector('input[name="signup-tier"]:checked').value : null;
+  const childEmail = role === 'parent' ? ($('signup-child-email')?.value?.trim() || null) : null;
 
   if (!name || !email || !password) {
     $('signup-error').textContent = 'Please fill in all fields.';
+    show('signup-error');
+    return;
+  }
+  if (role === 'parent' && !childEmail) {
+    $('signup-error').textContent = 'Please enter your child\'s account email.';
     show('signup-error');
     return;
   }
@@ -661,16 +703,20 @@ $('signup-btn').addEventListener('click', async () => {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
-    await setDoc(doc(db, 'users', cred.user.uid), {
+    const userData = {
       displayName: name,
       email: email,
+      role: role,
       yearLevel: yearLevel,
       fitnessLevel: tier,
       activePlanId: null,
       teamId: null,
       teamName: null,
       createdAt: serverTimestamp()
-    });
+    };
+    if (role === 'parent') userData.linkedChildEmail = childEmail;
+    if (role === 'coach') userData.isCoach = true;
+    await setDoc(doc(db, 'users', cred.user.uid), userData);
   } catch(e) {
     hideLoading();
     btn.disabled = false;
@@ -2123,7 +2169,7 @@ $('ai-fab').addEventListener('click', () => { haptic('light'); openAiCoach(); })
 $('ai-close-btn').addEventListener('click', closeAiCoach);
 
 // Quick question buttons
-document.querySelectorAll('.ai-quick-btn:not(.ai-gen-trigger)').forEach(btn => {
+document.querySelectorAll('.ai-quick-btn:not(.ai-gen-trigger):not(.ai-action-trigger)').forEach(btn => {
   btn.addEventListener('click', () => {
     const q = btn.dataset.q;
     if (q) sendAiMessage(q);
@@ -2141,19 +2187,23 @@ document.querySelectorAll('.ai-gen-trigger').forEach(btn => {
   });
 });
 
+// AI action triggers (edit plan, weekly review, race prep, injury mode)
+document.querySelectorAll('.ai-action-trigger').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const qb = $('ai-quick-btns');
+    if (qb) qb.remove();
+    const action = btn.dataset.action;
+    if (action === 'edit-plan') startAiPlanEdit();
+    else if (action === 'weekly-review') startAiWeeklyReview();
+    else if (action === 'race-prep') startAiRacePrep();
+    else if (action === 'injury-mod') startAiInjuryMod();
+  });
+});
+
 $('ai-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
-    const msg = $('ai-input').value.trim();
-    if (!msg) return;
-    const input = $('ai-input');
-    if (input.dataset.planMode === 'custom') {
-      delete input.dataset.planMode;
-      generateAiPlan(null, userProfile?.yearLevel || 'Y10', userProfile?.fitnessLevel || 'basic', msg);
-      input.value = '';
-    } else {
-      sendAiMessage(msg);
-    }
+    $('ai-send-btn').click();
   }
 });
 
@@ -2165,6 +2215,21 @@ $('ai-send-btn').addEventListener('click', () => {
     delete input.dataset.planMode;
     generateAiPlan(null, userProfile?.yearLevel || 'Y10', userProfile?.fitnessLevel || 'basic', msg);
     input.value = '';
+  } else if (input.dataset.planEditMode) {
+    delete input.dataset.planEditMode;
+    const plan = findPlan(input.dataset.planEditId);
+    delete input.dataset.planEditId;
+    input.value = '';
+    if (plan) sendAiPlanEdit(msg, plan);
+    else sendAiMessage(msg);
+  } else if (input.dataset.racePrepMode) {
+    delete input.dataset.racePrepMode;
+    input.value = '';
+    generateRacePrepPlan(msg, 14);
+  } else if (input.dataset.injuryMode) {
+    delete input.dataset.injuryMode;
+    input.value = '';
+    sendInjuryModification(msg, userProfile?.activePlanId ? findPlan(userProfile.activePlanId) : null);
   } else {
     sendAiMessage(msg);
   }
@@ -2500,6 +2565,9 @@ async function loadCustomPlans() {
   }
 }
 
+// ============================================
+// AI PLAN EDITOR (natural language editing)
+// ============================================
 // --- Team Activity Feed loader ---
 async function loadTeamFeed() {
   teamFeedCache = [];
@@ -4187,7 +4255,7 @@ function buildModuleCtx() {
     // Function refs
     findPlan, getActiveRaces, getVisiblePlans, getPlanDisplayData, getEmbedUrl,
     getMapTileUrl, renderToday, renderFitness, renderPlans, renderProfile,
-    stravaUploadActivity, autoUpdateChallengeScore,
+    stravaUploadActivity, autoUpdateChallengeScore, showModal, saveCustomPlansLocal,
   };
 }
 
@@ -4206,6 +4274,7 @@ function startApp() {
         initStrava(buildModuleCtx());
         initRaceLog(buildModuleCtx());
         initTimer(buildModuleCtx());
+        initAiFeatures(buildModuleCtx());
         // Load admin emails FIRST so checkAdmin has the full list
         await loadAdminEmails();
         await loadVideoOverrides();
