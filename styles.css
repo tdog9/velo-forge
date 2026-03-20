@@ -1016,3 +1016,8 @@ select.input{appearance:none;cursor:pointer;
 .modal-btn.primary{background:var(--primary);color:var(--primary-fg)}
 .modal-btn.secondary{background:var(--surface-alt);color:var(--muted-fg);border:1px solid var(--border)}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+/* Role Selector */
+.role-selector{display:flex;gap:6px}
+.role-btn{flex:1;padding:10px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface-alt);color:var(--muted-fg);font-size:13px;font-weight:600;text-align:center;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.role-btn:active{transform:scale(.97)}
+.role-btn.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
