@@ -254,7 +254,7 @@ export function openActivityDetail(workoutIdx) {
   if (!w) return;
   let routes = {};
   try { routes = JSON.parse(localStorage.getItem('vf_routes')||'{}'); } catch(e) {}
-  const routeId = w.routeId || w.id;
+  const routeId = w.routeId || (w.stravaId ? 'strava-' + w.stravaId : w._id);
   const route = routes[routeId];
   const hasRoute = route && route.length > 1;
   const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
