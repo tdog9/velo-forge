@@ -226,17 +226,31 @@ export async function stravaAutoSync() {
   try {
     await stravaFetchActivities();
     if (A.stravaActivities.length === 0) return;
-    // Auto-import any new activities not already in workouts
+    // Build sets for duplicate detection
     const importedIds = new Set();
-    A.userWorkouts.forEach(w => { if (w.stravaId) importedIds.add(String(w.stravaId)); });
+    const existingWorkouts = [];
+    A.userWorkouts.forEach(w => {
+      if (w.stravaId) importedIds.add(String(w.stravaId));
+      // Also track date+duration for fuzzy matching
+      const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+      if (d) existingWorkouts.push({ date: d.getTime(), duration: w.duration || 0, name: (w.name || '').toLowerCase() });
+    });
     let imported = 0;
     for (const a of A.stravaActivities) {
+      // Skip if stravaId already exists
       if (importedIds.has(String(a.id))) continue;
       const name = a.name || 'Strava Activity';
       const duration = a.moving_time ? Math.round(a.moving_time / 60) : 0;
       const distance = a.distance ? parseFloat((a.distance / 1000).toFixed(2)) : null;
       const avgSpeed = a.average_speed ? parseFloat((a.average_speed * 3.6).toFixed(1)) : null;
       const dateObj = a.start_date_local ? new Date(a.start_date_local) : new Date();
+      // Fuzzy duplicate check: same day + similar duration (within 5 min)
+      const isDuplicate = existingWorkouts.some(w => {
+        const dayMatch = Math.abs(w.date - dateObj.getTime()) < 86400000; // same day
+        const durMatch = Math.abs(w.duration - duration) <= 5; // within 5 min
+        return dayMatch && durMatch;
+      });
+      if (isDuplicate) continue;
       const typeMap = { Ride: 'ride', Run: 'run', Walk: 'walk', Hike: 'walk', WeightTraining: 'gym', Workout: 'gym' };
       const type = typeMap[a.type] || 'ride';
       const routeId = 'strava-' + a.id;
