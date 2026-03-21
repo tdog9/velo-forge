@@ -13,9 +13,13 @@
   --font-mono:'SF Mono','Menlo',monospace;
   --safe-b:env(safe-area-inset-bottom,0px);
   --safe-t:env(safe-area-inset-top,0px);
+  --safe-l:env(safe-area-inset-left,0px);
+  --safe-r:env(safe-area-inset-right,0px);
   --header-h:56px;
   --tab-h:calc(56px + var(--safe-b));
+  --app-h:100vh;
 }
+@supports (height: 100dvh) { :root { --app-h:100dvh; } }
 /* Light theme */
 .light-theme{
   --bg:#f5f5f0;--fg:#1a1a1a;--card:#ffffff;--border:#e0ddd5;--muted:#eae8e0;--muted-fg:#6b6960;
@@ -27,12 +31,14 @@
 .light-theme .tab-bar{background:rgba(245,245,240,0.95)}
 .light-theme .sheet{background:var(--card)}
 .light-theme .user-menu{background:var(--card);box-shadow:0 8px 32px rgba(0,0,0,0.12)}
-html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  overscroll-behavior:none;height:100%;height:var(--app-h)}
 body{font-family:var(--font-body);background:var(--bg);color:var(--fg);
-  min-height:100vh;min-height:100dvh;overflow:hidden;position:fixed;width:100%;height:100%}
+  height:100%;height:var(--app-h);overflow:hidden;position:fixed;inset:0;
+  -webkit-text-size-adjust:100%;touch-action:pan-y}
 a{color:inherit;text-decoration:none}
-button{cursor:pointer;border:none;background:none;font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
-input,select,textarea{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
+button{cursor:pointer;border:none;background:none;font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+input,select,textarea{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;font-size:16px}
 .tabular-nums{font-variant-numeric:tabular-nums lining-nums}
 
 /* ===== iOS Standalone Mode ===== */
@@ -44,11 +50,14 @@ input,select,textarea{font:inherit;color:inherit;-webkit-tap-highlight-color:tra
 @supports (-webkit-touch-callout: none) {
   body{-webkit-touch-callout:none}
   .content{-webkit-overflow-scrolling:touch}
-  html{overscroll-behavior-y:none}
+  /* Prevent rubber-band on iOS */
+  html,body{overscroll-behavior-y:none}
+  /* Fix iOS keyboard pushing layout */
+  input:focus,textarea:focus,select:focus{transform:translateZ(0)}
 }
 
 /* ===== App Shell ===== */
-#app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100%;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100%;height:var(--app-h);width:100%;overflow:hidden;position:relative}
 
 /* Header */
 .header{
@@ -159,7 +168,7 @@ select.input{appearance:none;cursor:pointer;
 .sheet{
   position:fixed;bottom:0;left:0;right:0;z-index:101;
   background:var(--card);border-top-left-radius:20px;border-top-right-radius:20px;
-  max-height:92vh;max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  max-height:calc(var(--app-h) * 0.92);overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding:0 20px calc(20px + var(--safe-b));
   transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);
 }
@@ -509,7 +518,7 @@ select.input{appearance:none;cursor:pointer;
 
 
 /* Auth screens */
-.auth-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; min-height:100dvh; padding:24px; background:var(--bg); }
+.auth-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:var(--app-h); padding:24px; background:var(--bg); }
 .auth-logo { width:64px; height:64px; border-radius:16px; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:28px; color:var(--primary-fg); font-family:var(--font-sans); margin-bottom:8px; }
 .auth-brand { font-size:24px; font-weight:700; font-family:var(--font-sans); letter-spacing:-0.02em; margin-bottom:4px; }
 .auth-tagline { font-size:14px; color:var(--muted-fg); margin-bottom:32px; }
