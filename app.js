@@ -1,7 +1,6 @@
 // VeloForge HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
-
 // Dynamic imports for extracted modules (won't crash login if files are missing/cached)
 let renderAdmin = () => {}, renderCoachDashboard = async () => {}, loadAdminEmails = async () => {},
     loadExerciseOverrides = async () => {}, savePlanOverrides = async () => {},
@@ -15,6 +14,7 @@ let stravaStartAuth = () => {}, stravaHandleCallback = async () => {},
     stravaFetchActivities = async () => {}, renderStravaActivities = () => {},
     stravaDisconnect = async () => {}, loadStravaTokens = () => {},
     stravaUploadActivity = async () => false, stravaAutoSync = async () => {},
+    stravaResyncRoutes = async () => {},
     initStrava = () => {};
 let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     openRaceLogForm = () => {}, getFootageForRace = () => [],
@@ -25,8 +25,9 @@ let startAiPlanEdit = () => {}, sendAiPlanEdit = async () => {},
     startAiWeeklyReview = () => {}, startAiRacePrep = () => {},
     generateRacePrepPlan = () => {}, startAiInjuryMod = () => {},
     sendInjuryModification = () => {}, openInlineWorkoutEdit = () => {},
+    startAiFormCheck = () => {}, generateCoachSummary = () => null,
+    generateTrainingInsight = () => null, renderSeasonPhase = () => '',
     initAiFeatures = () => {};
-
 try {
   const adminMod = await import('./admin.js');
   ({ initAdmin, renderAdmin, renderCoachDashboard, loadAdminEmails, loadExerciseOverrides,
@@ -34,33 +35,30 @@ try {
      loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides,
      loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } = adminMod);
 } catch(e) { console.warn('admin.js load failed:', e); }
-
 try {
   const stravaMod = await import('./strava.js');
   ({ initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities,
      renderStravaActivities, stravaDisconnect, loadStravaTokens,
-     stravaUploadActivity, stravaAutoSync } = stravaMod);
+     stravaUploadActivity, stravaAutoSync, stravaResyncRoutes } = stravaMod);
 } catch(e) { console.warn('strava.js load failed:', e); }
-
 try {
   const racelogMod = await import('./racelog.js');
   ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
      getFootageForRace, getStreamForRace, renderFootageLinks,
      getCompletedRacesNeedingLogs } = racelogMod);
 } catch(e) { console.warn('racelog.js load failed:', e); }
-
 try {
   const timerMod = await import('./timer.js');
   ({ initTimer, openWorkoutTimer, closeWorkoutTimer } = timerMod);
 } catch(e) { console.warn('timer.js load failed:', e); }
-
 try {
   const aifMod = await import('./aifeatures.js');
   ({ initAiFeatures, startAiPlanEdit, sendAiPlanEdit, startAiWeeklyReview,
      startAiRacePrep, generateRacePrepPlan, startAiInjuryMod,
-     sendInjuryModification, openInlineWorkoutEdit } = aifMod);
+     sendInjuryModification, openInlineWorkoutEdit,
+     startAiFormCheck, generateCoachSummary,
+     generateTrainingInsight, renderSeasonPhase } = aifMod);
 } catch(e) { console.warn('aifeatures.js load failed:', e); }
-
 // Load plans data (dynamic import with fallback)
 let ALL_PLANS = [];
 try {
@@ -70,34 +68,25 @@ try {
   console.error('Failed to load plans.js:', e);
   ALL_PLANS = [];
 }
-
-// ============================================
 // Firebase SDK Imports (dynamic, with fallback)
-// ============================================
 let initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword,
     createUserWithEmailAndPassword, signOut, updateProfile,
     getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy,
     onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs,
     arrayUnion, arrayRemove;
-
 let firebaseImportFailed = false;
 try {
   const appMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
   initializeApp = appMod.initializeApp;
-
   const authMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
   ({ getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } = authMod);
-
   const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
   ({ getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs, arrayUnion, arrayRemove } = fsMod);
 } catch(importErr) {
   console.error('Firebase SDK failed to load:', importErr);
   firebaseImportFailed = true;
 }
-
-// ============================================
 // Firebase Config (PLACEHOLDER)
-// ============================================
 const firebaseConfig = {
   apiKey: "AIzaSyDa_kbJN__2AoVy1asHRv2Vr9dFglR5yhE",
   authDomain: "hpr-2026.firebaseapp.com",
@@ -107,18 +96,10 @@ const firebaseConfig = {
   messagingSenderId: "146970781719",
   appId: "1:146970781719:web:698dfcb67e7f68b1de9452"
 };
-
-// ============================================
 // Embedded Plan Data (54 plans, 272+ workouts)
-
-// ============================================
 // Embedded UI Copy
-// ============================================
 const UI_COPY = {"safetyBanners":{"Y7":{"title":"Year 7 Training Guide","ages":"Ages 12-13","frequency":"2-3 sessions/week","duration":"30-45 min","maxIntensity":"Easy to moderate only","guideline":"Listen up, Year 7s - we are keeping things easy and fun in these early sessions so you build great habits and fall in love with training. Every champion started right where you are, so show up, give your best effort, and most importantly stay safe by keeping the intensity comfortable throughout."},"Y8":{"title":"Year 8 Training Guide","ages":"Ages 13-14","frequency":"2-3 sessions/week","duration":"35-50 min","maxIntensity":"Easy to moderate only","guideline":"Year 8, you are building on the great foundation from last year and adding some machine work to the mix - keep the resistance light and always prioritize learning the correct technique over adding more weight. If something feels uncomfortable or painful, stop immediately and let your coach or trainer know."},"Y9":{"title":"Year 9 Training Guide","ages":"Ages 14-15","frequency":"3-4 sessions/week","duration":"40-60 min","maxIntensity":"One hard session per week maximum","guideline":"Year 9, this is where your training starts to get genuinely serious - you get one hard session per week and the rest stay at a solid but sustainable effort. That hard session is only effective if the other sessions are genuinely easier, so resist the urge to push hard every day and trust the plan."},"Y10":{"title":"Year 10 Training Guide","ages":"Ages 15-16","frequency":"3-4 sessions/week","duration":"45-70 min","maxIntensity":"1-2 hard sessions/week","guideline":"Year 10, you are training with real loads now and your body is capable of handling more than ever before - make sure you are fueling well with good food, sleeping 8-9 hours, and taking rest days seriously because that is when the fitness adaptations actually happen. Work hard in sessions and recover just as hard outside them."},"Y11":{"title":"Year 11 Training Guide","ages":"Ages 16-17","frequency":"4-5 sessions/week","duration":"50-80 min","maxIntensity":"Max effort 1 session/week","guideline":"Year 11, you are training at near-adult loads now and one session per week reaches true maximum effort - those sessions are the most powerful training stimulus you have, so make sure you are fully warmed up before every hard session and completely recovered before the next one. Listen to your body and tell your coach if anything does not feel right."},"Y12":{"title":"Year 12 Training Guide","ages":"Ages 17-18","frequency":"4-6 sessions/week","duration":"60-90 min","maxIntensity":"Max effort 1-2 sessions/week","guideline":"Year 12 athletes train at full adult competitive loads - up to two maximum-effort sessions per week means your recovery between sessions is just as important as the sessions themselves, so prioritize sleep, nutrition, and active recovery every single day. You have reached the top level of this program and you have earned it."}},"tierDescriptions":{"basic":"Starting out or getting back into it? No worries at all - the basic tier is built exactly for you, with shorter sessions, more rest between exercises, and a focus on learning how to move well before moving heavy.","average":"You have got a solid fitness base and you are ready for a real training challenge - the average tier delivers standard competitive loads that will genuinely push you and produce real results over the season.","intense":"Ready to push your limits and train like a serious HPV competitor? The intense tier brings higher loads, longer efforts, less rest, and advanced protocols that are designed for athletes who want to win on race day."},"todayGreetings":["Rise and grind, champion! Let us make today count.","Another day, another chance to get faster on the HPV!","Hey superstar! Your training plan is waiting - let us crush it.","Good to see you back! Consistency is what separates the good from the great.","Today is YOUR day. Let us build that race fitness!","Every session you complete is a deposit in your race-day performance bank. Let us make a big one today.","You showed up - and that is already 50% of the battle. Now let us make it count.","The best HPV racers are made in training, not on race day. Let us get to work.","Your competitors are training right now. Good thing you are too.","Small improvements every day equal massive results on race day. Let us improve today."],"emptyStates":{"noActivePlan":"You have not picked a training plan yet! Head over to the Plans tab and find the perfect program for your year level. I have got plans for every fitness level - whether you are just starting out or ready to dominate race day.","noWorkouts":"No workouts logged yet - but that is about to change! After your next session, tap that + button and log what you did. Tracking your progress is how we level up.","noPlanWorkouts":"This plan does not have any workouts scheduled for today. Take a rest day - your body needs recovery to get stronger. Come back tomorrow ready to go!"},"categoryDescriptions":{"invehicle":"Time to get in the HPV and ride! These sessions put you directly in the vehicle to build race-specific fitness, handling skills, and the kind of speed that only comes from real saddle time.","floor":"No gym? No problem! These bodyweight sessions build real strength, power, and mobility using nothing but your own body - you can smash these at home, at school, or anywhere you have a bit of floor space.","machine":"Hit the gym and use the machines to build serious race-winning leg strength and cardiovascular fitness - the spin bike, rowing machine, leg press, and elliptical are your best tools for becoming an unstoppable HPV racer."}};
-
-// ============================================
 // Race Data
-// ============================================
 const RACES = [
   {id:'r0', name:'Vic HPV Round 1 — Calder Park', date:'2026-03-14', location:'Calder Park Raceway, Keilor, VIC', distance:100, type:'endurance', notes:'9am–4pm. 7-hour endurance race. Round 1 of the 2026 Victorian HPV Grand Prix Series.', streamUrl:'https://www.youtube.com/watch?v=zqD56QVsxAE', footageUrls:[{label:'Full Race Livestream',url:'https://www.youtube.com/watch?v=zqD56QVsxAE',type:'stream'},{label:'Official Results — Alpine Timing',url:'https://www.alpinetiming.com.au/results/r653/',type:'results'}]},
   {id:'r1', name:'Vic HPV Round 2 — Casey Fields', date:'2026-05-02', location:'Casey Fields, Cranbourne East, VIC', distance:80, type:'endurance', notes:'10am–4pm. 6-hour endurance race. Round 2 of the 2026 Victorian HPV Grand Prix Series.'},
@@ -126,10 +107,7 @@ const RACES = [
   {id:'r3', name:'Vic HPV Round 4 — Casey Fields', date:'2026-10-17', location:'Casey Fields, Cranbourne East, VIC', distance:120, type:'endurance', notes:'9am–5pm. 8-hour endurance race. Series finale — Round 4 of the 2026 Victorian HPV Grand Prix Series.'},
   {id:'r4', name:'Energy Breakthrough — Maryborough 24hr', date:'2026-11-18', location:'Maryborough, VIC', distance:900, type:'multi_day', notes:'18–22 November. The flagship 24-hour HPV endurance race on the 1.58km Maryborough street circuit. Teams of 8 riders.'},
 ];
-
-// ============================================
 // App State
-// ============================================
 let app, auth, db;
 let currentUser = null;
 let userProfile = null;
@@ -140,7 +118,6 @@ let demosSearch = '';
 let lbSubTab = 'global'; // 'global' | 'team'
 let globalLeaderboard = [];
 let globalLbLoading = false;
-
 // Theme
 let currentTheme = 'dark';
 let calViewMonth = new Date().getMonth();
@@ -148,14 +125,12 @@ let calViewYear = new Date().getFullYear();
 let teamFeedCache = [];
 try { currentTheme = localStorage.getItem('vf_theme') || 'dark'; } catch(e) {}
 if (currentTheme === 'light') document.documentElement.classList.add('light-theme');
-
 // Map tile helper — switches dark/light based on theme
 function getMapTileUrl() {
   return currentTheme === 'light'
     ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
     : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 }
-
 // Strava integration
 const STRAVA_CLIENT_ID = '213628'; // Set your Strava API client ID here
 const STRAVA_REDIRECT_URI = 'https://veloforge.netlify.app';
@@ -165,7 +140,6 @@ let userWorkouts = [];
 let userChecklist = {};
 let workoutsUnsubscribe = null;
 let checklistUnsubscribe = null;
-
 // XP & Levelling (imported from state.js)
 function calcXp() {
   let xp = 0;
@@ -203,7 +177,6 @@ function calcXp() {
   xp += userWorkouts.filter(w => w.rpe).length * 5;
   return xp;
 }
-
 // Personal Goals
 let userGoals = []; // [{id, type, target, current, label, createdAt}]
 function loadGoals() {
@@ -212,10 +185,6 @@ function loadGoals() {
 function saveGoals() {
   try { localStorage.setItem('vf_goals', JSON.stringify(userGoals)); } catch(e) {}
 }
-
-// ============================================
-// ACHIEVEMENT BADGES
-// ============================================
 const BADGES = [
   { id: 'first_workout', icon: '🎯', name: 'First Step', desc: 'Log your first workout' },
   { id: 'ten_workouts', icon: '💪', name: 'Getting Serious', desc: 'Complete 10 workouts' },
@@ -232,7 +201,6 @@ const BADGES = [
   { id: 'xp_racer', icon: '🔵', name: 'Racer Level', desc: 'Reach 100 XP' },
   { id: 'xp_champion', icon: '🟠', name: 'Champion Level', desc: 'Reach 600 XP' },
 ];
-
 function getEarnedBadges() {
   const earned = [];
   const xp = calcXp();
@@ -241,7 +209,6 @@ function getEarnedBadges() {
   const streak = calcStreak();
   const rpeCount = userWorkouts.filter(w => w.rpe).length;
   const planDone = userProfile?.activePlanId && calcPlanPct() >= 100;
-
   if (userWorkouts.length >= 1) earned.push('first_workout');
   if (userWorkouts.length >= 10) earned.push('ten_workouts');
   if (userWorkouts.length >= 50) earned.push('fifty_workouts');
@@ -258,7 +225,6 @@ function getEarnedBadges() {
   if (xp >= 600) earned.push('xp_champion');
   return earned;
 }
-
 function calcStreak() {
   const dates = [...new Set(userWorkouts.map(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
@@ -272,7 +238,6 @@ function calcStreak() {
   });
   return best;
 }
-
 function calcPlanPct() {
   if (!userProfile?.activePlanId) return 0;
   const plan = findPlan(userProfile.activePlanId);
@@ -284,7 +249,6 @@ function calcPlanPct() {
   });
   return Math.round((done / plan.workouts.length) * 100);
 }
-
 function renderBadges() {
   const earned = getEarnedBadges();
   let html = '<div style="display:flex;flex-wrap:wrap;gap:8px">';
@@ -298,10 +262,7 @@ function renderBadges() {
   html += '</div>';
   return html;
 }
-
-// ============================================
 // HR ZONES (from Strava data)
-// ============================================
 function calcHrZones(maxHr) {
   if (!maxHr) maxHr = 195; // default for teens
   return [
@@ -312,7 +273,6 @@ function calcHrZones(maxHr) {
     { name: 'Zone 5 · VO2 Max', min: Math.round(maxHr * 0.9), max: maxHr, color: '#ef4444' },
   ];
 }
-
 function getHrZone(hr, maxHr) {
   const zones = calcHrZones(maxHr);
   for (let i = zones.length - 1; i >= 0; i--) {
@@ -320,10 +280,7 @@ function getHrZone(hr, maxHr) {
   }
   return zones[0];
 }
-
-// ============================================
 // MODAL SYSTEM (replaces prompt() calls)
-// ============================================
 function showModal(title, content, onConfirm) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -351,14 +308,12 @@ function showModal(title, content, onConfirm) {
   }, 100);
   return overlay;
 }
-
 function showEditModal(title, inputId, currentValue, onSave) {
   showModal(title, `<input class="input" id="${inputId}" type="text" value="${escHtml(currentValue)}" style="width:100%">`, (ov) => {
     const val = ov.querySelector('#' + inputId)?.value?.trim();
     if (val) onSave(val);
   });
 }
-
 function showSelectModal(title, options, currentValue, onSave) {
   const optHtml = options.map(o => `<option value="${o.value}"${o.value === currentValue ? ' selected' : ''}>${o.label}</option>`).join('');
   showModal(title, `<select class="input" id="modal-select" style="width:100%">${optHtml}</select>`, (ov) => {
@@ -366,10 +321,6 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-
-// ============================================
-// WHAT'S NEW CHANGELOG
-// ============================================
 const APP_VERSION = '2.4.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
@@ -390,7 +341,6 @@ const CHANGELOG = [
     '📊 Activity detail view with route maps'
   ]}
 ];
-
 function checkWhatsNew() {
   try {
     const seen = localStorage.getItem('vf_changelog_seen');
@@ -398,7 +348,6 @@ function checkWhatsNew() {
   } catch(e) {}
   setTimeout(() => showWhatsNew(), 1500);
 }
-
 function showWhatsNew() {
   const latest = CHANGELOG[0];
   if (!latest) return;
@@ -423,10 +372,6 @@ function showWhatsNew() {
     try { localStorage.setItem('vf_changelog_seen', APP_VERSION); } catch(e) {}
   });
 }
-
-// ============================================
-// RACE RESULT FORM
-// ============================================
 function openRaceResultForm(raceName, raceDate) {
   const content = `
     <div class="form-group" style="margin-bottom:10px">
@@ -445,7 +390,6 @@ function openRaceResultForm(raceName, raceDate) {
     <div class="form-group"><label class="label">Rate your effort (RPE)</label>
       <div style="display:flex;gap:4px;margin-top:4px" id="rr-rpe-row">${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="rr-rpe-btn" data-rpe="${n}" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);font-size:11px;cursor:pointer">${n}</button>`).join('')}</div>
     </div>`;
-
   const ov = showModal('Log Race Result', content, async (overlay) => {
     const result = {
       raceName, raceDate,
@@ -466,7 +410,6 @@ function openRaceResultForm(raceName, raceDate) {
       showToast('Race result saved (demo).', 'success');
     }
   });
-
   // RPE button bindings
   let selectedRpe = null;
   ov.querySelectorAll('.rr-rpe-btn').forEach(btn => {
@@ -476,27 +419,22 @@ function openRaceResultForm(raceName, raceDate) {
     });
   });
 }
-
 // Team Challenges
 let activeChallenge = null; // {id, title, type, startDate, endDate, teams: {teamId: {name, score}}}
-
 let raceTimerInterval = null;
 let firebaseReady = false;
 let raceFootage = {}; // {raceId: [{label, url, type}]} — admin-managed footage links
 let raceLogVideos = []; // [{title, url, raceId, addedBy, timestamp}] — admin-curated videos for Race Log
 let exerciseOverrides = {}; // {planId_weekIdx: {name, description, duration}} — admin overrides for workout details
-
 // Plans page filter state
 let plansCategory = 'invehicle';
 let plansYear = 'Y7';
 let plansTier = 'basic';
 let plansSearch = '';
 let customPlans = []; // user-created AI plans [{id, ...planData, createdBy, createdByName, shared}]
-
 // Team state
 let teamData = null; // {id, name, code, members:[]}
 let teamMembers = []; // [{uid, displayName, yearLevel, fitnessLevel, activePlanId, totalWorkouts, streak, checklistPct}]
-
 let isAdmin = false;
 const ADMIN_EMAIL = 'hearn.tenny@icloud.com';
 let adminAnnouncements = [];
@@ -518,10 +456,7 @@ let planOverrides = {}; // {planId: {name, description, durationWeeks, sessionsP
 let exerciseDemoVideos = {}; // {exerciseName: videoUrl} — admin-managed demo videos for Demonstration tab
 let userRaceLogs = []; // race log entries for current user
 let teamLoading = false;
-
-// ============================================
 // Initialize Firebase
-// ============================================
 function initFirebase() {
   try {
     if (firebaseImportFailed) {
@@ -547,10 +482,7 @@ function initFirebase() {
     return false;
   }
 }
-
-// ============================================
 // Demo Mode
-// ============================================
 let demoMode = false;
 function enterDemoMode() {
   demoMode = true;
@@ -571,19 +503,12 @@ function enterDemoMode() {
   const av = $('user-avatar-btn');
   if (av) av.textContent = 'D';
 }
-
-// ============================================
 // DOM Helpers
-// ============================================
 const $ = id => document.getElementById(id);
 function show(el) { if (typeof el === 'string') el = $(el); if (!el) return; el.classList.remove('hidden'); el.style.display = ''; }
 function hide(el) { if (typeof el === 'string') el = $(el); if (!el) return; el.classList.add('hidden'); el.style.display = 'none'; }
 function showLoading(text='Loading...') { $('loading-text').textContent = text; show('loading-overlay'); }
 function hideLoading() { hide('loading-overlay'); }
-
-// ============================================
-// Auth UI
-// ============================================
 function showAuthLogin() {
   show('auth-login');
   hide('auth-signup');
@@ -592,7 +517,6 @@ function showAuthLogin() {
   hide('ai-fab');
   $('login-btn').disabled = false;
 }
-
 function showAuthSignup() {
   hide('auth-login');
   show('auth-signup');
@@ -601,7 +525,6 @@ function showAuthSignup() {
   hide('ai-fab');
   $('signup-btn').disabled = false;
 }
-
 function showMainApp() {
   hide('auth-login');
   hide('auth-signup');
@@ -611,12 +534,10 @@ function showMainApp() {
   show('ai-fab');
   renderCurrentPage();
 }
-
 // Auth event listeners
 $('show-signup').addEventListener('click', showAuthSignup);
 $('show-login').addEventListener('click', showAuthLogin);
 $('demo-mode-btn').addEventListener('click', enterDemoMode);
-
 // Role selector toggle
 document.querySelectorAll('.role-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -639,7 +560,6 @@ document.querySelectorAll('.role-btn').forEach(btn => {
     }
   });
 });
-
 $('login-btn').addEventListener('click', async () => {
   const email = $('login-email').value.trim();
   const password = $('login-password').value;
@@ -666,7 +586,6 @@ $('login-btn').addEventListener('click', async () => {
     show('login-error');
   }
 });
-
 $('signup-btn').addEventListener('click', async () => {
   const name = $('signup-name').value.trim();
   const email = $('signup-email').value.trim();
@@ -675,7 +594,6 @@ $('signup-btn').addEventListener('click', async () => {
   const yearLevel = role === 'student' ? $('signup-year').value : null;
   const tier = role === 'student' ? document.querySelector('input[name="signup-tier"]:checked').value : null;
   const childEmail = role === 'parent' ? ($('signup-child-email')?.value?.trim() || null) : null;
-
   if (!name || !email || !password) {
     $('signup-error').textContent = 'Please fill in all fields.';
     show('signup-error');
@@ -724,7 +642,6 @@ $('signup-btn').addEventListener('click', async () => {
     show('signup-error');
   }
 });
-
 $('logout-btn').addEventListener('click', async () => {
   closeUserMenu();
   try {
@@ -741,7 +658,6 @@ $('logout-btn').addEventListener('click', async () => {
     console.error('Logout error:', e);
   }
 });
-
 function friendlyError(code) {
   const map = {
     'auth/email-already-in-use': 'This email is already registered. Try logging in instead.',
@@ -755,10 +671,7 @@ function friendlyError(code) {
   };
   return map[code] || 'Something went wrong. Please try again.';
 }
-
-// ============================================
 // User Menu
-// ============================================
 $('user-avatar-btn').addEventListener('click', (e) => {
   e.stopPropagation();
   const menu = $('user-menu');
@@ -769,7 +682,6 @@ $('user-avatar-btn').addEventListener('click', (e) => {
     closeUserMenu();
   }
 });
-
 function openUserMenu() {
   const menu = $('user-menu');
   const overlay = $('user-menu-overlay');
@@ -782,21 +694,13 @@ function openUserMenu() {
     $('menu-info').textContent = (userProfile.yearLevel || 'Y7') + ' · ' + capitalize(userProfile.fitnessLevel || 'basic') + ' tier';
   }
 }
-
 function closeUserMenu() {
   hide('user-menu');
   hide('user-menu-overlay');
 }
-
 $('user-menu-overlay').addEventListener('click', closeUserMenu);
-
-// ============================================
-// Tab Navigation — Enhanced QoL
-// ============================================
-
 // --- Feature 3: Remember scroll position per tab ---
 const scrollPositions = {};
-
 // --- Feature 6: Remember last active tab on reload ---
 try {
   const saved = localStorage.getItem('vf_lastTab');
@@ -808,12 +712,10 @@ try {
     fitnessSubTab = savedFitSub;
   }
 } catch(e) {}
-
 // --- Feature 10: Haptic feedback helper ---
 function haptic(style) {
   try { if (navigator.vibrate) navigator.vibrate(style === 'light' ? 8 : style === 'medium' ? 15 : 5); } catch(e) {}
 }
-
 // Toast notification system
 function showToast(message, type = 'info') {
   const container = $('toast-container');
@@ -824,7 +726,6 @@ function showToast(message, type = 'info') {
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 3100);
 }
-
 // --- Tab click handler (features 4 + 10) ---
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -837,7 +738,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     }
     switchPage(page);
   });
-
   // --- Feature 12: Long-press shows tooltip ---
   let pressTimer = null;
   let tooltip = null;
@@ -859,7 +759,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('touchcancel', clearTooltip, { passive: true });
   btn.addEventListener('touchmove', clearTooltip, { passive: true });
 });
-
 // Record tab — opens activity tracker (outside forEach)
 const recordTabBtn = $('record-tab-btn');
 if (recordTabBtn) {
@@ -868,15 +767,12 @@ if (recordTabBtn) {
     openActivityTracker();
   });
 }
-
 function switchPage(page) {
   // Feature 3: Save scroll position before leaving
   scrollPositions[currentPage] = $('content').scrollTop;
-
   currentPage = page;
   // Feature 6: Persist to localStorage
   try { localStorage.setItem('vf_lastTab', page); } catch(e) {}
-
   // Update tab bar
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === page));
   // Update pages
@@ -886,12 +782,10 @@ function switchPage(page) {
   const pageEl = $('page-' + page);
   if (pageEl) pageEl.classList.add('active');
   renderCurrentPage();
-
   // Feature 3: Restore scroll position
   const savedScroll = scrollPositions[page] || 0;
   $('content').scrollTop = savedScroll;
 }
-
 function renderCurrentPage() {
   switch(currentPage) {
     case 'today': renderToday(); break;
@@ -901,7 +795,6 @@ function renderCurrentPage() {
     case 'admin': if (isAdmin) renderAdmin(); break;
   }
 }
-
 function renderFitness() {
   // Update sub-tab styling
   document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
@@ -910,7 +803,6 @@ function renderFitness() {
     btn.style.color = isActive ? 'var(--primary-fg)' : 'var(--secondary-fg)';
     btn.classList.toggle('active', isActive);
   });
-
   // Show/hide content areas
   const wc = $('workouts-content');
   const pc = $('plans-content');
@@ -921,7 +813,6 @@ function renderFitness() {
   dc.style.display = 'none';
   mc.style.display = 'none';
   
-
   if (fitnessSubTab === 'workouts') {
     wc.style.display = '';
     
@@ -937,7 +828,6 @@ function renderFitness() {
     renderMyPlans();
   }
 }
-
 // Bind fitness sub-tabs (feature 10: haptic)
 document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -948,7 +838,6 @@ document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
     $('content').scrollTop = 0;
   });
 });
-
 // --- Feature 5: Swipe between fitness sub-tabs ---
 const fitnessPage = $('page-fitness');
 const fitSubOrder = ['workouts', 'plans', 'demos', 'myplans'];
@@ -984,7 +873,6 @@ fitnessPage.addEventListener('touchend', () => {
     $('content').scrollTop = 0;
   }
 }, { passive: true });
-
 // --- Feature 1: Scroll-to-top button ---
 const scrollTopBtn = $('scroll-top-btn');
 const contentEl = $('content');
@@ -1000,7 +888,6 @@ scrollTopBtn.addEventListener('click', () => {
   haptic('light');
   contentEl.scrollTo({ top: 0, behavior: 'smooth' });
 });
-
 // --- Feature 7: Keyboard dismiss on scroll ---
 contentEl.addEventListener('scroll', () => {
   const active = document.activeElement;
@@ -1008,14 +895,12 @@ contentEl.addEventListener('scroll', () => {
     active.blur();
   }
 }, { passive: true });
-
 // --- Feature 11: Pull-to-refresh on Today page ---
 let ptrStartY = 0, ptrActive = false, ptrTriggered = false;
 const ptrEl = document.createElement('div');
 ptrEl.className = 'ptr-indicator';
 ptrEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
 contentEl.insertBefore(ptrEl, contentEl.firstChild);
-
 contentEl.addEventListener('touchstart', (e) => {
   if (currentPage === 'today' && contentEl.scrollTop <= 0) {
     ptrStartY = e.touches[0].clientY;
@@ -1050,22 +935,16 @@ contentEl.addEventListener('touchend', () => {
     ptrEl.style.transform = 'translateX(-50%) translateY(-40px)';
   }
 }, { passive: true });
-
 // --- Feature 6 continued: Restore tab on load ---
 // Set correct initial active tab styling
 document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === currentPage));
 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 const initPage = $('page-' + currentPage);
 if (initPage) initPage.classList.add('active');
-
-// ============================================
-// DEMONSTRATION TAB
-// ============================================
 function extractAllExercises() {
   const exerciseMap = {}; // key → exercise object
   const catLabels = { invehicle: 'In Vehicle', floor: 'Floor & Home', machine: 'Fitness Machine' };
   const catColors = { invehicle: '#2EA693', floor: '#8B5CF6', machine: '#FF8C33' };
-
   // ===== FLOOR EXERCISE DATABASE =====
   const FLOOR_EXERCISES = [
     { name: 'Plank Hold', type: 'Core', videoUrl: 'https://www.youtube.com/watch?v=pSHjTRCQxIw', desc: 'Prop yourself on forearms and toes with your body in a perfectly straight line from head to heels. Squeeze your core tight like you are bracing for a punch, keep your hips level — do not let them sag or pike up — and breathe steadily throughout. This is the foundation of all core stability work and directly improves the power transfer from your legs to the HPV pedals.' },
@@ -1109,7 +988,6 @@ function extractAllExercises() {
     { name: 'Warrior Pose', type: 'Stretch', videoUrl: 'https://www.youtube.com/watch?v=TBu5bsWrnTw', desc: 'Step one foot forward into a wide stance lunge with your back foot turned out at 45 degrees. Bend your front knee to 90 degrees, extend both arms overhead, and look forward. Hold for 20 to 30 seconds per side. Warrior Pose stretches your hip flexors, strengthens your legs, and develops balance — a combination that improves your stability inside the HPV and helps maintain good posture during long race stints.' },
     { name: 'Single-Leg Balance', type: 'Balance', videoUrl: 'https://www.youtube.com/watch?v=7SF7AYh2_Yw', desc: 'Stand on one leg with your other foot lifted off the ground. Hold this position for 30 seconds, keeping your standing leg slightly bent and your core engaged. For an extra challenge, close your eyes — this dramatically increases the balance demand. Balance training improves your proprioception and ankle stability, which translates to smoother, more controlled movements inside the HPV and better body awareness during racing.' }
   ];
-
   // Floor exercise keyword matching patterns
   const FLOOR_KEYWORDS = {};
   FLOOR_EXERCISES.forEach(ex => {
@@ -1135,12 +1013,10 @@ function extractAllExercises() {
     if (n === 'calf raise') FLOOR_KEYWORDS[key].patterns.push('calf raise', 'calf raises');
     if (n === 'single-leg balance') FLOOR_KEYWORDS[key].patterns.push('single-leg balance', 'single leg balance');
   });
-
   // Scan floor plans and match exercises to plans
   const floorPlans = ALL_PLANS.filter(p => p.category === 'floor');
   const floorExKeys = {};
   Object.keys(FLOOR_KEYWORDS).forEach(k => { floorExKeys[k] = new Set(); });
-
   floorPlans.forEach(plan => {
     plan.workouts.forEach(w => {
       const descLower = (w.description || '').toLowerCase();
@@ -1156,7 +1032,6 @@ function extractAllExercises() {
       });
     });
   });
-
   // Add matched floor exercises to the map
   const typeIcons = { Core: 'core', Legs: 'legs', Glutes: 'glutes', 'Upper Body': 'upper', Back: 'back', Plyometric: 'plyo', Cardio: 'cardio', Mobility: 'mobility', Stretch: 'stretch', Balance: 'balance' };
   Object.entries(FLOOR_KEYWORDS).forEach(([key, val]) => {
@@ -1185,7 +1060,6 @@ function extractAllExercises() {
       }
     });
   });
-
   // ===== IN-VEHICLE PLANS (workout = exercise) =====
   ALL_PLANS.filter(p => p.category === 'invehicle').forEach(plan => {
     plan.workouts.forEach((w, wi) => {
@@ -1213,7 +1087,6 @@ function extractAllExercises() {
       }
     });
   });
-
   // ===== MACHINE PLANS (individual exercises array) =====
   ALL_PLANS.filter(p => p.category === 'machine').forEach(plan => {
     plan.workouts.forEach((w, wi) => {
@@ -1243,10 +1116,8 @@ function extractAllExercises() {
       }
     });
   });
-
   return Object.values(exerciseMap).sort((a, b) => a.name.localeCompare(b.name));
 }
-
 function renderDemonstration() {
   const el = $('demos-content');
   const allExercises = extractAllExercises();
@@ -1256,21 +1127,16 @@ function renderDemonstration() {
     { id: 'floor', label: 'Floor & Home' },
     { id: 'machine', label: 'Machine' }
   ];
-
   // Filter by category
   let filtered = demosCat === 'all' ? allExercises : allExercises.filter(e => e.category === demosCat);
-
   // Filter by search
   if (demosSearch) {
     const q = demosSearch.toLowerCase();
     filtered = filtered.filter(e => e.name.toLowerCase().includes(q) || e.description.toLowerCase().includes(q) || (e.exerciseType || '').toLowerCase().includes(q));
   }
-
   let html = '';
-
   // Sticky filter bar
   html += '<div class="demo-filter-sticky">';
-
   // Search bar
   html += `
     <div class="demo-search-wrap">
@@ -1278,7 +1144,6 @@ function renderDemonstration() {
       <input class="demo-search" type="text" id="demos-search-input" placeholder="Search exercises, types..." value="${escHtml(demosSearch)}">
     </div>
   `;
-
   // Category pills
   html += '<div class="demo-cat-pills">';
   catFilters.forEach(c => {
@@ -1286,12 +1151,9 @@ function renderDemonstration() {
     html += `<button class="demo-cat-pill${demosCat === c.id ? ' active' : ''}" data-demos-cat="${c.id}">${c.label} (${count})</button>`;
   });
   html += '</div>';
-
   // Count + collapse-all
   html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="demo-cat-count" style="margin-bottom:0">${filtered.length} exercise${filtered.length !== 1 ? 's' : ''}${demosSearch ? ' matching "' + escHtml(demosSearch) + '"' : ''}</div><button class="demo-collapse-all" id="demos-collapse-all">Collapse All</button></div>`;
-
   html += '</div>'; // end sticky
-
   if (filtered.length === 0) {
     html += '<div class="empty-state" style="padding:32px 16px"><div class="empty-state-title">No Exercises Found</div><div class="empty-state-desc">Try a different search term or category filter.</div></div>';
   } else {
@@ -1302,7 +1164,6 @@ function renderDemonstration() {
       const typeColor = typeColors[ex.exerciseType] || ex.catColor;
       const hasVideo = !!embedUrl;
       const planCount = ex.plans ? ex.plans.length : 0;
-
       html += `
         <div class="demo-ex-card">
           <div class="demo-ex-header" data-demos-expand="${i}">
@@ -1334,9 +1195,7 @@ function renderDemonstration() {
       `;
     });
   }
-
   el.innerHTML = html;
-
   // Bind search
   const searchInput = $('demos-search-input');
   let searchTimer;
@@ -1347,7 +1206,6 @@ function renderDemonstration() {
       renderDemonstration();
     }, 250);
   });
-
   // Bind category pills
   el.querySelectorAll('.demo-cat-pill').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1355,7 +1213,6 @@ function renderDemonstration() {
       renderDemonstration();
     });
   });
-
   // Bind expand/collapse
   el.querySelectorAll('[data-demos-expand]').forEach(header => {
     header.addEventListener('click', () => {
@@ -1368,7 +1225,6 @@ function renderDemonstration() {
       }
     });
   });
-
   // Bind collapse-all
   const collapseAllBtn = $('demos-collapse-all');
   if (collapseAllBtn) {
@@ -1381,22 +1237,16 @@ function renderDemonstration() {
     });
   }
 }
-
-// ============================================
 // MY PLANS TAB (AI-generated custom plans)
-// ============================================
 function renderMyPlans() {
   const c = $('myplans-content');
   const activePlanId = userProfile?.activePlanId;
-
   let html = '<div class="page-title">My Plans</div>';
-
   // Generate button
   html += `<button class="strava-connect" id="myplans-generate-btn" style="background:linear-gradient(135deg,#7c3aed,#a855f7);margin-bottom:14px">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
     Generate a New Plan with AI
   </button>`;
-
   if (customPlans.length === 0) {
     html += `<div class="empty-state" style="padding:32px 16px">
       <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;color:var(--muted-fg)"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2"/></svg></div>
@@ -1418,9 +1268,7 @@ function renderMyPlans() {
     });
     html += '</div>';
   }
-
   c.innerHTML = html;
-
   // Bind delete buttons
   c.querySelectorAll('.delete-ai-plan-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -1431,7 +1279,6 @@ function renderMyPlans() {
       }
     });
   });
-
   // Bind generate button
   const genBtn = $('myplans-generate-btn');
   if (genBtn) {
@@ -1441,14 +1288,9 @@ function renderMyPlans() {
       startPlanGeneration();
     });
   }
-
   // Bind plan cards (same as Plans tab)
   bindPlanSearchAndCards(c);
 }
-
-// ============================================
-// TODAY PAGE
-// ============================================
 // --- Workout Calendar ---
 function renderWorkoutCalendar(now) {
   const year = calViewYear;
@@ -1458,14 +1300,12 @@ function renderWorkoutCalendar(now) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-
   // Build set of dates with workouts
   const workoutDates = new Set();
   userWorkouts.forEach(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     if (d) workoutDates.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
   });
-
   const calOpen = localStorage.getItem('vf_cal_open') !== 'false';
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title" id="cal-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">Workout Calendar<span style="font-size:16px;transition:transform .2s;transform:rotate(' + (calOpen ? '0' : '-90') + 'deg)">▾</span></div>';
   html += '<div id="cal-body" style="' + (calOpen ? '' : 'display:none') + '">';
@@ -1485,11 +1325,9 @@ function renderWorkoutCalendar(now) {
   html += '</div><div id="cal-detail" class="cal-day-detail" style="display:none" data-showing=""></div></div></div>';
   return html;
 }
-
 // --- Personal Bests ---
 function renderPersonalBests(now, totalWorkouts, streak) {
   if (totalWorkouts === 0) return '';
-
   // Best streak (longest consecutive days)
   let bestStreak = 0, tempStreak = 0, lastDate = null;
   const sortedDates = [];
@@ -1504,7 +1342,6 @@ function renderPersonalBests(now, totalWorkouts, streak) {
     else { tempStreak = 1; }
     if (tempStreak > bestStreak) bestStreak = tempStreak;
   });
-
   // Best week (most workouts in 7 days)
   let bestWeek = 0;
   for (let i = 0; i < uniqueDates.length; i++) {
@@ -1513,15 +1350,12 @@ function renderPersonalBests(now, totalWorkouts, streak) {
     for (let j = i; j < uniqueDates.length && uniqueDates[j] < windowEnd; j++) count++;
     if (count > bestWeek) bestWeek = count;
   }
-
   // Longest workout
   let longestWorkout = 0;
   userWorkouts.forEach(w => { if (w.duration && w.duration > longestWorkout) longestWorkout = w.duration; });
-
   // Highest RPE
   let highestRpe = 0;
   userWorkouts.forEach(w => { if (w.rpe && w.rpe > highestRpe) highestRpe = w.rpe; });
-
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Personal Bests</div>';
   html += '<div class="pb-grid">';
   html += '<div class="pb-card"><div class="pb-icon">🔥</div><div class="pb-val">' + bestStreak + '</div><div class="pb-lbl">Best Streak</div></div>';
@@ -1535,7 +1369,6 @@ function renderPersonalBests(now, totalWorkouts, streak) {
   html += '</div></div>';
   return html;
 }
-
 // --- XP & Level Bar ---
 function renderXpBar() {
   const xp = calcXp();
@@ -1551,7 +1384,6 @@ function renderXpBar() {
   html += '</div>';
   return html;
 }
-
 // --- Personal Goals ---
 function renderGoals() {
   loadGoals();
@@ -1598,7 +1430,6 @@ function renderGoals() {
   html += '</div>';
   return html;
 }
-
 // --- Team Challenge ---
 function renderTeamChallenge() {
   if (!activeChallenge) return '';
@@ -1633,7 +1464,6 @@ function renderTeamChallenge() {
   html += '</div>';
   return html;
 }
-
 // --- Smart Plan Recommendation ---
 function renderPlanRecommendation() {
   if (!userProfile) return '';
@@ -1681,30 +1511,38 @@ function renderPlanRecommendation() {
   html += '</div>';
   return html;
 }
-
 // --- Team Activity Feed ---
 function renderTeamFeed() {
   if (!teamFeedCache || teamFeedCache.length === 0) return '';
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Team Activity</div>';
-  teamFeedCache.slice(0, 8).forEach(item => {
+  teamFeedCache.slice(0, 8).forEach((item, idx) => {
     const initials = (item.name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
-    html += '<div class="feed-item">';
-    html += '<div class="feed-avatar">' + initials + '</div>';
-    html += '<div class="feed-body"><div class="feed-name">' + escHtml(item.name || 'Unknown') + '</div>';
-    html += '<div class="feed-action">' + escHtml(item.action) + '</div>';
-    html += '<div class="feed-time">' + item.timeAgo + '</div></div></div>';
+    const reactKey = 'vf_react_' + (item.uid || idx) + '_' + (item.dateKey || idx);
+    let myReaction = '';
+    try { myReaction = localStorage.getItem(reactKey) || ''; } catch(e) {}
+    html += `<div class="feed-item">
+      <div class="feed-avatar">${initials}</div>
+      <div class="feed-body">
+        <div class="feed-name">${escHtml(item.name || 'Unknown')}</div>
+        <div class="feed-action">${escHtml(item.action)}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+          <div class="feed-time">${item.timeAgo}</div>
+          <div class="feed-reactions" style="display:flex;gap:2px;margin-left:auto">
+            ${['🔥','💪','👏'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? 'rgba(191,255,0,.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? 'var(--primary)' : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
   });
   html += '</div>';
   return html;
 }
-
 function renderToday() {
   const c = $('today-content');
   const now = new Date();
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const dateStr = dayNames[now.getDay()] + ', ' + now.getDate() + ' ' + monthNames[now.getMonth()];
-
   const activePlanId = userProfile?.activePlanId;
   const activePlan = findPlan(activePlanId);
   const totalWorkouts = userWorkouts.length;
@@ -1715,7 +1553,6 @@ function renderToday() {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     return d && d >= weekStart;
   }).length;
-
   // Streak
   let streak = 0;
   if (userWorkouts.length > 0) {
@@ -1733,29 +1570,23 @@ function renderToday() {
       if (workoutDates.has(key)) { streak++; check.setDate(check.getDate() - 1); } else break;
     }
   }
-
   // XP level inline
   const xp = calcXp();
   const lvl = getXpLevel(xp);
-
   // === BUILD HTML — clean layout ===
   let html = '';
-
   // Header: date + level badge
   html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
     <div class="today-date" style="margin:0">${dateStr}</div>
     <div style="font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:4px">${lvl.icon} ${lvl.name} · ${xp} XP</div>
   </div>`;
-
   // XP progress bar (thin)
   html += `<div style="height:4px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
-
   // Announcements (compact)
   const activeAnns = adminAnnouncements.filter(a => a.active);
   activeAnns.forEach(a => {
     html += `<div class="announce-banner"><div class="announce-banner-row"><div class="announce-banner-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="announce-banner-body"><div class="announce-banner-title">${escHtml(a.title)}</div><div class="announce-banner-msg">${escHtml(a.message)}</div></div></div></div>`;
   });
-
   // Stats row
   html += `<div class="today-stats-row">
     <div class="today-stat"><span class="today-stat-val">${streak}</span><span class="today-stat-lbl">streak</span></div>
@@ -1764,17 +1595,79 @@ function renderToday() {
     <div class="today-stat-sep"></div>
     <div class="today-stat"><span class="today-stat-val">${totalWorkouts}</span><span class="today-stat-lbl">total</span></div>
   </div>`;
-
   // Streak badges (compact)
   const badgeLevels = [{days:7,icon:'🔥',label:'7d'},{days:14,icon:'⚡',label:'14d'},{days:30,icon:'🏆',label:'30d'},{days:60,icon:'💎',label:'60d'},{days:100,icon:'👑',label:'100d'}];
   const earnedBadges = badgeLevels.filter(b => streak >= b.days);
   if (earnedBadges.length > 0) {
     html += '<div class="streak-badges">' + earnedBadges.map(b => `<div class="streak-badge earned">${b.icon} ${b.label}</div>`).join('') + '</div>';
   }
-
   // Team Challenge (prominent if active)
   html += renderTeamChallenge();
-
+  // Quick Log + Last Activity Route Map
+  const lastActivity = userWorkouts[0];
+  const lastActivityDate = lastActivity?.date ? (lastActivity.date.toDate ? lastActivity.date.toDate() : new Date(lastActivity.date)) : null;
+  const isToday = lastActivityDate && lastActivityDate.toDateString() === now.toDateString();
+  let storedRoutes = {};
+  try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
+  const lastRouteId = lastActivity?.routeId || lastActivity?.id;
+  const lastRoute = lastRouteId ? storedRoutes[lastRouteId] : null;
+  const hasLastRoute = lastRoute && lastRoute.length > 1;
+  if (isToday && lastActivity) {
+    const typeIcons = {ride:'🚴',run:'🏃',walk:'🚶',gym:'🏋️'};
+    html += `<div class="card" style="margin-top:10px;overflow:hidden">`;
+    if (hasLastRoute) {
+      html += `<div class="activity-map-thumb" id="today-route-map" data-route-id="${lastRouteId}" style="height:140px;margin:0;border-radius:0"></div>`;
+    }
+    html += `<div class="card-pad" style="padding:10px 12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:20px">${typeIcons[lastActivity.type] || '🏋️'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px;color:var(--text)">${escHtml(lastActivity.name || 'Workout')}</div>
+          <div style="font-size:12px;color:var(--muted-fg)">${lastActivity.duration ? lastActivity.duration + ' min' : ''}${lastActivity.distance ? ' · ' + lastActivity.distance + ' km' : ''}</div>
+        </div>
+        <div style="font-size:10px;font-weight:600;color:var(--primary);background:rgba(191,255,0,.1);padding:3px 8px;border-radius:6px">TODAY</div>
+      </div>
+    </div></div>`;
+  }
+  // Quick Log button
+  html += `<div style="display:flex;gap:8px;margin-top:10px">
+    <button class="btn" id="today-quick-log" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:6px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Log Workout
+    </button>
+    <button class="btn" id="today-quick-record" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:center;gap:6px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>
+      Record GPS
+    </button>
+  </div>`;
+  // Strava connect prompt (new users only)
+  if (!stravaTokens?.access_token && totalWorkouts <= 3 && !demoMode) {
+    html += `<div class="card" style="margin-top:10px;overflow:hidden"><div class="card-pad" style="display:flex;align-items:center;gap:12px;padding:12px">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(252,82,0,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 24 24" fill="#fc5200" style="width:20px;height:20px"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;color:var(--text)">Connect Strava</div>
+        <div style="font-size:11px;color:var(--muted-fg);line-height:1.4">Auto-import Apple Watch workouts with route maps and heart rate</div>
+      </div>
+      <button class="btn btn-primary" id="today-strava-connect" style="padding:6px 12px;font-size:12px;border-radius:8px;white-space:nowrap">Connect</button>
+    </div></div>`;
+  }
+  // AI Training Insight (auto-generated)
+  if (totalWorkouts >= 5) {
+    const insight = generateTrainingInsight();
+    if (insight) {
+      html += `<div class="card" style="margin-top:10px;overflow:hidden"><div class="card-pad" style="padding:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:16px">🧠</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text)">AI Insight</span>
+        </div>
+        <div style="font-size:13px;color:var(--muted-fg);line-height:1.5">${insight}</div>
+      </div></div>`;
+    }
+  }
+  // Season phase indicator
+  html += renderSeasonPhase();
   // Race countdown
   const allRaces = getActiveRaces();
   const todayStr2 = now.toISOString().split('T')[0];
@@ -1785,7 +1678,6 @@ function renderToday() {
     const diffDays = Math.max(0, Math.floor((raceDate - now) / 86400000));
     html += `<div class="today-race-row"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span class="today-race-name">${escHtml(nextRace.name)}</span><span class="today-race-days"><strong>${diffDays}</strong> day${diffDays!==1?'s':''}</span></div>`;
   }
-
   // TODAY'S TRAINING
   if (activePlan) {
     const pdData = getPlanDisplayData(activePlan);
@@ -1796,14 +1688,11 @@ function renderToday() {
       if (userChecklist[k]) completedPlanWorkouts++;
     });
     const progressPct = totalPlanWorkouts > 0 ? Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100) : 0;
-
     html += `<div class="section-title" style="margin-top:4px">Today's Training</div>`;
     html += `<div class="plan-progress"><div class="plan-progress-text"><span>${escHtml(pdData.name)}</span><span>${completedPlanWorkouts}/${totalPlanWorkouts} · ${progressPct}%</span></div><div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div></div>`;
-
     const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
     const todayDay = now.getDay();
     const todayWorkouts = activePlan.workouts.filter(w => dayMap[w.day] === todayDay);
-
     if (todayWorkouts.length > 0) {
       html += '<div class="space-y">';
       todayWorkouts.forEach((origW, i) => {
@@ -1826,10 +1715,8 @@ function renderToday() {
       html += `<div class="today-no-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><div><strong>No plan active</strong></div><div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one.</div></div>`;
     }
   }
-
   // Personal Goals (compact)
   html += renderGoals();
-
   // Achievement Badges
   const earned = getEarnedBadges();
   if (earned.length > 0 || userWorkouts.length > 0) {
@@ -1837,12 +1724,10 @@ function renderToday() {
     html += renderBadges();
     html += '</div>';
   }
-
   // Collapsible "More Stats" section
   const moreOpen = localStorage.getItem('vf_more_open') === 'true';
   html += `<div class="section-card" style="margin-top:12px"><div class="section-title" id="more-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">More Stats <span style="font-size:16px;transition:transform .2s;transform:rotate(${moreOpen ? '0' : '-90'}deg)">▾</span></div>`;
   html += `<div id="more-body" style="${moreOpen ? '' : 'display:none'}">`;
-
   // Progress chart
   if (totalWorkouts > 0) {
     const weeks = [];
@@ -1861,20 +1746,14 @@ function renderToday() {
     const maxCount = Math.max(...weeks.map(w => w.count), 1);
     html += `<div class="progress-chart"><div class="progress-chart-title">Workouts per week</div><div class="chart-bars">${weeks.map(w => `<div class="chart-bar-col"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.count > 0 ? ' has-data' : ''}${w.isCurrent ? ' current' : ''}" style="height:${Math.max(2, (w.count / maxCount) * 60)}px"></div><div class="chart-bar-label">${w.label}</div></div>`).join('')}</div></div>`;
   }
-
   // Personal Bests
   html += renderPersonalBests(now, totalWorkouts, streak);
-
   // Calendar
   html += renderWorkoutCalendar(now);
-
   // Team feed
   html += renderTeamFeed();
-
   html += '</div></div>'; // close more-body + section-card
-
   c.innerHTML = html;
-
   // Bind "More Stats" toggle
   const moreToggle = $('more-toggle');
   if (moreToggle) {
@@ -1888,7 +1767,6 @@ function renderToday() {
       localStorage.setItem('vf_more_open', isOpen ? 'false' : 'true');
     });
   }
-
   // Bind calendar collapse toggle
   const calToggle = $('cal-toggle');
   if (calToggle) {
@@ -1937,7 +1815,6 @@ function renderToday() {
       }
     });
   });
-
   // Bind goal delete buttons
   c.querySelectorAll('.goal-del').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1999,12 +1876,10 @@ function renderToday() {
       }
     });
   }
-
   // Bind checklist toggles
   c.querySelectorAll('.cl-check').forEach(el => {
     el.addEventListener('click', () => toggleChecklist(el.dataset.key));
   });
-
   // Bind timer buttons
   c.querySelectorAll('.cl-timer-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -2017,8 +1892,48 @@ function renderToday() {
       openWorkoutTimer(name, dur, exercises);
     });
   });
+  // Quick Log + Record GPS buttons
+  $('today-quick-log')?.addEventListener('click', () => { haptic('light'); openWorkoutSheet(); });
+  $('today-quick-record')?.addEventListener('click', () => { haptic('medium'); openActivityTracker(); });
+  $('today-strava-connect')?.addEventListener('click', () => { stravaStartAuth(); });
+  // Social reaction buttons on team feed
+  c.querySelectorAll('.feed-react-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.reactKey;
+      const emoji = btn.dataset.emoji;
+      let current = '';
+      try { current = localStorage.getItem(key) || ''; } catch(e) {}
+      if (current === emoji) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, emoji);
+      }
+      haptic('light');
+      renderToday();
+    });
+  });
+  // Render today's route map
+  if (typeof L !== 'undefined') {
+    const todayMapEl = $('today-route-map');
+    if (todayMapEl) {
+      const rid = todayMapEl.dataset.routeId;
+      const route = storedRoutes[rid];
+      if (route && route.length > 1) {
+        setTimeout(() => {
+          try {
+            const m = L.map(todayMapEl.id, { zoomControl:false, attributionControl:false, dragging:false, touchZoom:false, scrollWheelZoom:false, doubleClickZoom:false });
+            L.tileLayer(getMapTileUrl(), { maxZoom:18 }).addTo(m);
+            const ll = route.map(p => [p[0],p[1]]);
+            const pl = L.polyline(ll, { color:'#BFFF00', weight:3, opacity:0.9 }).addTo(m);
+            L.circleMarker(ll[0], { radius:5, fillColor:'#22c55e', fillOpacity:1, color:'#fff', weight:2 }).addTo(m);
+            L.circleMarker(ll[ll.length-1], { radius:5, fillColor:'#ef4444', fillOpacity:1, color:'#fff', weight:2 }).addTo(m);
+            m.fitBounds(pl.getBounds(), { padding:[10,10] });
+          } catch(e) {}
+        }, 100);
+      }
+    }
+  }
 }
-
 function renderChecklistItem(workout, key, isChecked) {
   const intensityClass = 'intensity-' + workout.intensity;
   const shortDesc = workout.description && workout.description.length > 120 ? workout.description.substring(0, 120).trim() + '...' : (workout.description || '');
@@ -2044,7 +1959,6 @@ function renderChecklistItem(workout, key, isChecked) {
     </div>
   `;
 }
-
 async function toggleChecklist(key) {
   if (!currentUser) return;
   const newVal = !userChecklist[key];
@@ -2060,10 +1974,6 @@ async function toggleChecklist(key) {
     console.error('Checklist save error:', e);
   }
 }
-
-// ============================================
-// EXPORT TRAINING REPORT
-// ============================================
 function exportTrainingReport() {
   const name = userProfile?.displayName || currentUser?.displayName || 'Athlete';
   const year = userProfile?.yearLevel || '';
@@ -2071,7 +1981,6 @@ function exportTrainingReport() {
   const total = userWorkouts.length;
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
-
   // Calc streak
   let streak = 0;
   if (total > 0) {
@@ -2087,7 +1996,6 @@ function exportTrainingReport() {
       streak++; check.setDate(check.getDate()-1);
     }
   }
-
   // Weekly data
   const weeks = [];
   for (let i = 7; i >= 0; i--) {
@@ -2099,14 +2007,11 @@ function exportTrainingReport() {
     }).length;
     weeks.push({ label: wStart.toLocaleDateString('en-AU',{day:'numeric',month:'short'}), count });
   }
-
   // Recent workouts (last 20)
   const recent = userWorkouts.slice(0, 20);
-
   const avgRpe = userWorkouts.filter(w => w.rpe).length > 0
     ? (userWorkouts.filter(w => w.rpe).reduce((s, w) => s + w.rpe, 0) / userWorkouts.filter(w => w.rpe).length).toFixed(1)
     : null;
-
   let reportHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Training Report - ${escHtml(name)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:40px;max-width:800px;margin:0 auto;color:#1a1a1a;font-size:14px}
@@ -2140,17 +2045,11 @@ ${recent.map(w => {
 </tbody></table>
 <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
 </body></html>`;
-
   const blob = new Blob([reportHtml], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   window.open(url, '_blank');
 }
-
-// ============================================
-// AI COACH
-// ============================================
 let aiChatHistory = [];
-
 function openAiCoach(prefill) {
   $('ai-overlay').style.display = 'flex';
   if (prefill) {
@@ -2160,14 +2059,11 @@ function openAiCoach(prefill) {
     $('ai-input').focus();
   }
 }
-
 function closeAiCoach() {
   $('ai-overlay').style.display = 'none';
 }
-
 $('ai-fab').addEventListener('click', () => { haptic('light'); openAiCoach(); });
 $('ai-close-btn').addEventListener('click', closeAiCoach);
-
 // Quick question buttons
 document.querySelectorAll('.ai-quick-btn:not(.ai-gen-trigger):not(.ai-action-trigger)').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2177,7 +2073,6 @@ document.querySelectorAll('.ai-quick-btn:not(.ai-gen-trigger):not(.ai-action-tri
     if (qb) qb.remove();
   });
 });
-
 // Generate plan trigger
 document.querySelectorAll('.ai-gen-trigger').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2186,7 +2081,6 @@ document.querySelectorAll('.ai-gen-trigger').forEach(btn => {
     startPlanGeneration();
   });
 });
-
 // AI action triggers (edit plan, weekly review, race prep, injury mode)
 document.querySelectorAll('.ai-action-trigger').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2197,16 +2091,15 @@ document.querySelectorAll('.ai-action-trigger').forEach(btn => {
     else if (action === 'weekly-review') startAiWeeklyReview();
     else if (action === 'race-prep') startAiRacePrep();
     else if (action === 'injury-mod') startAiInjuryMod();
+    else if (action === 'form-check') startAiFormCheck();
   });
 });
-
 $('ai-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     $('ai-send-btn').click();
   }
 });
-
 $('ai-send-btn').addEventListener('click', () => {
   const msg = $('ai-input').value.trim();
   if (!msg) return;
@@ -2234,29 +2127,24 @@ $('ai-send-btn').addEventListener('click', () => {
     sendAiMessage(msg);
   }
 });
-
 async function sendAiMessage(message) {
   const messagesEl = $('ai-messages');
   const input = $('ai-input');
   input.value = '';
-
   // Remove quick buttons
   const qb = $('ai-quick-btns');
   if (qb) qb.remove();
-
   // Add user message
   const userMsg = document.createElement('div');
   userMsg.className = 'ai-msg user';
   userMsg.textContent = message;
   messagesEl.appendChild(userMsg);
-
   // Add typing indicator
   const typingMsg = document.createElement('div');
   typingMsg.className = 'ai-msg ai';
   typingMsg.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-
   // Build context from user profile
   const ctx = [];
   if (userProfile?.displayName) ctx.push('Name: ' + userProfile.displayName);
@@ -2267,7 +2155,6 @@ async function sendAiMessage(message) {
     if (plan) ctx.push('Active plan: ' + plan.name + ' (' + plan.category + ')');
   }
   ctx.push('Total workouts logged: ' + userWorkouts.length);
-
   try {
     const resp = await fetch('/.netlify/functions/ai-coach', {
       method: 'POST',
@@ -2277,11 +2164,8 @@ async function sendAiMessage(message) {
         context: ctx.join('. ')
       })
     });
-
     const data = await resp.json();
-
     if (!resp.ok) throw new Error(data.error || 'Request failed');
-
     typingMsg.innerHTML = '';
     typingMsg.textContent = data.reply;
   } catch(e) {
@@ -2289,10 +2173,8 @@ async function sendAiMessage(message) {
     typingMsg.textContent = 'Sorry, I could not get a response. Make sure the AI Coach function is deployed on Netlify with the ANTHROPIC_API_KEY environment variable.';
     console.error('AI Coach error:', e);
   }
-
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
-
 // Explain plan function — called from plan cards
 async function explainPlan(planId) {
   const plan = findPlan(planId);
@@ -2306,27 +2188,21 @@ Tier: ${plan.tier}
 Duration: ${pd.durationWeeks} weeks, ${pd.sessionsPerWeek} sessions per week
 Workouts: ${workoutNames}
 Description: ${pd.description}
-
 Explain: what this plan trains, why the workouts are in this order, what the student should expect each week, and how hard it will feel. Keep it encouraging.`;
-
   openAiCoach();
-
   // Show the question
   const messagesEl = $('ai-messages');
   const qb = $('ai-quick-btns');
   if (qb) qb.remove();
-
   const userMsg = document.createElement('div');
   userMsg.className = 'ai-msg user';
   userMsg.textContent = 'Explain the plan: ' + pd.name;
   messagesEl.appendChild(userMsg);
-
   const typingMsg = document.createElement('div');
   typingMsg.className = 'ai-msg ai';
   typingMsg.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-
   try {
     const resp = await fetch('/.netlify/functions/ai-coach', {
       method: 'POST',
@@ -2343,17 +2219,11 @@ Explain: what this plan trains, why the workouts are in this order, what the stu
   }
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
-
-// ============================================
-// AI PLAN GENERATION
-// ============================================
 let pendingAiPlan = null;
-
 function startPlanGeneration() {
   const messagesEl = $('ai-messages');
   const year = userProfile?.yearLevel || 'Y10';
   const tier = userProfile?.fitnessLevel || 'basic';
-
   const aiMsg = document.createElement('div');
   aiMsg.className = 'ai-msg ai';
   aiMsg.innerHTML = `What kind of plan do you want?<br><br>
@@ -2367,7 +2237,6 @@ function startPlanGeneration() {
     </div>`;
   messagesEl.appendChild(aiMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-
   messagesEl.querySelectorAll('.ai-plan-type').forEach(btn => {
     btn.addEventListener('click', () => {
       const ptype = btn.dataset.ptype;
@@ -2388,26 +2257,21 @@ function startPlanGeneration() {
     });
   });
 }
-
 async function generateAiPlan(category, yearLevel, tier, customGoal) {
   const messagesEl = $('ai-messages');
-
   const userMsg = document.createElement('div');
   userMsg.className = 'ai-msg user';
   userMsg.textContent = customGoal || 'Generate a ' + category + ' plan for ' + yearLevel + ' ' + tier;
   messagesEl.appendChild(userMsg);
-
   const typingMsg = document.createElement('div');
   typingMsg.className = 'ai-msg ai';
   typingMsg.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-
   const catNames = { invehicle: 'In Vehicle (HPV riding)', floor: 'Floor & Home (bodyweight)', machine: 'Fitness Machine (gym)', offseason: 'Off-Season (fun cross-training to maintain fitness)', holiday: 'Holiday (short 15-20 min sessions doable anywhere)' };
   const prompt = customGoal
     ? 'Create a training plan: "' + customGoal + '". Student is ' + yearLevel + ', ' + tier + ' tier.'
     : 'Create a ' + (catNames[category] || category) + ' training plan for ' + yearLevel + ' at ' + tier + ' tier.';
-
   try {
     const resp = await fetch('/.netlify/functions/ai-coach', {
       method: 'POST',
@@ -2419,7 +2283,6 @@ async function generateAiPlan(category, yearLevel, tier, customGoal) {
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Failed');
-
     let planData;
     try {
       const clean = (data.reply || '').replace(/```json|```/g, '').trim();
@@ -2429,13 +2292,11 @@ async function generateAiPlan(category, yearLevel, tier, customGoal) {
       typingMsg.textContent = data.reply || 'Could not generate a structured plan. Try again.';
       return;
     }
-
     if (!planData.name || !planData.workouts || !Array.isArray(planData.workouts)) {
       typingMsg.innerHTML = '';
       typingMsg.textContent = 'The plan was incomplete. Try again.';
       return;
     }
-
     planData.id = 'ai-plan-' + Date.now();
     planData.category = planData.category || category || 'floor';
     planData.yearLevel = planData.yearLevel || yearLevel;
@@ -2446,9 +2307,7 @@ async function generateAiPlan(category, yearLevel, tier, customGoal) {
     planData.createdByName = userProfile?.displayName || 'Unknown';
     planData.createdAt = new Date().toISOString();
     planData.shared = false;
-
     pendingAiPlan = planData;
-
     const workoutList = planData.workouts.map(w => 'W' + w.week + ' ' + w.day + ': ' + w.name + ' (' + w.duration + 'min)').join('<br>');
     typingMsg.innerHTML = '<div class="ai-gen-plan-card">' +
       '<div class="ai-gen-plan-title">' + escHtml(planData.name) + '</div>' +
@@ -2459,34 +2318,27 @@ async function generateAiPlan(category, yearLevel, tier, customGoal) {
         '<button class="ai-gen-save" id="ai-plan-save">Save Plan</button>' +
         '<button class="ai-gen-share" id="ai-plan-share">Save & Share with Team</button>' +
       '</div></div>';
-
     $('ai-plan-save')?.addEventListener('click', () => saveAiPlan(false));
     $('ai-plan-share')?.addEventListener('click', () => saveAiPlan(true));
-
   } catch(e) {
     typingMsg.innerHTML = '';
     typingMsg.textContent = 'Could not generate plan. Check the AI function is deployed.';
   }
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
-
 async function saveAiPlan(shareWithTeam) {
   if (!pendingAiPlan) return;
   const plan = { ...pendingAiPlan, shared: shareWithTeam };
-
   // Always add to local array first
   customPlans.unshift(plan);
-
   // Always persist to localStorage (primary storage)
   saveCustomPlansLocal();
-
   // Also save to Firestore (secondary sync)
   if (!demoMode && db && currentUser) {
     try {
       await setDoc(doc(db, 'users', currentUser.uid, 'customPlans', plan.id), plan);
     } catch(e) { console.error('Save plan error:', e); }
   }
-
   // Share with team
   if (shareWithTeam && userProfile?.teamId) {
     if (!demoMode && db) {
@@ -2495,7 +2347,6 @@ async function saveAiPlan(shareWithTeam) {
       } catch(e) { console.error('Share plan error:', e); }
     }
   }
-
   pendingAiPlan = null;
   const messagesEl = $('ai-messages');
   const msg = document.createElement('div');
@@ -2508,12 +2359,10 @@ async function saveAiPlan(shareWithTeam) {
   // Refresh My Plans tab
   if (fitnessSubTab === 'myplans') renderMyPlans();
 }
-
 // Save custom plans to localStorage
 function saveCustomPlansLocal() {
   try { localStorage.setItem('vf_customPlans', JSON.stringify(customPlans)); } catch(e) {}
 }
-
 // Delete a custom plan by index
 async function deleteCustomPlan(idx) {
   const plan = customPlans[idx];
@@ -2528,7 +2377,6 @@ async function deleteCustomPlan(idx) {
   }
   renderMyPlans();
 }
-
 // Load from localStorage (always), then merge Firestore (when available)
 async function loadCustomPlans() {
   // 1. Always load from localStorage first
@@ -2541,7 +2389,6 @@ async function loadCustomPlans() {
       }
     }
   } catch(e) {}
-
   // 2. Try merging from Firestore
   if (!demoMode && db && currentUser) {
     try {
@@ -2564,10 +2411,7 @@ async function loadCustomPlans() {
     } catch(e) { console.error('Load custom plans error:', e); }
   }
 }
-
-// ============================================
 // AI PLAN EDITOR (natural language editing)
-// ============================================
 // --- Team Activity Feed loader ---
 async function loadTeamFeed() {
   teamFeedCache = [];
@@ -2606,7 +2450,6 @@ async function loadTeamFeed() {
     teamFeedCache = feed.slice(0, 10);
   } catch(e) { console.error('Load team feed error:', e); }
 }
-
 // --- Team Challenge loader ---
 async function loadTeamChallenge() {
   activeChallenge = null;
@@ -2636,7 +2479,6 @@ async function loadTeamChallenge() {
     const data = snap.data();
     const now = new Date();
     const end = new Date(data.endDate);
-
     if (end > now) {
       // Challenge is still active
       activeChallenge = data;
@@ -2664,18 +2506,12 @@ async function loadTeamChallenge() {
     }
   } catch(e) { console.error('Load challenge error:', e); }
 }
-
-// ============================================
-// WORKOUT TIMER
-// ============================================
 function renderWorkouts() {
   const c = $('workouts-content');
   let html = '<div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Log Manually</button></div>';
-
   // Load stored routes for mini maps
   let storedRoutes = {};
   try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
-
   if (userWorkouts.length === 0) {
     html += `<div class="empty-state">
       <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;color:var(--muted-fg)"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg></div>
@@ -2705,8 +2541,9 @@ function renderWorkouts() {
       html += `<button class="wo-filter-btn" data-wofilter="strava" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">⬡ Strava (${stravaCount})</button>`;
     }
     html += '</div>';
-
     html += '<div class="space-y" id="wo-list">';
+    let storedPhotos = {};
+    try { storedPhotos = JSON.parse(localStorage.getItem('vf_photos') || '{}'); } catch(e) {}
     userWorkouts.forEach((w, idx) => {
       const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
       const dateStr = date.toLocaleDateString('en-AU', {day:'numeric',month:'short'});
@@ -2717,7 +2554,8 @@ function renderWorkouts() {
       const routeId = w.routeId || w.id;
       const hasRoute = (isTracked || isStrava) && storedRoutes[routeId] && storedRoutes[routeId].length > 1;
       const sourceIcon = isStrava ? '⬡ ' : isTracked ? '📍 ' : '';
-
+      const photoId = w.photoId || w._id;
+      const hasPhoto = storedPhotos[photoId];
       html += `<div class="card wo-card" data-wo-type="${wType}" data-wo-source="${w.source || 'manual'}" data-wo-idx="${idx}">
         <div class="card-pad">
           <div class="wo-top">
@@ -2740,14 +2578,13 @@ function renderWorkouts() {
             </button>
           </div>
           ${hasRoute ? `<div class="activity-map-thumb" id="mini-map-${idx}" data-route-id="${routeId}"></div>` : ''}
+          ${hasPhoto ? `<img src="${storedPhotos[photoId]}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-top:8px" loading="lazy">` : ''}
         </div>
       </div>`;
     });
     html += '</div>';
   }
-
   c.innerHTML = html;
-
   // Render mini maps for tracked activities
   if (typeof L !== 'undefined') {
     c.querySelectorAll('.activity-map-thumb').forEach(el => {
@@ -2770,7 +2607,6 @@ function renderWorkouts() {
       }, 100);
     });
   }
-
   // Filter buttons
   c.querySelectorAll('.wo-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2787,7 +2623,6 @@ function renderWorkouts() {
       });
     });
   });
-
   // Delete buttons
   c.querySelectorAll('.wo-delete').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -2798,7 +2633,6 @@ function renderWorkouts() {
       try { await deleteDoc(doc(db, 'users', currentUser.uid, 'workouts', id)); } catch(e) { console.error('Delete error:', e); }
     });
   });
-
   // Click card to open detail view
   c.querySelectorAll('.wo-card').forEach(card => {
     card.style.cursor = 'pointer';
@@ -2808,19 +2642,14 @@ function renderWorkouts() {
       if (!isNaN(idx)) openActivityDetail(idx);
     });
   });
-
   // Manual log button
   const manualBtn = $('manual-log-btn');
   if (manualBtn) {
     manualBtn.addEventListener('click', () => { haptic('light'); openWorkoutSheet(); });
   }
 }
-
-// ============================================
 // FAB & Workout Log Sheet
-// ============================================
 // Record moved to nav tab
-
 function openWorkoutSheet() {
   const today = new Date().toISOString().split('T')[0];
   $('sheet-content').innerHTML = `
@@ -2868,23 +2697,55 @@ function openWorkoutSheet() {
       <label class="label" for="wo-date">Date</label>
       <input class="input" type="date" id="wo-date" value="${today}">
     </div>
+    <div class="form-group">
+      <label class="label">Photo (optional)</label>
+      <label style="display:flex;align-items:center;gap:8px;padding:10px;border:1px dashed var(--border);border-radius:8px;cursor:pointer;color:var(--muted-fg);font-size:13px" id="wo-photo-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+        <span id="wo-photo-text">Add a photo</span>
+        <input type="file" accept="image/*" capture="environment" id="wo-photo" style="display:none">
+      </label>
+      <img id="wo-photo-preview" style="display:none;width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-top:6px">
+    </div>
     <button class="btn btn-primary" style="width:100%;margin-top:4px" id="wo-save-btn">Save Workout</button>
   `;
   openSheet();
-
   // Bind RPE buttons
   let selectedRpe = 0;
+  let workoutPhotoData = null;
   document.querySelectorAll('#rpe-row .rpe-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       selectedRpe = parseInt(btn.dataset.rpe);
       document.querySelectorAll('#rpe-row .rpe-btn').forEach(b => b.classList.toggle('selected', parseInt(b.dataset.rpe) === selectedRpe));
     });
   });
-
-  $('wo-save-btn').addEventListener('click', () => saveWorkout(selectedRpe));
+  // Photo attachment
+  $('wo-photo')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('Photo too large (max 2MB)', 'warn'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      // Resize to thumbnail
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxW = 600;
+        const scale = Math.min(1, maxW / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        workoutPhotoData = canvas.toDataURL('image/jpeg', 0.7);
+        const preview = $('wo-photo-preview');
+        if (preview) { preview.src = workoutPhotoData; preview.style.display = ''; }
+        $('wo-photo-text').textContent = '📷 Photo attached';
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  $('wo-save-btn').addEventListener('click', () => saveWorkout(selectedRpe, workoutPhotoData));
 }
-
-async function saveWorkout(rpe) {
+async function saveWorkout(rpe, photoData) {
   const name = $('wo-name').value.trim();
   const type = $('wo-type').value;
   const duration = parseInt($('wo-duration').value) || 0;
@@ -2893,14 +2754,23 @@ async function saveWorkout(rpe) {
   const notes = $('wo-notes').value.trim() || null;
   const dateVal = $('wo-date').value;
   const rpeVal = rpe || null;
-
   if (!name) { showToast('Please enter a workout name.', 'warn'); return; }
   if (!duration) { showToast('Please enter duration.', 'warn'); return; }
-
   closeSheet();
   const dateObj = dateVal ? new Date(dateVal + 'T12:00:00') : new Date();
+  const workoutId = 'wo-' + Date.now();
+  // Store photo in localStorage if provided
+  if (photoData) {
+    try {
+      const photos = JSON.parse(localStorage.getItem('vf_photos') || '{}');
+      photos[workoutId] = photoData;
+      const keys = Object.keys(photos);
+      while (keys.length > 30) { delete photos[keys.shift()]; } // keep max 30
+      localStorage.setItem('vf_photos', JSON.stringify(photos));
+    } catch(e) {}
+  }
   if (demoMode) {
-    userWorkouts.unshift({ _id:'d'+Date.now(), name, type, duration, distance, heartRate, notes, rpe: rpeVal, date: dateObj, createdAt: new Date() });
+    userWorkouts.unshift({ _id: workoutId, name, type, duration, distance, heartRate, notes, rpe: rpeVal, photoId: photoData ? workoutId : null, date: dateObj, createdAt: new Date() });
     renderWorkouts();
     return;
   }
@@ -2927,10 +2797,7 @@ async function saveWorkout(rpe) {
     showToast('Failed to save workout.', 'error');
   }
 }
-
-// ============================================
 // Bottom Sheet
-// ============================================
 function openSheet() {
   const overlay = $('sheet-overlay');
   const sheet = $('sheet');
@@ -2941,7 +2808,6 @@ function openSheet() {
   });
   overlay.onclick = closeSheet;
 }
-
 function closeSheet() {
   const overlay = $('sheet-overlay');
   const sheet = $('sheet');
@@ -2951,41 +2817,30 @@ function closeSheet() {
     overlay.style.display = 'none';
   }, 300);
 }
-
-// ============================================
-// PLANS PAGE
-// ============================================
 let plansInitialized = false;
 function renderPlans() {
   const c = $('plans-content');
-
   // Auto-select user's year/tier on FIRST render only
   if (!plansInitialized && userProfile) {
     if (userProfile.yearLevel) plansYear = userProfile.yearLevel;
     if (userProfile.fitnessLevel) plansTier = userProfile.fitnessLevel;
     plansInitialized = true;
   }
-
   const categories = [
     { id: 'invehicle', label: 'In Vehicle', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"/></svg>' },
     { id: 'floor', label: 'Floor & Home', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' },
     { id: 'machine', label: 'Fitness Machine', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M12 17v4"/></svg>' },
   ];
-
   const years = ['Y7','Y8','Y9','Y10','Y11','Y12'];
   const tiers = ['basic','average','intense'];
-
   let html = '<div class="page-title">Training Plans</div>';
-
   // Search bar
   html += `<div class="demo-search-wrap" style="margin-bottom:10px">
     <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input class="demo-search" type="text" id="plans-search-input" placeholder="Search plans by name, description..." value="${escHtml(plansSearch)}">
   </div>`;
-
   const visiblePlans = getVisiblePlans();
   const activePlanId = userProfile?.activePlanId;
-
   // SEARCH MODE
   if (plansSearch.trim()) {
     const q = plansSearch.toLowerCase().trim();
@@ -2998,9 +2853,7 @@ function renderPlans() {
         || p.tier.toLowerCase().includes(q)
         || (p.workouts || []).some(w => (w.name || '').toLowerCase().includes(q));
     });
-
     html += `<div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">${results.length} plan${results.length !== 1 ? 's' : ''} matching "${escHtml(plansSearch)}"</div>`;
-
     if (results.length === 0) {
       html += `<div class="empty-state" style="padding:24px 16px">
         <div class="empty-state-title">No Plans Found</div>
@@ -3016,46 +2869,38 @@ function renderPlans() {
       });
       html += '</div>';
     }
-
     c.innerHTML = html;
     bindPlanSearchAndCards(c);
     return;
   }
-
   // NORMAL MODE — category/year/tier filters
-
   // Category tabs
   html += '<div class="pill-tabs">';
   categories.forEach(cat => {
     html += `<button class="pill-tab${plansCategory===cat.id?' active':''}" data-cat="${cat.id}">${cat.icon} ${cat.label}</button>`;
   });
   html += '</div>';
-
   // Category description
   const catKey = plansCategory === 'invehicle' ? 'invehicle' : plansCategory;
   if (UI_COPY.categoryDescriptions && UI_COPY.categoryDescriptions[catKey]) {
     html += `<div class="category-desc">${UI_COPY.categoryDescriptions[catKey]}</div>`;
   }
-
   // Year pills
   html += '<div class="year-tabs" style="margin-top:10px">';
   years.forEach(y => {
     html += `<button class="year-pill${plansYear===y?' active':''}" data-year="${y}">${y}</button>`;
   });
   html += '</div>';
-
   // Tier pills
   html += '<div class="tier-tabs">';
   tiers.forEach(t => {
     html += `<button class="tier-pill${plansTier===t?' active':''}" data-tier="${t}">${capitalize(t)}</button>`;
   });
   html += '</div>';
-
   // Tier description
   if (UI_COPY.tierDescriptions && UI_COPY.tierDescriptions[plansTier]) {
     html += `<div class="tier-desc">${UI_COPY.tierDescriptions[plansTier]}</div>`;
   }
-
   // Safety banner
   const safety = UI_COPY.safetyBanners[plansYear];
   if (safety) {
@@ -3075,10 +2920,8 @@ function renderPlans() {
       </div>
     `;
   }
-
   // Filter plans
   const filtered = visiblePlans.filter(p => p.category === plansCategory && p.yearLevel === plansYear && p.tier === plansTier);
-
   if (filtered.length === 0) {
     html += `<div class="empty-state" style="padding:32px 16px">
       <div class="empty-state-title">No Plans Found</div>
@@ -3092,10 +2935,8 @@ function renderPlans() {
     });
     html += '</div>';
   }
-
   
   c.innerHTML = html;
-
   // Bind filter tabs
   c.querySelectorAll('.pill-tab[data-cat]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3115,10 +2956,8 @@ function renderPlans() {
       renderPlans();
     });
   });
-
   bindPlanSearchAndCards(c);
 }
-
 function bindPlanSearchAndCards(c) {
   // Bind search
   const searchInput = $('plans-search-input');
@@ -3135,7 +2974,6 @@ function bindPlanSearchAndCards(c) {
       }, 250);
     });
   }
-
   // Bind explain plan buttons
   c.querySelectorAll('.plan-explain-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -3144,7 +2982,6 @@ function bindPlanSearchAndCards(c) {
       explainPlan(btn.dataset.explainPlan);
     });
   });
-
   // Bind plan expand/collapse
   c.querySelectorAll('.plan-header').forEach(hdr => {
     hdr.addEventListener('click', () => {
@@ -3181,7 +3018,6 @@ function bindPlanSearchAndCards(c) {
       }
     });
   });
-
   // Bind exercise expand/collapse
   c.querySelectorAll('.exercise-expand-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -3196,7 +3032,6 @@ function bindPlanSearchAndCards(c) {
       }
     });
   });
-
   // Bind cancel plan buttons
   c.querySelectorAll('.plan-cancel-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
@@ -3219,19 +3054,16 @@ function bindPlanSearchAndCards(c) {
     });
   });
 }
-
 function renderPlanCard(plan, isActive) {
   const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
   const tierColor = tierColors[plan.tier] || '#3b82f6';
   const pd = getPlanDisplayData(plan);
-
   // Group workouts by week
   const weeks = {};
   plan.workouts.forEach(w => {
     if (!weeks[w.week]) weeks[w.week] = [];
     weeks[w.week].push(w);
   });
-
   let scheduleHtml = '';
   Object.keys(weeks).sort((a,b)=>a-b).forEach(wk => {
     scheduleHtml += `<div class="week-title">Week ${wk}</div>`;
@@ -3263,7 +3095,6 @@ function renderPlanCard(plan, isActive) {
       `;
     });
   });
-
   return `
     <div class="card plan-card${isActive?' active-plan':''}">
       <div class="plan-header" style="cursor:pointer">
@@ -3301,20 +3132,14 @@ function renderPlanCard(plan, isActive) {
     </div>
   `;
 }
-
-// ============================================
-// RACES PAGE
-// ============================================
 function renderRaces() {
   const c = $('races-content');
   let html = '<div class="page-title">Upcoming Races</div><div class="space-y">';
-
   const racesData = getActiveRaces();
   racesData.forEach(race => {
     const raceDate = new Date(race.date + 'T09:00:00+10:00'); // AEST
     const now = new Date();
     const isPast = raceDate < now;
-
     html += `
       <div class="card race-card">
         <div class="card-pad">
@@ -3338,15 +3163,12 @@ function renderRaces() {
       </div>
     `;
   });
-
   html += '</div>';
   c.innerHTML = html;
-
   updateCountdowns();
   if (raceTimerInterval) clearInterval(raceTimerInterval);
   raceTimerInterval = setInterval(updateCountdowns, 1000);
 }
-
 function updateCountdowns() {
   document.querySelectorAll('.countdown-grid[data-race-date]').forEach(el => {
     const raceDate = new Date(el.dataset.raceDate + 'T09:00:00+10:00');
@@ -3371,22 +3193,16 @@ function updateCountdowns() {
     `;
   });
 }
-
 function formatRaceDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-AU', {day:'numeric',month:'long',year:'numeric'});
 }
-
-// ============================================
-// TEAM PAGE
-// ============================================
 function generateTeamCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
   return code;
 }
-
 function renderTeam() {
   // Update sub-tab styling
   document.querySelectorAll('.lb-sub-tab').forEach(btn => {
@@ -3394,12 +3210,10 @@ function renderTeam() {
     btn.style.background = isActive ? 'var(--primary)' : 'var(--secondary)';
     btn.style.color = isActive ? 'var(--primary-fg)' : 'var(--secondary-fg)';
   });
-
   const gc = $('lb-global-content');
   const tc = $('lb-team-content');
   gc.style.display = 'none';
   tc.style.display = 'none';
-
   if (lbSubTab === 'global') {
     gc.style.display = '';
     renderGlobalLeaderboard(gc);
@@ -3408,7 +3222,6 @@ function renderTeam() {
     renderTeamTab(tc);
   }
 }
-
 // --- GLOBAL LEADERBOARD ---
 async function loadGlobalLeaderboard() {
   if (demoMode) {
@@ -3437,7 +3250,6 @@ async function loadGlobalLeaderboard() {
         const wSnap = await getDocs(collection(db, 'users', d.id, 'workouts'));
         wCount = wSnap.size;
       } catch(e) {}
-
       // Calculate streak
       let streak = 0;
       try {
@@ -3455,13 +3267,11 @@ async function loadGlobalLeaderboard() {
           streak++; check.setDate(check.getDate()-1);
         }
       } catch(e) {}
-
       // Estimate XP from available data
       let xp = wCount * 10; // 10 per workout
       if (streak >= 7) xp += 25;
       if (streak >= 14) xp += 50;
       if (streak >= 30) xp += 100;
-
       entries.push({
         uid: d.id,
         displayName: u.displayName || 'Unknown',
@@ -3477,33 +3287,26 @@ async function loadGlobalLeaderboard() {
   }
   globalLbLoading = false;
 }
-
 function renderGlobalLeaderboard(el) {
   if (globalLbLoading) {
     el.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
     return;
   }
-
   if (globalLeaderboard.length === 0) {
     el.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
     loadGlobalLeaderboard().then(() => renderGlobalLeaderboard(el));
     return;
   }
-
   const sorted = [...globalLeaderboard].sort((a, b) => (b.xp || 0) - (a.xp || 0));
   const myUid = currentUser?.uid;
-
   // Override my own XP with accurate calculation
   const myEntry = sorted.find(u => u.uid === myUid);
   if (myEntry) { myEntry.xp = calcXp(); }
   sorted.sort((a, b) => (b.xp || 0) - (a.xp || 0));
-
   // Find my rank
   const myIdx = sorted.findIndex(u => u.uid === myUid);
   const myRank = myIdx >= 0 ? myIdx + 1 : null;
-
   let html = '';
-
   // Podium: top 3
   if (sorted.length >= 3) {
     html += '<div class="lb-podium">';
@@ -3533,7 +3336,6 @@ function renderGlobalLeaderboard(el) {
     </div>`;
     html += '</div>';
   }
-
   // My rank card
   if (myRank) {
     html += `<div class="lb-my-rank">
@@ -3542,7 +3344,6 @@ function renderGlobalLeaderboard(el) {
       <span style="color:var(--muted-fg)">of ${sorted.length}</span>
     </div>`;
   }
-
   // Rest of the table (4th place onwards, or all if < 3)
   const startIdx = sorted.length >= 3 ? 3 : 0;
   if (sorted.length > startIdx) {
@@ -3562,12 +3363,9 @@ function renderGlobalLeaderboard(el) {
     });
     html += '</tbody></table></div>';
   }
-
   // Refresh button
   html += `<div style="text-align:center;margin-top:16px"><button class="btn btn-secondary" id="lb-refresh-btn" style="font-size:12px;padding:8px 20px">Refresh Leaderboard</button></div>`;
-
   el.innerHTML = html;
-
   const refreshBtn = $('lb-refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async () => {
@@ -3579,19 +3377,15 @@ function renderGlobalLeaderboard(el) {
     });
   }
 }
-
 // --- TEAM TAB (your team sub-tab) ---
 function renderTeamTab(c) {
   let html = '';
-
   if (teamLoading) {
     html += '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
     c.innerHTML = html;
     return;
   }
-
   const hasTeam = userProfile?.teamId && teamData;
-
   if (!hasTeam) {
     html += `
       <div class="team-empty">
@@ -3609,7 +3403,6 @@ function renderTeamTab(c) {
     $('team-join-btn').addEventListener('click', openJoinTeamSheet);
     return;
   }
-
   // Team header
   html += `
     <div class="team-hero">
@@ -3623,7 +3416,6 @@ function renderTeamTab(c) {
       <div class="team-hero-members">${teamMembers.length} member${teamMembers.length !== 1 ? 's' : ''}</div>
     </div>
   `;
-
   // Team leaderboard table
   const sorted = [...teamMembers].sort((a, b) => (b.totalWorkouts || 0) - (a.totalWorkouts || 0));
   html += '<div class="card" style="overflow:hidden"><table class="lb-table">';
@@ -3640,12 +3432,9 @@ function renderTeamTab(c) {
     </tr>`;
   });
   html += '</tbody></table></div>';
-
   // Leave team
   html += '<div style="text-align:center;margin-top:16px"><button class="leave-team-btn" id="leave-team-btn">Leave Team</button></div>';
-
   c.innerHTML = html;
-
   // Bind copy
   $('copy-code-btn').addEventListener('click', () => {
     navigator.clipboard.writeText(teamData.code).catch(() => {});
@@ -3655,11 +3444,9 @@ function renderTeamTab(c) {
       btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     }, 1500);
   });
-
   // Bind leave
   $('leave-team-btn').addEventListener('click', leaveTeam);
 }
-
 // Bind leaderboard sub-tabs
 document.querySelectorAll('.lb-sub-tab').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -3668,11 +3455,6 @@ document.querySelectorAll('.lb-sub-tab').forEach(btn => {
     renderTeam();
   });
 });
-
-// ============================================
-// PROFILE PAGE + THEME + STRAVA
-// ============================================
-
 // --- Theme ---
 function toggleTheme() {
   currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -3680,14 +3462,12 @@ function toggleTheme() {
   try { localStorage.setItem('vf_theme', currentTheme); } catch(e) {}
   renderProfile(); // Re-render to update toggle state
 }
-
 // --- Profile Page ---
 $('profile-menu-btn').addEventListener('click', () => {
   closeUserMenu();
   openProfile();
 });
 $('profile-close-btn').addEventListener('click', closeProfile);
-
 function openProfile() {
   $('profile-overlay').style.display = 'flex';
   renderProfile();
@@ -3695,7 +3475,6 @@ function openProfile() {
 function closeProfile() {
   $('profile-overlay').style.display = 'none';
 }
-
 function renderProfile() {
   const el = $('profile-body');
   const name = userProfile?.displayName || currentUser?.displayName || 'Unknown';
@@ -3704,13 +3483,11 @@ function renderProfile() {
   const tier = capitalize(userProfile?.fitnessLevel || 'basic');
   const initial = name.charAt(0).toUpperCase();
   const isStravaConnected = !!(stravaTokens && stravaTokens.access_token);
-
   let html = `
     <div class="profile-avatar-big">${initial}</div>
     <div class="profile-name-big">${escHtml(name)}</div>
     <div class="profile-meta">${escHtml(email)}</div>
   `;
-
   // Account section
   html += '<div class="profile-section"><div class="profile-section-title">Account</div>';
   html += `<div class="profile-row">
@@ -3728,7 +3505,6 @@ function renderProfile() {
     <span class="profile-row-action" id="profile-edit-tier">Change</span>
   </div>`;
   html += '</div>';
-
   // Appearance
   html += '<div class="profile-section"><div class="profile-section-title">Appearance</div>';
   html += `<div class="profile-row">
@@ -3738,7 +3514,6 @@ function renderProfile() {
     </div>
   </div>`;
   html += '</div>';
-
   // Strava
   html += '<div class="profile-section"><div class="profile-section-title">Strava Integration</div>';
   if (isStravaConnected) {
@@ -3755,6 +3530,8 @@ function renderProfile() {
       <div id="strava-activities-list"></div>
     </div>`;
     html += `<button class="strava-disconnect" id="strava-disconnect-btn">Disconnect Strava</button>`;
+    html += `<button class="strava-disconnect" id="strava-resync-routes" style="margin-top:6px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border)">🗺️ Re-sync Route Maps</button>`;
+    html += `<div style="font-size:11px;color:var(--muted-fg);margin-top:4px">Re-downloads GPS routes for all Strava activities. Use if maps are missing.</div>`;
   } else {
     html += `<div class="strava-status">
       <div class="strava-status-dot disconnected"></div>
@@ -3771,7 +3548,6 @@ function renderProfile() {
     html += '<div style="font-size:11px;color:var(--muted-fg);margin-top:8px">Import your rides and activities automatically. Your Strava data stays in your account.</div>';
   }
   html += '</div>';
-
   // Stats
   html += `<div class="profile-section"><div class="profile-section-title">Your Stats</div>
     <div class="profile-row"><span class="profile-row-label">Total Workouts</span><span class="profile-row-value">${userWorkouts.length}</span></div>
@@ -3781,7 +3557,6 @@ function renderProfile() {
       Export Training Report
     </button>
   </div>`;
-
   // Help & Tutorial
   html += '<div class="profile-section"><div class="profile-section-title">Help</div>';
   html += `<div class="profile-row" id="profile-redo-tutorial" style="cursor:pointer">
@@ -3793,12 +3568,9 @@ function renderProfile() {
     <span class="profile-row-action">Ask a Question</span>
   </div>`;
   html += '</div>';
-
   el.innerHTML = html;
-
   // Bindings
   $('theme-toggle-btn')?.addEventListener('click', toggleTheme);
-
   $('profile-edit-name')?.addEventListener('click', () => {
     showEditModal('Edit Display Name', 'modal-name', name, (val) => {
       updateProfileField('displayName', val);
@@ -3816,14 +3588,15 @@ function renderProfile() {
       {value:'intense',label:'Intense — Competitive'}
     ], userProfile?.fitnessLevel || 'basic', (val) => updateProfileField('fitnessLevel', val));
   });
-
   $('strava-connect-btn')?.addEventListener('click', stravaStartAuth);
   $('strava-disconnect-btn')?.addEventListener('click', stravaDisconnect);
   $('strava-sync-btn')?.addEventListener('click', () => {
     stravaFetchActivities().then(() => renderStravaActivities());
   });
+  $('strava-resync-routes')?.addEventListener('click', () => {
+    stravaResyncRoutes();
+  });
   $('profile-export-btn')?.addEventListener('click', exportTrainingReport);
-
   // Tutorial & Help bindings
   $('profile-redo-tutorial')?.addEventListener('click', () => {
     closeProfile();
@@ -3834,10 +3607,8 @@ function renderProfile() {
     closeProfile();
     setTimeout(() => openAiCoach(), 300);
   });
-
   if (isStravaConnected) renderStravaActivities();
 }
-
 async function updateProfileField(field, value) {
   if (!currentUser) return;
   userProfile[field] = value;
@@ -3854,10 +3625,6 @@ async function updateProfileField(field, value) {
   }
   renderProfile();
 }
-
-// ============================================
-// STRAVA INTEGRATION
-// ============================================
 function openCreateTeamSheet() {
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Create Team</div>
@@ -3870,7 +3637,6 @@ function openCreateTeamSheet() {
   openSheet();
   $('team-create-save').addEventListener('click', createTeam);
 }
-
 function openJoinTeamSheet() {
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Join Team</div>
@@ -3884,15 +3650,12 @@ function openJoinTeamSheet() {
   openSheet();
   $('team-join-save').addEventListener('click', joinTeam);
 }
-
 async function createTeam() {
   const name = $('team-name-input').value.trim();
   if (!name) { showToast('Please enter a team name.', 'warn'); return; }
   if (!currentUser) return;
-
   closeSheet();
   const code = generateTeamCode();
-
   if (demoMode) {
     const tid = 'demo-team-' + Date.now();
     teamData = { id: tid, name, code, members: [currentUser.uid] };
@@ -3911,7 +3674,6 @@ async function createTeam() {
     renderTeam();
     return;
   }
-
   if (!db) return;
   showLoading('Creating team...');
   try {
@@ -3937,7 +3699,6 @@ async function createTeam() {
     showToast('Failed to create team.', 'error');
   }
 }
-
 async function joinTeam() {
   const code = $('team-code-input').value.trim().toUpperCase();
   if (!code || code.length !== 6) {
@@ -3946,13 +3707,11 @@ async function joinTeam() {
     return;
   }
   if (!currentUser) return;
-
   if (demoMode) {
     $('join-team-error').textContent = 'Team not found. Check the code and try again.';
     show('join-team-error');
     return;
   }
-
   if (!db) return;
   hide('join-team-error');
   showLoading('Joining team...');
@@ -3968,7 +3727,6 @@ async function joinTeam() {
     const teamDoc = snap.docs[0];
     const tid = teamDoc.id;
     const tData = teamDoc.data();
-
     await updateDoc(doc(db, 'teams', tid), { members: arrayUnion(currentUser.uid) });
     await updateDoc(doc(db, 'users', currentUser.uid), { teamId: tid, teamName: tData.name });
     userProfile.teamId = tid;
@@ -3983,10 +3741,8 @@ async function joinTeam() {
     showToast('Failed to join team.', 'error');
   }
 }
-
 async function leaveTeam() {
   if (!currentUser || !userProfile?.teamId) return;
-
   if (demoMode) {
     teamData = null;
     teamMembers = [];
@@ -3995,7 +3751,6 @@ async function leaveTeam() {
     renderTeam();
     return;
   }
-
   if (!db) return;
   showLoading('Leaving team...');
   try {
@@ -4014,7 +3769,6 @@ async function leaveTeam() {
     showToast('Failed to leave team.', 'error');
   }
 }
-
 async function loadTeamData() {
   if (!currentUser || !userProfile?.teamId) {
     teamData = null;
@@ -4023,7 +3777,6 @@ async function loadTeamData() {
   }
   if (demoMode) return;
   if (!db) return;
-
   try {
     const teamSnap = await getDoc(doc(db, 'teams', userProfile.teamId));
     if (!teamSnap.exists()) {
@@ -4035,12 +3788,10 @@ async function loadTeamData() {
     }
     const td = teamSnap.data();
     teamData = { id: teamSnap.id, name: td.name, code: td.code, members: td.members || [] };
-
     // Load each member's data
     const today = new Date();
     const dateKey = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     const members = [];
-
     for (const uid of teamData.members) {
       try {
         const uSnap = await getDoc(doc(db, 'users', uid));
@@ -4048,7 +3799,6 @@ async function loadTeamData() {
         // Count workouts
         const wSnap = await getDocs(collection(db, 'users', uid, 'workouts'));
         const totalWorkouts = wSnap.size;
-
         // Streak
         let streak = 0;
         if (totalWorkouts > 0) {
@@ -4068,7 +3818,6 @@ async function loadTeamData() {
             else break;
           }
         }
-
         // Today checklist
         let checklistPct = 0;
         try {
@@ -4079,7 +3828,6 @@ async function loadTeamData() {
             if (vals.length > 0) checklistPct = (vals.filter(v => v === true).length / vals.length) * 100;
           }
         } catch(e) {}
-
         members.push({
           uid,
           displayName: uData.displayName || 'Unknown',
@@ -4101,17 +3849,12 @@ async function loadTeamData() {
     teamMembers = [];
   }
 }
-
-// ============================================
 // Utilities (escHtml, capitalize imported from state.js)
-// ============================================
-
 // Find a plan by ID from built-in + custom plans
 function findPlan(id) {
   if (!id) return null;
   return ALL_PLANS.find(p => p.id === id) || customPlans.find(p => p.id === id) || null;
 }
-
 function getTimeAgo(dateStr) {
   try {
     const d = new Date(dateStr);
@@ -4127,7 +3870,6 @@ function getTimeAgo(dateStr) {
     return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
   } catch(e) { return ''; }
 }
-
 function getEmbedUrl(url) {
   if (!url) return '';
   try {
@@ -4145,10 +3887,7 @@ function getEmbedUrl(url) {
   } catch(e) {}
   return url;
 }
-
-// ============================================
 // Firebase Listeners
-// ============================================
 function setupListeners(uid) {
   // Listen to workouts
   if (workoutsUnsubscribe) workoutsUnsubscribe();
@@ -4161,7 +3900,6 @@ function setupListeners(uid) {
     console.error('Workouts listener error:', err);
     userWorkouts = [];
   });
-
   // Listen to today's checklist
   if (checklistUnsubscribe) checklistUnsubscribe();
   const today = new Date();
@@ -4179,7 +3917,6 @@ function setupListeners(uid) {
     userChecklist = {};
   });
 }
-
 async function loadUserProfile(uid) {
   try {
     const snap = await getDoc(doc(db, 'users', uid));
@@ -4208,10 +3945,7 @@ async function loadUserProfile(uid) {
     };
   }
 }
-
-// ============================================
 // Auth State Observer
-// ============================================
 // Build context object for sub-modules (admin.js, strava.js)
 // Uses getters so modules always read fresh state
 function buildModuleCtx() {
@@ -4256,12 +3990,11 @@ function buildModuleCtx() {
     findPlan, getActiveRaces, getVisiblePlans, getPlanDisplayData, getEmbedUrl,
     getMapTileUrl, renderToday, renderFitness, renderPlans, renderProfile,
     stravaUploadActivity, autoUpdateChallengeScore, showModal, saveCustomPlansLocal,
+    sendAiMessage, calcStreak,
   };
 }
-
 function startApp() {
   if (!initFirebase()) return;
-
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       currentUser = user;
@@ -4368,17 +4101,9 @@ function startApp() {
     }
   });
 }
-
 // Allow Enter key on login/signup forms
 $('login-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('login-btn').click(); });
 $('signup-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('signup-btn').click(); });
-
-
-
-// ============================================
-// ADMIN PANEL
-// ============================================
-
 function checkAdmin(email) {
   const e = (email || '').toLowerCase();
   const isOwner = e === ADMIN_EMAIL.toLowerCase();
@@ -4406,25 +4131,21 @@ function checkAdmin(email) {
   const tab = document.getElementById('admin-tab');
   if (tab) tab.style.display = isAdmin ? '' : 'none';
 }
-
 async function loadAdminData() {
   if (!isAdmin || !db) return;
   try {
     // Load announcements
     const annSnap = await getDoc(doc(db, 'config', 'announcements'));
     adminAnnouncements = annSnap.exists() ? (annSnap.data().items || []) : [];
-
     // Load races from Firestore
     const raceSnap = await getDoc(doc(db, 'config', 'races'));
     adminRaces = raceSnap.exists() ? (raceSnap.data().races || null) : null;
-
     // Load race footage, videos & exercise/plan overrides
     await loadRaceFootage();
     await loadRaceLogVideos();
     await loadExerciseOverrides();
     await loadPlanOverrides();
     await loadExerciseDemoVideos();
-
     // Load hidden plans
     const hpSnap = await getDoc(doc(db, 'config', 'hiddenPlans'));
     hiddenPlans = new Set(hpSnap.exists() ? (hpSnap.data().ids || []) : []);
@@ -4432,7 +4153,6 @@ async function loadAdminData() {
     console.error('Load admin data error:', e);
   }
 }
-
 async function loadAnnouncements() {
   if (!db) return;
   try {
@@ -4442,13 +4162,8 @@ async function loadAnnouncements() {
     adminAnnouncements = [];
   }
 }
-
-// ============================================
-// PUSH NOTIFICATIONS FOR ANNOUNCEMENTS
-// ============================================
 let lastSeenAnnId = '';
 try { lastSeenAnnId = localStorage.getItem('vf_lastSeenAnn') || ''; } catch(e) {}
-
 async function requestNotificationPermission() {
   if (!('Notification' in window)) return false;
   if (Notification.permission === 'granted') return true;
@@ -4456,7 +4171,6 @@ async function requestNotificationPermission() {
   const result = await Notification.requestPermission();
   return result === 'granted';
 }
-
 function showAnnouncementNotification(title, message) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   // Prefer service worker showNotification (required for iOS PWA)
@@ -4495,7 +4209,6 @@ function showAnnouncementNotification(title, message) {
   // Update app badge count if supported
   try { if (navigator.setAppBadge) navigator.setAppBadge(1); } catch(e) {}
 }
-
 function checkForNewAnnouncements(announcements) {
   if (!announcements || announcements.length === 0) return;
   const activeAnns = announcements.filter(a => a.active);
@@ -4509,18 +4222,15 @@ function checkForNewAnnouncements(announcements) {
     try { localStorage.setItem('vf_lastSeenAnn', latestId); } catch(e) {}
   }
 }
-
 // Listen for announcements in real-time (triggers notification for new ones)
 // --- Training Reminder Notifications ---
 function checkTrainingReminder() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (userWorkouts.length === 0) return;
-
   // Only remind once per day
   const today = new Date().toISOString().split('T')[0];
   const lastReminder = localStorage.getItem('vf_reminder_date');
   if (lastReminder === today) return;
-
   // Find most recent workout date
   let latestDate = null;
   userWorkouts.forEach(w => {
@@ -4528,9 +4238,7 @@ function checkTrainingReminder() {
     if (d && (!latestDate || d > latestDate)) latestDate = d;
   });
   if (!latestDate) return;
-
   const daysSince = Math.floor((Date.now() - latestDate.getTime()) / 86400000);
-
   if (daysSince >= 2) {
     localStorage.setItem('vf_reminder_date', today);
     const messages = [
@@ -4548,7 +4256,6 @@ function checkTrainingReminder() {
       });
     } catch(e) {}
   }
-
   // Also schedule periodic check via setInterval (every 4 hours while app is open)
   setInterval(() => {
     const now = new Date();
@@ -4571,7 +4278,6 @@ function checkTrainingReminder() {
     }
   }, 4 * 60 * 60 * 1000); // every 4 hours
 }
-
 function setupAnnouncementListener() {
   if (!db) return;
   try {
@@ -4588,13 +4294,11 @@ function setupAnnouncementListener() {
     console.log('Announcement listener setup failed:', e);
   }
 }
-
 // Request notification permission after first user interaction
 document.addEventListener('click', function reqNotifOnce() {
   requestNotificationPermission();
   document.removeEventListener('click', reqNotifOnce);
 }, { once: true });
-
 // Check for new announcements when app becomes visible (returning from background)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && adminAnnouncements.length > 0) {
@@ -4602,7 +4306,6 @@ document.addEventListener('visibilitychange', () => {
     if (currentPage === 'today') renderToday();
   }
 });
-
 // Register service worker for PWA notification support
 if ('serviceWorker' in navigator) {
   const swCode = `
@@ -4628,7 +4331,6 @@ document.addEventListener('visibilitychange', () => {
     try { if (navigator.clearAppBadge) navigator.clearAppBadge(); } catch(e) {}
   }
 });
-
 async function loadFirestoreRaces() {
   if (!db) return;
   try {
@@ -4638,16 +4340,13 @@ async function loadFirestoreRaces() {
     adminRaces = null;
   }
 }
-
 function getActiveRaces() {
   return adminRaces || RACES;
 }
-
 function getVisiblePlans() {
   if (hiddenPlans.size === 0) return ALL_PLANS;
   return ALL_PLANS.filter(p => !hiddenPlans.has(p.id));
 }
-
 function getPlanDisplayData(plan) {
   const ov = planOverrides[plan.id] || {};
   return {
@@ -4657,20 +4356,11 @@ function getPlanDisplayData(plan) {
     sessionsPerWeek: ov.sessionsPerWeek || plan.sessionsPerWeek
   };
 }
-
 let adminActiveTab = 'announcements';
 let plansSubTab = 'manage'; // manage | workouts | videos
 let usersSubTab = 'all'; // all | permissions
-
-// ============================================
 // RACE LOG (all users)
-// ============================================
-
 // GPS Tracker — imported from tracker.js (see import at top of file)
-
-// ============================================
-// AUTO TEAM CHALLENGE SCORING
-// ============================================
 async function autoUpdateChallengeScore(minutes) {
   if (!activeChallenge || !minutes || minutes <= 0) return;
   if (demoMode || !db || !currentUser) return;
@@ -4702,13 +4392,6 @@ async function autoUpdateChallengeScore(minutes) {
     }
   } catch(e) { console.error('Challenge score update error:', e); }
 }
-
-// ============================================
-// ACTIVITY DETAIL VIEW
-// ============================================
-// ============================================
-// RACE RESULT LOGGING
-// ============================================
 function checkRaceResultPrompt() {
   const allRaces = getActiveRaces();
   const today = new Date().toISOString().split('T')[0];
@@ -4739,10 +4422,6 @@ function checkRaceResultPrompt() {
     localStorage.setItem('vf_race_prompted', prompted + ',' + unprompted.date);
   }, 3000);
 }
-
-// ============================================
-// ONBOARDING TUTORIAL
-// ============================================
 const TUTORIAL_STEPS = [
   {
     icon: '👋', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
@@ -4871,26 +4550,20 @@ const TUTORIAL_STEPS = [
     highlight: null
   }
 ];
-
 let tutorialStep = 0;
 let tutorialOverlay = null;
-
 function showTutorial() {
   tutorialStep = 0;
   renderTutorialStep();
 }
-
 function renderTutorialStep() {
   const step = TUTORIAL_STEPS[tutorialStep];
   if (!step) { closeTutorial(); return; }
-
   // Remove existing
   if (tutorialOverlay) tutorialOverlay.remove();
-
   tutorialOverlay = document.createElement('div');
   tutorialOverlay.className = 'tutorial-overlay';
   tutorialOverlay.id = 'tutorial-overlay';
-
   // Highlight element
   let highlightHtml = '';
   if (step.highlight) {
@@ -4900,12 +4573,10 @@ function renderTutorialStep() {
       highlightHtml = `<div class="tutorial-highlight" style="top:${rect.top - 4}px;left:${rect.left - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px"></div>`;
     }
   }
-
   const isFirst = tutorialStep === 0;
   const isLast = tutorialStep === TUTORIAL_STEPS.length - 1;
   const dots = TUTORIAL_STEPS.map((_, i) => `<div class="tutorial-dot${i === tutorialStep ? ' active' : ''}"></div>`).join('');
   const stepCount = `<div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-bottom:8px">${tutorialStep + 1} of ${TUTORIAL_STEPS.length}</div>`;
-
   tutorialOverlay.innerHTML = `
     <div class="tutorial-backdrop" id="tut-backdrop"></div>
     ${highlightHtml}
@@ -4928,9 +4599,7 @@ function renderTutorialStep() {
       </div>
       ${!isFirst && !isLast ? '<div style="text-align:center;margin-top:8px"><button id="tut-skip-mid" style="background:none;border:none;color:var(--muted-fg);font-size:12px;cursor:pointer;padding:4px">Skip tour</button></div>' : ''}
     </div>`;
-
   document.body.appendChild(tutorialOverlay);
-
   // Bindings
   $('tut-skip')?.addEventListener('click', () => closeTutorial());
   $('tut-skip-mid')?.addEventListener('click', () => closeTutorial());
@@ -4939,7 +4608,6 @@ function renderTutorialStep() {
   $('tut-finish')?.addEventListener('click', () => closeTutorial());
   $('tut-backdrop')?.addEventListener('click', () => { tutorialStep++; renderTutorialStep(); });
 }
-
 function closeTutorial() {
   if (tutorialOverlay) { tutorialOverlay.remove(); tutorialOverlay = null; }
   // Mark as seen
@@ -4948,7 +4616,6 @@ function closeTutorial() {
     try { updateDoc(doc(db, 'users', currentUser.uid), { tutorialSeen: true }).catch(() => {}); } catch(e) {}
   }
 }
-
 function shouldShowTutorial() {
   // Check localStorage first (fast)
   try { if (localStorage.getItem('vf_tutorial_seen') === 'true') return false; } catch(e) {}
@@ -4956,10 +4623,8 @@ function shouldShowTutorial() {
   if (userProfile?.tutorialSeen) return false;
   return true;
 }
-
 // Start
 startApp();
-
 // Register service worker for offline support
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
