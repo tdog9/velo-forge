@@ -2776,7 +2776,7 @@ async function saveWorkout(rpe, photoData) {
   }
   showLoading('Saving workout...');
   try {
-    await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
+    const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
       name, type, duration, distance, heartRate, notes, rpe: rpeVal,
       date: Timestamp.fromDate(dateObj),
       createdAt: serverTimestamp()
@@ -2785,8 +2785,11 @@ async function saveWorkout(rpe, photoData) {
     showToast('Workout logged!', 'success');
     // Upload to Strava if connected
     if (stravaTokens?.access_token) {
-      stravaUploadActivity({ name, type, duration, distance, date: dateObj }).then(sid => {
-        if (sid) showToast('Synced to Strava!', 'success');
+      stravaUploadActivity({ name, type, duration, distance, date: dateObj }).then(async (sid) => {
+        if (sid) {
+          try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid) }); } catch(e) {}
+          showToast('Synced to Strava!', 'success');
+        }
       });
     }
     // Auto-update team challenge score
@@ -4061,10 +4064,16 @@ function startApp() {
         saveTrackedActivity: async (workout, workoutId) => {
           if (!demoMode && db && currentUser) {
             try {
-              await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), { ...workout, routeId: workoutId, date: serverTimestamp() });
+              const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), { ...workout, routeId: workoutId, date: serverTimestamp() });
               showToast('Activity saved!', 'success');
               if (stravaTokens?.access_token && workout.type !== 'gym') {
-                stravaUploadActivity(workout).then(sid => { if (sid) showToast('Synced to Strava!', 'success'); });
+                stravaUploadActivity(workout).then(async (sid) => {
+                  if (sid) {
+                    // Save stravaId back to prevent duplicate on next sync
+                    try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid), source: 'tracker' }); } catch(e) {}
+                    showToast('Synced to Strava!', 'success');
+                  }
+                });
               }
               autoUpdateChallengeScore(workout.duration || 0);
             } catch(e) { showToast('Failed to save.', 'error'); }
