@@ -1609,7 +1609,7 @@ function renderToday() {
   const isToday = lastActivityDate && lastActivityDate.toDateString() === now.toDateString();
   let storedRoutes = {};
   try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
-  const lastRouteId = lastActivity?.routeId || lastActivity?.id;
+  const lastRouteId = lastActivity?.routeId || (lastActivity?.stravaId ? 'strava-' + lastActivity.stravaId : lastActivity?._id);
   const lastRoute = lastRouteId ? storedRoutes[lastRouteId] : null;
   const hasLastRoute = lastRoute && lastRoute.length > 1;
   if (isToday && lastActivity) {
@@ -2551,8 +2551,8 @@ function renderWorkouts() {
       const wType = w.type || 'ride';
       const isTracked = w.source === 'tracker';
       const isStrava = w.source === 'strava';
-      const routeId = w.routeId || w.id;
-      const hasRoute = (isTracked || isStrava) && storedRoutes[routeId] && storedRoutes[routeId].length > 1;
+      const routeId = w.routeId || (w.stravaId ? 'strava-' + w.stravaId : w._id);
+      const hasRoute = routeId && storedRoutes[routeId] && storedRoutes[routeId].length > 1;
       const sourceIcon = isStrava ? '⬡ ' : isTracked ? '📍 ' : '';
       const photoId = w.photoId || w._id;
       const hasPhoto = storedPhotos[photoId];
