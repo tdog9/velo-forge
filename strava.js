@@ -281,3 +281,53 @@ export async function stravaAutoSync() {
     }
   } catch(e) { console.error('Strava auto-sync error:', e); }
 }
+
+// Re-sync route maps for all existing Strava activities
+export async function stravaResyncRoutes() {
+  if (!A.stravaTokens?.access_token) {
+    A.showToast('Strava not connected.', 'warn');
+    return;
+  }
+  A.showToast('Re-syncing routes...', 'info');
+  try {
+    // Refresh token if needed
+    if (A.stravaTokens.expires_at && Date.now() / 1000 > A.stravaTokens.expires_at) {
+      const refreshed = await stravaRefreshToken();
+      if (!refreshed) { A.showToast('Strava session expired. Reconnect.', 'error'); return; }
+    }
+    // Fetch up to 100 activities (5 pages of 20)
+    let allActivities = [];
+    for (let page = 1; page <= 5; page++) {
+      const resp = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=20&page=${page}`, {
+        headers: { 'Authorization': 'Bearer ' + A.stravaTokens.access_token }
+      });
+      if (!resp.ok) break;
+      const batch = await resp.json();
+      if (batch.length === 0) break;
+      allActivities = allActivities.concat(batch);
+    }
+    // Decode and store all polylines
+    let routes = {};
+    try { routes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
+    let count = 0;
+    allActivities.forEach(a => {
+      if (a.map && a.map.summary_polyline) {
+        try {
+          const path = decodePolyline(a.map.summary_polyline);
+          if (path.length > 1) {
+            routes['strava-' + a.id] = path.map(p => [parseFloat(p[0].toFixed(5)), parseFloat(p[1].toFixed(5))]);
+            count++;
+          }
+        } catch(e) {}
+      }
+    });
+    // Cap at 100 routes
+    const keys = Object.keys(routes);
+    while (keys.length > 100) { delete routes[keys.shift()]; }
+    localStorage.setItem('vf_routes', JSON.stringify(routes));
+    A.showToast(count + ' route' + (count !== 1 ? 's' : '') + ' synced!', 'success');
+  } catch(e) {
+    console.error('Route resync error:', e);
+    A.showToast('Failed to re-sync routes.', 'error');
+  }
+}
