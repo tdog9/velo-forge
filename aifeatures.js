@@ -346,3 +346,132 @@ export function openInlineWorkoutEdit(planId, weekIdx, workoutIdx, workout) {
     if (A.currentPage === 'today') A.renderToday();
   });
 }
+
+
+// AI Training Insight — auto-generated from workout data
+export function generateTrainingInsight() {
+  if (A.userWorkouts.length < 5) return null;
+  const now = Date.now();
+  const thisWeek = A.userWorkouts.filter(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    return d && (now - d.getTime()) < 7 * 86400000;
+  });
+  const lastWeek = A.userWorkouts.filter(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    return d && (now - d.getTime()) >= 7 * 86400000 && (now - d.getTime()) < 14 * 86400000;
+  });
+  const twMins = thisWeek.reduce((s, w) => s + (w.duration || 0), 0);
+  const lwMins = lastWeek.reduce((s, w) => s + (w.duration || 0), 0);
+  const avgRpe = thisWeek.filter(w => w.rpe).length > 0
+    ? (thisWeek.filter(w => w.rpe).reduce((s, w) => s + w.rpe, 0) / thisWeek.filter(w => w.rpe).length)
+    : null;
+  const streak = A.calcStreak();
+
+  const insights = [];
+  if (lwMins > 0 && twMins > lwMins * 1.2) insights.push(`You're training ${Math.round(((twMins - lwMins) / lwMins) * 100)}% more than last week — great momentum! Make sure you're recovering well.`);
+  else if (lwMins > 0 && twMins < lwMins * 0.6) insights.push(`Training volume is down ${Math.round(((lwMins - twMins) / lwMins) * 100)}% from last week. A lighter week can be good for recovery, but try to stay consistent.`);
+  if (avgRpe && avgRpe < 4) insights.push('Your average effort is quite low this week. Consider pushing a bit harder in one session to build fitness.');
+  if (avgRpe && avgRpe > 8) insights.push('You\'re pushing hard this week (avg RPE ' + avgRpe.toFixed(1) + '). Make sure your next session is easy to let your body adapt.');
+  if (streak >= 7 && streak < 14) insights.push('🔥 ' + streak + '-day streak! You\'re building real consistency. Keep this rhythm going.');
+  if (streak >= 14) insights.push('⚡ ' + streak + '-day streak — that\'s elite-level consistency. Your body is adapting fast right now.');
+  if (thisWeek.length >= 5) insights.push('5+ sessions this week — you\'re putting in serious work. Plan an easy day soon.');
+  if (thisWeek.length === 0) insights.push('No training logged this week yet. Even a short 15-minute session helps maintain your fitness base.');
+  return insights.length > 0 ? insights[Math.floor(Math.random() * insights.length)] : null;
+}
+
+// Seasonal Periodisation Phase
+export function renderSeasonPhase() {
+  const now = new Date();
+  const month = now.getMonth(); // 0-11
+  // Australian school HPV season: Feb-Nov
+  // Phases: Off-season (Dec-Jan), Base (Feb-Mar), Build (Apr-Jun), Peak (Jul-Sep), Race (Oct-Nov)
+  const phases = [
+    { name: 'Off-Season', months: [11, 0], color: '#94a3b8', icon: '☀️', desc: 'Rest and cross-training. Keep active but have fun.' },
+    { name: 'Base Phase', months: [1, 2], color: '#3b82f6', icon: '🧱', desc: 'Build your aerobic foundation with steady, easy-moderate sessions.' },
+    { name: 'Build Phase', months: [3, 4, 5], color: '#22c55e', icon: '📈', desc: 'Increase intensity. Add harder intervals and strength work.' },
+    { name: 'Peak Phase', months: [6, 7, 8], color: '#f59e0b', icon: '⚡', desc: 'Highest training loads. Race-specific sessions and time trials.' },
+    { name: 'Race Phase', months: [9, 10], color: '#ef4444', icon: '🏁', desc: 'Taper for races. Maintain intensity but reduce volume.' }
+  ];
+  const current = phases.find(p => p.months.includes(month)) || phases[0];
+  const allPhaseNames = ['Off-Season', 'Base Phase', 'Build Phase', 'Peak Phase', 'Race Phase'];
+  const currentIdx = allPhaseNames.indexOf(current.name);
+
+  let html = `<div class="card" style="margin-top:10px;overflow:hidden"><div class="card-pad" style="padding:12px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:16px">${current.icon}</span>
+      <span style="font-size:13px;font-weight:700;color:var(--text)">${current.name}</span>
+      <span style="font-size:11px;color:var(--muted-fg);margin-left:auto">Season Phase</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted-fg);line-height:1.4;margin-bottom:8px">${current.desc}</div>
+    <div style="display:flex;gap:3px;height:4px">`;
+  allPhaseNames.forEach((name, i) => {
+    const p = phases.find(pp => pp.name === name);
+    const isActive = i === currentIdx;
+    html += `<div style="flex:1;border-radius:2px;background:${isActive ? p.color : 'rgba(255,255,255,.06)'}${isActive ? ';box-shadow:0 0 6px ' + p.color + '40' : ''}"></div>`;
+  });
+  html += '</div></div></div>';
+  return html;
+}
+
+// AI Form/Technique Checker
+export function startAiFormCheck() {
+  const messagesEl = $('ai-messages');
+  const aiMsg = document.createElement('div');
+  aiMsg.className = 'ai-msg ai';
+  aiMsg.innerHTML = `I can give you detailed form and technique tips. What are you working on?<br><br>
+    <div class="ai-quick-btns" style="margin-top:8px">
+      <button class="ai-quick-btn ai-form-pick" data-form="hpv-riding">🚴 HPV Riding Position</button>
+      <button class="ai-quick-btn ai-form-pick" data-form="pedalling">🦵 Pedalling Technique</button>
+      <button class="ai-quick-btn ai-form-pick" data-form="squat">🏋️ Squat Form</button>
+      <button class="ai-quick-btn ai-form-pick" data-form="running">🏃 Running Gait</button>
+      <button class="ai-quick-btn ai-form-pick" data-form="custom">❓ Something else</button>
+    </div>`;
+  messagesEl.appendChild(aiMsg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  messagesEl.querySelectorAll('.ai-form-pick').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = btn.dataset.form;
+      if (form === 'custom') {
+        const prompt = document.createElement('div');
+        prompt.className = 'ai-msg ai';
+        prompt.textContent = 'Tell me which exercise or movement you want technique tips for.';
+        messagesEl.appendChild(prompt);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        // Next message will be sent normally
+      } else {
+        const formNames = {
+          'hpv-riding': 'HPV recumbent riding position and posture',
+          'pedalling': 'pedalling technique and cadence for cycling',
+          'squat': 'squat form — bodyweight and weighted',
+          'running': 'running gait and foot strike technique'
+        };
+        A.sendAiMessage('Give me detailed form and technique tips for ' + (formNames[form] || form) + '. Include common mistakes to avoid and cues to remember.');
+      }
+    });
+  });
+}
+
+// Coach Notification Summary — generates a summary of student activity for coaches
+export function generateCoachSummary() {
+  if (!A.isAdmin && !(A.userProfile?.role === 'coach')) return null;
+  if (A.userWorkouts.length === 0) return null;
+  // This is for the coach's own view — in a real deployment, coach would see all students
+  // For now, generate based on available data
+  const now = Date.now();
+  const fiveDaysAgo = now - 5 * 86400000;
+  const recentWorkouts = A.userWorkouts.filter(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    return d && d.getTime() > fiveDaysAgo;
+  });
+  const streak = A.calcStreak();
+  const alerts = [];
+  if (recentWorkouts.length === 0) alerts.push('⚠️ No training logged in the last 5 days');
+  if (streak >= 7) alerts.push('🔥 ' + streak + '-day training streak — keep it up!');
+  if (recentWorkouts.length >= 5) alerts.push('💪 5+ sessions in last 5 days — strong volume');
+  const avgRpe = recentWorkouts.filter(w => w.rpe).length > 0
+    ? (recentWorkouts.filter(w => w.rpe).reduce((s, w) => s + w.rpe, 0) / recentWorkouts.filter(w => w.rpe).length).toFixed(1)
+    : null;
+  if (avgRpe && avgRpe > 8.5) alerts.push('🔴 High average RPE (' + avgRpe + ') — possible overtraining risk');
+  return alerts;
+}
