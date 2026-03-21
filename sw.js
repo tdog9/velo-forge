@@ -1,5 +1,5 @@
 // VeloForge Service Worker — Offline Support
-const CACHE_NAME = 'veloforge-v24';
+const CACHE_NAME = 'veloforge-v25';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
