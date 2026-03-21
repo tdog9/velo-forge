@@ -147,7 +147,7 @@ export function renderStravaActivities() {
           await A.addDoc(A.collection(A.db, 'users', A.currentUser.uid, 'workouts'), {
             name, type, duration, distance, heartRate: null, notes: 'Imported from Strava', rpe: null,
             stravaId: String(stravaId),
-            date: Timestamp.fromDate(dateObj),
+            date: A.Timestamp.fromDate(dateObj),
             createdAt: A.serverTimestamp()
           });
         } catch(e) { console.error('Strava import error:', e); }
@@ -280,7 +280,7 @@ export async function stravaAutoSync() {
         try {
           await A.addDoc(A.collection(A.db, 'users', A.currentUser.uid, 'workouts'), {
             ...workout,
-            date: Timestamp.fromDate(dateObj),
+            date: A.Timestamp.fromDate(dateObj),
             createdAt: A.serverTimestamp()
           });
           imported++;
