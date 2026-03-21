@@ -136,24 +136,50 @@ export function renderStravaActivities() {
       const dateStr = btn.dataset.stravaDate;
       const type = btn.dataset.stravaType === 'Ride' ? 'Ride' : btn.dataset.stravaType === 'Run' ? 'Cardio' : 'Ride';
       const dateObj = dateStr ? new Date(dateStr) : new Date();
+      const routeId = 'strava-' + stravaId;
+
+      // Decode polyline from cached activity data
+      const stravaActivity = A.stravaActivities.find(a => String(a.id) === String(stravaId));
+      if (stravaActivity?.map?.summary_polyline) {
+        try {
+          const path = decodePolyline(stravaActivity.map.summary_polyline);
+          if (path.length > 1) {
+            const routes = JSON.parse(localStorage.getItem('vf_routes') || '{}');
+            routes[routeId] = path.map(p => [parseFloat(p[0].toFixed(5)), parseFloat(p[1].toFixed(5))]);
+            const keys = Object.keys(routes);
+            if (keys.length > 80) delete routes[keys[0]];
+            localStorage.setItem('vf_routes', JSON.stringify(routes));
+          }
+        } catch(e) {}
+      }
 
       btn.textContent = 'Importing...';
       btn.disabled = true;
 
+      const workoutData = {
+        name, type, duration, distance,
+        heartRate: stravaActivity?.average_heartrate ? Math.round(stravaActivity.average_heartrate) : null,
+        avgSpeed: stravaActivity?.average_speed ? parseFloat((stravaActivity.average_speed * 3.6).toFixed(1)) : null,
+        notes: 'Imported from Strava',
+        rpe: null,
+        stravaId: String(stravaId),
+        routeId: routeId,
+        source: 'strava'
+      };
+
       if (A.demoMode) {
-        A.userWorkouts.unshift({ _id: 'd' + Date.now(), name, type, duration, distance, heartRate: null, notes: 'Imported from Strava', rpe: null, stravaId: String(stravaId), date: dateObj, createdAt: new Date() });
+        A.userWorkouts.unshift({ ...workoutData, _id: 'd' + Date.now(), date: dateObj, createdAt: new Date() });
       } else if (A.db && A.currentUser) {
         try {
           await A.addDoc(A.collection(A.db, 'users', A.currentUser.uid, 'workouts'), {
-            name, type, duration, distance, heartRate: null, notes: 'Imported from Strava', rpe: null,
-            stravaId: String(stravaId),
+            ...workoutData,
             date: A.Timestamp.fromDate(dateObj),
             createdAt: A.serverTimestamp()
           });
         } catch(e) { console.error('Strava import error:', e); }
       }
 
-      btn.textContent = 'Imported';
+      btn.textContent = 'Imported ✓';
       btn.classList.add('imported');
       btn.disabled = true;
     });
