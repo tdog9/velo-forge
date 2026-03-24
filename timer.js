@@ -1,4 +1,4 @@
-// VeloForge Workout Timer Module
+// CGS VeloForge Workout Timer Module
 let A = {};
 export function initTimer(ctx) { A = ctx; }
 
