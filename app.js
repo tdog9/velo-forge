@@ -1,4 +1,4 @@
-// VeloForge HPV Training App
+// CGS VeloForge HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
 // Dynamic imports for extracted modules (won't crash login if files are missing/cached)
@@ -1892,6 +1892,14 @@ function renderToday() {
       openWorkoutTimer(name, dur, exercises);
     });
   });
+  // Exercise tracker — tap workout card to open set counter
+  c.querySelectorAll('.cl-info-tap').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.cl-timer-btn')) return;
+      haptic('light');
+      openExerciseTracker(el.dataset.workoutKey, el.dataset.workoutName, el.dataset.workoutDesc, parseInt(el.dataset.workoutDur) || 30, el.dataset.workoutExercises);
+    });
+  });
   // Quick Log + Record GPS buttons
   $('today-quick-log')?.addEventListener('click', () => { haptic('light'); openWorkoutSheet(); });
   $('today-quick-record')?.addEventListener('click', () => { haptic('medium'); openActivityTracker(); });
@@ -1937,6 +1945,15 @@ function renderToday() {
 function renderChecklistItem(workout, key, isChecked) {
   const intensityClass = 'intensity-' + workout.intensity;
   const shortDesc = workout.description && workout.description.length > 120 ? workout.description.substring(0, 120).trim() + '...' : (workout.description || '');
+  const hasExercises = workout.exercises && workout.exercises.length > 0;
+  const exerciseData = hasExercises ? JSON.stringify(workout.exercises).replace(/'/g,"&#39;").replace(/"/g,"&quot;") : '';
+  // Load set progress from localStorage
+  let setsDone = 0, setsTotal = 0;
+  if (hasExercises) {
+    setsTotal = workout.exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
+    try { const prog = JSON.parse(localStorage.getItem('vf_sets_' + key) || '{}'); setsDone = Object.values(prog).reduce((s, v) => s + v, 0); } catch(e) {}
+  }
+  const progressText = hasExercises && setsTotal > 0 ? `<span style="font-size:10px;color:${setsDone >= setsTotal ? 'var(--primary)' : 'var(--muted-fg)'};margin-left:4px">${setsDone}/${setsTotal} sets</span>` : '';
   return `
     <div class="checklist-item${isChecked?' checked':''}">
       <div class="cl-check" data-key="${key}">
@@ -1944,8 +1961,8 @@ function renderChecklistItem(workout, key, isChecked) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
       </div>
-      <div class="cl-info">
-        <div class="cl-title">${workout.name} <span class="intensity-dot ${intensityClass}"></span></div>
+      <div class="cl-info cl-info-tap" data-workout-key="${key}" data-workout-name="${escHtml(workout.name)}" data-workout-desc="${escHtml(workout.description || '')}" data-workout-dur="${workout.duration || 30}" data-workout-exercises="${exerciseData}" style="cursor:pointer">
+        <div class="cl-title">${workout.name} <span class="intensity-dot ${intensityClass}"></span>${progressText}</div>
         ${shortDesc ? '<div class="cl-desc">' + escHtml(shortDesc) + '</div>' : ''}
         <div class="cl-meta">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -1958,6 +1975,111 @@ function renderChecklistItem(workout, key, isChecked) {
       </div>
     </div>
   `;
+}
+// Exercise Tracker Overlay — set counter for daily workouts
+function openExerciseTracker(key, name, desc, duration, exercisesJson) {
+  let exercises = [];
+  try { exercises = JSON.parse(exercisesJson || '[]'); } catch(e) {}
+  // Load saved progress
+  let progress = {};
+  try { progress = JSON.parse(localStorage.getItem('vf_sets_' + key) || '{}'); } catch(e) {}
+  // If no exercises array, parse from description
+  if (exercises.length === 0 && desc) {
+    const patterns = desc.match(/(\d+)\s*(x\s*)?([\w\s-]+?)(?:\s*\(|,|\.|;|$)/gi);
+    if (patterns && patterns.length > 0) {
+      patterns.forEach((m, i) => {
+        const match = m.match(/(\d+)\s*(?:x\s*)?([\w\s-]+)/i);
+        if (match) {
+          exercises.push({ name: match[2].trim(), sets: 1, reps: parseInt(match[1]) || null, duration: null, resistance: null, notes: '' });
+        }
+      });
+    }
+    // Fallback: simple workout tracker
+    if (exercises.length === 0) {
+      exercises.push({ name: name, sets: 1, reps: null, duration: duration + ' min', resistance: null, notes: desc.substring(0, 200) });
+    }
+  }
+  const ov = document.createElement('div');
+  ov.id = 'exercise-tracker-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:201;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
+  function renderTracker() {
+    const totalSets = exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
+    const doneSets = Object.values(progress).reduce((s, v) => s + v, 0);
+    const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
+    const allDone = doneSets >= totalSets;
+    let html = `<div style="display:flex;align-items:center;padding:12px 16px;padding-top:calc(12px + var(--safe-t));border-bottom:1px solid var(--border);flex-shrink:0">
+      <button id="et-back" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">←</button>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</div>
+        <div style="font-size:11px;color:var(--muted-fg)">${doneSets}/${totalSets} sets · ${pct}%</div>
+      </div>
+      ${allDone ? '<div style="font-size:12px;font-weight:700;color:var(--primary);background:rgba(191,255,0,.12);padding:4px 10px;border-radius:6px">Done ✓</div>' : ''}
+    </div>
+    <div style="height:3px;background:var(--muted)"><div style="height:100%;width:${pct}%;background:var(--primary);border-radius:0 2px 2px 0;transition:width .3s"></div></div>
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px;padding-bottom:calc(16px + var(--safe-b))">`;
+    exercises.forEach((ex, i) => {
+      const setsTarget = ex.sets || 1;
+      const setsCompleted = progress[i] || 0;
+      const exDone = setsCompleted >= setsTarget;
+      const repInfo = ex.reps ? ex.reps + ' reps' : ex.duration || '';
+      const resistInfo = ex.resistance ? ' · ' + ex.resistance : '';
+      html += `<div class="card" style="margin-bottom:8px;${exDone ? 'opacity:.6' : ''}">
+        <div style="padding:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-weight:700;font-size:14px;color:var(--text);flex:1;min-width:0">${exDone ? '✓ ' : ''}${escHtml(ex.name)}</div>
+            <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-left:8px">${repInfo}${resistInfo}</div>
+          </div>
+          ${ex.notes ? '<div style="font-size:12px;color:var(--muted-fg);line-height:1.4;margin-bottom:8px">' + escHtml(ex.notes) + '</div>' : ''}
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px;color:var(--muted-fg);min-width:60px">Sets ${setsCompleted}/${setsTarget}</span>
+            <div style="display:flex;gap:4px;flex:1">`;
+      for (let s = 0; s < setsTarget; s++) {
+        const setDone = s < setsCompleted;
+        html += `<button class="et-set-btn" data-ex="${i}" data-set="${s}" style="width:36px;height:36px;border-radius:8px;border:2px solid ${setDone ? 'var(--primary)' : 'var(--border)'};background:${setDone ? 'var(--primary)' : 'var(--card)'};color:${setDone ? 'var(--primary-fg)' : 'var(--muted-fg)'};font-weight:700;font-size:13px;cursor:pointer;transition:all .15s">${s + 1}</button>`;
+      }
+      html += `</div>
+            <button class="et-reset-btn" data-ex="${i}" style="background:none;border:none;color:var(--muted-fg);font-size:11px;cursor:pointer;padding:4px">↺</button>
+          </div>
+        </div>
+      </div>`;
+    });
+    html += `<button id="et-complete" class="btn ${allDone ? 'btn-primary' : 'btn-secondary'}" style="width:100%;margin-top:8px;padding:14px;font-size:15px;font-weight:700">${allDone ? '✓ Mark Workout Complete' : 'Finish & Mark Complete'}</button>`;
+    html += '</div>';
+    ov.innerHTML = html;
+    // Bindings
+    ov.querySelector('#et-back').addEventListener('click', () => ov.remove());
+    ov.querySelectorAll('.et-set-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        haptic('light');
+        const exIdx = parseInt(btn.dataset.ex);
+        const setIdx = parseInt(btn.dataset.set);
+        const current = progress[exIdx] || 0;
+        if (setIdx < current) {
+          progress[exIdx] = setIdx; // tap completed set = undo back to that point
+        } else {
+          progress[exIdx] = setIdx + 1; // mark this set + all before it
+        }
+        try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
+        renderTracker();
+      });
+    });
+    ov.querySelectorAll('.et-reset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const exIdx = parseInt(btn.dataset.ex);
+        progress[exIdx] = 0;
+        try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
+        renderTracker();
+      });
+    });
+    ov.querySelector('#et-complete')?.addEventListener('click', () => {
+      haptic('medium');
+      toggleChecklist(key);
+      ov.remove();
+      showToast('Workout complete! 💪', 'success');
+    });
+  }
+  document.body.appendChild(ov);
+  renderTracker();
 }
 async function toggleChecklist(key) {
   if (!currentUser) return;
@@ -2024,7 +2146,7 @@ th{font-weight:600;color:#555;font-size:11px;text-transform:uppercase}.bar-row{d
 .print-btn{margin-top:24px;padding:10px 24px;background:#BFFF00;border:none;font-weight:600;border-radius:6px;cursor:pointer;font-size:13px}
 @media print{.print-btn{display:none}}
 </style></head><body>
-<h1>VeloForge Training Report</h1>
+<h1>CGS VeloForge Training Report</h1>
 <div class="meta">${escHtml(name)} · ${year} · ${tier} tier · Generated ${dateStr}</div>
 <div class="stat-grid">
   <div class="stat"><div class="stat-val">${total}</div><div class="stat-lbl">Total Workouts</div></div>
@@ -3674,6 +3796,8 @@ async function createTeam() {
       streak: 0,
       checklistPct: 0
     }];
+    showToast('Team "' + name + '" created! Code: ' + code, 'success');
+    lbSubTab = 'team';
     renderTeam();
     return;
   }
@@ -3695,6 +3819,8 @@ async function createTeam() {
     userProfile.teamName = name;
     await loadTeamData();
     hideLoading();
+    showToast('Team "' + name + '" created! Share code: ' + code, 'success');
+    lbSubTab = 'team';
     renderTeam();
   } catch(e) {
     hideLoading();
@@ -3704,27 +3830,27 @@ async function createTeam() {
 }
 async function joinTeam() {
   const code = $('team-code-input').value.trim().toUpperCase();
-  if (!code || code.length !== 6) {
-    $('join-team-error').textContent = 'Please enter a 6-character team code.';
+  if (!code || code.length < 4) {
+    $('join-team-error').textContent = 'Please enter a valid team code.';
     show('join-team-error');
     return;
   }
   if (!currentUser) return;
   if (demoMode) {
-    $('join-team-error').textContent = 'Team not found. Check the code and try again.';
+    $('join-team-error').textContent = 'Teams require an account. Exit demo mode to use teams.';
     show('join-team-error');
     return;
   }
   if (!db) return;
   hide('join-team-error');
+  closeSheet();
   showLoading('Joining team...');
   try {
-    const q = query(collection(db, 'teams'), where('code', '==', code));
-    const snap = await getDocs(q);
+    const q2 = query(collection(db, 'teams'), where('code', '==', code));
+    const snap = await getDocs(q2);
     if (snap.empty) {
       hideLoading();
-      $('join-team-error').textContent = 'Team not found. Check the code and try again.';
-      show('join-team-error');
+      showToast('Team not found. Check the code.', 'error');
       return;
     }
     const teamDoc = snap.docs[0];
@@ -3734,9 +3860,10 @@ async function joinTeam() {
     await updateDoc(doc(db, 'users', currentUser.uid), { teamId: tid, teamName: tData.name });
     userProfile.teamId = tid;
     userProfile.teamName = tData.name;
-    closeSheet();
     await loadTeamData();
     hideLoading();
+    showToast('Joined "' + tData.name + '"!', 'success');
+    lbSubTab = 'team';
     renderTeam();
   } catch(e) {
     hideLoading();
@@ -3746,31 +3873,36 @@ async function joinTeam() {
 }
 async function leaveTeam() {
   if (!currentUser || !userProfile?.teamId) return;
-  if (demoMode) {
-    teamData = null;
-    teamMembers = [];
-    userProfile.teamId = null;
-    userProfile.teamName = null;
-    renderTeam();
-    return;
-  }
-  if (!db) return;
-  showLoading('Leaving team...');
-  try {
-    const tid = userProfile.teamId;
-    await updateDoc(doc(db, 'teams', tid), { members: arrayRemove(currentUser.uid) });
-    await updateDoc(doc(db, 'users', currentUser.uid), { teamId: null, teamName: null });
-    userProfile.teamId = null;
-    userProfile.teamName = null;
-    teamData = null;
-    teamMembers = [];
-    hideLoading();
-    renderTeam();
-  } catch(e) {
-    hideLoading();
-    console.error('Leave team error:', e);
-    showToast('Failed to leave team.', 'error');
-  }
+  const teamName = teamData?.name || 'this team';
+  showModal('Leave Team', '<div style="font-size:14px;color:var(--text)">Are you sure you want to leave <strong>' + escHtml(teamName) + '</strong>? You can rejoin later with the team code.</div>', async () => {
+    if (demoMode) {
+      teamData = null;
+      teamMembers = [];
+      userProfile.teamId = null;
+      userProfile.teamName = null;
+      showToast('Left team.', 'info');
+      renderTeam();
+      return;
+    }
+    if (!db) return;
+    showLoading('Leaving team...');
+    try {
+      const tid = userProfile.teamId;
+      await updateDoc(doc(db, 'teams', tid), { members: arrayRemove(currentUser.uid) });
+      await updateDoc(doc(db, 'users', currentUser.uid), { teamId: null, teamName: null });
+      userProfile.teamId = null;
+      userProfile.teamName = null;
+      teamData = null;
+      teamMembers = [];
+      hideLoading();
+      showToast('Left team.', 'info');
+      renderTeam();
+    } catch(e) {
+      hideLoading();
+      console.error('Leave team error:', e);
+      showToast('Failed to leave team.', 'error');
+    }
+  });
 }
 async function loadTeamData() {
   if (!currentUser || !userProfile?.teamId) {
