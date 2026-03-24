@@ -1,4 +1,4 @@
-// VeloForge AI Features Module — Plan editing, weekly review, race prep, injury mode
+// CGS VeloForge AI Features Module — Plan editing, weekly review, race prep, injury mode
 import { escHtml } from './state.js';
 
 let A = {};
