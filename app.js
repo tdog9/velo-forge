@@ -1947,13 +1947,17 @@ function renderChecklistItem(workout, key, isChecked) {
   const shortDesc = workout.description && workout.description.length > 120 ? workout.description.substring(0, 120).trim() + '...' : (workout.description || '');
   const hasExercises = workout.exercises && workout.exercises.length > 0;
   const exerciseData = hasExercises ? JSON.stringify(workout.exercises).replace(/'/g,"&#39;").replace(/"/g,"&quot;") : '';
-  // Load set progress from localStorage
+  // Load set progress for all plan types
   let setsDone = 0, setsTotal = 0;
-  if (hasExercises) {
+  try {
+    const prog = JSON.parse(localStorage.getItem('vf_sets_' + key) || '{}');
+    setsDone = Object.values(prog).reduce((s, v) => s + v, 0);
+    setsTotal = parseInt(localStorage.getItem('vf_sets_total_' + key)) || 0;
+  } catch(e) {}
+  if (hasExercises && setsTotal === 0) {
     setsTotal = workout.exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
-    try { const prog = JSON.parse(localStorage.getItem('vf_sets_' + key) || '{}'); setsDone = Object.values(prog).reduce((s, v) => s + v, 0); } catch(e) {}
   }
-  const progressText = hasExercises && setsTotal > 0 ? `<span style="font-size:10px;color:${setsDone >= setsTotal ? 'var(--primary)' : 'var(--muted-fg)'};margin-left:4px">${setsDone}/${setsTotal} sets</span>` : '';
+  const progressText = setsTotal > 0 ? `<span style="font-size:10px;color:${setsDone >= setsTotal ? 'var(--primary)' : 'var(--muted-fg)'};margin-left:4px">${setsDone}/${setsTotal}</span>` : '';
   return `
     <div class="checklist-item${isChecked?' checked':''}">
       <div class="cl-check" data-key="${key}">
@@ -1976,6 +1980,89 @@ function renderChecklistItem(workout, key, isChecked) {
     </div>
   `;
 }
+// Parse exercises from workout description text (floor & invehicle plans)
+function parseExercisesFromDesc(desc, name, duration) {
+  if (!desc) return [{ name: name, sets: 1, reps: null, duration: duration + ' min', notes: '' }];
+  const exercises = [];
+  const seen = new Set();
+  const skipWords = /^(minute|min|second|sec|rep|set|round|effort|interval|easy|moderate|hard|light|the|your|a|an|and|then|for|of|with|at|between|rest|after|cool|warm|before|more|each)s?$/i;
+  const restWords = /between\s+rounds|rest\s+for|cool.?down|warm.?up|easy\s+spin|relaxed|recover/i;
+  // FIRST: Check for interval patterns (invehicle) "4 x 2-minute efforts"
+  const intervalMatches = [...desc.matchAll(/(\d+)\s*x\s*(\d+)[-\s]*(?:minute|min|m)[a-z]*\s*([\w\s'-]*?)(?:\s*[-–—]\s*|[,;.]|where|at|with|$)/gi)];
+  if (intervalMatches.length > 0) {
+    intervalMatches.forEach(m => {
+      let eName = (m[3] || '').trim().replace(/\s*(where|at|with|pushing|you|we|focus|think|about).*$/i, '').trim();
+      if (!eName || eName.length < 2 || /^(effort|interval)s?$/i.test(eName)) eName = 'Interval';
+      eName = eName.replace(/\b\w/g, c => c.toUpperCase());
+      exercises.push({ name: eName, sets: parseInt(m[1]), reps: null, duration: m[2] + ' min', notes: '' });
+    });
+    // Also add steady segments
+    const steadyMatches = [...desc.matchAll(/(?:ride|spin|pedal|row|hold)\s+(?:continuously\s+)?(?:for\s+)?(\d+)\s*(?:minute|min)/gi)];
+    steadyMatches.forEach(m => {
+      const verb = m[0].match(/^(\w+)/i)[1];
+      exercises.push({ name: verb.charAt(0).toUpperCase() + verb.slice(1) + ' Steady', sets: 1, reps: null, duration: m[1] + ' min', notes: '' });
+    });
+    if (exercises.length > 0) return exercises;
+  }
+  // SECOND: Check for "rounds of" structured exercises (floor plans)
+  const roundMatch = desc.match(/(\d+)\s*(?:rounds?|circuits?|times)\s*(?:of|:)/i);
+  const globalSets = roundMatch ? parseInt(roundMatch[1]) : 1;
+  const lines = desc.split(/[.;!]\s*/);
+  lines.forEach(line => {
+    if (restWords.test(line) && !/push|squat|plank|lunge|bridge|dead bug|bird dog|superman|crunch|burpee|v-up|hollow|clamshell|fire hydrant|calf raise|step.?up|wall sit|tuck jump|box jump/i.test(line)) return;
+    // Pattern 1: "X-second/minute ExerciseName" → duration exercise (e.g. "30-second Plank Hold")
+    const durMatches = [...line.matchAll(/(\d+)[-\s]*(?:second|sec)\s+(?:of\s+)?([\w\s'-]{3,30}?)(?:\s+each\s+\w+)?(?:\s*\(|[,;]|$)/gi)];
+    durMatches.forEach(m => {
+      let exName = m[2].trim().replace(/\s+/g, ' ');
+      if (skipWords.test(exName) || restWords.test(exName) || exName.length < 3) return;
+      exName = exName.replace(/\b\w/g, c => c.toUpperCase());
+      if (seen.has(exName.toLowerCase())) return;
+      seen.add(exName.toLowerCase());
+      exercises.push({ name: exName, sets: globalSets, reps: null, duration: m[1] + ' sec', notes: '' });
+    });
+    const minMatches = [...line.matchAll(/(\d+)[-\s]*(?:minute|min)\s+(?:of\s+)?([\w\s'-]{3,30}?)(?:\s+each\s+\w+)?(?:\s*\(|[,;]|$)/gi)];
+    minMatches.forEach(m => {
+      let exName = m[2].trim().replace(/\s+/g, ' ');
+      if (skipWords.test(exName) || restWords.test(exName) || exName.length < 3) return;
+      exName = exName.replace(/\b\w/g, c => c.toUpperCase());
+      if (seen.has(exName.toLowerCase())) return;
+      seen.add(exName.toLowerCase());
+      exercises.push({ name: exName, sets: globalSets, reps: null, duration: m[1] + ' min', notes: '' });
+    });
+    // Pattern 1b: "X seconds/minutes of Y" → duration (e.g. "10 seconds of Wall Sit")
+    const ofMatches = [...line.matchAll(/(\d+)\s*[-\s]*(?:second|sec|minute|min)s?\s+of\s+([\w\s'-]{3,30}?)(?:\s+each\s+\w+)?(?:\s*\(|[,;]|$)/gi)];
+    ofMatches.forEach(m => {
+      let exName = m[2].trim().replace(/\s+/g, ' ');
+      if (skipWords.test(exName) || restWords.test(exName) || exName.length < 3) return;
+      exName = exName.replace(/\b\w/g, c => c.toUpperCase());
+      if (seen.has(exName.toLowerCase())) return;
+      seen.add(exName.toLowerCase());
+      const isMin = /minute|min/i.test(m[0]);
+      exercises.push({ name: exName, sets: globalSets, reps: null, duration: m[1] + (isMin ? ' min' : ' sec'), notes: '' });
+    });
+    // Pattern 2: "NUMBER ExerciseName" → rep exercise (e.g. "10 Push Ups", "15 Bodyweight Squats")
+    const repMatches = [...line.matchAll(/(\d+)\s+([\w\s'-]{3,30}?)(?:\s+each\s+(?:leg|side|arm))?(?:\s*\(|[,;]|$)/gi)];
+    repMatches.forEach(m => {
+      let reps = parseInt(m[1]);
+      let exName = m[2].trim().replace(/\s+/g, ' ');
+      // Skip if already captured as duration exercise
+      if (seen.has(exName.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).toLowerCase())) return;
+      if (skipWords.test(exName) || restWords.test(exName) || exName.length < 3 || reps > 200) return;
+      // Skip if this looks like a time reference or "seconds of" pattern
+      if (/^(minutes?|mins?|seconds?|secs?|hours?|rpm|reps?|repetitions?)$/i.test(exName)) return;
+      if (/^(second|sec|minute|min)s?\s+of\s/i.test(exName)) return;
+      exName = exName.replace(/\b\w/g, c => c.toUpperCase());
+      if (seen.has(exName.toLowerCase())) return;
+      seen.add(exName.toLowerCase());
+      exercises.push({ name: exName, sets: globalSets, reps: reps, duration: null, notes: '' });
+    });
+  });
+  // Fallback: single workout step
+  if (exercises.length === 0) {
+    exercises.push({ name: name, sets: 1, reps: null, duration: duration + ' min', notes: desc.length > 200 ? desc.substring(0, 200) + '...' : desc });
+  }
+  return exercises;
+}
 // Exercise Tracker Overlay — set counter for daily workouts
 function openExerciseTracker(key, name, desc, duration, exercisesJson) {
   let exercises = [];
@@ -1983,22 +2070,13 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
   // Load saved progress
   let progress = {};
   try { progress = JSON.parse(localStorage.getItem('vf_sets_' + key) || '{}'); } catch(e) {}
-  // If no exercises array, parse from description
-  if (exercises.length === 0 && desc) {
-    const patterns = desc.match(/(\d+)\s*(x\s*)?([\w\s-]+?)(?:\s*\(|,|\.|;|$)/gi);
-    if (patterns && patterns.length > 0) {
-      patterns.forEach((m, i) => {
-        const match = m.match(/(\d+)\s*(?:x\s*)?([\w\s-]+)/i);
-        if (match) {
-          exercises.push({ name: match[2].trim(), sets: 1, reps: parseInt(match[1]) || null, duration: null, resistance: null, notes: '' });
-        }
-      });
-    }
-    // Fallback: simple workout tracker
-    if (exercises.length === 0) {
-      exercises.push({ name: name, sets: 1, reps: null, duration: duration + ' min', resistance: null, notes: desc.substring(0, 200) });
-    }
+  // Parse exercises from description for floor/invehicle plans
+  if (exercises.length === 0) {
+    exercises = parseExercisesFromDesc(desc, name, duration);
   }
+  // Save total for inline progress display
+  const totalSets = exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
+  try { localStorage.setItem('vf_sets_total_' + key, String(totalSets)); } catch(e) {}
   const ov = document.createElement('div');
   ov.id = 'exercise-tracker-overlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:201;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
@@ -2023,53 +2101,56 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
       const exDone = setsCompleted >= setsTarget;
       const repInfo = ex.reps ? ex.reps + ' reps' : ex.duration || '';
       const resistInfo = ex.resistance ? ' · ' + ex.resistance : '';
-      html += `<div class="card" style="margin-bottom:8px;${exDone ? 'opacity:.6' : ''}">
+      html += `<div class="card" style="margin-bottom:8px;${exDone ? 'opacity:.5' : ''}">
         <div style="padding:12px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-            <div style="font-weight:700;font-size:14px;color:var(--text);flex:1;min-width:0">${exDone ? '✓ ' : ''}${escHtml(ex.name)}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${ex.notes ? '4' : '6'}px">
+            <div style="font-weight:700;font-size:14px;color:var(--text);flex:1;min-width:0">${exDone ? '<span style="color:var(--primary)">✓</span> ' : ''}${escHtml(ex.name)}</div>
             <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-left:8px">${repInfo}${resistInfo}</div>
           </div>
-          ${ex.notes ? '<div style="font-size:12px;color:var(--muted-fg);line-height:1.4;margin-bottom:8px">' + escHtml(ex.notes) + '</div>' : ''}
+          ${ex.notes ? '<div style="font-size:12px;color:var(--muted-fg);line-height:1.4;margin-bottom:6px">' + escHtml(ex.notes) + '</div>' : ''}
           <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:12px;color:var(--muted-fg);min-width:60px">Sets ${setsCompleted}/${setsTarget}</span>
-            <div style="display:flex;gap:4px;flex:1">`;
+            <div style="display:flex;gap:4px;flex:1;flex-wrap:wrap">`;
       for (let s = 0; s < setsTarget; s++) {
         const setDone = s < setsCompleted;
-        html += `<button class="et-set-btn" data-ex="${i}" data-set="${s}" style="width:36px;height:36px;border-radius:8px;border:2px solid ${setDone ? 'var(--primary)' : 'var(--border)'};background:${setDone ? 'var(--primary)' : 'var(--card)'};color:${setDone ? 'var(--primary-fg)' : 'var(--muted-fg)'};font-weight:700;font-size:13px;cursor:pointer;transition:all .15s">${s + 1}</button>`;
+        html += `<button class="et-set-btn" data-ex="${i}" data-set="${s}" style="min-width:36px;height:36px;border-radius:8px;border:2px solid ${setDone ? 'var(--primary)' : 'var(--border)'};background:${setDone ? 'var(--primary)' : 'var(--card)'};color:${setDone ? 'var(--primary-fg)' : 'var(--muted-fg)'};font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;padding:0 6px">${setsTarget === 1 ? '✓' : s + 1}</button>`;
       }
       html += `</div>
-            <button class="et-reset-btn" data-ex="${i}" style="background:none;border:none;color:var(--muted-fg);font-size:11px;cursor:pointer;padding:4px">↺</button>
+            <button class="et-reset-btn" data-ex="${i}" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:4px 2px">↺</button>
           </div>
         </div>
       </div>`;
     });
-    html += `<button id="et-complete" class="btn ${allDone ? 'btn-primary' : 'btn-secondary'}" style="width:100%;margin-top:8px;padding:14px;font-size:15px;font-weight:700">${allDone ? '✓ Mark Workout Complete' : 'Finish & Mark Complete'}</button>`;
+    html += `<div style="display:flex;gap:8px;margin-top:8px">
+      <button id="et-reset-all" class="btn btn-secondary" style="flex:1;padding:12px;font-size:13px">Reset All</button>
+      <button id="et-complete" class="btn ${allDone ? 'btn-primary' : 'btn-secondary'}" style="flex:2;padding:12px;font-size:14px;font-weight:700">${allDone ? '✓ Mark Complete' : 'Mark Complete'}</button>
+    </div>`;
     html += '</div>';
     ov.innerHTML = html;
     // Bindings
-    ov.querySelector('#et-back').addEventListener('click', () => ov.remove());
+    ov.querySelector('#et-back').addEventListener('click', () => { ov.remove(); renderToday(); });
     ov.querySelectorAll('.et-set-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         haptic('light');
         const exIdx = parseInt(btn.dataset.ex);
         const setIdx = parseInt(btn.dataset.set);
         const current = progress[exIdx] || 0;
-        if (setIdx < current) {
-          progress[exIdx] = setIdx; // tap completed set = undo back to that point
-        } else {
-          progress[exIdx] = setIdx + 1; // mark this set + all before it
-        }
+        progress[exIdx] = setIdx < current ? setIdx : setIdx + 1;
         try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
         renderTracker();
       });
     });
     ov.querySelectorAll('.et-reset-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const exIdx = parseInt(btn.dataset.ex);
-        progress[exIdx] = 0;
+        progress[parseInt(btn.dataset.ex)] = 0;
         try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
         renderTracker();
       });
+    });
+    ov.querySelector('#et-reset-all')?.addEventListener('click', () => {
+      progress = {};
+      try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
+      haptic('light');
+      renderTracker();
     });
     ov.querySelector('#et-complete')?.addEventListener('click', () => {
       haptic('medium');
@@ -2897,6 +2978,20 @@ async function saveWorkout(rpe, photoData) {
     return;
   }
   showLoading('Saving workout...');
+  // Offline detection — queue if no connection
+  if (!navigator.onLine) {
+    const queued = { name, type, duration, distance, heartRate, notes, rpe: rpeVal, date: dateObj.toISOString(), photoId: photoData ? workoutId : null, queuedAt: new Date().toISOString() };
+    try {
+      const queue = JSON.parse(localStorage.getItem('vf_offline_queue') || '[]');
+      queue.push(queued);
+      localStorage.setItem('vf_offline_queue', JSON.stringify(queue));
+    } catch(e) {}
+    hideLoading();
+    showToast('Saved offline — will sync when connected.', 'info');
+    userWorkouts.unshift({ _id: workoutId, ...queued, date: dateObj, createdAt: new Date() });
+    renderWorkouts();
+    return;
+  }
   try {
     const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
       name, type, duration, distance, heartRate, notes, rpe: rpeVal,
@@ -2905,7 +3000,6 @@ async function saveWorkout(rpe, photoData) {
     });
     hideLoading();
     showToast('Workout logged!', 'success');
-    // Upload to Strava if connected
     if (stravaTokens?.access_token) {
       stravaUploadActivity({ name, type, duration, distance, date: dateObj }).then(async (sid) => {
         if (sid) {
@@ -2914,12 +3008,18 @@ async function saveWorkout(rpe, photoData) {
         }
       });
     }
-    // Auto-update team challenge score
     autoUpdateChallengeScore(duration);
   } catch(e) {
     hideLoading();
-    console.error('Save workout error:', e);
-    showToast('Failed to save workout.', 'error');
+    // Network error — queue offline
+    const queued = { name, type, duration, distance, heartRate, notes, rpe: rpeVal, date: dateObj.toISOString(), photoId: photoData ? workoutId : null, queuedAt: new Date().toISOString() };
+    try {
+      const queue = JSON.parse(localStorage.getItem('vf_offline_queue') || '[]');
+      queue.push(queued);
+      localStorage.setItem('vf_offline_queue', JSON.stringify(queue));
+    } catch(ex) {}
+    showToast('Saved offline — will sync when connected.', 'info');
+    userWorkouts.unshift({ _id: workoutId, ...queued, date: dateObj, createdAt: new Date() });
   }
 }
 // Bottom Sheet
@@ -4232,6 +4332,8 @@ function startApp() {
       requestNotificationPermission();
       // Check if any recent races need result logging
       checkRaceResultPrompt();
+      // Flush any workouts queued while offline
+      flushOfflineQueue();
     } else {
       currentUser = null;
       userProfile = null;
@@ -4764,6 +4866,32 @@ function shouldShowTutorial() {
   if (userProfile?.tutorialSeen) return false;
   return true;
 }
+// Offline queue sync — flush queued workouts when back online
+async function flushOfflineQueue() {
+  if (!db || !currentUser || demoMode) return;
+  let queue = [];
+  try { queue = JSON.parse(localStorage.getItem('vf_offline_queue') || '[]'); } catch(e) { return; }
+  if (queue.length === 0) return;
+  let synced = 0;
+  const remaining = [];
+  for (const w of queue) {
+    try {
+      await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
+        name: w.name, type: w.type, duration: w.duration, distance: w.distance,
+        heartRate: w.heartRate, notes: w.notes, rpe: w.rpe,
+        date: Timestamp.fromDate(new Date(w.date)),
+        createdAt: serverTimestamp(),
+        source: 'offline'
+      });
+      synced++;
+    } catch(e) {
+      remaining.push(w);
+    }
+  }
+  try { localStorage.setItem('vf_offline_queue', JSON.stringify(remaining)); } catch(e) {}
+  if (synced > 0) showToast(synced + ' offline workout' + (synced > 1 ? 's' : '') + ' synced!', 'success');
+}
+window.addEventListener('online', () => { setTimeout(flushOfflineQueue, 2000); });
 // Start
 startApp();
 // Register service worker for offline support
