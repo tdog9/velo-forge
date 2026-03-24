@@ -1,4 +1,4 @@
-// VeloForge Utilities Module — pure functions, no state
+// CGS VeloForge Utilities Module — pure functions, no state
 
 export function escHtml(s) {
   if (s == null) return '';
