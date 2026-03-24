@@ -67,9 +67,9 @@ input,select,textarea{font:inherit;color:inherit;-webkit-tap-highlight-color:tra
   flex-shrink:0;z-index:30;
   min-height:calc(var(--header-h) + var(--safe-t));
 }
-.header-logo{width:30px;height:30px;border-radius:8px;background:var(--primary);
+.header-logo{width:36px;height:30px;border-radius:8px;background:var(--primary);
   display:flex;align-items:center;justify-content:center;
-  font-weight:800;font-size:14px;color:var(--primary-fg);font-family:var(--font-sans);flex-shrink:0}
+  font-weight:800;font-size:11px;color:var(--primary-fg);font-family:var(--font-sans);flex-shrink:0}
 .header-brand{font-size:17px;font-weight:700;letter-spacing:-0.01em;font-family:var(--font-sans)}
 .header-title{margin-left:auto;font-size:14px;color:var(--muted-fg);font-weight:500}
 
@@ -519,7 +519,7 @@ select.input{appearance:none;cursor:pointer;
 
 /* Auth screens */
 .auth-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:var(--app-h); padding:24px; background:var(--bg); }
-.auth-logo { width:64px; height:64px; border-radius:16px; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:28px; color:var(--primary-fg); font-family:var(--font-sans); margin-bottom:8px; }
+.auth-logo { width:72px; height:64px; border-radius:16px; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:24px; color:var(--primary-fg); font-family:var(--font-sans); margin-bottom:8px; }
 .auth-brand { font-size:24px; font-weight:700; font-family:var(--font-sans); letter-spacing:-0.02em; margin-bottom:4px; }
 .auth-tagline { font-size:14px; color:var(--muted-fg); margin-bottom:32px; }
 .auth-form { width:100%; max-width:340px; }
