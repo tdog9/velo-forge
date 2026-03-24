@@ -220,7 +220,7 @@ export async function stravaUploadActivity(workout) {
       sport_type: stravaType,
       start_date_local: startDate.toISOString(),
       elapsed_time: (workout.duration || 0) * 60,
-      description: 'Recorded with VeloForge HPV Training',
+      description: 'Recorded with VeloForge',
       distance: workout.distance ? workout.distance * 1000 : undefined,
       trainer: workout.type === 'gym' ? 1 : 0
     };
