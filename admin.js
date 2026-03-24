@@ -1,4 +1,4 @@
-// VeloForge Admin Panel Module
+// CGS VeloForge Admin Panel Module
 // All state accessed via A (app context set by initAdmin)
 import { escHtml, capitalize, getXpLevel } from './state.js';
 
