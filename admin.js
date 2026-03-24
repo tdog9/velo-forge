@@ -421,6 +421,82 @@ export async function renderCoachDashboard() {
       renderCoachDashboard();
     } catch(e) { A.showToast('Failed to create challenge.', 'error'); }
   });
+  // --- Duplicate Workout Cleanup Tool ---
+  const cleanupEl = document.createElement('div');
+  cleanupEl.style.cssText = 'margin-top:16px;border-top:1px solid var(--border);padding-top:16px';
+  cleanupEl.innerHTML = `
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px">🧹 Cleanup Tools</div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">Remove Duplicate Strava Activities</div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:8px">Scans all students for duplicate workouts (same day + similar duration). Shows duplicates for review before deleting.</div>
+      <button id="cleanup-scan-btn" class="btn btn-secondary" style="font-size:12px;padding:8px 16px">Scan for Duplicates</button>
+      <div id="cleanup-results" style="margin-top:8px"></div>
+    </div>`;
+  el.appendChild(cleanupEl);
+  A.$('cleanup-scan-btn')?.addEventListener('click', async () => {
+    const btn = A.$('cleanup-scan-btn');
+    const results = A.$('cleanup-results');
+    btn.textContent = 'Scanning...';
+    btn.disabled = true;
+    results.innerHTML = '<div style="font-size:12px;color:var(--muted-fg)">Checking all users...</div>';
+    let totalDupes = 0;
+    let dupeList = [];
+    try {
+      const usersSnap = await A.getDocs(A.collection(A.db, 'users'));
+      for (const userDoc of usersSnap.docs) {
+        const uid = userDoc.id;
+        const userName = userDoc.data().displayName || 'Unknown';
+        const wSnap = await A.getDocs(A.collection(A.db, 'users', uid, 'workouts'));
+        const workouts = wSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Find duplicates: same stravaId or same day + similar duration
+        const seen = new Map();
+        workouts.forEach(w => {
+          const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+          if (!d) return;
+          const dayKey = d.toISOString().split('T')[0];
+          const dur = w.duration || 0;
+          const key = w.stravaId ? 'strava-' + w.stravaId : dayKey + '-' + Math.round(dur / 5) * 5;
+          if (seen.has(key)) {
+            const orig = seen.get(key);
+            dupeList.push({ uid, userName, dupeId: w.id, dupeName: w.name || 'Workout', origName: orig.name || 'Workout', dayKey });
+            totalDupes++;
+          } else {
+            seen.set(key, w);
+          }
+        });
+      }
+    } catch(e) {
+      results.innerHTML = '<div style="color:#ef4444;font-size:12px">Error scanning: ' + escHtml(e.message) + '</div>';
+      btn.textContent = 'Scan for Duplicates';
+      btn.disabled = false;
+      return;
+    }
+    btn.textContent = 'Scan for Duplicates';
+    btn.disabled = false;
+    if (totalDupes === 0) {
+      results.innerHTML = '<div style="color:#22c55e;font-size:12px;font-weight:600">✓ No duplicates found!</div>';
+      return;
+    }
+    let rHtml = '<div style="font-size:12px;color:var(--text);margin-bottom:6px;font-weight:600">' + totalDupes + ' duplicate' + (totalDupes > 1 ? 's' : '') + ' found:</div>';
+    dupeList.forEach((d, i) => {
+      rHtml += '<div style="font-size:11px;color:var(--muted-fg);margin-bottom:2px">' + escHtml(d.userName) + ': "' + escHtml(d.dupeName) + '" on ' + d.dayKey + '</div>';
+    });
+    rHtml += '<button id="cleanup-delete-btn" class="btn" style="margin-top:8px;font-size:12px;padding:8px 16px;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3)">Delete ' + totalDupes + ' Duplicate' + (totalDupes > 1 ? 's' : '') + '</button>';
+    results.innerHTML = rHtml;
+    A.$('cleanup-delete-btn')?.addEventListener('click', async () => {
+      const delBtn = A.$('cleanup-delete-btn');
+      delBtn.textContent = 'Deleting...';
+      delBtn.disabled = true;
+      let deleted = 0;
+      for (const d of dupeList) {
+        try {
+          await A.deleteDoc(A.doc(A.db, 'users', d.uid, 'workouts', d.dupeId));
+          deleted++;
+        } catch(e) {}
+      }
+      results.innerHTML = '<div style="color:#22c55e;font-size:12px;font-weight:600">✓ Deleted ' + deleted + ' duplicate' + (deleted > 1 ? 's' : '') + '</div>';
+    });
+  });
 }
 
 // --- ANNOUNCEMENTS ---
