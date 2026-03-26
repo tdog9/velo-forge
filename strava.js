@@ -36,10 +36,12 @@ export async function stravaHandleCallback() {
     };
     // Save to Firestore
     if (A.currentUser && A.db && !A.demoMode) {
-      await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: A.stravaTokens });
+      await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: A.stravaTokens, stravaAthleteId: String(data.athlete?.id || '') });
     }
     // Fetch activities
     await stravaFetchActivities();
+    // Sync Strava clubs → VeloForge teams
+    await syncStravaClubs();
     A.renderProfile();
   } catch(e) {
     console.error('Strava auth error:', e);
@@ -319,9 +321,82 @@ export async function stravaAutoSync() {
     if (imported > 0) {
       A.showToast(imported + ' activit' + (imported > 1 ? 'ies' : 'y') + ' synced from Strava!', 'success');
     }
+    // Also sync Strava clubs → teams (runs quietly in background)
+    syncStravaClubs();
   } catch(e) { console.error('Strava auto-sync error:', e); }
 }
 
+// Sync Strava Clubs → auto-create/join VeloForge teams
+export async function syncStravaClubs() {
+  if (!A.stravaTokens?.access_token || A.demoMode || !A.db || !A.currentUser) return;
+  try {
+    // Refresh token if needed
+    if (A.stravaTokens.expires_at && Date.now() / 1000 > A.stravaTokens.expires_at) {
+      const refreshed = await stravaRefreshToken();
+      if (!refreshed) return;
+    }
+    // Fetch athlete's clubs
+    const resp = await fetch('https://www.strava.com/api/v3/athlete/clubs?per_page=10', {
+      headers: { 'Authorization': 'Bearer ' + A.stravaTokens.access_token }
+    });
+    if (!resp.ok) return;
+    const clubs = await resp.json();
+    if (!clubs || clubs.length === 0) return;
+    // Save clubs to user profile
+    const clubSummaries = clubs.map(c => ({ id: c.id, name: c.name, memberCount: c.member_count, sportType: c.sport_type }));
+    await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaClubs: clubSummaries });
+    // If user already has a team, don't auto-switch
+    if (A.userProfile?.teamId) return;
+    // Try to find or create a VeloForge team linked to each Strava club
+    for (const club of clubs) {
+      const clubId = String(club.id);
+      // Search for existing VeloForge team linked to this Strava club
+      try {
+        const teamQuery = A.query(A.collection(A.db, 'teams'), A.where('stravaClubId', '==', clubId));
+        const teamSnap = await A.getDocs(teamQuery);
+        if (!teamSnap.empty) {
+          // Team exists — join it
+          const existingTeam = teamSnap.docs[0];
+          const teamId = existingTeam.id;
+          const teamData = existingTeam.data();
+          const members = teamData.members || [];
+          if (!members.includes(A.currentUser.uid)) {
+            await A.updateDoc(A.doc(A.db, 'teams', teamId), { members: A.arrayUnion(A.currentUser.uid) });
+          }
+          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamId, teamName: teamData.name });
+          A.userProfile.teamId = teamId;
+          A.userProfile.teamName = teamData.name;
+          A.showToast('Joined team "' + teamData.name + '" from Strava!', 'success');
+          return;
+        } else {
+          // No team exists — create one linked to this Strava club
+          const teamCode = generateClubTeamCode();
+          const newTeam = {
+            name: club.name,
+            code: teamCode,
+            stravaClubId: clubId,
+            stravaClubName: club.name,
+            createdBy: A.currentUser.uid,
+            createdAt: A.serverTimestamp(),
+            members: [A.currentUser.uid]
+          };
+          const teamRef = await A.addDoc(A.collection(A.db, 'teams'), newTeam);
+          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamRef.id, teamName: club.name });
+          A.userProfile.teamId = teamRef.id;
+          A.userProfile.teamName = club.name;
+          A.showToast('Team "' + club.name + '" created from Strava club!', 'success');
+          return;
+        }
+      } catch(e) { console.error('Strava club sync error:', e); }
+    }
+  } catch(e) { console.error('Strava clubs fetch error:', e); }
+}
+function generateClubTeamCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  return code;
+}
 // Re-sync route maps for all existing Strava activities
 export async function stravaResyncRoutes() {
   if (!A.stravaTokens?.access_token) {
