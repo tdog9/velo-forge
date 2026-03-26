@@ -405,7 +405,7 @@ function openRaceResultForm(raceName, raceDate) {
       try {
         await addDoc(collection(db, 'users', currentUser.uid, 'raceResults'), { ...result, createdAt: serverTimestamp() });
         showToast('Race result saved!', 'success');
-      } catch(e) { showToast('Failed to save.', 'error'); }
+      } catch(e) { showError('Failed to save activity', 'tracker', e, { action: 'save' }); }
     } else {
       showToast('Race result saved (demo).', 'success');
     }
@@ -726,6 +726,260 @@ function showToast(message, type = 'info') {
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 3100);
 }
+// Error log — keeps last 20 errors for diagnostics
+const errorLog = [];
+function logError(area, error, context) {
+  const entry = {
+    area, message: error?.message || String(error), code: error?.code || null,
+    stack: error?.stack?.split('\n').slice(0, 4).join('\n') || null,
+    context: context || {},
+    time: new Date().toISOString(),
+    user: userProfile?.displayName || 'Unknown',
+    online: navigator.onLine, platform: navigator.userAgent?.includes('iPhone') ? 'iOS' : navigator.userAgent?.includes('Android') ? 'Android' : 'Desktop'
+  };
+  errorLog.unshift(entry);
+  if (errorLog.length > 20) errorLog.pop();
+  console.error('[VeloForge Error]', area, error);
+  return entry;
+}
+// Smart error toast with tap-to-diagnose
+function showError(message, area, error, context) {
+  const entry = logError(area, error, context);
+  const container = $('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast error';
+  toast.style.cursor = 'pointer';
+  toast.innerHTML = message + '<span style="opacity:.6;font-size:10px;margin-left:6px">Tap for help</span>';
+  toast.addEventListener('click', () => { toast.remove(); openErrorDiagnostics(entry); });
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentNode) toast.remove(); }, 6000);
+}
+// Quick fix suggestions (no AI needed)
+function getQuickFix(area, code, message) {
+  const msg = (message || '').toLowerCase();
+  const fixes = [];
+  // Network issues
+  if (!navigator.onLine || msg.includes('network') || msg.includes('fetch') || msg.includes('failed to fetch')) {
+    fixes.push({ icon: '📶', title: 'No internet connection', fix: 'Check your WiFi or mobile data. The app will sync when you reconnect.' });
+  }
+  // Firebase auth errors
+  if (code === 'auth/network-request-failed') fixes.push({ icon: '📶', title: 'Network error', fix: 'Check your internet connection and try again.' });
+  if (code === 'auth/too-many-requests') fixes.push({ icon: '⏳', title: 'Too many attempts', fix: 'Wait 5 minutes before trying again. This is a security measure.' });
+  if (code === 'auth/invalid-credential') fixes.push({ icon: '🔑', title: 'Wrong password', fix: 'Double-check your email and password. Use "Forgot Password" if needed.' });
+  if (code === 'auth/email-already-in-use') fixes.push({ icon: '📧', title: 'Email taken', fix: 'This email already has an account. Try logging in instead of signing up.' });
+  if (code === 'auth/user-not-found') fixes.push({ icon: '👤', title: 'No account found', fix: 'Check your email spelling or create a new account.' });
+  // Firestore permission errors
+  if (msg.includes('permission') || msg.includes('denied') || code === 'permission-denied') {
+    fixes.push({ icon: '🔒', title: 'Permission denied', fix: 'Your account may not have access to this feature. Try logging out and back in. If the problem persists, contact your coach.' });
+  }
+  if (msg.includes('not-found') || msg.includes('document') && msg.includes('exist')) {
+    fixes.push({ icon: '📄', title: 'Data not found', fix: 'The data you\'re looking for may have been deleted or moved. Try refreshing the page.' });
+  }
+  // Strava errors
+  if (area === 'strava' || msg.includes('strava')) {
+    if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('token')) {
+      fixes.push({ icon: '⬡', title: 'Strava session expired', fix: 'Go to Profile → Strava → Disconnect, then reconnect. Your data will re-sync.' });
+    }
+    if (msg.includes('rate') || msg.includes('429')) fixes.push({ icon: '⏱️', title: 'Strava rate limit', fix: 'Too many requests to Strava. Wait 15 minutes and try again.' });
+  }
+  // GPS/tracker errors
+  if (area === 'tracker' || msg.includes('geolocation') || msg.includes('gps')) {
+    fixes.push({ icon: '📍', title: 'Location access', fix: 'Open your device Settings → Privacy → Location Services and make sure it\'s enabled for your browser.' });
+  }
+  // AI coach errors
+  if (area === 'ai' || msg.includes('ai coach') || msg.includes('anthropic')) {
+    fixes.push({ icon: '🤖', title: 'AI Coach unavailable', fix: 'The AI service may be temporarily down. Try again in a few minutes. If it keeps failing, the API key may need updating.' });
+  }
+  // Storage errors
+  if (msg.includes('quota') || msg.includes('storage') || msg.includes('localstorage')) {
+    fixes.push({ icon: '💾', title: 'Storage full', fix: 'Your device storage is full. Try clearing old data in Settings → Safari → Website Data, or delete unused apps.' });
+  }
+  // Generic fallback
+  if (fixes.length === 0) {
+    fixes.push({ icon: '🔄', title: 'Something went wrong', fix: 'Try refreshing the page. If the problem continues, log out and back in.' });
+  }
+  return fixes;
+}
+function openErrorDiagnostics(entry, showLog) {
+  const fixes = getQuickFix(entry.area, entry.code, entry.message);
+  const adminFixes = isAdmin ? getAdminFix(entry.area, entry.code, entry.message) : [];
+  const ov = document.createElement('div');
+  ov.id = 'error-diag-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;padding:0';
+  let html = `<div style="background:var(--bg);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px;padding-bottom:calc(20px + var(--safe-b))">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:16px;font-weight:700">Something went wrong</div>
+      <button id="diag-close" style="background:none;border:none;color:var(--muted-fg);font-size:20px;cursor:pointer;padding:4px">✕</button>
+    </div>`;
+  // Highlighted fix (first one, prominent)
+  if (fixes.length > 0) {
+    const primary = fixes[0];
+    html += `<div style="display:flex;gap:10px;padding:12px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.04));border:1.5px solid rgba(34,197,94,.25);border-radius:12px;margin-bottom:10px">
+      <span style="font-size:24px;flex-shrink:0">${primary.icon}</span>
+      <div><div style="font-size:14px;font-weight:700;color:#22c55e;margin-bottom:3px">Try this first</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px">${primary.title}</div>
+      <div style="font-size:12px;color:var(--muted-fg);line-height:1.5">${primary.fix}</div></div>
+    </div>`;
+  }
+  // Other fixes
+  if (fixes.length > 1) {
+    html += '<div style="font-size:11px;font-weight:600;color:var(--muted-fg);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Other things to try</div>';
+    fixes.slice(1).forEach(f => {
+      html += `<div style="display:flex;gap:10px;padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+        <span style="font-size:16px;flex-shrink:0">${f.icon}</span>
+        <div><div style="font-size:12px;font-weight:600;color:var(--text)">${f.title}</div>
+        <div style="font-size:11px;color:var(--muted-fg);line-height:1.4">${f.fix}</div></div>
+      </div>`;
+    });
+  }
+  // ADMIN SECTION — extra diagnostics
+  if (isAdmin) {
+    html += `<div style="margin-top:12px;padding:12px;background:rgba(239,68,68,.06);border:1.5px solid rgba(239,68,68,.2);border-radius:10px">
+      <div style="font-size:12px;font-weight:700;color:#ef4444;margin-bottom:8px;display:flex;align-items:center;gap:6px">🔧 Admin Diagnostics</div>`;
+    // Admin-specific fixes
+    if (adminFixes.length > 0) {
+      adminFixes.forEach(f => {
+        html += `<div style="padding:8px;background:rgba(239,68,68,.05);border-radius:6px;margin-bottom:6px">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">${f.title}</div>
+          <div style="font-size:11px;color:var(--muted-fg);line-height:1.4">${f.fix}</div>
+        </div>`;
+      });
+    }
+    // Full technical info (open by default for admins)
+    html += `<div style="font-size:11px;color:var(--muted-fg);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;font-family:var(--font-mono);line-height:1.6;word-break:break-all">
+      <div><strong>Area:</strong> ${escHtml(entry.area)}</div>
+      <div><strong>Error:</strong> ${escHtml(entry.message)}</div>
+      ${entry.code ? '<div><strong>Code:</strong> <span style="color:#ef4444">' + escHtml(entry.code) + '</span></div>' : ''}
+      <div><strong>Time:</strong> ${entry.time}</div>
+      <div><strong>User:</strong> ${escHtml(entry.user)} · <strong>Online:</strong> ${entry.online ? '✓' : '✗'} · <strong>Platform:</strong> ${entry.platform}</div>
+      ${entry.context && Object.keys(entry.context).length > 0 ? '<div><strong>Context:</strong> ' + escHtml(JSON.stringify(entry.context)) + '</div>' : ''}
+      ${entry.stack ? '<div style="margin-top:4px;white-space:pre-wrap;font-size:10px;opacity:.7;border-top:1px solid var(--border);padding-top:4px">' + escHtml(entry.stack) + '</div>' : ''}
+    </div>`;
+    // Firestore doc path hint
+    const docHints = {
+      workout: 'Firestore: users/{uid}/workouts',
+      plan: 'Firestore: users/{uid} → activePlanId',
+      team: 'Firestore: teams/{teamId} + users/{uid} → teamId',
+      strava: 'Firestore: users/{uid} → stravaTokens + stravaClubs',
+      tracker: 'Firestore: users/{uid}/workouts + localStorage vf_routes',
+      ai: 'Netlify Function: /.netlify/functions/ai-coach → ANTHROPIC_API_KEY env var',
+      global: 'JavaScript runtime error — check browser console for full stack trace',
+      promise: 'Unhandled async error — likely a network request or Firebase operation'
+    };
+    if (docHints[entry.area]) {
+      html += `<div style="font-size:10px;color:var(--muted-fg);margin-top:6px;font-family:var(--font-mono)">📁 ${docHints[entry.area]}</div>`;
+    }
+    // Error log viewer (all recent errors)
+    if (errorLog.length > 1) {
+      html += `<div style="margin-top:8px"><div style="font-size:11px;font-weight:600;color:var(--muted-fg);margin-bottom:4px">Recent Errors (${errorLog.length})</div>`;
+      errorLog.slice(0, 10).forEach((e, i) => {
+        const isCurrent = e === entry;
+        html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);background:${isCurrent ? 'rgba(239,68,68,.1)' : 'transparent'};color:${isCurrent ? '#ef4444' : 'var(--muted-fg)'}">
+          ${e.time.split('T')[1]?.split('.')[0] || ''} · ${escHtml(e.area)} · ${escHtml((e.message || '').substring(0, 60))}${e.message?.length > 60 ? '...' : ''}
+        </div>`;
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  } else {
+    // Non-admin: collapsed technical details
+    html += `<details style="margin-top:8px">
+      <summary style="font-size:12px;color:var(--muted-fg);cursor:pointer;padding:6px 0;user-select:none">Technical Details</summary>
+      <div style="font-size:11px;color:var(--muted-fg);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:4px;font-family:var(--font-mono);line-height:1.5;word-break:break-all">
+        <div><strong>Area:</strong> ${escHtml(entry.area)}</div>
+        <div><strong>Error:</strong> ${escHtml(entry.message)}</div>
+        ${entry.code ? '<div><strong>Code:</strong> ' + escHtml(entry.code) + '</div>' : ''}
+        <div><strong>Time:</strong> ${entry.time}</div>
+      </div>
+    </details>`;
+  }
+  // AI diagnose button
+  html += `<button id="diag-ai-btn" class="btn" style="width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;color:#a855f7;display:flex;align-items:center;justify-content:center;gap:6px">
+    🤖 Ask AI to Diagnose
+  </button>
+  <div id="diag-ai-result" style="margin-top:8px"></div>`;
+  html += '</div>';
+  ov.innerHTML = html;
+  document.body.appendChild(ov);
+  ov.querySelector('#diag-close').addEventListener('click', () => ov.remove());
+  ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+  // Log item click → switch to that error
+  ov.querySelectorAll('.diag-log-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.logIdx);
+      if (errorLog[idx]) { ov.remove(); openErrorDiagnostics(errorLog[idx]); }
+    });
+  });
+  ov.querySelector('#diag-ai-btn')?.addEventListener('click', async () => {
+    const btn = ov.querySelector('#diag-ai-btn');
+    const resultEl = ov.querySelector('#diag-ai-result');
+    btn.textContent = 'Diagnosing...';
+    btn.disabled = true;
+    const roleContext = isAdmin ? 'This user is an ADMIN/COACH. Give both the user-facing fix AND the technical backend fix (Firestore paths, environment variables, deploy steps). Be specific about what to check in Firebase Console and Netlify.' : '';
+    try {
+      const diagPrompt = `A user got this error in a school HPV training app. Give a SHORT (3-4 sentences max) friendly explanation of what went wrong and exactly how to fix it. ${roleContext}
+Error area: ${entry.area}
+Error message: ${entry.message}
+${entry.code ? 'Error code: ' + entry.code : ''}
+Online: ${entry.online}
+Platform: ${entry.platform}
+Context: ${JSON.stringify(entry.context || {})}`;
+      const resp = await fetch('/.netlify/functions/ai-coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: diagPrompt, context: 'ERROR_DIAGNOSIS. ' + (isAdmin ? 'User is admin. Include Firestore paths, env var names, and Netlify deploy steps. Be technical.' : 'Respond in 3-4 sentences. Be specific and practical. Use simple language a student would understand.') })
+      });
+      const data = await resp.json();
+      resultEl.innerHTML = `<div style="padding:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:13px;color:var(--text);line-height:1.5">
+        <div style="font-size:12px;font-weight:600;color:#a855f7;margin-bottom:4px">AI Diagnosis${isAdmin ? ' (Admin)' : ''}</div>
+        ${escHtml(data.reply || 'Could not diagnose. Try the suggestions above.')}
+      </div>`;
+    } catch(e) {
+      resultEl.innerHTML = '<div style="font-size:12px;color:var(--muted-fg);padding:8px">AI diagnosis unavailable — try the suggestions above.</div>';
+    }
+    btn.style.display = 'none';
+  });
+}
+// Admin-specific fix suggestions
+function getAdminFix(area, code, message) {
+  const msg = (message || '').toLowerCase();
+  const fixes = [];
+  if (msg.includes('permission') || msg.includes('denied') || code === 'permission-denied') {
+    fixes.push({ title: 'Check Firestore Security Rules', fix: 'Go to Firebase Console → Firestore → Rules. Ensure the rules allow read/write for authenticated users on the relevant collection. Common issue: teams collection needs read access for member queries.' });
+    fixes.push({ title: 'Check User Auth State', fix: 'The user\'s auth token may have expired. This can happen after long idle sessions. A page refresh forces re-authentication.' });
+  }
+  if (area === 'strava') {
+    fixes.push({ title: 'Check Strava API Credentials', fix: 'Netlify → Site Settings → Environment Variables → verify STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET are set and match your Strava API app at strava.com/settings/api.' });
+    if (msg.includes('token') || msg.includes('401')) {
+      fixes.push({ title: 'Token Expired', fix: 'The refresh token flow may have failed. Ask the student to disconnect and reconnect Strava in Profile. Check netlify/functions/strava-auth.js is deployed.' });
+    }
+  }
+  if (area === 'ai') {
+    fixes.push({ title: 'Check Anthropic API Key', fix: 'Netlify → Environment Variables → ANTHROPIC_API_KEY. Verify it\'s a valid sk-ant-... key with remaining credits. Check usage at console.anthropic.com.' });
+    fixes.push({ title: 'Check Function Deploy', fix: 'Netlify → Functions → ai-coach. Check the function logs for errors. Ensure the function file is at netlify/functions/ai-coach.js.' });
+  }
+  if (area === 'team' || area === 'strava' && msg.includes('team')) {
+    fixes.push({ title: 'Check Teams Collection', fix: 'Firebase Console → Firestore → teams collection. Verify the team document exists and has a members array containing the user\'s UID.' });
+  }
+  if (area === 'workout' || area === 'tracker') {
+    fixes.push({ title: 'Check Workouts Subcollection', fix: 'Firebase Console → Firestore → users/{uid}/workouts. Verify write permissions. Check if the user\'s daily write quota is exhausted (free tier: 20K writes/day).' });
+  }
+  if (msg.includes('quota') || msg.includes('resource exhausted')) {
+    fixes.push({ title: 'Firebase Quota Exceeded', fix: 'Free tier limits: 50K reads/day, 20K writes/day, 1GB storage. Check Firebase Console → Usage. Consider upgrading to Blaze plan (pay-as-you-go) if limits are hit regularly.' });
+  }
+  if (area === 'global' || area === 'promise') {
+    fixes.push({ title: 'Check Browser Console', fix: 'Open DevTools (F12 or Cmd+Opt+I) → Console tab to see the full error with stack trace. This gives the exact file and line number.' });
+  }
+  return fixes;
+}
+// Global error handler — catches unhandled errors
+window.addEventListener('error', (e) => {
+  logError('global', e.error || e.message, { filename: e.filename, line: e.lineno });
+});
+window.addEventListener('unhandledrejection', (e) => {
+  logError('promise', e.reason, {});
+});
 // --- Tab click handler (features 4 + 10) ---
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1815,7 +2069,7 @@ function renderToday() {
           userProfile.activePlanId = planId;
           showToast('Plan activated!', 'success');
           renderToday();
-        } catch(e) { showToast('Failed to activate plan.', 'error'); }
+        } catch(e) { showError('Failed to activate plan', 'plan', e, { action: 'activate' }); }
       }
     });
   }
@@ -3229,7 +3483,7 @@ function bindPlanSearchAndCards(c) {
       } catch(e) {
         hideLoading();
         console.error('Activate plan error:', e);
-        showToast('Failed to activate plan.', 'error');
+        showError('Failed to activate plan', 'plan', e, { action: 'activate' });
       }
     });
   });
@@ -3264,7 +3518,7 @@ function bindPlanSearchAndCards(c) {
       } catch(e) {
         hideLoading();
         console.error('Cancel plan error:', e);
-        showToast('Failed to cancel plan.', 'error');
+        showError('Failed to cancel plan', 'plan', e, { action: 'cancel' });
       }
     });
   });
@@ -3822,6 +4076,12 @@ function renderProfile() {
     <span class="profile-row-label">🤖 AI Coach</span>
     <span class="profile-row-action">Ask a Question</span>
   </div>`;
+  if (errorLog.length > 0) {
+    html += `<div class="profile-row" id="profile-error-log" style="cursor:pointer">
+      <span class="profile-row-label">🐛 Error Log</span>
+      <span class="profile-row-action">${errorLog.length} recent</span>
+    </div>`;
+  }
   html += '</div>';
   el.innerHTML = html;
   // Bindings
@@ -3870,38 +4130,38 @@ function renderProfile() {
       btn.textContent = 'Joining...';
       btn.disabled = true;
       try {
-        // Search for existing VeloForge team linked to this club
-        const teamQuery = query(collection(db, 'teams'), where('stravaClubId', '==', String(clubId)));
-        const teamSnap = await getDocs(teamQuery);
-        let teamId;
-        if (!teamSnap.empty) {
-          // Join existing team
-          teamId = teamSnap.docs[0].id;
-          const td = teamSnap.docs[0].data();
+        // Use predictable doc ID: strava-club-{clubId}
+        const teamDocId = 'strava-club-' + clubId;
+        const teamRef = doc(db, 'teams', teamDocId);
+        const teamSnap = await getDoc(teamRef);
+        if (teamSnap.exists()) {
+          // Team exists — join it
+          const td = teamSnap.data();
           if (!(td.members || []).includes(currentUser.uid)) {
-            await updateDoc(doc(db, 'teams', teamId), { members: arrayUnion(currentUser.uid) });
+            await updateDoc(teamRef, { members: arrayUnion(currentUser.uid) });
           }
         } else {
-          // Create new team from club
+          // Create new team with predictable ID
           const code = (() => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let r = ''; for (let i = 0; i < 6; i++) r += c[Math.floor(Math.random()*c.length)]; return r; })();
-          const ref = await addDoc(collection(db, 'teams'), {
+          await setDoc(teamRef, {
             name: clubName, code, stravaClubId: String(clubId), stravaClubName: clubName,
             createdBy: currentUser.uid, createdAt: serverTimestamp(), members: [currentUser.uid]
           });
-          teamId = ref.id;
         }
         // Leave old team if different
-        if (userProfile.teamId && userProfile.teamId !== teamId) {
+        if (userProfile.teamId && userProfile.teamId !== teamDocId) {
           try { await updateDoc(doc(db, 'teams', userProfile.teamId), { members: arrayRemove(currentUser.uid) }); } catch(e) {}
         }
-        await updateDoc(doc(db, 'users', currentUser.uid), { teamId, teamName: clubName });
-        userProfile.teamId = teamId;
+        await updateDoc(doc(db, 'users', currentUser.uid), { teamId: teamDocId, teamName: clubName });
+        userProfile.teamId = teamDocId;
         userProfile.teamName = clubName;
+        // Reload team data
+        await loadTeamData();
         showToast('Team set to "' + clubName + '"!', 'success');
         renderProfile();
       } catch(e) {
         console.error('Club join error:', e);
-        showToast('Failed to set team.', 'error');
+        showError('Failed to set team from Strava club', 'strava', e, { action: 'club-join' });
         btn.textContent = 'Use as Team';
         btn.disabled = false;
       }
@@ -3918,7 +4178,7 @@ function renderProfile() {
       await syncStravaClubs();
       renderProfile();
     } catch(e) {
-      showToast('Failed to fetch clubs.', 'error');
+      showError('Failed to fetch Strava clubs', 'strava', e, { action: 'fetch-clubs' });
       btn.textContent = '🔍 Find My Strava Clubs';
       btn.disabled = false;
     }
@@ -3933,6 +4193,10 @@ function renderProfile() {
   $('profile-open-coach')?.addEventListener('click', () => {
     closeProfile();
     setTimeout(() => openAiCoach(), 300);
+  });
+  $('profile-error-log')?.addEventListener('click', () => {
+    if (errorLog.length === 0) { showToast('No errors recorded.', 'info'); return; }
+    openErrorDiagnostics(errorLog[0]);
   });
   if (isStravaConnected) renderStravaActivities();
 }
@@ -4027,7 +4291,7 @@ async function createTeam() {
   } catch(e) {
     hideLoading();
     console.error('Create team error:', e);
-    showToast('Failed to create team.', 'error');
+    showError('Failed to create team', 'team', e, { action: 'create' });
   }
 }
 async function joinTeam() {
@@ -4070,7 +4334,7 @@ async function joinTeam() {
   } catch(e) {
     hideLoading();
     console.error('Join team error:', e);
-    showToast('Failed to join team.', 'error');
+    showError('Failed to join team', 'team', e, { action: 'join' });
   }
 }
 async function leaveTeam() {
@@ -4102,7 +4366,7 @@ async function leaveTeam() {
     } catch(e) {
       hideLoading();
       console.error('Leave team error:', e);
-      showToast('Failed to leave team.', 'error');
+      showError('Failed to leave team', 'team', e, { action: 'leave' });
     }
   });
 }
@@ -4288,7 +4552,7 @@ async function loadUserProfile(uid) {
 function buildModuleCtx() {
   return {
     // DOM + UI helpers
-    $, show, hide, showToast, showLoading, hideLoading, haptic, openSheet, closeSheet,
+    $, show, hide, showToast, showError, logError, showLoading, hideLoading, haptic, openSheet, closeSheet,
     // Firebase refs (getters for fresh values)
     get db() { return db; },
     get currentUser() { return currentUser; },
@@ -4410,7 +4674,7 @@ function startApp() {
                 });
               }
               autoUpdateChallengeScore(workout.duration || 0);
-            } catch(e) { showToast('Failed to save.', 'error'); }
+            } catch(e) { showError('Failed to save activity', 'tracker', e, { action: 'save' }); }
           } else {
             userWorkouts.unshift({ ...workout, id: workoutId, routeId: workoutId });
             showToast('Activity saved (demo).', 'success');
