@@ -41,7 +41,8 @@ exports.handler = async (event) => {
     context.startsWith('PLAN_EDIT_MODE') ||
     context.startsWith('WEEKLY_REVIEW') ||
     context.startsWith('RACE_PREP_MODE') ||
-    context.startsWith('INJURY_MODE')
+    context.startsWith('INJURY_MODE') ||
+    context.startsWith('ERROR_DIAGNOSIS')
   );
 
   let systemPrompt;
