@@ -3762,6 +3762,31 @@ function renderProfile() {
     html += `<button class="strava-disconnect" id="strava-disconnect-btn">Disconnect Strava</button>`;
     html += `<button class="strava-disconnect" id="strava-resync-routes" style="margin-top:6px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border)">🗺️ Re-sync Route Maps</button>`;
     html += `<div style="font-size:11px;color:var(--muted-fg);margin-top:4px">Re-downloads GPS routes for all Strava activities. Use if maps are missing.</div>`;
+    // Strava Clubs
+    const stravaClubs = userProfile?.stravaClubs || [];
+    if (stravaClubs.length > 0) {
+      html += `<div style="margin-top:12px"><div style="font-size:13px;font-weight:600;margin-bottom:6px">Your Strava Clubs</div>`;
+      stravaClubs.forEach(club => {
+        const isLinked = teamData?.stravaClubId === String(club.id);
+        const isCurrentTeam = userProfile?.teamId && isLinked;
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card);border:1px solid ${isCurrentTeam ? 'var(--primary)' : 'var(--border)'};border-radius:8px;margin-bottom:6px">
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(252,82,0,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg viewBox="0 0 24 24" fill="#fc5200" style="width:16px;height:16px"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(club.name)}</div>
+            <div style="font-size:11px;color:var(--muted-fg)">${club.memberCount || '?'} members · ${club.sportType || 'cycling'}</div>
+          </div>
+          ${isCurrentTeam
+            ? '<span style="font-size:10px;font-weight:700;color:var(--primary);background:rgba(191,255,0,.12);padding:3px 8px;border-radius:6px;white-space:nowrap">Your Team</span>'
+            : `<button class="btn strava-club-join" data-club-id="${club.id}" data-club-name="${escHtml(club.name)}" style="padding:4px 10px;font-size:11px;font-weight:600;border-radius:6px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border);white-space:nowrap">Use as Team</button>`
+          }
+        </div>`;
+      });
+      html += '</div>';
+    } else {
+      html += `<div style="margin-top:8px"><button class="btn" id="strava-fetch-clubs" style="width:100%;padding:8px;font-size:12px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border);border-radius:8px">🔍 Find My Strava Clubs</button></div>`;
+    }
   } else {
     html += `<div class="strava-status">
       <div class="strava-status-dot disconnected"></div>
@@ -3836,6 +3861,67 @@ function renderProfile() {
   });
   $('strava-resync-routes')?.addEventListener('click', () => {
     stravaResyncRoutes();
+  });
+  // Strava club → team buttons
+  document.querySelectorAll('.strava-club-join').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const clubId = btn.dataset.clubId;
+      const clubName = btn.dataset.clubName;
+      btn.textContent = 'Joining...';
+      btn.disabled = true;
+      try {
+        // Search for existing VeloForge team linked to this club
+        const teamQuery = query(collection(db, 'teams'), where('stravaClubId', '==', String(clubId)));
+        const teamSnap = await getDocs(teamQuery);
+        let teamId;
+        if (!teamSnap.empty) {
+          // Join existing team
+          teamId = teamSnap.docs[0].id;
+          const td = teamSnap.docs[0].data();
+          if (!(td.members || []).includes(currentUser.uid)) {
+            await updateDoc(doc(db, 'teams', teamId), { members: arrayUnion(currentUser.uid) });
+          }
+        } else {
+          // Create new team from club
+          const code = (() => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let r = ''; for (let i = 0; i < 6; i++) r += c[Math.floor(Math.random()*c.length)]; return r; })();
+          const ref = await addDoc(collection(db, 'teams'), {
+            name: clubName, code, stravaClubId: String(clubId), stravaClubName: clubName,
+            createdBy: currentUser.uid, createdAt: serverTimestamp(), members: [currentUser.uid]
+          });
+          teamId = ref.id;
+        }
+        // Leave old team if different
+        if (userProfile.teamId && userProfile.teamId !== teamId) {
+          try { await updateDoc(doc(db, 'teams', userProfile.teamId), { members: arrayRemove(currentUser.uid) }); } catch(e) {}
+        }
+        await updateDoc(doc(db, 'users', currentUser.uid), { teamId, teamName: clubName });
+        userProfile.teamId = teamId;
+        userProfile.teamName = clubName;
+        showToast('Team set to "' + clubName + '"!', 'success');
+        renderProfile();
+      } catch(e) {
+        console.error('Club join error:', e);
+        showToast('Failed to set team.', 'error');
+        btn.textContent = 'Use as Team';
+        btn.disabled = false;
+      }
+    });
+  });
+  // Fetch clubs button (if clubs not yet loaded)
+  $('strava-fetch-clubs')?.addEventListener('click', async () => {
+    const btn = $('strava-fetch-clubs');
+    btn.textContent = 'Searching...';
+    btn.disabled = true;
+    try {
+      // Import syncStravaClubs dynamically — it fetches and saves clubs
+      const { syncStravaClubs } = await import('./strava.js');
+      await syncStravaClubs();
+      renderProfile();
+    } catch(e) {
+      showToast('Failed to fetch clubs.', 'error');
+      btn.textContent = '🔍 Find My Strava Clubs';
+      btn.disabled = false;
+    }
   });
   $('profile-export-btn')?.addEventListener('click', exportTrainingReport);
   // Tutorial & Help bindings
@@ -4038,7 +4124,7 @@ async function loadTeamData() {
       return;
     }
     const td = teamSnap.data();
-    teamData = { id: teamSnap.id, name: td.name, code: td.code, members: td.members || [] };
+    teamData = { id: teamSnap.id, name: td.name, code: td.code, members: td.members || [], stravaClubId: td.stravaClubId || null };
     // Load each member's data
     const today = new Date();
     const dateKey = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
