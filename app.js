@@ -708,7 +708,7 @@ try {
     currentPage = saved;
   }
   const savedFitSub = localStorage.getItem('vf_fitnessSub');
-  if (savedFitSub && ['workouts','plans','demos','myplans'].includes(savedFitSub)) {
+  if (savedFitSub && ['workouts','plans','demos'].includes(savedFitSub)) {
     fitnessSubTab = savedFitSub;
   }
 } catch(e) {}
@@ -807,11 +807,9 @@ function renderFitness() {
   const wc = $('workouts-content');
   const pc = $('plans-content');
   const dc = $('demos-content');
-  const mc = $('myplans-content');
   wc.style.display = 'none';
   pc.style.display = 'none';
   dc.style.display = 'none';
-  mc.style.display = 'none';
   
   if (fitnessSubTab === 'workouts') {
     wc.style.display = '';
@@ -823,9 +821,6 @@ function renderFitness() {
   } else if (fitnessSubTab === 'demos') {
     dc.style.display = '';
     renderDemonstration();
-  } else if (fitnessSubTab === 'myplans') {
-    mc.style.display = '';
-    renderMyPlans();
   }
 }
 // Bind fitness sub-tabs (feature 10: haptic)
@@ -840,7 +835,7 @@ document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
 });
 // --- Feature 5: Swipe between fitness sub-tabs ---
 const fitnessPage = $('page-fitness');
-const fitSubOrder = ['workouts', 'plans', 'demos', 'myplans'];
+const fitSubOrder = ['workouts', 'plans', 'demos'];
 let swipeStartX = 0, swipeStartY = 0, swipeDeltaX = 0, swiping = false;
 fitnessPage.addEventListener('touchstart', (e) => {
   swipeStartX = e.touches[0].clientX;
@@ -1573,112 +1568,23 @@ function renderToday() {
   // XP level inline
   const xp = calcXp();
   const lvl = getXpLevel(xp);
-  // === BUILD HTML — clean layout ===
+  // === BUILD HTML — simplified layout ===
   let html = '';
-  // Header: date + level badge
-  html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+  // ── SECTION 1: Compact header (date + XP + streak in one row) ──
+  html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
     <div class="today-date" style="margin:0">${dateStr}</div>
-    <div style="font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:4px">${lvl.icon} ${lvl.name} · ${xp} XP</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      ${streak > 0 ? `<span style="font-size:12px;font-weight:700;color:#f59e0b">🔥 ${streak}d</span>` : ''}
+      <span style="font-size:12px;font-weight:700;color:var(--primary)">${lvl.icon} ${xp} XP</span>
+    </div>
   </div>`;
-  // XP progress bar (thin)
-  html += `<div style="height:4px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
-  // Announcements (compact)
+  html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
+  // Announcements (only if active)
   const activeAnns = adminAnnouncements.filter(a => a.active);
   activeAnns.forEach(a => {
     html += `<div class="announce-banner"><div class="announce-banner-row"><div class="announce-banner-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="announce-banner-body"><div class="announce-banner-title">${escHtml(a.title)}</div><div class="announce-banner-msg">${escHtml(a.message)}</div></div></div></div>`;
   });
-  // Stats row
-  html += `<div class="today-stats-row">
-    <div class="today-stat"><span class="today-stat-val">${streak}</span><span class="today-stat-lbl">streak</span></div>
-    <div class="today-stat-sep"></div>
-    <div class="today-stat"><span class="today-stat-val">${workoutsThisWeek}</span><span class="today-stat-lbl">this week</span></div>
-    <div class="today-stat-sep"></div>
-    <div class="today-stat"><span class="today-stat-val">${totalWorkouts}</span><span class="today-stat-lbl">total</span></div>
-  </div>`;
-  // Streak badges (compact)
-  const badgeLevels = [{days:7,icon:'🔥',label:'7d'},{days:14,icon:'⚡',label:'14d'},{days:30,icon:'🏆',label:'30d'},{days:60,icon:'💎',label:'60d'},{days:100,icon:'👑',label:'100d'}];
-  const earnedBadges = badgeLevels.filter(b => streak >= b.days);
-  if (earnedBadges.length > 0) {
-    html += '<div class="streak-badges">' + earnedBadges.map(b => `<div class="streak-badge earned">${b.icon} ${b.label}</div>`).join('') + '</div>';
-  }
-  // Team Challenge (prominent if active)
-  html += renderTeamChallenge();
-  // Quick Log + Last Activity Route Map
-  const lastActivity = userWorkouts[0];
-  const lastActivityDate = lastActivity?.date ? (lastActivity.date.toDate ? lastActivity.date.toDate() : new Date(lastActivity.date)) : null;
-  const isToday = lastActivityDate && lastActivityDate.toDateString() === now.toDateString();
-  let storedRoutes = {};
-  try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
-  const lastRouteId = lastActivity?.routeId || (lastActivity?.stravaId ? 'strava-' + lastActivity.stravaId : lastActivity?._id);
-  const lastRoute = lastRouteId ? storedRoutes[lastRouteId] : null;
-  const hasLastRoute = lastRoute && lastRoute.length > 1;
-  if (isToday && lastActivity) {
-    const typeIcons = {ride:'🚴',run:'🏃',walk:'🚶',gym:'🏋️'};
-    html += `<div class="card" style="margin-top:10px;overflow:hidden">`;
-    if (hasLastRoute) {
-      html += `<div class="activity-map-thumb" id="today-route-map" data-route-id="${lastRouteId}" style="height:140px;margin:0;border-radius:0"></div>`;
-    }
-    html += `<div class="card-pad" style="padding:10px 12px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:20px">${typeIcons[lastActivity.type] || '🏋️'}</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px;color:var(--text)">${escHtml(lastActivity.name || 'Workout')}</div>
-          <div style="font-size:12px;color:var(--muted-fg)">${lastActivity.duration ? lastActivity.duration + ' min' : ''}${lastActivity.distance ? ' · ' + lastActivity.distance + ' km' : ''}</div>
-        </div>
-        <div style="font-size:10px;font-weight:600;color:var(--primary);background:rgba(191,255,0,.1);padding:3px 8px;border-radius:6px">TODAY</div>
-      </div>
-    </div></div>`;
-  }
-  // Quick Log button
-  html += `<div style="display:flex;gap:8px;margin-top:10px">
-    <button class="btn" id="today-quick-log" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:6px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Log Workout
-    </button>
-    <button class="btn" id="today-quick-record" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:center;gap:6px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>
-      Record GPS
-    </button>
-  </div>`;
-  // Strava connect prompt (new users only)
-  if (!stravaTokens?.access_token && totalWorkouts <= 3 && !demoMode) {
-    html += `<div class="card" style="margin-top:10px;overflow:hidden"><div class="card-pad" style="display:flex;align-items:center;gap:12px;padding:12px">
-      <div style="width:40px;height:40px;border-radius:10px;background:rgba(252,82,0,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <svg viewBox="0 0 24 24" fill="#fc5200" style="width:20px;height:20px"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:13px;color:var(--text)">Connect Strava</div>
-        <div style="font-size:11px;color:var(--muted-fg);line-height:1.4">Auto-import Apple Watch workouts with route maps and heart rate</div>
-      </div>
-      <button class="btn btn-primary" id="today-strava-connect" style="padding:6px 12px;font-size:12px;border-radius:8px;white-space:nowrap">Connect</button>
-    </div></div>`;
-  }
-  // AI Training Insight (auto-generated)
-  if (totalWorkouts >= 5) {
-    const insight = generateTrainingInsight();
-    if (insight) {
-      html += `<div class="card" style="margin-top:10px;overflow:hidden"><div class="card-pad" style="padding:12px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <span style="font-size:16px">🧠</span>
-          <span style="font-size:13px;font-weight:700;color:var(--text)">AI Insight</span>
-        </div>
-        <div style="font-size:13px;color:var(--muted-fg);line-height:1.5">${insight}</div>
-      </div></div>`;
-    }
-  }
-  // Season phase indicator
-  html += renderSeasonPhase();
-  // Race countdown
-  const allRaces = getActiveRaces();
-  const todayStr2 = now.toISOString().split('T')[0];
-  const futureRaces = allRaces.filter(r => r.date >= todayStr2).sort((a,b) => a.date.localeCompare(b.date));
-  const nextRace = futureRaces[0];
-  if (nextRace) {
-    const raceDate = new Date(nextRace.date + 'T09:00:00+10:00');
-    const diffDays = Math.max(0, Math.floor((raceDate - now) / 86400000));
-    html += `<div class="today-race-row"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span class="today-race-name">${escHtml(nextRace.name)}</span><span class="today-race-days"><strong>${diffDays}</strong> day${diffDays!==1?'s':''}</span></div>`;
-  }
-  // TODAY'S TRAINING
+  // ── SECTION 2: Today's Training (the main thing) ──
   if (activePlan) {
     const pdData = getPlanDisplayData(activePlan);
     const totalPlanWorkouts = activePlan.workouts.length;
@@ -1688,7 +1594,6 @@ function renderToday() {
       if (userChecklist[k]) completedPlanWorkouts++;
     });
     const progressPct = totalPlanWorkouts > 0 ? Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100) : 0;
-    html += `<div class="section-title" style="margin-top:4px">Today's Training</div>`;
     html += `<div class="plan-progress"><div class="plan-progress-text"><span>${escHtml(pdData.name)}</span><span>${completedPlanWorkouts}/${totalPlanWorkouts} · ${progressPct}%</span></div><div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div></div>`;
     const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
     const todayDay = now.getDay();
@@ -1705,66 +1610,104 @@ function renderToday() {
       });
       html += '</div>';
     } else {
-      html += `<div class="today-rest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px;color:var(--muted-fg)"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><span>Rest day — no training scheduled.</span></div>`;
+      html += `<div class="today-rest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px;color:var(--muted-fg)"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><span>Rest day — enjoy the recovery.</span></div>`;
     }
   } else {
     const recHtml = renderPlanRecommendation();
-    if (recHtml) {
-      html += recHtml;
-    } else {
-      html += `<div class="today-no-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><div><strong>No plan active</strong></div><div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one.</div></div>`;
-    }
+    if (recHtml) { html += recHtml; }
+    else { html += `<div class="today-no-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><div><strong>No plan active</strong></div><div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one.</div></div>`; }
   }
-  // Personal Goals (compact)
+  // ── SECTION 3: Quick actions ──
+  html += `<div style="display:flex;gap:8px;margin-top:10px">
+    <button class="btn" id="today-quick-log" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Log</button>
+    <button class="btn" id="today-quick-record" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>Record GPS</button>
+  </div>`;
+  // ── SECTION 4: Smart contextual cards ──
+  const lastActivity = userWorkouts[0];
+  const lastActivityDate = lastActivity?.date ? (lastActivity.date.toDate ? lastActivity.date.toDate() : new Date(lastActivity.date)) : null;
+  const isToday = lastActivityDate && lastActivityDate.toDateString() === now.toDateString();
+  let storedRoutes = {};
+  try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
+  const lastRouteId = lastActivity?.routeId || (lastActivity?.stravaId ? 'strava-' + lastActivity.stravaId : lastActivity?._id);
+  const lastRoute = lastRouteId ? storedRoutes[lastRouteId] : null;
+  const hasLastRoute = lastRoute && lastRoute.length > 1;
+  if (isToday && lastActivity) {
+    const typeIcons = {ride:'🚴',run:'🏃',walk:'🚶',gym:'🏋️'};
+    html += `<div class="card" style="margin-top:10px;overflow:hidden">`;
+    if (hasLastRoute) html += `<div class="activity-map-thumb" id="today-route-map" data-route-id="${lastRouteId}" style="height:120px;margin:0;border-radius:0"></div>`;
+    html += `<div class="card-pad" style="padding:8px 12px"><div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">${typeIcons[lastActivity.type] || '🏋️'}</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${escHtml(lastActivity.name || 'Workout')}</div>
+      <div style="font-size:11px;color:var(--muted-fg)">${lastActivity.duration ? lastActivity.duration + 'min' : ''}${lastActivity.distance ? ' · ' + lastActivity.distance + 'km' : ''}</div></div>
+      <div style="font-size:10px;font-weight:600;color:var(--primary);background:rgba(191,255,0,.1);padding:2px 8px;border-radius:6px">TODAY</div>
+    </div></div></div>`;
+  }
+  // Race countdown (compact, only next race)
+  const allRaces = getActiveRaces();
+  const todayStr2 = now.toISOString().split('T')[0];
+  const futureRaces = allRaces.filter(r => r.date >= todayStr2).sort((a,b) => a.date.localeCompare(b.date));
+  const nextRace = futureRaces[0];
+  if (nextRace) {
+    const raceDate = new Date(nextRace.date + 'T09:00:00+10:00');
+    const diffDays = Math.max(0, Math.floor((raceDate - now) / 86400000));
+    html += `<div class="today-race-row" style="margin-top:8px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span class="today-race-name">${escHtml(nextRace.name)}</span><span class="today-race-days"><strong>${diffDays}</strong>d</span></div>`;
+  }
+  // Team challenge (only if active)
+  if (activeChallenge) html += renderTeamChallenge();
+  // AI insight (compact single line)
+  if (totalWorkouts >= 5) {
+    const insight = generateTrainingInsight();
+    if (insight) html += `<div style="margin-top:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted-fg);line-height:1.4;display:flex;align-items:start;gap:8px"><span style="font-size:14px;flex-shrink:0">🧠</span><span>${insight}</span></div>`;
+  }
+  // Strava connect (new users only)
+  if (!stravaTokens?.access_token && totalWorkouts <= 3 && !demoMode) {
+    html += `<div style="margin-top:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:10px">
+      <svg viewBox="0 0 24 24" fill="#fc5200" style="width:18px;height:18px;flex-shrink:0"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+      <div style="flex:1"><div style="font-weight:600;font-size:12px">Connect Strava</div><div style="font-size:10px;color:var(--muted-fg)">Auto-import workouts</div></div>
+      <button class="btn btn-primary" id="today-strava-connect" style="padding:5px 10px;font-size:11px;border-radius:6px">Connect</button>
+    </div>`;
+  }
+  // ── SECTION 5: Expandable extras ──
+  const extrasOpen = localStorage.getItem('vf_extras_open') === 'true';
+  html += `<div style="margin-top:14px"><div id="extras-toggle" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none;color:var(--muted-fg);font-size:13px;font-weight:600">Stats & Goals <span style="font-size:14px;transition:transform .2s;transform:rotate(${extrasOpen ? '0' : '-90'}deg)">▾</span></div>
+  <div id="extras-body" style="${extrasOpen ? '' : 'display:none'}">`;
+  // Stats row
+  html += `<div class="today-stats-row" style="margin-bottom:8px"><div class="today-stat"><span class="today-stat-val">${streak}</span><span class="today-stat-lbl">streak</span></div><div class="today-stat-sep"></div><div class="today-stat"><span class="today-stat-val">${workoutsThisWeek}</span><span class="today-stat-lbl">this week</span></div><div class="today-stat-sep"></div><div class="today-stat"><span class="today-stat-val">${totalWorkouts}</span><span class="today-stat-lbl">total</span></div></div>`;
+  html += renderSeasonPhase();
   html += renderGoals();
-  // Achievement Badges
   const earned = getEarnedBadges();
   if (earned.length > 0 || userWorkouts.length > 0) {
-    html += `<div class="section-card" style="margin-top:12px"><div class="section-title">Badges · ${earned.length}/${BADGES.length}</div>`;
+    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">Badges · ${earned.length}/${BADGES.length}</div>`;
     html += renderBadges();
     html += '</div>';
   }
-  // Collapsible "More Stats" section
-  const moreOpen = localStorage.getItem('vf_more_open') === 'true';
-  html += `<div class="section-card" style="margin-top:12px"><div class="section-title" id="more-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">More Stats <span style="font-size:16px;transition:transform .2s;transform:rotate(${moreOpen ? '0' : '-90'}deg)">▾</span></div>`;
-  html += `<div id="more-body" style="${moreOpen ? '' : 'display:none'}">`;
-  // Progress chart
   if (totalWorkouts > 0) {
     const weeks = [];
     for (let i = 7; i >= 0; i--) {
-      const wStart2 = new Date(now);
-      wStart2.setDate(now.getDate() - now.getDay() - (i * 7));
-      wStart2.setHours(0,0,0,0);
-      const wEnd = new Date(wStart2);
-      wEnd.setDate(wEnd.getDate() + 7);
-      const count = userWorkouts.filter(w => {
-        const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-        return d && d >= wStart2 && d < wEnd;
-      }).length;
+      const wStart2 = new Date(now); wStart2.setDate(now.getDate() - now.getDay() - (i * 7)); wStart2.setHours(0,0,0,0);
+      const wEnd = new Date(wStart2); wEnd.setDate(wEnd.getDate() + 7);
+      const count = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d >= wStart2 && d < wEnd; }).length;
       weeks.push({ count, label: wStart2.getDate() + '/' + (wStart2.getMonth()+1), isCurrent: i === 0 });
     }
     const maxCount = Math.max(...weeks.map(w => w.count), 1);
-    html += `<div class="progress-chart"><div class="progress-chart-title">Workouts per week</div><div class="chart-bars">${weeks.map(w => `<div class="chart-bar-col"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.count > 0 ? ' has-data' : ''}${w.isCurrent ? ' current' : ''}" style="height:${Math.max(2, (w.count / maxCount) * 60)}px"></div><div class="chart-bar-label">${w.label}</div></div>`).join('')}</div></div>`;
+    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">Weekly Activity</div>
+    <div class="chart-row">${weeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? 'var(--primary)' : 'var(--muted)'}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
   }
-  // Personal Bests
-  html += renderPersonalBests(now, totalWorkouts, streak);
-  // Calendar
   html += renderWorkoutCalendar(now);
-  // Team feed
   html += renderTeamFeed();
-  html += '</div></div>'; // close more-body + section-card
+  html += '</div></div>';
   c.innerHTML = html;
   // Bind "More Stats" toggle
-  const moreToggle = $('more-toggle');
+  const moreToggle = $('extras-toggle');
   if (moreToggle) {
     moreToggle.addEventListener('click', () => {
-      const body = $('more-body');
+      const body = $('extras-body');
       const chevron = moreToggle.querySelector('span');
       if (!body) return;
       const isOpen = body.style.display !== 'none';
       body.style.display = isOpen ? 'none' : '';
       if (chevron) chevron.style.transform = 'rotate(' + (isOpen ? '-90' : '0') + 'deg)';
-      localStorage.setItem('vf_more_open', isOpen ? 'false' : 'true');
+      localStorage.setItem('vf_extras_open', isOpen ? 'false' : 'true');
     });
   }
   // Bind calendar collapse toggle
@@ -2253,6 +2196,35 @@ ${recent.map(w => {
   window.open(url, '_blank');
 }
 let aiChatHistory = [];
+function showAiHelpMenu() {
+  const messagesEl = $('ai-messages');
+  const aiMsg = document.createElement('div');
+  aiMsg.className = 'ai-msg ai';
+  aiMsg.innerHTML = `What do you need help with?<br><br>
+    <div class="ai-quick-btns" style="margin-top:6px">
+      <button class="ai-quick-btn ai-help-opt" data-help="edit-plan" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.25);color:#3b82f6">✏️ Edit My Plan</button>
+      <button class="ai-quick-btn ai-help-opt" data-help="race-prep" style="background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#ef4444">🏁 Race Prep</button>
+      <button class="ai-quick-btn ai-help-opt" data-help="injury-mod" style="background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.25);color:#f97316">🩹 Injury Mode</button>
+      <button class="ai-quick-btn ai-help-opt" data-help="form-check" style="background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.25);color:#a855f7">🎥 Form Tips</button>
+      <button class="ai-quick-btn ai-help-opt" data-help="pick-plan">🎯 Pick a Plan</button>
+      <button class="ai-quick-btn ai-help-opt" data-help="sore">🦵 I'm Sore</button>
+      <button class="ai-quick-btn ai-help-opt" data-help="warmup">🔥 Race Warm-up</button>
+    </div>`;
+  messagesEl.appendChild(aiMsg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  messagesEl.querySelectorAll('.ai-help-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const h = btn.dataset.help;
+      if (h === 'edit-plan') startAiPlanEdit();
+      else if (h === 'race-prep') startAiRacePrep();
+      else if (h === 'injury-mod') startAiInjuryMod();
+      else if (h === 'form-check') startAiFormCheck();
+      else if (h === 'pick-plan') sendAiMessage('What plan should I pick for my year level?');
+      else if (h === 'sore') sendAiMessage('My legs are really sore, should I train today?');
+      else if (h === 'warmup') sendAiMessage('How should I warm up before a race?');
+    });
+  });
+}
 function openAiCoach(prefill) {
   $('ai-overlay').style.display = 'flex';
   if (prefill) {
@@ -2295,6 +2267,7 @@ document.querySelectorAll('.ai-action-trigger').forEach(btn => {
     else if (action === 'race-prep') startAiRacePrep();
     else if (action === 'injury-mod') startAiInjuryMod();
     else if (action === 'form-check') startAiFormCheck();
+    else if (action === 'help-menu') showAiHelpMenu();
   });
 });
 $('ai-input').addEventListener('keydown', (e) => {
@@ -3059,6 +3032,18 @@ function renderPlans() {
   const years = ['Y7','Y8','Y9','Y10','Y11','Y12'];
   const tiers = ['basic','average','intense'];
   let html = '<div class="page-title">Training Plans</div>';
+  // My AI Plans (inline at top — replaces separate sub-tab)
+  if (customPlans.length > 0) {
+    html += `<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">My AI Plans · ${customPlans.length}</div>`;
+    customPlans.forEach((plan, idx) => {
+      const isActive = plan.id === (userProfile?.activePlanId);
+      html += `<div style="position:relative;margin-bottom:6px">`;
+      html += renderPlanCard(plan, isActive);
+      html += `</div>`;
+    });
+    html += '</div>';
+  }
+  html += `<button class="btn" id="plans-generate-btn" style="width:100%;margin-bottom:12px;padding:10px;font-size:13px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;color:#a855f7;display:flex;align-items:center;justify-content:center;gap:6px">✨ Generate Plan with AI</button>`;
   // Search bar
   html += `<div class="demo-search-wrap" style="margin-bottom:10px">
     <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -3198,6 +3183,11 @@ function bindPlanSearchAndCards(c) {
         if (newInput) { newInput.focus(); newInput.selectionStart = newInput.selectionEnd = newInput.value.length; }
       }, 250);
     });
+  }
+  // Generate plan button (inside Plans tab)
+  const genBtn = $('plans-generate-btn');
+  if (genBtn) {
+    genBtn.addEventListener('click', () => { haptic('light'); openAiCoach(); startPlanGeneration(); });
   }
   // Bind explain plan buttons
   c.querySelectorAll('.plan-explain-btn').forEach(btn => {
