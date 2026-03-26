@@ -351,28 +351,25 @@ export async function syncStravaClubs() {
     // Try to find or create a VeloForge team linked to each Strava club
     for (const club of clubs) {
       const clubId = String(club.id);
-      // Search for existing VeloForge team linked to this Strava club
+      const teamDocId = 'strava-club-' + clubId;
       try {
-        const teamQuery = A.query(A.collection(A.db, 'teams'), A.where('stravaClubId', '==', clubId));
-        const teamSnap = await A.getDocs(teamQuery);
-        if (!teamSnap.empty) {
+        const teamRef = A.doc(A.db, 'teams', teamDocId);
+        const teamSnap = await A.getDoc(teamRef);
+        if (teamSnap.exists()) {
           // Team exists — join it
-          const existingTeam = teamSnap.docs[0];
-          const teamId = existingTeam.id;
-          const teamData = existingTeam.data();
-          const members = teamData.members || [];
-          if (!members.includes(A.currentUser.uid)) {
-            await A.updateDoc(A.doc(A.db, 'teams', teamId), { members: A.arrayUnion(A.currentUser.uid) });
+          const teamData = teamSnap.data();
+          if (!(teamData.members || []).includes(A.currentUser.uid)) {
+            await A.updateDoc(teamRef, { members: A.arrayUnion(A.currentUser.uid) });
           }
-          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamId, teamName: teamData.name });
-          A.userProfile.teamId = teamId;
+          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamDocId, teamName: teamData.name });
+          A.userProfile.teamId = teamDocId;
           A.userProfile.teamName = teamData.name;
           A.showToast('Joined team "' + teamData.name + '" from Strava!', 'success');
           return;
         } else {
-          // No team exists — create one linked to this Strava club
+          // Create team with predictable ID
           const teamCode = generateClubTeamCode();
-          const newTeam = {
+          await A.setDoc(teamRef, {
             name: club.name,
             code: teamCode,
             stravaClubId: clubId,
@@ -380,10 +377,9 @@ export async function syncStravaClubs() {
             createdBy: A.currentUser.uid,
             createdAt: A.serverTimestamp(),
             members: [A.currentUser.uid]
-          };
-          const teamRef = await A.addDoc(A.collection(A.db, 'teams'), newTeam);
-          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamRef.id, teamName: club.name });
-          A.userProfile.teamId = teamRef.id;
+          });
+          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamDocId, teamName: club.name });
+          A.userProfile.teamId = teamDocId;
           A.userProfile.teamName = club.name;
           A.showToast('Team "' + club.name + '" created from Strava club!', 'success');
           return;
@@ -409,7 +405,7 @@ export async function stravaResyncRoutes() {
     // Refresh token if needed
     if (A.stravaTokens.expires_at && Date.now() / 1000 > A.stravaTokens.expires_at) {
       const refreshed = await stravaRefreshToken();
-      if (!refreshed) { A.showToast('Strava session expired. Reconnect.', 'error'); return; }
+      if (!refreshed) { A.showToast('Strava session expired. Go to Profile to reconnect.', 'error'); return; }
     }
     // Fetch up to 100 activities (5 pages of 20)
     let allActivities = [];
