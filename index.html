@@ -237,7 +237,6 @@
             <button class="fitness-sub-tab active" data-fitness-sub="workouts" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;transition:all .15s">Activities</button>
             <button class="fitness-sub-tab" data-fitness-sub="plans" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Plans</button>
             <button class="fitness-sub-tab" data-fitness-sub="demos" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Demos</button>
-            <button class="fitness-sub-tab" data-fitness-sub="myplans" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">My Plans</button>
           </div>
         </div>
         <div id="workouts-content"></div>
@@ -320,18 +319,12 @@
       <div class="ai-header-badge">Powered by Claude</div>
     </div>
     <div class="ai-messages" id="ai-messages">
-      <div class="ai-msg ai">Hey! I'm your VeloForge AI Coach. Ask me anything about training, plans, exercises, recovery, or race prep.</div>
+      <div class="ai-msg ai">Hey! I'm your AI Coach. Ask me anything about training, plans, or race prep.</div>
       <div class="ai-quick-btns" id="ai-quick-btns">
-        <button class="ai-quick-btn" data-q="What plan should I pick for my year level?">Pick a plan</button>
-        <button class="ai-quick-btn" data-q="How should I warm up before a race?">Race warm-up</button>
-        <button class="ai-quick-btn" data-q="My legs are really sore, should I train today?">Sore legs</button>
-        <button class="ai-quick-btn" data-q="Show me how to use all the features in the app — recording, plans, Strava, goals, everything.">📱 App guide</button>
         <button class="ai-quick-btn ai-gen-trigger" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.3);color:#a855f7">✨ Generate Plan</button>
-        <button class="ai-quick-btn ai-action-trigger" data-action="edit-plan" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.25);color:#3b82f6">✏️ Edit My Plan</button>
-        <button class="ai-quick-btn ai-action-trigger" data-action="weekly-review" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#22c55e">📊 Weekly Review</button>
-        <button class="ai-quick-btn ai-action-trigger" data-action="race-prep" style="background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#ef4444">🏁 Race Prep</button>
-        <button class="ai-quick-btn ai-action-trigger" data-action="injury-mod" style="background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.25);color:#f97316">🩹 Injury Mode</button>
-        <button class="ai-quick-btn ai-action-trigger" data-action="form-check" style="background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.25);color:#a855f7">🎥 Form Tips</button>
+        <button class="ai-quick-btn ai-action-trigger" data-action="weekly-review" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#22c55e">📊 Review My Week</button>
+        <button class="ai-quick-btn ai-action-trigger" data-action="help-menu" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.25);color:#3b82f6">💬 Help Me With...</button>
+        <button class="ai-quick-btn" data-q="Show me how to use all the features in the app — recording, plans, Strava, goals, everything.">📱 App Guide</button>
       </div>
     </div>
     <div class="ai-input-bar">
