@@ -3729,6 +3729,21 @@ function renderProfile() {
     </div>
   </div>`;
   html += '</div>';
+  // Admin Demo Mode (only visible to admins)
+  if (isAdmin) {
+    const studentView = localStorage.getItem('vf_student_view') === 'true';
+    html += '<div class="profile-section"><div class="profile-section-title">Admin</div>';
+    html += `<div class="profile-row">
+      <div>
+        <span class="profile-row-label">Student View</span>
+        <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">Hide Admin tab to preview student experience</div>
+      </div>
+      <div class="theme-toggle${studentView ? ' on' : ''}" id="student-view-toggle">
+        <div class="theme-toggle-knob"></div>
+      </div>
+    </div>`;
+    html += '</div>';
+  }
   // Strava
   html += '<div class="profile-section"><div class="profile-section-title">Strava Integration</div>';
   if (isStravaConnected) {
@@ -3786,6 +3801,17 @@ function renderProfile() {
   el.innerHTML = html;
   // Bindings
   $('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+  $('student-view-toggle')?.addEventListener('click', () => {
+    const current = localStorage.getItem('vf_student_view') === 'true';
+    const newVal = !current;
+    localStorage.setItem('vf_student_view', String(newVal));
+    const tab = document.getElementById('admin-tab');
+    if (tab) tab.style.display = newVal ? 'none' : '';
+    // If currently on admin page, switch away
+    if (newVal && currentPage === 'admin') switchPage('today');
+    renderProfile();
+    showToast(newVal ? 'Student view — Admin tab hidden' : 'Admin tab visible', 'info');
+  });
   $('profile-edit-name')?.addEventListener('click', () => {
     showEditModal('Edit Display Name', 'modal-name', name, (val) => {
       updateProfileField('displayName', val);
@@ -4362,7 +4388,8 @@ function checkAdmin(email) {
     currentAdminPerms = [];
   }
   const tab = document.getElementById('admin-tab');
-  if (tab) tab.style.display = isAdmin ? '' : 'none';
+  const studentView = localStorage.getItem('vf_student_view') === 'true';
+  if (tab) tab.style.display = (isAdmin && !studentView) ? '' : 'none';
 }
 async function loadAdminData() {
   if (!isAdmin || !db) return;
