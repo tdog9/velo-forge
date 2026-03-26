@@ -342,9 +342,10 @@ export async function syncStravaClubs() {
     if (!resp.ok) return;
     const clubs = await resp.json();
     if (!clubs || clubs.length === 0) return;
-    // Save clubs to user profile
+    // Save clubs to user profile (always, so they show in Profile)
     const clubSummaries = clubs.map(c => ({ id: c.id, name: c.name, memberCount: c.member_count, sportType: c.sport_type }));
     await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaClubs: clubSummaries });
+    if (A.userProfile) A.userProfile.stravaClubs = clubSummaries;
     // If user already has a team, don't auto-switch
     if (A.userProfile?.teamId) return;
     // Try to find or create a VeloForge team linked to each Strava club
