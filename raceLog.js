@@ -1,445 +1,352 @@
-// VeloForge Strava Integration Module
-import { decodePolyline } from './state.js';
+// CGS VeloForge Race Log Module
+import { escHtml } from './state.js';
 
 let A = {};
-export function initStrava(ctx) { A = ctx; }
+export function initRaceLog(ctx) { A = ctx; }
 
-export function stravaStartAuth() {
-  if (!A.STRAVA_CLIENT_ID) { A.showToast('Strava Client ID not configured.', 'error'); return; }
-  const scope = 'activity:read_all,activity:write';
-  const url = `https://www.strava.com/oauth/authorize?client_id=${A.STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent(A.STRAVA_REDIRECT_URI)}&response_type=code&scope=${scope}&approval_prompt=auto`;
-  window.location.href = url;
-}
-
-export async function stravaHandleCallback() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
-  if (!code) return;
-
-  // Clean URL
-  window.history.replaceState({}, '', window.location.pathname);
-
+export async function loadUserRaceLogs() {
+  if (!A.currentUser || !A.db) { A.userRaceLogs = []; return; }
   try {
-    // Exchange code for tokens via Netlify Function
-    const resp = await fetch('/.netlify/functions/strava-auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
+    const snap = await A.getDocs(A.collection(A.db, 'users', A.currentUser.uid, 'raceLogs'));
+    A.userRaceLogs = [];
+    snap.forEach(d => {
+      A.userRaceLogs.push({ _id: d.id, ...d.data() });
     });
-    if (!resp.ok) throw new Error('Token exchange failed');
-    const data = await resp.json();
-    A.stravaTokens = {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: data.expires_at,
-      athlete: data.athlete || {}
-    };
-    // Save to Firestore
-    if (A.currentUser && A.db && !A.demoMode) {
-      await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: A.stravaTokens, stravaAthleteId: String(data.athlete?.id || '') });
-    }
-    // Fetch activities
-    await stravaFetchActivities();
-    // Sync Strava clubs → VeloForge teams
-    await syncStravaClubs();
-    A.renderProfile();
+    A.userRaceLogs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   } catch(e) {
-    console.error('Strava auth error:', e);
-    A.showToast('Failed to connect Strava.', 'error');
+    console.error('Load race logs error:', e);
+    A.userRaceLogs = [];
   }
 }
 
-export async function stravaRefreshToken() {
-  if (!A.stravaTokens?.refresh_token) return false;
-  try {
-    const resp = await fetch('/.netlify/functions/strava-auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: A.stravaTokens.refresh_token, grant_type: 'refresh_token' })
+export function getFootageForRace(raceId) {
+  // Check admin-managed footage, then default race data
+  if (A.raceFootage[raceId] && A.raceFootage[raceId].length) return A.raceFootage[raceId];
+  const race = A.getActiveRaces().find(r => r.id === raceId);
+  if (race && race.footageUrls && race.footageUrls.length) return race.footageUrls;
+  return [];
+}
+
+export function getStreamForRace(raceId) {
+  const race = A.getActiveRaces().find(r => r.id === raceId);
+  return (race && race.streamUrl) || '';
+}
+
+export function renderFootageLinks(raceId) {
+  const footage = getFootageForRace(raceId);
+  const stream = getStreamForRace(raceId);
+  if (!footage.length && !stream) return '';
+  let h = '<div class="race-footage-section">';
+  if (stream && !footage.some(f => f.url === stream)) {
+    h += `<a href="${stream}" target="_blank" rel="noopener" class="race-footage-link">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
+      <div class="race-footage-label">Race Livestream<small>Watch the full race</small></div>
+    </a>`;
+  }
+  footage.forEach(f => {
+    const icon = f.type === 'results'
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>';
+    h += `<a href="${f.url}" target="_blank" rel="noopener" class="race-footage-link">
+      ${icon}
+      <div class="race-footage-label">${escHtml(f.label)}<small>${f.type === 'results' ? 'View results' : 'Watch footage'}</small></div>
+    </a>`;
+  });
+  h += '</div>';
+  return h;
+}
+
+export function getCompletedRacesNeedingLogs() {
+  const races = A.getActiveRaces();
+  const today = new Date().toISOString().split('T')[0];
+  const loggedTracks = new Set(A.userRaceLogs.map(l => (l.trackName || '').toLowerCase()));
+  return races.filter(r => {
+    if (!r.date || r.date > today) return false;
+    // Check if user already logged this specific race
+    const trackLower = (r.location || r.name || '').toLowerCase();
+    const nameLower = (r.name || '').toLowerCase();
+    return !A.userRaceLogs.some(l => {
+      const lt = (l.trackName || '').toLowerCase();
+      return (lt === trackLower || lt.includes(trackLower.split(',')[0].toLowerCase()) || nameLower.includes(lt)) && l.date === r.date;
     });
-    if (!resp.ok) return false;
-    const data = await resp.json();
-    A.stravaTokens.access_token = data.access_token;
-    A.stravaTokens.refresh_token = data.refresh_token;
-    A.stravaTokens.expires_at = data.expires_at;
-    if (A.currentUser && A.db && !A.demoMode) {
-      await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: A.stravaTokens });
-    }
-    return true;
-  } catch(e) { return false; }
+  });
 }
 
-export async function stravaFetchActivities() {
-  if (!A.stravaTokens?.access_token) return;
+export function renderRaceLog() {
+  const c = A.$('racelog-content');
+  let html = '<div class="page-title" style="margin-top:8px">Race Log</div>';
 
-  // Check if token expired
-  if (A.stravaTokens.expires_at && Date.now() / 1000 > A.stravaTokens.expires_at) {
-    const refreshed = await stravaRefreshToken();
-    if (!refreshed) { stravaDisconnect(); return; }
-  }
+  // Add entry button
+  html += `
+    <button class="btn btn-primary" style="width:100%;margin-bottom:16px" id="racelog-add-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Log New Race
+    </button>
+  `;
 
-  try {
-    const resp = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=20', {
-      headers: { 'Authorization': 'Bearer ' + A.stravaTokens.access_token }
+  // --- Completed races needing logs ---
+  const needsLog = getCompletedRacesNeedingLogs();
+  if (needsLog.length > 0) {
+    html += '<div style="font-size:13px;font-weight:700;color:#BFFF00;margin-bottom:8px">Races to Log</div>';
+    needsLog.forEach(race => {
+      const footage = getFootageForRace(race.id);
+      const stream = getStreamForRace(race.id);
+      html += `
+        <div class="race-prompt-card">
+          <div class="race-prompt-header">
+            <div class="race-prompt-track">${escHtml(race.name)}</div>
+            <span class="race-prompt-badge">Completed</span>
+          </div>
+          <div class="race-prompt-date">${race.date} · ${escHtml(race.location || '')}</div>
+          <div class="race-prompt-desc">${escHtml(race.notes || '')}</div>
+          ${renderFootageLinks(race.id)}
+          <button class="btn btn-primary" style="width:100%;margin-top:10px" data-log-race="${race.id}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;vertical-align:middle;margin-right:6px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Log Your Results
+          </button>
+        </div>
+      `;
     });
-    if (resp.status === 401) {
-      const refreshed = await stravaRefreshToken();
-      if (refreshed) return stravaFetchActivities();
-      stravaDisconnect(); return;
-    }
-    if (!resp.ok) throw new Error('Fetch failed');
-    A.stravaActivities = await resp.json();
-  } catch(e) {
-    console.error('Strava fetch error:', e);
-  }
-}
-
-export function renderStravaActivities() {
-  const list = A.$('strava-activities-list');
-  if (!list) return;
-  if (A.stravaActivities.length === 0) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--muted-fg);padding:8px 0">No recent activities found.</div>';
-    return;
   }
 
-  // Check which activities are already imported
-  const importedIds = new Set();
-  A.userWorkouts.forEach(w => { if (w.stravaId) importedIds.add(w.stravaId); });
-
-  let html = '';
-  A.stravaActivities.slice(0, 10).forEach(a => {
-    const date = new Date(a.start_date_local || a.start_date);
-    const dateStr = date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
-    const dist = a.distance ? (a.distance / 1000).toFixed(1) + ' km' : '';
-    const dur = a.moving_time ? Math.round(a.moving_time / 60) + ' min' : '';
-    const isImported = importedIds.has(String(a.id));
-
-    html += `<div class="strava-activity">
-      <div class="strava-activity-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg></div>
-      <div class="strava-activity-info">
-        <div class="strava-activity-name">${escHtml(a.name || 'Activity')}</div>
-        <div class="strava-activity-meta">${dateStr}${dist ? ' · ' + dist : ''}${dur ? ' · ' + dur : ''}</div>
-      </div>
-      ${isImported
-        ? '<span class="strava-import-btn imported">Imported</span>'
-        : `<button class="strava-import-btn" data-strava-id="${a.id}" data-strava-name="${escHtml(a.name || 'Strava Activity')}" data-strava-dur="${Math.round((a.moving_time || 0) / 60)}" data-strava-dist="${a.distance ? (a.distance / 1000).toFixed(1) : ''}" data-strava-date="${a.start_date_local || a.start_date}" data-strava-type="${a.type || 'Ride'}">Import</button>`
-      }
+  // --- Existing logs ---
+  if (A.userRaceLogs.length === 0 && needsLog.length === 0) {
+    html += `<div class="empty-state" style="padding:32px 16px">
+      <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>
+      <div class="empty-state-title">No Race Data Yet</div>
+      <div class="empty-state-desc">Log your race results to track your progress across different tracks — average lap times, fastest laps, and more.</div>
     </div>`;
-  });
-  list.innerHTML = html;
+  }
 
-  // Bind import buttons
-  list.querySelectorAll('.strava-import-btn:not(.imported)').forEach(btn => {
+  if (A.userRaceLogs.length > 0) {
+    if (needsLog.length > 0) html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin:16px 0 8px">Your Race History</div>';
+    html += '<div class="space-y">';
+    A.userRaceLogs.forEach((entry, i) => {
+      // Find matching race for footage
+      const matchingRace = A.getActiveRaces().find(r => {
+        const lt = (entry.trackName || '').toLowerCase();
+        const rl = (r.location || '').toLowerCase();
+        const rn = (r.name || '').toLowerCase();
+        return (lt === rl || rl.includes(lt.split(',')[0]) || rn.includes(lt) || lt.includes(rl.split(',')[0])) && entry.date === r.date;
+      });
+      const raceId = matchingRace ? matchingRace.id : null;
+
+      html += `
+        <div class="race-log-card">
+          <div class="race-log-header">
+            <div class="race-log-track">${escHtml(entry.trackName || 'Unknown Track')}</div>
+            <div class="race-log-date">${entry.date || ''}</div>
+          </div>
+          <div class="race-log-grid">
+            <div class="race-log-stat">Avg Lap<br><strong>${entry.avgLapTime || '—'}</strong></div>
+            <div class="race-log-stat">Fastest Lap<br><strong>${entry.fastestLap || '—'}</strong></div>
+            <div class="race-log-stat">Total Laps<br><strong>${entry.totalLaps || '—'}</strong></div>
+            <div class="race-log-stat">Total Time<br><strong>${entry.totalTime || '—'}</strong></div>
+            <div class="race-log-stat">Avg HR<br><strong>${entry.avgHR || '—'}</strong></div>
+            <div class="race-log-stat">Max HR<br><strong>${entry.maxHR || '—'}</strong></div>
+          </div>
+          ${entry.notes ? '<div class="race-log-notes">"' + escHtml(entry.notes) + '"</div>' : ''}
+          ${raceId ? renderFootageLinks(raceId) : ''}
+          <div class="race-log-actions">
+            <button class="admin-edit-btn" data-racelog-edit="${i}">Edit</button>
+            <button class="admin-del-btn" data-racelog-del="${i}">Delete</button>
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
+  }
+
+  // --- Admin-curated Race Videos ---
+  if (A.raceLogVideos.length > 0) {
+    html += '<div class="race-video-section">';
+    html += '<div class="race-video-heading"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg> Race Videos</div>';
+    A.raceLogVideos.forEach(v => {
+      const matchedRace = v.raceId ? A.getActiveRaces().find(r => r.id === v.raceId) : null;
+      const meta = matchedRace ? escHtml(matchedRace.name) : 'General';
+      html += `
+        <a href="${v.url}" target="_blank" rel="noopener" class="race-video-card">
+          <div class="race-video-thumb">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
+          </div>
+          <div class="race-video-info">
+            <div class="race-video-title">${escHtml(v.title)}</div>
+            <div class="race-video-meta">${meta}</div>
+          </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--text-muted);flex-shrink:0"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      `;
+    });
+    html += '</div>';
+  }
+
+  
+  c.innerHTML = html;
+
+  // Bind add
+  A.$('racelog-add-btn').addEventListener('click', () => openRaceLogForm());
+
+  // Bind "Log Your Results" for completed race prompts
+  c.querySelectorAll('[data-log-race]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const raceId = btn.dataset.logRace;
+      const race = A.getActiveRaces().find(r => r.id === raceId);
+      if (race) {
+        openRaceLogForm({ trackName: race.location || race.name, date: race.date });
+      }
+    });
+  });
+
+  // Bind edits
+  c.querySelectorAll('[data-racelog-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.racelogEdit);
+      openRaceLogForm(A.userRaceLogs[idx], idx);
+    });
+  });
+
+  // Bind deletes
+  c.querySelectorAll('[data-racelog-del]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const stravaId = btn.dataset.stravaId;
-      const name = btn.dataset.stravaName;
-      const duration = parseInt(btn.dataset.stravaDur) || 0;
-      const distance = parseFloat(btn.dataset.stravaDist) || null;
-      const dateStr = btn.dataset.stravaDate;
-      const type = btn.dataset.stravaType === 'Ride' ? 'Ride' : btn.dataset.stravaType === 'Run' ? 'Cardio' : 'Ride';
-      const dateObj = dateStr ? new Date(dateStr) : new Date();
-      const routeId = 'strava-' + stravaId;
-
-      // Decode polyline from cached activity data
-      const stravaActivity = A.stravaActivities.find(a => String(a.id) === String(stravaId));
-      if (stravaActivity?.map?.summary_polyline) {
+      if (!confirm('Delete this race log entry?')) return;
+      const idx = parseInt(btn.dataset.racelogDel);
+      const entry = A.userRaceLogs[idx];
+      if (entry._id && A.db && A.currentUser) {
         try {
-          const path = decodePolyline(stravaActivity.map.summary_polyline);
-          if (path.length > 1) {
-            const routes = JSON.parse(localStorage.getItem('vf_routes') || '{}');
-            routes[routeId] = path.map(p => [parseFloat(p[0].toFixed(5)), parseFloat(p[1].toFixed(5))]);
-            const keys = Object.keys(routes);
-            if (keys.length > 80) delete routes[keys[0]];
-            localStorage.setItem('vf_routes', JSON.stringify(routes));
-          }
-        } catch(e) {}
+          await A.deleteDoc(A.doc(A.db, 'users', A.currentUser.uid, 'raceLogs', entry._id));
+        } catch(e) { console.error('Delete race log error:', e); }
       }
-
-      btn.textContent = 'Importing...';
-      btn.disabled = true;
-
-      const workoutData = {
-        name, type, duration, distance,
-        heartRate: stravaActivity?.average_heartrate ? Math.round(stravaActivity.average_heartrate) : null,
-        avgSpeed: stravaActivity?.average_speed ? parseFloat((stravaActivity.average_speed * 3.6).toFixed(1)) : null,
-        notes: 'Imported from Strava',
-        rpe: null,
-        stravaId: String(stravaId),
-        routeId: routeId,
-        source: 'strava'
-      };
-
-      if (A.demoMode) {
-        A.userWorkouts.unshift({ ...workoutData, _id: 'd' + Date.now(), date: dateObj, createdAt: new Date() });
-      } else if (A.db && A.currentUser) {
-        try {
-          await A.addDoc(A.collection(A.db, 'users', A.currentUser.uid, 'workouts'), {
-            ...workoutData,
-            date: A.Timestamp.fromDate(dateObj),
-            createdAt: A.serverTimestamp()
-          });
-        } catch(e) { console.error('Strava import error:', e); }
-      }
-
-      btn.textContent = 'Imported ✓';
-      btn.classList.add('imported');
-      btn.disabled = true;
+      A.userRaceLogs.splice(idx, 1);
+      renderRaceLog();
     });
   });
 }
 
-export async function stravaDisconnect() {
-  A.stravaTokens = null;
-  A.stravaActivities = [];
-  if (A.currentUser && A.db && !A.demoMode) {
-    try { await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: null }); } catch(e) {}
-  }
-  A.renderProfile();
-}
+export function openRaceLogForm(existing, editIdx) {
+  const c = A.$('racelog-content');
+  const isEdit = existing !== undefined;
+  const e = existing || {};
 
-// Load Strava tokens from user profile on login
-export function loadStravaTokens() {
-  if (A.userProfile?.stravaTokens) {
-    A.stravaTokens = A.userProfile.stravaTokens;
-  }
-}
+  // Build track options from RACES
+  const races = A.getActiveRaces();
+  let trackOptions = '<option value="">Select a track...</option>';
+  const trackNames = [...new Set(races.map(r => r.location || r.name))];
+  trackNames.forEach(t => {
+    trackOptions += `<option value="${escHtml(t)}"${e.trackName === t ? ' selected' : ''}>${escHtml(t)}</option>`;
+  });
+  trackOptions += '<option value="__custom">Other (type below)</option>';
 
-// Upload a VeloForge activity to Strava
-export async function stravaUploadActivity(workout) {
-  if (!A.stravaTokens?.access_token) return false;
-  // Refresh token if needed
-  if (A.stravaTokens.expires_at && Date.now() / 1000 > A.stravaTokens.expires_at) {
-    const refreshed = await stravaRefreshToken();
-    if (!refreshed) return false;
+  let html = '<div class="page-title">' + (isEdit ? 'Edit Race Log' : 'Log New Race') + '</div>';
+  html += `
+    <div class="card">
+      <div class="admin-form">
+        <div class="label">Track / Location</div>
+        <select class="input" id="rl-track-select">${trackOptions}</select>
+        <input class="input" type="text" id="rl-track-custom" placeholder="Custom track name" value="${escHtml(e.trackName || '')}" style="${trackNames.includes(e.trackName) ? 'display:none' : ''}">
+
+        <div class="label">Date</div>
+        <input class="input" type="date" id="rl-date" value="${e.date || new Date().toISOString().split('T')[0]}">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <div class="label">Avg Lap Time</div>
+            <input class="input" type="text" id="rl-avg-lap" placeholder="e.g. 2:34" value="${escHtml(e.avgLapTime || '')}">
+          </div>
+          <div>
+            <div class="label">Fastest Lap</div>
+            <input class="input" type="text" id="rl-fastest" placeholder="e.g. 2:18" value="${escHtml(e.fastestLap || '')}">
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <div class="label">Total Laps</div>
+            <input class="input" type="number" id="rl-laps" placeholder="e.g. 42" value="${e.totalLaps || ''}">
+          </div>
+          <div>
+            <div class="label">Total Time</div>
+            <input class="input" type="text" id="rl-totaltime" placeholder="e.g. 3h 24m" value="${escHtml(e.totalTime || '')}">
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <div class="label">Avg Heart Rate</div>
+            <input class="input" type="number" id="rl-avghr" placeholder="e.g. 155" value="${e.avgHR || ''}">
+          </div>
+          <div>
+            <div class="label">Max Heart Rate</div>
+            <input class="input" type="number" id="rl-maxhr" placeholder="e.g. 182" value="${e.maxHR || ''}">
+          </div>
+        </div>
+
+        <div class="label">Notes</div>
+        <textarea class="input" id="rl-notes" placeholder="How did it feel? Weather, strategy, etc.">${escHtml(e.notes || '')}</textarea>
+
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" id="rl-save-btn" style="flex:1">${isEdit ? 'Update' : 'Save Entry'}</button>
+          <button class="btn btn-secondary" id="rl-cancel-btn" style="flex:1">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  c.innerHTML = html;
+
+  // Track select logic
+  const trackSel = A.$('rl-track-select');
+  const trackCustom = A.$('rl-track-custom');
+  if (e.trackName && !trackNames.includes(e.trackName)) {
+    trackSel.value = '__custom';
+    trackCustom.style.display = '';
   }
-  try {
-    const typeMap = { ride: 'Ride', run: 'Run', walk: 'Walk', gym: 'Workout' };
-    const stravaType = typeMap[workout.type] || 'Workout';
-    const startDate = workout.date ? (workout.date.toDate ? workout.date.toDate() : new Date(workout.date)) : new Date();
-    const body = {
-      name: workout.name || 'VeloForge Activity',
-      type: stravaType,
-      sport_type: stravaType,
-      start_date_local: startDate.toISOString(),
-      elapsed_time: (workout.duration || 0) * 60,
-      description: 'Recorded with VeloForge',
-      distance: workout.distance ? workout.distance * 1000 : undefined,
-      trainer: workout.type === 'gym' ? 1 : 0
+  trackSel.addEventListener('change', () => {
+    if (trackSel.value === '__custom') {
+      trackCustom.style.display = '';
+      trackCustom.value = '';
+      trackCustom.focus();
+    } else {
+      trackCustom.style.display = 'none';
+      trackCustom.value = trackSel.value;
+    }
+  });
+
+  // Cancel
+  A.$('rl-cancel-btn').addEventListener('click', () => renderRaceLog());
+
+  // Save
+  A.$('rl-save-btn').addEventListener('click', async () => {
+    let trackName = trackSel.value === '__custom' ? trackCustom.value.trim() : (trackSel.value || trackCustom.value.trim());
+    if (!trackName) { A.showToast('Please select a track name.', 'warn'); return; }
+
+    const entry = {
+      trackName,
+      date: A.$('rl-date').value,
+      avgLapTime: A.$('rl-avg-lap').value.trim(),
+      fastestLap: A.$('rl-fastest').value.trim(),
+      totalLaps: A.$('rl-laps').value ? parseInt(A.$('rl-laps').value) : null,
+      totalTime: A.$('rl-totaltime').value.trim(),
+      avgHR: A.$('rl-avghr').value ? parseInt(A.$('rl-avghr').value) : null,
+      maxHR: A.$('rl-maxhr').value ? parseInt(A.$('rl-maxhr').value) : null,
+      notes: A.$('rl-notes').value.trim(),
+      updatedAt: new Date().toISOString()
     };
-    // Remove undefined fields
-    Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
-    const resp = await fetch('https://www.strava.com/api/v3/activities', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + A.stravaTokens.access_token,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      return data.id; // Return Strava activity ID
-    }
-    console.error('Strava upload failed:', resp.status);
-    return false;
-  } catch(e) {
-    console.error('Strava upload error:', e);
-    return false;
-  }
-}
 
-// Auto-sync Strava activities on login
-export async function stravaAutoSync() {
-  if (!A.stravaTokens?.access_token) return;
-  try {
-    await stravaFetchActivities();
-    if (A.stravaActivities.length === 0) return;
-    // Build sets for duplicate detection
-    const importedIds = new Set();
-    const existingWorkouts = [];
-    A.userWorkouts.forEach(w => {
-      if (w.stravaId) importedIds.add(String(w.stravaId));
-      // Also track date+duration for fuzzy matching
-      const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-      if (d) existingWorkouts.push({ date: d.getTime(), duration: w.duration || 0, name: (w.name || '').toLowerCase() });
-    });
-    let imported = 0;
-    for (const a of A.stravaActivities) {
-      // Skip if stravaId already exists
-      if (importedIds.has(String(a.id))) continue;
-      const name = a.name || 'Strava Activity';
-      const duration = a.moving_time ? Math.round(a.moving_time / 60) : 0;
-      const distance = a.distance ? parseFloat((a.distance / 1000).toFixed(2)) : null;
-      const avgSpeed = a.average_speed ? parseFloat((a.average_speed * 3.6).toFixed(1)) : null;
-      const dateObj = a.start_date_local ? new Date(a.start_date_local) : new Date();
-      // Fuzzy duplicate check: same day + similar duration (within 5 min)
-      const isDuplicate = existingWorkouts.some(w => {
-        const dayMatch = Math.abs(w.date - dateObj.getTime()) < 86400000; // same day
-        const durMatch = Math.abs(w.duration - duration) <= 5; // within 5 min
-        return dayMatch && durMatch;
-      });
-      if (isDuplicate) continue;
-      const typeMap = { Ride: 'ride', Run: 'run', Walk: 'walk', Hike: 'walk', WeightTraining: 'gym', Workout: 'gym' };
-      const type = typeMap[a.type] || 'ride';
-      const routeId = 'strava-' + a.id;
-      // Decode and store polyline route
-      if (a.map && a.map.summary_polyline) {
-        try {
-          const path = decodePolyline(a.map.summary_polyline);
-          if (path.length > 1) {
-            const routes = JSON.parse(localStorage.getItem('vf_routes') || '{}');
-            routes[routeId] = path.map(p => [parseFloat(p[0].toFixed(5)), parseFloat(p[1].toFixed(5))]);
-            const keys = Object.keys(routes);
-            if (keys.length > 80) delete routes[keys[0]];
-            localStorage.setItem('vf_routes', JSON.stringify(routes));
-          }
-        } catch(e) {}
-      }
-      const workout = {
-        name, type, duration, distance, avgSpeed,
-        notes: 'Synced from Strava',
-        stravaId: String(a.id),
-        routeId: routeId,
-        source: 'strava',
-        heartRate: a.average_heartrate ? Math.round(a.average_heartrate) : null,
-        rpe: null
-      };
-      if (!A.demoMode && A.db && A.currentUser) {
-        try {
-          await A.addDoc(A.collection(A.db, 'users', A.currentUser.uid, 'workouts'), {
-            ...workout,
-            date: A.Timestamp.fromDate(dateObj),
-            createdAt: A.serverTimestamp()
-          });
-          imported++;
-        } catch(e) { console.error('Strava auto-import error:', e); }
-      } else if (A.demoMode) {
-        A.userWorkouts.unshift({ ...workout, _id: 'd' + Date.now() + imported, date: dateObj });
-        imported++;
-      }
-    }
-    if (imported > 0) {
-      A.showToast(imported + ' activit' + (imported > 1 ? 'ies' : 'y') + ' synced from Strava!', 'success');
-    }
-    // Also sync Strava clubs → teams (runs quietly in background)
-    syncStravaClubs();
-  } catch(e) { console.error('Strava auto-sync error:', e); }
-}
-
-// Sync Strava Clubs → auto-create/join VeloForge teams
-export async function syncStravaClubs() {
-  if (!A.stravaTokens?.access_token || A.demoMode || !A.db || !A.currentUser) return;
-  try {
-    // Refresh token if needed
-    if (A.stravaTokens.expires_at && Date.now() / 1000 > A.stravaTokens.expires_at) {
-      const refreshed = await stravaRefreshToken();
-      if (!refreshed) return;
-    }
-    // Fetch athlete's clubs
-    const resp = await fetch('https://www.strava.com/api/v3/athlete/clubs?per_page=10', {
-      headers: { 'Authorization': 'Bearer ' + A.stravaTokens.access_token }
-    });
-    if (!resp.ok) return;
-    const clubs = await resp.json();
-    if (!clubs || clubs.length === 0) return;
-    // Save clubs to user profile (always, so they show in Profile)
-    const clubSummaries = clubs.map(c => ({ id: c.id, name: c.name, memberCount: c.member_count, sportType: c.sport_type }));
-    await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaClubs: clubSummaries });
-    if (A.userProfile) A.userProfile.stravaClubs = clubSummaries;
-    // If user already has a team, don't auto-switch
-    if (A.userProfile?.teamId) return;
-    // Try to find or create a VeloForge team linked to each Strava club
-    for (const club of clubs) {
-      const clubId = String(club.id);
-      const teamDocId = 'strava-club-' + clubId;
+    if (A.db && A.currentUser) {
       try {
-        const teamRef = A.doc(A.db, 'teams', teamDocId);
-        const teamSnap = await A.getDoc(teamRef);
-        if (teamSnap.exists()) {
-          // Team exists — join it
-          const teamData = teamSnap.data();
-          if (!(teamData.members || []).includes(A.currentUser.uid)) {
-            await A.updateDoc(teamRef, { members: A.arrayUnion(A.currentUser.uid) });
-          }
-          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamDocId, teamName: teamData.name });
-          A.userProfile.teamId = teamDocId;
-          A.userProfile.teamName = teamData.name;
-          A.showToast('Joined team "' + teamData.name + '" from Strava!', 'success');
-          return;
+        if (isEdit && existing._id) {
+          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid, 'raceLogs', existing._id), entry);
+          A.userRaceLogs[editIdx] = { _id: existing._id, ...entry };
         } else {
-          // Create team with predictable ID
-          const teamCode = generateClubTeamCode();
-          await A.setDoc(teamRef, {
-            name: club.name,
-            code: teamCode,
-            stravaClubId: clubId,
-            stravaClubName: club.name,
-            createdBy: A.currentUser.uid,
-            createdAt: A.serverTimestamp(),
-            members: [A.currentUser.uid]
-          });
-          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamDocId, teamName: club.name });
-          A.userProfile.teamId = teamDocId;
-          A.userProfile.teamName = club.name;
-          A.showToast('Team "' + club.name + '" created from Strava club!', 'success');
-          return;
+          entry.createdAt = new Date().toISOString();
+          const ref = await A.addDoc(A.collection(A.db, 'users', A.currentUser.uid, 'raceLogs'), entry);
+          A.userRaceLogs.unshift({ _id: ref.id, ...entry });
         }
-      } catch(e) { console.error('Strava club sync error:', e); }
-    }
-  } catch(e) { console.error('Strava clubs fetch error:', e); }
-}
-function generateClubTeamCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-  return code;
-}
-// Re-sync route maps for all existing Strava activities
-export async function stravaResyncRoutes() {
-  if (!A.stravaTokens?.access_token) {
-    A.showToast('Strava not connected.', 'warn');
-    return;
-  }
-  A.showToast('Re-syncing routes...', 'info');
-  try {
-    // Refresh token if needed
-    if (A.stravaTokens.expires_at && Date.now() / 1000 > A.stravaTokens.expires_at) {
-      const refreshed = await stravaRefreshToken();
-      if (!refreshed) { A.showToast('Strava session expired. Go to Profile to reconnect.', 'error'); return; }
-    }
-    // Fetch up to 100 activities (5 pages of 20)
-    let allActivities = [];
-    for (let page = 1; page <= 5; page++) {
-      const resp = await fetch(`https://www.strava.com/api/v3/athlete/activities?per_page=20&page=${page}`, {
-        headers: { 'Authorization': 'Bearer ' + A.stravaTokens.access_token }
-      });
-      if (!resp.ok) break;
-      const batch = await resp.json();
-      if (batch.length === 0) break;
-      allActivities = allActivities.concat(batch);
-    }
-    // Decode and store all polylines
-    let routes = {};
-    try { routes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
-    let count = 0;
-    allActivities.forEach(a => {
-      if (a.map && a.map.summary_polyline) {
-        try {
-          const path = decodePolyline(a.map.summary_polyline);
-          if (path.length > 1) {
-            routes['strava-' + a.id] = path.map(p => [parseFloat(p[0].toFixed(5)), parseFloat(p[1].toFixed(5))]);
-            count++;
-          }
-        } catch(e) {}
+      } catch(e) {
+        console.error('Save race log error:', e);
+        A.showToast('Failed to save.', 'error');
+        return;
       }
-    });
-    // Cap at 100 routes
-    const keys = Object.keys(routes);
-    while (keys.length > 100) { delete routes[keys.shift()]; }
-    localStorage.setItem('vf_routes', JSON.stringify(routes));
-    A.showToast(count + ' route' + (count !== 1 ? 's' : '') + ' synced!', 'success');
-  } catch(e) {
-    console.error('Route resync error:', e);
-    A.showToast('Failed to re-sync routes.', 'error');
-  }
+    }
+    renderRaceLog();
+  });
 }
