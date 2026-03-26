@@ -1,5 +1,5 @@
 // VeloForge Strava Integration Module
-import { decodePolyline } from './state.js';
+import { decodePolyline, escHtml } from './state.js';
 
 let A = {};
 export function initStrava(ctx) { A = ctx; }
