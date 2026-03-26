@@ -6175,12 +6175,12 @@ export const ALL_PLANS = [
             "notes": "Absolute maximum. Leave nothing in the tank. This is what winning looks like."
           },
           {
-            "name": "Cool-Down and Recovery",
+            "name": "Cool-Down and Recovery program",
             "sets": 1,
             "reps": null,
             "duration": "8 min",
             "resistance": "Light",
-            "notes": "Easy spin. Well done. That session earns you the right to compete."
+            "notes": "If you can see this good work, keep training. Easy spin. Well done. That session earns you the right to compete."
           }
         ],
         "videoUrl": "https://www.youtube.com/watch?v=ly8lJoFYfKY"
