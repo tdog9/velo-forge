@@ -728,6 +728,8 @@ function showToast(message, type = 'info') {
 }
 // Error log — keeps last 20 errors for diagnostics
 const errorLog = [];
+// Local escHtml for error system (avoids dependency on state.js import timing)
+const _esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 function logError(area, error, context) {
   const entry = {
     area, message: error?.message || String(error), code: error?.code || null,
@@ -848,13 +850,13 @@ function openErrorDiagnostics(entry, showLog) {
     }
     // Full technical info (open by default for admins)
     html += `<div style="font-size:11px;color:var(--muted-fg);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;font-family:var(--font-mono);line-height:1.6;word-break:break-all">
-      <div><strong>Area:</strong> ${escHtml(entry.area)}</div>
-      <div><strong>Error:</strong> ${escHtml(entry.message)}</div>
-      ${entry.code ? '<div><strong>Code:</strong> <span style="color:#ef4444">' + escHtml(entry.code) + '</span></div>' : ''}
+      <div><strong>Area:</strong> ${_esc(entry.area)}</div>
+      <div><strong>Error:</strong> ${_esc(entry.message)}</div>
+      ${entry.code ? '<div><strong>Code:</strong> <span style="color:#ef4444">' + _esc(entry.code) + '</span></div>' : ''}
       <div><strong>Time:</strong> ${entry.time}</div>
-      <div><strong>User:</strong> ${escHtml(entry.user)} · <strong>Online:</strong> ${entry.online ? '✓' : '✗'} · <strong>Platform:</strong> ${entry.platform}</div>
-      ${entry.context && Object.keys(entry.context).length > 0 ? '<div><strong>Context:</strong> ' + escHtml(JSON.stringify(entry.context)) + '</div>' : ''}
-      ${entry.stack ? '<div style="margin-top:4px;white-space:pre-wrap;font-size:10px;opacity:.7;border-top:1px solid var(--border);padding-top:4px">' + escHtml(entry.stack) + '</div>' : ''}
+      <div><strong>User:</strong> ${_esc(entry.user)} · <strong>Online:</strong> ${entry.online ? '✓' : '✗'} · <strong>Platform:</strong> ${entry.platform}</div>
+      ${entry.context && Object.keys(entry.context).length > 0 ? '<div><strong>Context:</strong> ' + _esc(JSON.stringify(entry.context)) + '</div>' : ''}
+      ${entry.stack ? '<div style="margin-top:4px;white-space:pre-wrap;font-size:10px;opacity:.7;border-top:1px solid var(--border);padding-top:4px">' + _esc(entry.stack) + '</div>' : ''}
     </div>`;
     // Firestore doc path hint
     const docHints = {
@@ -876,7 +878,7 @@ function openErrorDiagnostics(entry, showLog) {
       errorLog.slice(0, 10).forEach((e, i) => {
         const isCurrent = e === entry;
         html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);background:${isCurrent ? 'rgba(239,68,68,.1)' : 'transparent'};color:${isCurrent ? '#ef4444' : 'var(--muted-fg)'}">
-          ${e.time.split('T')[1]?.split('.')[0] || ''} · ${escHtml(e.area)} · ${escHtml((e.message || '').substring(0, 60))}${e.message?.length > 60 ? '...' : ''}
+          ${e.time.split('T')[1]?.split('.')[0] || ''} · ${_esc(e.area)} · ${_esc((e.message || '').substring(0, 60))}${e.message?.length > 60 ? '...' : ''}
         </div>`;
       });
       html += '</div>';
@@ -887,9 +889,9 @@ function openErrorDiagnostics(entry, showLog) {
     html += `<details style="margin-top:8px">
       <summary style="font-size:12px;color:var(--muted-fg);cursor:pointer;padding:6px 0;user-select:none">Technical Details</summary>
       <div style="font-size:11px;color:var(--muted-fg);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:4px;font-family:var(--font-mono);line-height:1.5;word-break:break-all">
-        <div><strong>Area:</strong> ${escHtml(entry.area)}</div>
-        <div><strong>Error:</strong> ${escHtml(entry.message)}</div>
-        ${entry.code ? '<div><strong>Code:</strong> ' + escHtml(entry.code) + '</div>' : ''}
+        <div><strong>Area:</strong> ${_esc(entry.area)}</div>
+        <div><strong>Error:</strong> ${_esc(entry.message)}</div>
+        ${entry.code ? '<div><strong>Code:</strong> ' + _esc(entry.code) + '</div>' : ''}
         <div><strong>Time:</strong> ${entry.time}</div>
       </div>
     </details>`;
@@ -933,7 +935,7 @@ Context: ${JSON.stringify(entry.context || {})}`;
       const data = await resp.json();
       resultEl.innerHTML = `<div style="padding:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:13px;color:var(--text);line-height:1.5">
         <div style="font-size:12px;font-weight:600;color:#a855f7;margin-bottom:4px">AI Diagnosis${isAdmin ? ' (Admin)' : ''}</div>
-        ${escHtml(data.reply || 'Could not diagnose. Try the suggestions above.')}
+        ${_esc(data.reply || 'Could not diagnose. Try the suggestions above.')}
       </div>`;
     } catch(e) {
       resultEl.innerHTML = '<div style="font-size:12px;color:var(--muted-fg);padding:8px">AI diagnosis unavailable — try the suggestions above.</div>';
@@ -946,8 +948,8 @@ function getAdminFix(area, code, message) {
   const msg = (message || '').toLowerCase();
   const fixes = [];
   if (msg.includes('permission') || msg.includes('denied') || code === 'permission-denied') {
-    fixes.push({ title: 'Check Firestore Security Rules', fix: 'Go to Firebase Console → Firestore → Rules. Ensure the rules allow read/write for authenticated users on the relevant collection. Common issue: teams collection needs read access for member queries.' });
-    fixes.push({ title: 'Check User Auth State', fix: 'The user\'s auth token may have expired. This can happen after long idle sessions. A page refresh forces re-authentication.' });
+    fixes.push({ title: 'Deploy Updated Firestore Rules', fix: 'The firestore.rules file has been updated but needs to be deployed. Go to Firebase Console → Firestore Database → Rules tab. Paste the contents of your firestore.rules file and click "Publish". The key change: teams need "allow update: if request.auth != null" so new members can join.' });
+    fixes.push({ title: 'Check User Auth State', fix: 'The user\'s auth token may have expired. A page refresh forces re-authentication.' });
   }
   if (area === 'strava') {
     fixes.push({ title: 'Check Strava API Credentials', fix: 'Netlify → Site Settings → Environment Variables → verify STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET are set and match your Strava API app at strava.com/settings/api.' });
@@ -4090,12 +4092,21 @@ function renderProfile() {
     const current = localStorage.getItem('vf_student_view') === 'true';
     const newVal = !current;
     localStorage.setItem('vf_student_view', String(newVal));
-    const tab = document.getElementById('admin-tab');
-    if (tab) tab.style.display = newVal ? 'none' : '';
-    // If currently on admin page, switch away
-    if (newVal && currentPage === 'admin') switchPage('today');
-    renderProfile();
-    showToast(newVal ? 'Student view — Admin tab hidden' : 'Admin tab visible', 'info');
+    // Update admin tab visibility
+    const adminTab = document.getElementById('admin-tab');
+    if (adminTab) adminTab.style.display = newVal ? 'none' : '';
+    // Update toggle visual directly (no re-render)
+    const toggle = $('student-view-toggle');
+    if (toggle) {
+      if (newVal) toggle.classList.add('on');
+      else toggle.classList.remove('on');
+    }
+    // If switching to student view while on admin page, go to today
+    if (newVal && currentPage === 'admin') {
+      closeProfile();
+      setTimeout(() => switchPage('today'), 100);
+    }
+    showToast(newVal ? 'Student view — Admin tab hidden' : 'Admin view restored', 'info');
   });
   $('profile-edit-name')?.addEventListener('click', () => {
     showEditModal('Edit Display Name', 'modal-name', name, (val) => {
@@ -4334,7 +4345,11 @@ async function joinTeam() {
   } catch(e) {
     hideLoading();
     console.error('Join team error:', e);
-    showError('Failed to join team', 'team', e, { action: 'join' });
+    if (e.code === 'permission-denied' || (e.message || '').includes('permission')) {
+      showError('Team join blocked by database rules', 'team', e, { action: 'join', hint: 'Firestore rules need to be deployed. Go to Firebase Console → Firestore → Rules and paste the updated firestore.rules file, then click Publish.' });
+    } else {
+      showError('Failed to join team', 'team', e, { action: 'join' });
+    }
   }
 }
 async function leaveTeam() {
@@ -4595,6 +4610,13 @@ function buildModuleCtx() {
   };
 }
 function startApp() {
+  // Force-reset stuck student view via URL param: add ?reset_admin=true to URL
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('reset_admin')) {
+    localStorage.removeItem('vf_student_view');
+    window.history.replaceState({}, '', window.location.pathname);
+    console.log('[VeloForge] Student view reset via URL param');
+  }
   if (!initFirebase()) return;
   onAuthStateChanged(auth, async (user) => {
     if (user) {
