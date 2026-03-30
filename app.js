@@ -1,7 +1,7 @@
 // CGS VeloForge HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
-// Dynamic imports for extracted modules (won't crash login if files are missing/cached)
+// Dynamic imports — load ALL modules in PARALLEL (not sequential)
 let renderAdmin = () => {}, renderCoachDashboard = async () => {}, loadAdminEmails = async () => {},
     loadExerciseOverrides = async () => {}, savePlanOverrides = async () => {},
     loadPlanOverrides = async () => {}, loadExerciseDemoVideos = async () => {},
@@ -28,62 +28,61 @@ let startAiPlanEdit = () => {}, sendAiPlanEdit = async () => {},
     startAiFormCheck = () => {}, generateCoachSummary = () => null,
     generateTrainingInsight = () => null, renderSeasonPhase = () => '',
     initAiFeatures = () => {};
-try {
-  const adminMod = await import('./admin.js');
-  ({ initAdmin, renderAdmin, renderCoachDashboard, loadAdminEmails, loadExerciseOverrides,
-     savePlanOverrides, loadPlanOverrides, loadExerciseDemoVideos, saveExerciseDemoVideos,
-     loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides,
-     loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } = adminMod);
-} catch(e) { console.warn('admin.js load failed:', e); }
-try {
-  const stravaMod = await import('./strava.js');
-  ({ initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities,
-     renderStravaActivities, stravaDisconnect, loadStravaTokens,
-     stravaUploadActivity, stravaAutoSync, stravaResyncRoutes } = stravaMod);
-} catch(e) { console.warn('strava.js load failed:', e); }
-try {
-  const racelogMod = await import('./racelog.js');
-  ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
-     getFootageForRace, getStreamForRace, renderFootageLinks,
-     getCompletedRacesNeedingLogs } = racelogMod);
-} catch(e) { console.warn('racelog.js load failed:', e); }
-try {
-  const timerMod = await import('./timer.js');
-  ({ initTimer, openWorkoutTimer, closeWorkoutTimer } = timerMod);
-} catch(e) { console.warn('timer.js load failed:', e); }
-try {
-  const aifMod = await import('./aifeatures.js');
-  ({ initAiFeatures, startAiPlanEdit, sendAiPlanEdit, startAiWeeklyReview,
-     startAiRacePrep, generateRacePrepPlan, startAiInjuryMod,
-     sendInjuryModification, openInlineWorkoutEdit,
-     startAiFormCheck, generateCoachSummary,
-     generateTrainingInsight, renderSeasonPhase } = aifMod);
-} catch(e) { console.warn('aifeatures.js load failed:', e); }
-// Load plans data (dynamic import with fallback)
 let ALL_PLANS = [];
-try {
-  const plansMod = await import('./plans.js');
-  ALL_PLANS = plansMod.ALL_PLANS || [];
-} catch(e) {
-  console.error('Failed to load plans.js:', e);
-  ALL_PLANS = [];
-}
-// Firebase SDK Imports (dynamic, with fallback)
 let initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword,
     createUserWithEmailAndPassword, signOut, updateProfile,
     getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy,
     onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs,
     arrayUnion, arrayRemove;
 let firebaseImportFailed = false;
-try {
-  const appMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-  initializeApp = appMod.initializeApp;
-  const authMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
-  ({ getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } = authMod);
-  const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-  ({ getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs, arrayUnion, arrayRemove } = fsMod);
-} catch(importErr) {
-  console.error('Firebase SDK failed to load:', importErr);
+// Fire all imports at once — Promise.allSettled so one failure doesn't block others
+const [adminRes, stravaRes, racelogRes, timerRes, aifRes, plansRes, fbAppRes, fbAuthRes, fbFsRes] = await Promise.allSettled([
+  import('./admin.js'),
+  import('./strava.js'),
+  import('./racelog.js'),
+  import('./timer.js'),
+  import('./aifeatures.js'),
+  import('./plans.js'),
+  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
+  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'),
+  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+]);
+// Unpack results — each is {status:'fulfilled', value:module} or {status:'rejected', reason:error}
+if (adminRes.status === 'fulfilled') {
+  ({ initAdmin, renderAdmin, renderCoachDashboard, loadAdminEmails, loadExerciseOverrides,
+     savePlanOverrides, loadPlanOverrides, loadExerciseDemoVideos, saveExerciseDemoVideos,
+     loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides,
+     loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } = adminRes.value);
+} else { console.warn('admin.js load failed:', adminRes.reason); }
+if (stravaRes.status === 'fulfilled') {
+  ({ initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities,
+     renderStravaActivities, stravaDisconnect, loadStravaTokens,
+     stravaUploadActivity, stravaAutoSync, stravaResyncRoutes } = stravaRes.value);
+} else { console.warn('strava.js load failed:', stravaRes.reason); }
+if (racelogRes.status === 'fulfilled') {
+  ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
+     getFootageForRace, getStreamForRace, renderFootageLinks,
+     getCompletedRacesNeedingLogs } = racelogRes.value);
+} else { console.warn('racelog.js load failed:', racelogRes.reason); }
+if (timerRes.status === 'fulfilled') {
+  ({ initTimer, openWorkoutTimer, closeWorkoutTimer } = timerRes.value);
+} else { console.warn('timer.js load failed:', timerRes.reason); }
+if (aifRes.status === 'fulfilled') {
+  ({ initAiFeatures, startAiPlanEdit, sendAiPlanEdit, startAiWeeklyReview,
+     startAiRacePrep, generateRacePrepPlan, startAiInjuryMod,
+     sendInjuryModification, openInlineWorkoutEdit,
+     startAiFormCheck, generateCoachSummary,
+     generateTrainingInsight, renderSeasonPhase } = aifRes.value);
+} else { console.warn('aifeatures.js load failed:', aifRes.reason); }
+if (plansRes.status === 'fulfilled') {
+  ALL_PLANS = plansRes.value.ALL_PLANS || [];
+} else { console.error('plans.js load failed:', plansRes.reason); }
+if (fbAppRes.status === 'fulfilled' && fbAuthRes.status === 'fulfilled' && fbFsRes.status === 'fulfilled') {
+  initializeApp = fbAppRes.value.initializeApp;
+  ({ getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } = fbAuthRes.value);
+  ({ getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs, arrayUnion, arrayRemove } = fbFsRes.value);
+} else {
+  console.error('Firebase SDK failed:', fbAppRes.reason || fbAuthRes.reason || fbFsRes.reason);
   firebaseImportFailed = true;
 }
 // Firebase Config (PLACEHOLDER)
@@ -321,7 +320,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.7.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -4611,7 +4610,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '2.6.0';
+  const APP_VERSION = '2.7.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -4644,69 +4643,29 @@ function startApp() {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       currentUser = user;
-      showLoading('Loading your data...');
-      // Critical: load profile (required to show app)
-      try {
-        await loadUserProfile(user.uid);
-      } catch(e) {
+      showLoading('Loading...');
+      // PHASE 1: Profile + admin check (must complete before showing app)
+      try { await loadUserProfile(user.uid); } catch(e) {
         console.error('Profile load failed:', e);
         userProfile = { displayName: user.displayName || 'User', email: user.email || '', yearLevel: 'Y7', fitnessLevel: 'basic', activePlanId: null };
       }
-      // Initialize modules
-      try { setupListeners(user.uid); } catch(e) { console.warn('Listeners failed:', e); }
-      try {
-        initAdmin(buildModuleCtx());
-        initStrava(buildModuleCtx());
-        initRaceLog(buildModuleCtx());
-        initTimer(buildModuleCtx());
-        initAiFeatures(buildModuleCtx());
-      } catch(e) { console.warn('Module init failed:', e); }
-      // Load admin data (non-critical — wrapped individually)
-      try { await loadAdminEmails(); } catch(e) { console.warn('loadAdminEmails:', e); }
-      try { await loadVideoOverrides(); } catch(e) { console.warn('loadVideoOverrides:', e); }
-      try { checkAdmin(user.email); } catch(e) { console.warn('checkAdmin:', e); }
-      try { if (isAdmin) await loadAdminData(); } catch(e) { console.warn('loadAdminData:', e); }
-      // Load user data (non-critical — each wrapped so one failure doesn't block others)
-      try { await loadAnnouncements(); } catch(e) { console.warn('loadAnnouncements:', e); }
-      try { await loadFirestoreRaces(); } catch(e) { console.warn('loadFirestoreRaces:', e); }
-      try { await loadHiddenPlans(); } catch(e) { console.warn('loadHiddenPlans:', e); }
-      try { await loadTeamData(); } catch(e) { console.warn('loadTeamData:', e); }
-      try { await loadUserRaceLogs(); } catch(e) { console.warn('loadUserRaceLogs:', e); }
-      try { await loadRaceFootage(); } catch(e) { console.warn('loadRaceFootage:', e); }
-      try { await loadRaceLogVideos(); } catch(e) { console.warn('loadRaceLogVideos:', e); }
-      try { await loadExerciseOverrides(); } catch(e) { console.warn('loadExerciseOverrides:', e); }
-      try { await loadPlanOverrides(); } catch(e) { console.warn('loadPlanOverrides:', e); }
-      try { await loadExerciseDemoVideos(); } catch(e) { console.warn('loadExerciseDemoVideos:', e); }
-      try { setupAnnouncementListener(); } catch(e) { console.warn('setupAnnouncementListener:', e); }
-      try { loadStravaTokens(); } catch(e) { console.warn('loadStravaTokens:', e); }
-      try { stravaAutoSync(); } catch(e) { console.warn('stravaAutoSync:', e); }
-      try { await loadCustomPlans(); } catch(e) { console.warn('loadCustomPlans:', e); }
-      try { await loadTeamFeed(); } catch(e) { console.warn('loadTeamFeed:', e); }
-      try { await loadTeamChallenge(); } catch(e) { console.warn('loadTeamChallenge:', e); }
-      try { loadGoals(); } catch(e) { console.warn('loadGoals:', e); }
-      const initial = (userProfile?.displayName || user.displayName || user.email || 'U').charAt(0).toUpperCase();
-      try { $('user-avatar-btn').textContent = initial; } catch(e) {}
+      try { setupListeners(user.uid); } catch(e) { console.warn('Listeners:', e); }
+      try { initAdmin(buildModuleCtx()); initStrava(buildModuleCtx()); initRaceLog(buildModuleCtx()); initTimer(buildModuleCtx()); initAiFeatures(buildModuleCtx()); } catch(e) { console.warn('Module init:', e); }
+      try { await loadAdminEmails(); } catch(e) {}
+      try { checkAdmin(user.email); } catch(e) {}
+      // PHASE 2: Show the app NOW — don't wait for all data
       hideLoading();
-      // Handle Strava OAuth callback
-      if (window.location.search.includes('code=')) {
-        stravaHandleCallback();
-      }
-      // Restore saved tab or default to today
+      if (window.location.search.includes('code=')) { try { stravaHandleCallback(); } catch(e) {} }
       try {
         const savedTab = localStorage.getItem('vf_lastTab');
-        if (savedTab && ['today','fitness','races','team','admin'].includes(savedTab)) {
-          currentPage = savedTab;
-        }
+        if (savedTab && ['today','fitness','races','team','admin'].includes(savedTab)) currentPage = savedTab;
       } catch(e) {}
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === currentPage));
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       const startPage = $('page-' + currentPage);
       if (startPage) startPage.classList.add('active');
-      // Initialize tracker module with app context
       initTracker({
-        haptic,
-        getMapTileUrl,
-        getWorkouts: () => userWorkouts,
+        haptic, getMapTileUrl, getWorkouts: () => userWorkouts,
         saveTrackedActivity: async (workout, workoutId) => {
           if (!demoMode && db && currentUser) {
             try {
@@ -4714,26 +4673,33 @@ function startApp() {
               showToast('Activity saved!', 'success');
               if (stravaTokens?.access_token && workout.type !== 'gym') {
                 stravaUploadActivity(workout).then(async (sid) => {
-                  if (sid) {
-                    // Save stravaId back to prevent duplicate on next sync
-                    try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid), source: 'tracker' }); } catch(e) {}
-                    showToast('Synced to Strava!', 'success');
-                  }
+                  if (sid) { try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid), source: 'tracker' }); } catch(e) {} showToast('Synced to Strava!', 'success'); }
                 });
               }
               autoUpdateChallengeScore(workout.duration || 0);
             } catch(e) { showError('Failed to save activity', 'tracker', e, { action: 'save' }); }
-          } else {
-            userWorkouts.unshift({ ...workout, id: workoutId, routeId: workoutId });
-            showToast('Activity saved (demo).', 'success');
-          }
+          } else { userWorkouts.unshift({ ...workout, id: workoutId, routeId: workoutId }); showToast('Activity saved (demo).', 'success'); }
         },
-        onActivitySaved: () => {
-          if (currentPage === 'today') renderToday();
-          if (currentPage === 'fitness') renderFitness();
-        }
+        onActivitySaved: () => { if (currentPage === 'today') renderToday(); if (currentPage === 'fitness') renderFitness(); }
       });
       showMainApp();
+      const initial = (userProfile?.displayName || user.displayName || user.email || 'U').charAt(0).toUpperCase();
+      try { $('user-avatar-btn').textContent = initial; } catch(e) {}
+      // PHASE 3: Load remaining data in parallel (app is already visible)
+      await Promise.allSettled([
+        loadVideoOverrides(), isAdmin ? loadAdminData() : Promise.resolve(),
+        loadAnnouncements(), loadFirestoreRaces(), loadHiddenPlans(),
+        loadTeamData(), loadUserRaceLogs(), loadRaceFootage(), loadRaceLogVideos(),
+        loadExerciseOverrides(), loadPlanOverrides(), loadExerciseDemoVideos(),
+        loadCustomPlans(), loadTeamFeed(), loadTeamChallenge()
+      ]);
+      // PHASE 4: Non-async finishers
+      try { setupAnnouncementListener(); } catch(e) {}
+      try { loadStravaTokens(); } catch(e) {}
+      try { stravaAutoSync(); } catch(e) {}
+      try { loadGoals(); } catch(e) {}
+      // Re-render current page with full data
+      renderCurrentPage();
       // Show tutorial for new users
       if (shouldShowTutorial()) {
         setTimeout(() => showTutorial(), 500);
