@@ -320,7 +320,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '3.0.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -1841,6 +1841,34 @@ function renderToday() {
   activeAnns.forEach(a => {
     html += `<div class="announce-banner"><div class="announce-banner-row"><div class="announce-banner-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="announce-banner-body"><div class="announce-banner-title">${escHtml(a.title)}</div><div class="announce-banner-msg">${escHtml(a.message)}</div></div></div></div>`;
   });
+  // Weekly summary card (shows on Monday, or first open of the week)
+  const weekDay = now.getDay(); // 0=Sun
+  const lastSummaryWeek = localStorage.getItem('vf_summary_week');
+  const summaryWeekStart = new Date(now); summaryWeekStart.setDate(now.getDate() - now.getDay() + 1); summaryWeekStart.setHours(0,0,0,0);
+  const thisWeekKey = summaryWeekStart.toISOString().split('T')[0];
+  if (totalWorkouts > 0 && lastSummaryWeek !== thisWeekKey) {
+    // Compute last week stats
+    const lwStart = new Date(summaryWeekStart); lwStart.setDate(lwStart.getDate() - 7);
+    const lwEnd = summaryWeekStart;
+    const lwWorkouts = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d >= lwStart && d < lwEnd; });
+    const lwMins = lwWorkouts.reduce((sum, w) => sum + (w.duration || 0), 0);
+    const lwXp = lwWorkouts.length * 10;
+    if (lwWorkouts.length > 0) {
+      const goalText = lwWorkouts.length < 3 ? 'Push for 3 sessions this week!' : lwWorkouts.length < 5 ? 'Great week — aim for ' + (lwWorkouts.length + 1) + ' this week!' : 'Incredible consistency — keep it up!';
+      html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:13px;font-weight:700;color:var(--text)">📊 Last Week</div>
+          <button id="dismiss-weekly" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px">✕</button>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:8px">
+          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${lwWorkouts.length}</div><div style="font-size:10px;color:var(--muted-fg)">sessions</div></div>
+          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--text)">${lwMins}</div><div style="font-size:10px;color:var(--muted-fg)">mins</div></div>
+          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:#f59e0b">+${lwXp}</div><div style="font-size:10px;color:var(--muted-fg)">XP</div></div>
+        </div>
+        <div style="font-size:12px;color:var(--muted-fg);line-height:1.4">${goalText}</div>
+      </div>`;
+    }
+  }
   // ── SECTION 2: Today's Training (the main thing) ──
   if (activePlan) {
     const pdData = getPlanDisplayData(activePlan);
@@ -1872,7 +1900,20 @@ function renderToday() {
   } else {
     const recHtml = renderPlanRecommendation();
     if (recHtml) { html += recHtml; }
-    else { html += `<div class="today-no-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><div><strong>No plan active</strong></div><div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one.</div></div>`; }
+    else if (totalWorkouts === 0) {
+      // First-time onboarding — guided plan picker
+      const year = userProfile?.yearLevel || 'Y9';
+      const tier = userProfile?.fitnessLevel || 'basic';
+      html += `<div style="background:linear-gradient(135deg,rgba(191,255,0,.06),rgba(34,197,94,.04));border:1.5px solid rgba(191,255,0,.2);border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:28px;margin-bottom:6px">🚀</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">Welcome to VeloForge!</div>
+        <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px;line-height:1.4">Let's get you a training plan. We've matched one to your year level (${year}) and fitness tier (${capitalize(tier)}).</div>
+        <button class="btn btn-primary" id="onboard-pick-plan" style="width:100%;padding:12px;font-size:14px;font-weight:700;border-radius:10px">🏋️ Pick My Plan</button>
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:8px">Or go to Fitness → Plans to browse all 54 options</div>
+      </div>`;
+    } else {
+      html += `<div class="today-no-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><div><strong>No plan active</strong></div><div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one.</div></div>`;
+    }
   }
   // ── SECTION 3: Quick actions ──
   html += `<div style="display:flex;gap:8px;margin-top:10px">
@@ -2094,15 +2135,7 @@ function renderToday() {
     recBtn.addEventListener('click', async () => {
       const planId = recBtn.dataset.recPlan;
       haptic('medium');
-      if (demoMode) { userProfile.activePlanId = planId; renderToday(); return; }
-      if (db && currentUser) {
-        try {
-          await updateDoc(doc(db, 'users', currentUser.uid), { activePlanId: planId });
-          userProfile.activePlanId = planId;
-          showToast('Plan activated!', 'success');
-          renderToday();
-        } catch(e) { showError('Failed to activate plan', 'plan', e, { action: 'activate' }); }
-      }
+      await activatePlan(planId);
     });
   }
   // Bind checklist toggles
@@ -2131,6 +2164,31 @@ function renderToday() {
   });
   // Quick Log + Record GPS buttons
   $('today-quick-log')?.addEventListener('click', () => { haptic('light'); openWorkoutSheet(); });
+  // Onboarding — auto-pick best plan for user's year/tier
+  $('onboard-pick-plan')?.addEventListener('click', () => {
+    haptic('medium');
+    const year = userProfile?.yearLevel || 'Y9';
+    const tier = userProfile?.fitnessLevel || 'basic';
+    // Find matching plan — prefer floor (bodyweight, no equipment needed)
+    const match = ALL_PLANS.find(p => p.yearLevel === year && p.fitnessLevel === tier && p.category === 'floor')
+      || ALL_PLANS.find(p => p.yearLevel === year && p.fitnessLevel === tier)
+      || ALL_PLANS[0];
+    if (match) {
+      activatePlan(match.id);
+      showToast('Plan activated! Check your training for today.', 'success');
+      setTimeout(() => renderToday(), 300);
+    } else {
+      switchPage('fitness');
+      fitnessSubTab = 'plans';
+      renderFitness();
+    }
+  });
+  // Dismiss weekly summary
+  $('dismiss-weekly')?.addEventListener('click', () => {
+    const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay() + 1); ws.setHours(0,0,0,0);
+    localStorage.setItem('vf_summary_week', ws.toISOString().split('T')[0]);
+    $('dismiss-weekly')?.closest('div[style]')?.remove();
+  });
   $('today-quick-record')?.addEventListener('click', () => { haptic('medium'); openActivityTracker(); });
   $('today-strava-connect')?.addEventListener('click', () => { stravaStartAuth(); });
   // Add to Calendar buttons
@@ -2402,11 +2460,56 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
   document.body.appendChild(ov);
   renderTracker();
 }
+// Activate a training plan by ID
+async function activatePlan(planId) {
+  if (demoMode) {
+    userProfile.activePlanId = planId;
+    renderToday();
+    return;
+  }
+  if (db && currentUser) {
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), { activePlanId: planId });
+      userProfile.activePlanId = planId;
+      showToast('Plan activated!', 'success');
+      renderToday();
+    } catch(e) { showError('Failed to activate plan', 'plan', e, { action: 'activate' }); }
+  }
+}
 async function toggleChecklist(key) {
   if (!currentUser) return;
   const newVal = !userChecklist[key];
   userChecklist[key] = newVal;
   renderToday();
+  // Check if all workouts for the current plan week are done → celebrate
+  if (newVal && activePlan) {
+    try {
+      const now = new Date();
+      const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
+      // Find current week number based on plan start
+      const planStartKey = 'vf_plan_start_' + activePlanId;
+      let planStart = localStorage.getItem(planStartKey);
+      if (!planStart) { planStart = now.toISOString(); localStorage.setItem(planStartKey, planStart); }
+      const weeksSinceStart = Math.floor((now - new Date(planStart)) / (7 * 86400000)) + 1;
+      const currentWeek = Math.min(weeksSinceStart, activePlan.durationWeeks || 8);
+      const weekWorkouts = activePlan.workouts.filter(w => w.week === currentWeek);
+      if (weekWorkouts.length > 0) {
+        const allDone = weekWorkouts.every((w, i) => {
+          const k = activePlanId + '-' + w.week + '-' + w.day + '-' + (weekWorkouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
+          return userChecklist[k];
+        });
+        if (allDone) showCelebration('Week ' + currentWeek + ' complete! 🎉');
+      }
+      // Check if ENTIRE plan is done
+      const totalItems = activePlan.workouts.length;
+      let doneCount = 0;
+      activePlan.workouts.forEach((w, i) => {
+        const k2 = activePlanId + '-' + w.week + '-' + w.day + '-' + (activePlan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
+        if (userChecklist[k2]) doneCount++;
+      });
+      if (doneCount === totalItems && totalItems > 0) showCelebration('Plan complete! You crushed it! 🏆');
+    } catch(e) {}
+  }
   if (demoMode || !db) return;
   try {
     const today = new Date();
@@ -2416,6 +2519,35 @@ async function toggleChecklist(key) {
   } catch(e) {
     console.error('Checklist save error:', e);
   }
+}
+// Celebration animation
+function showCelebration(message) {
+  haptic('success');
+  showToast(message, 'success');
+  // Confetti burst
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;inset:0;z-index:500;pointer-events:none;overflow:hidden';
+  document.body.appendChild(container);
+  const colors = ['#BFFF00','#22c55e','#f59e0b','#3b82f6','#a855f7','#ef4444','#fff'];
+  for (let i = 0; i < 60; i++) {
+    const p = document.createElement('div');
+    const size = 4 + Math.random() * 6;
+    const x = 20 + Math.random() * 60;
+    const delay = Math.random() * 0.3;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const drift = (Math.random() - 0.5) * 40;
+    p.style.cssText = `position:absolute;left:${x}%;top:-10px;width:${size}px;height:${size}px;background:${color};border-radius:${Math.random() > 0.5 ? '50%' : '1px'};opacity:1;animation:confetti-fall ${1.5 + Math.random()}s ease-out ${delay}s forwards`;
+    p.style.setProperty('--drift', drift + 'vw');
+    container.appendChild(p);
+  }
+  // Add keyframes if not already present
+  if (!document.getElementById('confetti-style')) {
+    const style = document.createElement('style');
+    style.id = 'confetti-style';
+    style.textContent = `@keyframes confetti-fall { 0% { transform: translateY(0) translateX(0) rotate(0deg); opacity:1; } 100% { transform: translateY(100vh) translateX(var(--drift, 0px)) rotate(720deg); opacity:0; } }`;
+    document.head.appendChild(style);
+  }
+  setTimeout(() => container.remove(), 3000);
 }
 function exportTrainingReport() {
   const name = userProfile?.displayName || currentUser?.displayName || 'Athlete';
@@ -4674,7 +4806,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '2.9.0';
+  const APP_VERSION = '3.0.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
