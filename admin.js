@@ -608,6 +608,18 @@ function renderAdminTraining() {
     </div>
     <input class="input" id="ts-location" type="text" placeholder="Location (e.g. School Oval, Gym)" value="" style="margin-bottom:6px;width:100%;font-size:13px">
     <textarea class="input" id="ts-notes" placeholder="Notes for students (e.g. Bring helmet, floor session if raining)" style="margin-bottom:8px;width:100%;min-height:50px;resize:vertical;font-size:13px"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-fg);cursor:pointer;flex:1">
+        <input type="checkbox" id="ts-repeat"> Repeat weekly
+      </label>
+      <select class="input" id="ts-repeat-weeks" style="width:auto;font-size:12px;padding:4px 8px">
+        <option value="4">4 weeks</option>
+        <option value="8" selected>8 weeks</option>
+        <option value="10">10 weeks (term)</option>
+        <option value="12">12 weeks</option>
+        <option value="20">20 weeks (semester)</option>
+      </select>
+    </div>
     <div style="display:flex;gap:6px">
       <button id="ts-save-btn" class="btn btn-primary" style="flex:1;font-size:13px;padding:10px">Add Session</button>
     </div>
@@ -665,17 +677,26 @@ function renderAdminTraining() {
       const notes = A.$('ts-notes')?.value?.trim();
       if (!title) { A.showToast('Enter a session title.', 'warn'); return; }
       if (!date) { A.showToast('Pick a date.', 'warn'); return; }
-      const session = {
-        id: Date.now().toString(),
-        title, date, time: time || null, endTime: endTime || null,
-        location: location || null, notes: notes || null,
-        createdBy: A.userProfile?.displayName || 'Coach',
-        createdAt: new Date().toISOString()
-      };
-      const updated = [...(A.trainingSessions || []), session];
+      const repeat = A.$('ts-repeat')?.checked || false;
+      const repeatWeeks = parseInt(A.$('ts-repeat-weeks')?.value) || 8;
+      // Generate sessions
+      const sessions = [];
+      const weekCount = repeat ? repeatWeeks : 1;
+      for (let w = 0; w < weekCount; w++) {
+        const d = new Date(date + 'T00:00:00');
+        d.setDate(d.getDate() + (w * 7));
+        sessions.push({
+          id: Date.now().toString() + '-' + w,
+          title, date: d.toISOString().split('T')[0], time: time || null, endTime: endTime || null,
+          location: location || null, notes: notes || null,
+          createdBy: A.userProfile?.displayName || 'Coach',
+          createdAt: new Date().toISOString()
+        });
+      }
+      const updated = [...(A.trainingSessions || []), ...sessions];
       if (A.demoMode) {
         A.trainingSessions = updated;
-        A.showToast('Session added (demo).', 'success');
+        A.showToast(sessions.length > 1 ? sessions.length + ' sessions added (demo).' : 'Session added (demo).', 'success');
         renderAdminTraining();
         return;
       }
@@ -685,7 +706,7 @@ function renderAdminTraining() {
         await A.setDoc(A.doc(A.db, 'config', 'trainingSessions'), { sessions: updated });
         A.trainingSessions = updated;
         try { localStorage.setItem('vf_training_sessions', JSON.stringify(updated)); } catch(e) {}
-        A.showToast('Session scheduled!', 'success');
+        A.showToast(sessions.length > 1 ? sessions.length + ' sessions scheduled!' : 'Session scheduled!', 'success');
         renderAdminTraining();
       } catch(e) {
         A.showToast('Failed to save session.', 'error');
