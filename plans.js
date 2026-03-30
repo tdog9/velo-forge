@@ -6180,7 +6180,7 @@ export const ALL_PLANS = [
             "reps": null,
             "duration": "8 min",
             "resistance": "Light",
-            "notes": "Easy spin. Well done. If you can see this, you're probably the first to ever see this."
+            "notes": "Easy spin. Well done. That session earns you the right to compete."
           }
         ],
         "videoUrl": "https://www.youtube.com/watch?v=ly8lJoFYfKY"
