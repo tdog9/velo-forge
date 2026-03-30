@@ -3,6 +3,8 @@
 import { escHtml, capitalize, getXpLevel, timeAgo } from './state.js';
 
 let A = {};
+let usersSubTab = 'all';
+let plansSubTab = 'manage';
 export function initAdmin(ctx) { A = ctx; }
 
 export function renderAdmin() {
