@@ -12,6 +12,7 @@ export function renderAdmin() {
   const c = A.$('admin-content');
   const allTabs = [
     { id: 'announcements', label: 'Announcements' },
+    { id: 'training', label: 'Training' },
     { id: 'races', label: 'Races' },
     { id: 'users', label: 'Users' },
     { id: 'plans', label: 'Plans' },
@@ -55,6 +56,7 @@ export function renderAdmin() {
   // Render active section
   switch (A.adminActiveTab) {
     case 'announcements': renderAdminAnnouncements(); break;
+    case 'training': renderAdminTraining(); break;
     case 'races': renderAdminRaces(); break;
     case 'users': renderAdminUsersMerged(); break;
     case 'plans': renderAdminPlansMerged(); break;
@@ -579,6 +581,206 @@ async function saveAnnouncements() {
     console.error('Save announcements error:', e);
     A.showToast('Failed to save.', 'error');
   }
+}
+
+// --- TRAINING SESSIONS ---
+function renderAdminTraining() {
+  const el = A.$('admin-training');
+  if (!el) return;
+  const sessions = A.trainingSessions || [];
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  // Split into upcoming and past
+  const upcoming = sessions.filter(s => s.date >= todayStr).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const past = sessions.filter(s => s.date < todayStr).sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time));
+
+  let html = '';
+  // Create session form
+  html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px">Schedule a Session</div>
+    <input class="input" id="ts-title" type="text" placeholder="Session title (e.g. After School Training)" value="" style="margin-bottom:6px;width:100%;font-size:13px">
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <input class="input" id="ts-date" type="date" value="${todayStr}" style="flex:1;font-size:13px">
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <div style="flex:1"><label style="font-size:10px;color:var(--muted-fg)">Start</label><input class="input" id="ts-time" type="time" value="15:45" style="width:100%;font-size:13px"></div>
+      <div style="flex:1"><label style="font-size:10px;color:var(--muted-fg)">End</label><input class="input" id="ts-end-time" type="time" value="17:00" style="width:100%;font-size:13px"></div>
+    </div>
+    <input class="input" id="ts-location" type="text" placeholder="Location (e.g. School Oval, Gym)" value="" style="margin-bottom:6px;width:100%;font-size:13px">
+    <textarea class="input" id="ts-notes" placeholder="Notes for students (e.g. Bring helmet, floor session if raining)" style="margin-bottom:8px;width:100%;min-height:50px;resize:vertical;font-size:13px"></textarea>
+    <div style="display:flex;gap:6px">
+      <button id="ts-save-btn" class="btn btn-primary" style="flex:1;font-size:13px;padding:10px">Add Session</button>
+    </div>
+  </div>`;
+
+  // Upcoming sessions
+  if (upcoming.length > 0) {
+    html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">Upcoming Sessions (' + upcoming.length + ')</div>';
+    upcoming.forEach((s, i) => {
+      const sDate = new Date(s.date + 'T' + (s.time || '16:00') + ':00');
+      const dayLabel = sDate.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+      html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:4px">
+          <div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(s.title || 'Training')}</div>
+          <div style="font-size:11px;font-weight:600;color:var(--primary)">${dayLabel}</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted-fg);margin-bottom:2px">${s.time || ''}${s.endTime ? ' - ' + s.endTime : ''}${s.location ? ' · ' + escHtml(s.location) : ''}</div>
+        ${s.notes ? '<div style="font-size:11px;color:var(--muted-fg);line-height:1.4;margin-bottom:6px">' + escHtml(s.notes) + '</div>' : ''}
+        <div style="display:flex;gap:6px">
+          <button class="btn ts-notify-btn" data-ts-id="${s.id}" style="flex:1;padding:6px;font-size:11px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:#a855f7;border-radius:6px">📢 Notify All</button>
+          <button class="btn ts-edit-btn" data-ts-id="${s.id}" style="padding:6px 10px;font-size:11px;background:var(--surface-alt);border:1px solid var(--border);color:var(--text);border-radius:6px">Edit</button>
+          <button class="btn ts-delete-btn" data-ts-id="${s.id}" style="padding:6px 10px;font-size:11px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#ef4444;border-radius:6px">Delete</button>
+        </div>
+      </div>`;
+    });
+  } else {
+    html += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px;text-align:center;padding:16px">No upcoming sessions. Schedule one above.</div>';
+  }
+
+  // Past sessions (collapsed)
+  if (past.length > 0) {
+    html += `<details style="margin-top:8px"><summary style="font-size:12px;color:var(--muted-fg);cursor:pointer;padding:6px 0">Past Sessions (${past.length})</summary>`;
+    past.forEach(s => {
+      const sDate = new Date(s.date + 'T00:00:00');
+      const dayLabel = sDate.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+      html += `<div style="padding:8px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:4px;opacity:.6">
+        <div style="font-size:12px;font-weight:600">${escHtml(s.title || 'Training')} · ${dayLabel}</div>
+        <div style="font-size:11px;color:var(--muted-fg)">${s.time || ''}${s.location ? ' · ' + escHtml(s.location) : ''}</div>
+      </div>`;
+    });
+    html += '</details>';
+  }
+
+  el.innerHTML = html;
+
+  // Bind save
+  const saveBtn = A.$('ts-save-btn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      const title = A.$('ts-title')?.value?.trim();
+      const date = A.$('ts-date')?.value;
+      const time = A.$('ts-time')?.value;
+      const endTime = A.$('ts-end-time')?.value;
+      const location = A.$('ts-location')?.value?.trim();
+      const notes = A.$('ts-notes')?.value?.trim();
+      if (!title) { A.showToast('Enter a session title.', 'warn'); return; }
+      if (!date) { A.showToast('Pick a date.', 'warn'); return; }
+      const session = {
+        id: Date.now().toString(),
+        title, date, time: time || null, endTime: endTime || null,
+        location: location || null, notes: notes || null,
+        createdBy: A.userProfile?.displayName || 'Coach',
+        createdAt: new Date().toISOString()
+      };
+      const updated = [...(A.trainingSessions || []), session];
+      if (A.demoMode) {
+        A.trainingSessions = updated;
+        A.showToast('Session added (demo).', 'success');
+        renderAdminTraining();
+        return;
+      }
+      saveBtn.textContent = 'Saving...';
+      saveBtn.disabled = true;
+      try {
+        await A.setDoc(A.doc(A.db, 'config', 'trainingSessions'), { sessions: updated });
+        A.trainingSessions = updated;
+        try { localStorage.setItem('vf_training_sessions', JSON.stringify(updated)); } catch(e) {}
+        A.showToast('Session scheduled!', 'success');
+        renderAdminTraining();
+      } catch(e) {
+        A.showToast('Failed to save session.', 'error');
+        saveBtn.textContent = 'Add Session';
+        saveBtn.disabled = false;
+      }
+    });
+  }
+
+  // Bind delete
+  el.querySelectorAll('.ts-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.tsId;
+      if (!confirm('Delete this session?')) return;
+      const updated = (A.trainingSessions || []).filter(s => s.id !== id);
+      if (A.demoMode) {
+        A.trainingSessions = updated;
+        renderAdminTraining();
+        return;
+      }
+      try {
+        await A.setDoc(A.doc(A.db, 'config', 'trainingSessions'), { sessions: updated });
+        A.trainingSessions = updated;
+        try { localStorage.setItem('vf_training_sessions', JSON.stringify(updated)); } catch(e) {}
+        A.showToast('Session deleted.', 'success');
+        renderAdminTraining();
+      } catch(e) { A.showToast('Failed to delete.', 'error'); }
+    });
+  });
+
+  // Bind edit — pre-fill form with session data
+  el.querySelectorAll('.ts-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.tsId;
+      const session = (A.trainingSessions || []).find(s => s.id === id);
+      if (!session) return;
+      const ti = A.$('ts-title'); if (ti) ti.value = session.title || '';
+      const dt = A.$('ts-date'); if (dt) dt.value = session.date || '';
+      const tm = A.$('ts-time'); if (tm) tm.value = session.time || '';
+      const et = A.$('ts-end-time'); if (et) et.value = session.endTime || '';
+      const lc = A.$('ts-location'); if (lc) lc.value = session.location || '';
+      const nt = A.$('ts-notes'); if (nt) nt.value = session.notes || '';
+      // Remove old session, save button acts as update
+      A.trainingSessions = (A.trainingSessions || []).filter(s => s.id !== id);
+      A.showToast('Editing session — make changes and tap Add.', 'info');
+      // Scroll to top
+      el.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  // Bind notify all — post as announcement
+  el.querySelectorAll('.ts-notify-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.tsId;
+      const session = (A.trainingSessions || []).find(s => s.id === id);
+      if (!session) return;
+      const sDate = new Date(session.date + 'T00:00:00');
+      const dayLabel = sDate.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
+      const annTitle = '🏋️ ' + (session.title || 'Training Session');
+      let annMsg = dayLabel;
+      if (session.time) annMsg += ' at ' + session.time;
+      if (session.endTime) annMsg += ' - ' + session.endTime;
+      if (session.location) annMsg += '\nLocation: ' + session.location;
+      if (session.notes) annMsg += '\n' + session.notes;
+      const newAnn = {
+        id: Date.now().toString(),
+        title: annTitle,
+        message: annMsg,
+        date: new Date().toISOString(),
+        by: A.userProfile?.displayName || 'Coach',
+        active: true
+      };
+      if (A.demoMode) {
+        A.adminAnnouncements.unshift(newAnn);
+        A.showToast('Notification sent (demo).', 'success');
+        return;
+      }
+      btn.textContent = 'Sending...';
+      btn.disabled = true;
+      try {
+        const configRef = A.doc(A.db, 'config', 'announcements');
+        const snap = await A.getDoc(configRef);
+        const items = snap.exists() ? (snap.data().items || []) : [];
+        items.unshift(newAnn);
+        await A.setDoc(configRef, { items });
+        A.adminAnnouncements = items;
+        A.showToast('Notification sent to all students!', 'success');
+        btn.textContent = '✓ Sent';
+      } catch(e) {
+        A.showToast('Failed to send notification.', 'error');
+        btn.textContent = '📢 Notify All';
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 // --- RACES ---
