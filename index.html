@@ -454,6 +454,15 @@ window.addEventListener('unhandledrejection', function(e) {
   if (!d) { d = document.createElement('div'); d.id = 'boot-error'; d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a0000;border-top:2px solid #ef4444;color:#fca5a5;font-family:monospace;font-size:12px;padding:12px;max-height:40vh;overflow:auto'; document.body.appendChild(d); }
   d.innerHTML += '<div style="margin-bottom:4px"><b style="color:#ef4444">Promise:</b> ' + (e.reason?.message || e.reason || 'Unknown') + '</div><hr style="border-color:#333;margin:4px 0">';
 });
+// Emergency nuclear reset — runs from HTML, not from cached JS
+if (window.location.search.includes('nuke=true')) {
+  window.history.replaceState({}, '', window.location.pathname);
+  localStorage.clear();
+  if ('caches' in window) caches.keys().then(function(k) { k.forEach(function(c) { caches.delete(c); }); });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function(r) { r.forEach(function(w) { w.unregister(); }); });
+  document.body.innerHTML = '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0b0f;color:#BFFF00;font-family:system-ui;font-size:18px;text-align:center;padding:20px">Cache cleared.<br>Reloading in 2 seconds...</div>';
+  setTimeout(function() { window.location.href = window.location.pathname; }, 2000);
+}
 </script>
 <script type="module" src="app.js"></script>
 </body>
