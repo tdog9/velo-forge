@@ -1,6 +1,6 @@
 // CGS VeloForge Admin Panel Module
 // All state accessed via A (app context set by initAdmin)
-import { escHtml, capitalize, getXpLevel } from './state.js';
+import { escHtml, capitalize, getXpLevel, timeAgo } from './state.js';
 
 let A = {};
 export function initAdmin(ctx) { A = ctx; }
@@ -191,7 +191,7 @@ export async function renderCoachDashboard() {
     sorted.forEach(s => {
       const isActive = s.lastActive && s.lastActive >= threeDaysAgo;
       const isInactive = !s.lastActive || s.lastActive < sevenDaysAgo;
-      const lastStr = s.lastActive ? getTimeAgo(s.lastActive.toISOString()) : 'Never';
+      const lastStr = s.lastActive ? timeAgo(s.lastActive) : 'Never';
       const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
       const borderStyle = isInactive ? 'border-color:rgba(239,68,68,.3)' : '';
       html += `<div class="coach-card" style="${borderStyle}">
