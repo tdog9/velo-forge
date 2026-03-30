@@ -320,7 +320,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '2.7.0';
+const APP_VERSION = '2.9.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -420,6 +420,7 @@ function openRaceResultForm(raceName, raceDate) {
 }
 // Team Challenges
 let activeChallenge = null; // {id, title, type, startDate, endDate, teams: {teamId: {name, score}}}
+let trainingSessions = []; // [{id, title, date, time, endTime, location, notes, createdBy, createdAt}]
 let raceTimerInterval = null;
 let firebaseReady = false;
 let raceFootage = {}; // {raceId: [{label, url, type}]} — admin-managed footage links
@@ -445,6 +446,7 @@ let adminPerms = []; // [{email, perms: ['announcements','races','users','plans'
 let currentAdminPerms = []; // current user's allowed admin tabs
 const ALL_ADMIN_FEATURES = [
   { id: 'announcements', label: 'Announcements', desc: 'Post updates to all users' },
+  { id: 'training', label: 'Training', desc: 'Schedule training sessions' },
   { id: 'races', label: 'Races', desc: 'Manage race calendar' },
   { id: 'users', label: 'Users', desc: 'Manage users & admin access' },
   { id: 'plans', label: 'Plans', desc: 'Manage workout plans, exercises & videos' },
@@ -1907,6 +1909,35 @@ function renderToday() {
     const diffDays = Math.max(0, Math.floor((raceDate - now) / 86400000));
     html += `<div class="today-race-row" style="margin-top:8px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span class="today-race-name">${escHtml(nextRace.name)}</span><span class="today-race-days"><strong>${diffDays}</strong>d</span></div>`;
   }
+  // Upcoming training session
+  const todayStr3 = now.toISOString().split('T')[0];
+  const upcomingSessions = trainingSessions.filter(s => s.date >= todayStr3).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const nextSession = upcomingSessions[0];
+  if (nextSession) {
+    const sDate = new Date(nextSession.date + 'T' + (nextSession.time || '16:00') + ':00');
+    const isSessionToday = nextSession.date === todayStr3;
+    const diffMs = sDate - now;
+    const diffHrs = Math.floor(diffMs / 3600000);
+    const diffMins = Math.floor((diffMs % 3600000) / 60000);
+    let timeLabel = '';
+    if (isSessionToday && diffMs > 0) timeLabel = diffHrs > 0 ? 'in ' + diffHrs + 'h ' + diffMins + 'm' : 'in ' + diffMins + 'm';
+    else if (isSessionToday && diffMs <= 0) timeLabel = 'NOW';
+    else { const d = sDate; timeLabel = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
+    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(191,255,0,.08),rgba(34,197,94,.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba(191,255,0,.25)' : 'var(--border)'};border-radius:10px">
+      <div style="display:flex;align-items:start;gap:10px">
+        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(191,255,0,.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+            <div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(nextSession.title)}</div>
+            <div style="font-size:11px;font-weight:700;color:${isSessionToday ? 'var(--primary)' : 'var(--muted-fg)'}">${timeLabel}</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted-fg)">${nextSession.time || ''}${nextSession.endTime ? ' - ' + nextSession.endTime : ''}${nextSession.location ? ' · ' + escHtml(nextSession.location) : ''}</div>
+          ${nextSession.notes ? '<div style="font-size:11px;color:var(--muted-fg);margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
+        </div>
+      </div>
+      <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:var(--surface-alt);border:1px solid var(--border);border-radius:8px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
+    </div>`;
+  }
   // Team challenge (only if active)
   if (activeChallenge) html += renderTeamChallenge();
   // AI insight (compact single line)
@@ -2102,6 +2133,17 @@ function renderToday() {
   $('today-quick-log')?.addEventListener('click', () => { haptic('light'); openWorkoutSheet(); });
   $('today-quick-record')?.addEventListener('click', () => { haptic('medium'); openActivityTracker(); });
   $('today-strava-connect')?.addEventListener('click', () => { stravaStartAuth(); });
+  // Add to Calendar buttons
+  document.querySelectorAll('.add-to-cal-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.sessionIdx || '0');
+      const todayStr4 = new Date().toISOString().split('T')[0];
+      const upcoming = trainingSessions.filter(s => s.date >= todayStr4).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
+      const session = upcoming[idx];
+      if (!session) return;
+      addSessionToCalendar(session);
+    });
+  });
   // Social reaction buttons on team feed
   c.querySelectorAll('.feed-react-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -2936,6 +2978,27 @@ async function loadTeamChallenge() {
       activeChallenge = newChallenge;
     }
   } catch(e) { console.error('Load challenge error:', e); }
+}
+async function loadTrainingSessions() {
+  trainingSessions = [];
+  if (demoMode) {
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 5);
+    trainingSessions = [
+      { id: 'd1', title: 'After School Training', date: tomorrow.toISOString().split('T')[0], time: '15:45', endTime: '17:00', location: 'School Oval', notes: 'Bring your helmet and gloves. Floor session if raining.', createdBy: 'Coach' },
+      { id: 'd2', title: 'Race Prep Session', date: nextWeek.toISOString().split('T')[0], time: '15:45', endTime: '17:30', location: 'School Oval', notes: 'Final prep before Murray Bridge. Vehicle checks + practice laps.', createdBy: 'Coach' }
+    ];
+    return;
+  }
+  if (!db) return;
+  try {
+    const snap = await getDoc(doc(db, 'config', 'trainingSessions'));
+    if (snap.exists()) {
+      trainingSessions = snap.data().sessions || [];
+      // Cache locally for notifications
+      try { localStorage.setItem('vf_training_sessions', JSON.stringify(trainingSessions)); } catch(e) {}
+    }
+  } catch(e) { console.error('Load training sessions error:', e); }
 }
 function renderWorkouts() {
   const c = $('workouts-content');
@@ -4592,6 +4655,7 @@ function buildModuleCtx() {
     get raceFootage() { return raceFootage; }, set raceFootage(v) { raceFootage = v; },
     get raceLogVideos() { return raceLogVideos; }, set raceLogVideos(v) { raceLogVideos = v; },
     get activeChallenge() { return activeChallenge; }, set activeChallenge(v) { activeChallenge = v; },
+    get trainingSessions() { return trainingSessions; }, set trainingSessions(v) { trainingSessions = v; },
     get customPlans() { return customPlans; },
     get teamData() { return teamData; },
     get teamMembers() { return teamMembers; },
@@ -4610,7 +4674,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '2.7.0';
+  const APP_VERSION = '2.9.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -4691,7 +4755,7 @@ function startApp() {
         loadAnnouncements(), loadFirestoreRaces(), loadHiddenPlans(),
         loadTeamData(), loadUserRaceLogs(), loadRaceFootage(), loadRaceLogVideos(),
         loadExerciseOverrides(), loadPlanOverrides(), loadExerciseDemoVideos(),
-        loadCustomPlans(), loadTeamFeed(), loadTeamChallenge()
+        loadCustomPlans(), loadTeamFeed(), loadTeamChallenge(), loadTrainingSessions()
       ]);
       // PHASE 4: Non-async finishers
       try { setupAnnouncementListener(); } catch(e) {}
@@ -4847,61 +4911,59 @@ function checkForNewAnnouncements(announcements) {
   }
 }
 // Listen for announcements in real-time (triggers notification for new ones)
-// --- Training Reminder Notifications ---
+// --- Training Session Notifications ---
+function addSessionToCalendar(session) {
+  const startDate = new Date(session.date + 'T' + (session.time || '16:00') + ':00');
+  const endDate = session.endTime ? new Date(session.date + 'T' + session.endTime + ':00') : new Date(startDate.getTime() + 60 * 60 * 1000);
+  // Format for ICS (UTC)
+  const fmt = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//VeloForge//Training//EN',
+    'BEGIN:VEVENT',
+    'DTSTART:' + fmt(startDate),
+    'DTEND:' + fmt(endDate),
+    'SUMMARY:' + (session.title || 'Training Session'),
+    'LOCATION:' + (session.location || ''),
+    'DESCRIPTION:' + (session.notes || '').replace(/\n/g, '\\n'),
+    'BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', 'DESCRIPTION:Training in 30 minutes', 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR'
+  ].join('\r\n');
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (session.title || 'training').replace(/[^a-zA-Z0-9]/g, '_') + '.ics';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Calendar event downloaded!', 'success');
+}
 function checkTrainingReminder() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  if (userWorkouts.length === 0) return;
-  // Only remind once per day
   const today = new Date().toISOString().split('T')[0];
   const lastReminder = localStorage.getItem('vf_reminder_date');
   if (lastReminder === today) return;
-  // Find most recent workout date
-  let latestDate = null;
-  userWorkouts.forEach(w => {
-    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-    if (d && (!latestDate || d > latestDate)) latestDate = d;
-  });
-  if (!latestDate) return;
-  const daysSince = Math.floor((Date.now() - latestDate.getTime()) / 86400000);
-  if (daysSince >= 2) {
-    localStorage.setItem('vf_reminder_date', today);
-    const messages = [
-      'Your streak is at risk! Log a workout today to keep it going.',
-      'It\'s been ' + daysSince + ' days since your last session. Your competitors are training right now!',
-      'Hey ' + (userProfile?.displayName || 'champ') + '! Time to get back into it. Even a short session counts.',
-      'Don\'t break the chain! A quick workout today keeps the momentum going.'
-    ];
-    const msg = messages[Math.floor(Math.random() * messages.length)];
-    try {
-      new Notification('VeloForge Training Reminder', {
-        body: msg,
-        tag: 'training-reminder',
-        requireInteraction: false
-      });
-    } catch(e) {}
-  }
-  // Also schedule periodic check via setInterval (every 4 hours while app is open)
-  setInterval(() => {
+  // Check upcoming training sessions
+  try {
+    const sessions = JSON.parse(localStorage.getItem('vf_training_sessions') || '[]');
     const now = new Date();
-    const todayKey = now.toISOString().split('T')[0];
-    if (localStorage.getItem('vf_reminder_date') !== todayKey && now.getHours() >= 16) {
-      // Afternoon reminder if no workout logged today
-      const todayWorkouts = userWorkouts.filter(w => {
-        const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-        return d && d.toISOString().split('T')[0] === todayKey;
-      });
-      if (todayWorkouts.length === 0 && Notification.permission === 'granted') {
-        localStorage.setItem('vf_reminder_date', todayKey);
-        try {
-          new Notification('VeloForge', {
-            body: 'No workout logged today yet. There\'s still time!',
-            tag: 'afternoon-reminder'
+    const todaySessions = sessions.filter(s => s.date === today && new Date(s.date + 'T' + (s.time || '16:00')) > new Date(now.getTime() - 3600000));
+    if (todaySessions.length > 0) {
+      localStorage.setItem('vf_reminder_date', today);
+      const s = todaySessions[0];
+      const msg = s.title + (s.location ? ' at ' + s.location : '') + (s.time ? ' — ' + s.time : '');
+      try {
+        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification('Training Session Today', { body: msg, tag: 'training-session', data: { url: '/' } });
           });
-        } catch(e) {}
-      }
+        } else {
+          new Notification('Training Session Today', { body: msg, tag: 'training-session' });
+        }
+      } catch(e) {}
     }
-  }, 4 * 60 * 60 * 1000); // every 4 hours
+  } catch(e) {}
 }
+setInterval(checkTrainingReminder, 15 * 60 * 1000);
 function setupAnnouncementListener() {
   if (!db) return;
   try {
