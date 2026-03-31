@@ -13,7 +13,6 @@
   .logo { font-size: 28px; font-weight: 800; color: var(--primary); margin-bottom: 4px; }
   .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 32px; }
   h2 { font-size: 18px; font-weight: 700; margin: 28px 0 12px; color: var(--text); }
-  h3 { font-size: 14px; font-weight: 700; margin: 16px 0 6px; color: var(--text); }
   p, li { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
   ul { padding-left: 20px; margin-bottom: 12px; }
   a { color: var(--primary); text-decoration: none; }
@@ -21,12 +20,10 @@
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
   .card-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
   .card-title span { font-size: 18px; }
-  .faq-q { font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; padding: 10px 0; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
-  .faq-q:last-child { border: none; }
-  .faq-a { font-size: 13px; color: var(--muted); padding: 0 0 12px; display: none; line-height: 1.5; }
-  .faq-a.open { display: block; }
+  .faq summary { font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; padding: 10px 0; border-bottom: 1px solid var(--border); list-style: none; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq p { padding: 8px 0 12px; }
   .contact-btn { display: inline-block; padding: 10px 20px; background: var(--primary); color: #0a0b0f; font-weight: 700; font-size: 14px; border-radius: 8px; text-decoration: none; margin-top: 8px; }
-  .contact-btn:hover { opacity: 0.9; text-decoration: none; }
   .divider { height: 1px; background: var(--border); margin: 24px 0; }
   .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-bottom: 20px; }
   @media (prefers-color-scheme: light) {
@@ -36,21 +33,21 @@
 </head>
 <body>
 <div class="container">
-  <a href="/" class="back-link">← Back to VeloForge</a>
+  <a href="/" class="back-link">&#8592; Back to VeloForge</a>
   <div class="logo">VeloForge</div>
-  <div class="subtitle">HPV Training Platform — Support & Help</div>
+  <div class="subtitle">HPV Training Platform — Support</div>
 
   <h2>Getting Started</h2>
   <div class="card">
     <div class="card-title"><span>📱</span> Using VeloForge</div>
-    <p>VeloForge is a web app — no app store download needed. Open <a href="/">veloforge.netlify.app</a> in your browser, create an account, and add it to your home screen for a native app experience.</p>
-    <p>On iPhone: tap the Share button → "Add to Home Screen". On Android: tap the menu → "Add to Home Screen".</p>
+    <p>VeloForge is a web app. Open <a href="/">veloforge.netlify.app</a> in your browser, create an account, and add it to your home screen for a native app experience.</p>
+    <p>On iPhone: tap Share then "Add to Home Screen". On Android: tap the menu then "Add to Home Screen".</p>
   </div>
 
   <h2>Strava Integration</h2>
   <div class="card">
     <div class="card-title"><span>⬡</span> Connecting Strava</div>
-    <p>Go to Profile → Strava Integration → "Connect with Strava". You'll be redirected to Strava to authorise VeloForge. Once connected, your recent activities will import automatically.</p>
+    <p>Go to Profile, then Strava Integration, then tap "Connect with Strava". You will be redirected to Strava to authorise VeloForge. Once connected, your recent activities import automatically.</p>
     <p><strong>What VeloForge accesses:</strong></p>
     <ul>
       <li>Your recent activities (name, type, duration, distance, route, heart rate)</li>
@@ -66,46 +63,53 @@
   </div>
   <div class="card">
     <div class="card-title"><span>🔄</span> Syncing Activities</div>
-    <p>Activities sync automatically when you open the app. You can also tap "Sync Now" in Profile → Strava to force a sync. Activities recorded in VeloForge's GPS tracker are uploaded to your Strava profile automatically.</p>
+    <p>Activities sync automatically when you open the app. You can also tap "Sync Now" in Profile to force a sync. Activities recorded with VeloForge's GPS tracker upload to your Strava profile automatically.</p>
   </div>
   <div class="card">
     <div class="card-title"><span>🔌</span> Disconnecting Strava</div>
-    <p>Go to Profile → Strava Integration → "Disconnect Strava". This immediately revokes VeloForge's access to your Strava account. Your previously imported activities remain in your VeloForge training log, but no new data will be synced.</p>
-    <p>You can also revoke access directly from <a href="https://www.strava.com/settings/apps" target="_blank">Strava Settings → My Apps</a>.</p>
+    <p>Go to Profile, then Strava Integration, then tap "Disconnect Strava". This immediately revokes VeloForge's access to your Strava account. Your previously imported activities remain in your training log but no new data will sync.</p>
+    <p>You can also revoke access from <a href="https://www.strava.com/settings/apps" target="_blank" rel="noopener">Strava Settings — My Apps</a>.</p>
   </div>
 
   <h2>Frequently Asked Questions</h2>
-  <div class="card" style="padding:0 16px">
-    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">Why can't I connect Strava? <span>▾</span></div>
-    <div class="faq-a">Make sure you're logged into VeloForge (not in Demo Mode). If you see a "403" or "limit exceeded" error, the Strava integration may be pending approval. Contact your coach or the app administrator.</div>
-
-    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">My activities aren't importing <span>▾</span></div>
-    <div class="faq-a">Try Profile → Strava → "Sync Now". If activities still don't appear, disconnect and reconnect Strava. Make sure your activities are set to "Everyone" or "Followers" visibility on Strava (private activities require the activity:read_all scope which VeloForge requests).</div>
-
-    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">Do coaches see my Strava data? <span>▾</span></div>
-    <div class="faq-a">Coaches can see that you've logged workouts (including those imported from Strava), but they see the same summary data as any workout — name, type, duration, and distance. They cannot access your Strava profile, routes, heart rate, or any social data.</div>
-
-    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">Is my Strava data used for AI coaching? <span>▾</span></div>
-    <div class="faq-a">No. VeloForge's AI coaching features explicitly exclude all Strava-sourced data. Only workouts you log manually within VeloForge are included in AI analysis. This complies with Strava's API terms.</div>
-
-    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">I see duplicate activities <span>▾</span></div>
-    <div class="faq-a">This can happen if you record an activity in VeloForge AND it also syncs from Strava. The app has built-in duplicate detection, but if duplicates appear, ask your coach to run the Duplicate Cleanup tool in the Admin panel.</div>
-
-    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">How do I delete my account? <span>▾</span></div>
-    <div class="faq-a">Contact your coach or the app administrator. They can remove your data from the system. Disconnecting Strava first will revoke API access. Your Strava account and data are not affected by deleting your VeloForge account.</div>
+  <div class="card" style="padding: 0 16px">
+    <details class="faq">
+      <summary>Why can't I connect Strava?</summary>
+      <p>Make sure you are logged into VeloForge (not in Demo Mode). If you see a "403" or "limit exceeded" error, the Strava integration may be pending approval. Contact your coach.</p>
+    </details>
+    <details class="faq">
+      <summary>My activities aren't importing</summary>
+      <p>Try Profile then Strava then "Sync Now". If activities still don't appear, disconnect and reconnect Strava. Make sure your activities are not set to "Only Me" visibility on Strava.</p>
+    </details>
+    <details class="faq">
+      <summary>Do coaches see my Strava data?</summary>
+      <p>Coaches see workout summaries (name, type, duration, distance) the same as any workout. They cannot access your Strava profile, routes, heart rate, or social data.</p>
+    </details>
+    <details class="faq">
+      <summary>Is my Strava data used for AI coaching?</summary>
+      <p>No. VeloForge's AI coaching features explicitly exclude all Strava-sourced data. Only workouts you log manually are included in AI analysis. This complies with Strava's API terms.</p>
+    </details>
+    <details class="faq">
+      <summary>I see duplicate activities</summary>
+      <p>This can happen if you record in VeloForge AND it also syncs from Strava. The app has duplicate detection, but if duplicates appear, ask your coach to run the Cleanup tool in the Admin panel.</p>
+    </details>
+    <details class="faq">
+      <summary>How do I delete my account?</summary>
+      <p>Contact your coach or the app administrator. Disconnect Strava first to revoke API access. Your Strava account is not affected by deleting your VeloForge account.</p>
+    </details>
   </div>
 
   <h2>Privacy</h2>
   <div class="card">
     <div class="card-title"><span>🔒</span> Your Data</div>
-    <p>VeloForge is a school training tool, not a commercial product. Your data is used solely for training tracking and team coordination within your school HPV racing team.</p>
+    <p>VeloForge is a school training tool, not a commercial product.</p>
     <ul>
       <li>Your data is stored in Google Firebase (encrypted at rest)</li>
-      <li>Only you can see your own activity details, routes, and heart rate data</li>
-      <li>Coaches see summary workout counts and streak data for team management</li>
+      <li>Only you can see your own activity details, routes, and heart rate</li>
+      <li>Coaches see summary workout counts for team management</li>
       <li>Your data is never sold, shared with third parties, or used for advertising</li>
-      <li>Strava data is never processed by AI or machine learning systems</li>
-      <li>You can disconnect Strava and delete your account at any time</li>
+      <li>Strava data is never processed by AI or machine learning</li>
+      <li>You can disconnect Strava and request account deletion at any time</li>
     </ul>
   </div>
 
@@ -113,11 +117,11 @@
 
   <h2>Contact</h2>
   <p>For support, bug reports, or questions about your data:</p>
-  <a href="mailto:hearn.tenny@icloud.com" class="contact-btn">Email Support</a>
-  <p style="margin-top:12px;font-size:12px;color:var(--muted)">VeloForge is developed and maintained for the school HPV racing program. Response time is typically within 48 hours during school term.</p>
+  <p><strong>Email:</strong> hearn.tenny [at] icloud.com</p>
+  <p style="margin-top:8px; font-size:12px; color:var(--muted)">Response time is typically within 48 hours during school term.</p>
 
   <div class="divider"></div>
-  <p style="font-size:11px;color:var(--muted);text-align:center">VeloForge · HPV Training Platform · <a href="/">Open App</a></p>
+  <p style="font-size:11px; color:var(--muted); text-align:center">VeloForge — HPV Training Platform — <a href="/">Open App</a></p>
 </div>
 </body>
 </html>
