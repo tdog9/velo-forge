@@ -189,10 +189,20 @@ export function renderStravaActivities() {
 }
 
 export async function stravaDisconnect() {
+  // Call Strava deauthorization endpoint (required by API terms)
+  if (A.stravaTokens?.access_token) {
+    try {
+      await fetch('https://www.strava.com/oauth/deauthorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'access_token=' + A.stravaTokens.access_token
+      });
+    } catch(e) { console.warn('Strava deauth API call failed:', e); }
+  }
   A.stravaTokens = null;
   A.stravaActivities = [];
   if (A.currentUser && A.db && !A.demoMode) {
-    try { await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: null }); } catch(e) {}
+    try { await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: null, stravaClubs: null }); } catch(e) {}
   }
   A.renderProfile();
 }
