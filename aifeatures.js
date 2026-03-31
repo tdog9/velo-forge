@@ -102,7 +102,7 @@ export function startAiWeeklyReview() {
   const weekAgo = now - 7 * 86400000;
   const weekWorkouts = A.userWorkouts.filter(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-    return d && d.getTime() > weekAgo;
+    return d && d.getTime() > weekAgo && w.source !== 'strava'; // Exclude Strava data per API agreement
   });
 
   if (weekWorkouts.length === 0) {
