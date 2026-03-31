@@ -35,8 +35,10 @@ export function openActivityTracker() {
       <button class="tracker-close" id="tracker-close-btn">✕</button>
     </div>
     <div class="tracker-type-bar">
-      <button class="tracker-type-btn active" data-ttype="ride">🚴 Ride</button>
+      <button class="tracker-type-btn active" data-ttype="hpv">🏎️ HPV</button>
+      <button class="tracker-type-btn" data-ttype="ride">🚴 Ride</button>
       <button class="tracker-type-btn" data-ttype="run">🏃 Run</button>
+      <button class="tracker-type-btn" data-ttype="treadmill">🏃‍♂️ Treadmill</button>
       <button class="tracker-type-btn" data-ttype="walk">🚶 Walk</button>
       <button class="tracker-type-btn" data-ttype="gym">🏋️ Gym</button>
     </div>
@@ -191,7 +193,7 @@ function showSaveScreen() {
   if (!overlay) return;
   const dist = calcDist(), elapsed = trackerElapsed, mins = Math.floor(elapsed/60);
   const avgSpeed = elapsed > 0 ? (dist/(elapsed/3600)) : 0;
-  const typeLabels = {ride:'🚴 Ride',run:'🏃 Run',walk:'🚶 Walk',gym:'🏋️ Gym'};
+  const typeLabels = {hpv:'🏎️ HPV Vehicle',ride:'🚴 Ride',run:'🏃 Run',treadmill:'🏃‍♂️ Treadmill',walk:'🚶 Walk',gym:'🏋️ Gym'};
   const saveDiv = document.createElement('div');
   saveDiv.className = 'tracker-save-overlay';
   saveDiv.innerHTML = `<div class="tracker-save-card">
@@ -225,7 +227,7 @@ function showSaveScreen() {
 
   document.getElementById('t-save-discard')?.addEventListener('click', () => closeActivityTracker());
   document.getElementById('t-save-btn')?.addEventListener('click', async () => {
-    const name = document.getElementById('t-save-name')?.value?.trim() || (trackerType==='ride'?'Ride':trackerType==='run'?'Run':trackerType==='walk'?'Walk':'Gym Session');
+    const name = document.getElementById('t-save-name')?.value?.trim() || (trackerType==='hpv'?'HPV Session':trackerType==='ride'?'Ride':trackerType==='run'?'Run':trackerType==='treadmill'?'Treadmill Run':trackerType==='walk'?'Walk':'Gym Session');
     const path = trackerPositions.filter((_,i)=>i%3===0||i===trackerPositions.length-1).map(p=>[parseFloat(p.lat.toFixed(5)),parseFloat(p.lng.toFixed(5))]);
     const workoutId = 'trk-'+Date.now();
     const workout = { name, duration:mins, date:new Date(), type:trackerType, distance:parseFloat(dist.toFixed(2)), avgSpeed:parseFloat(avgSpeed.toFixed(1)), rpe:selectedRpe, gpsPoints:trackerPositions.length, source:'tracker' };
@@ -260,7 +262,7 @@ export function openActivityDetail(workoutIdx) {
   const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
   const dateStr = date.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const timeStr = date.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
-  const icons = {ride:'🚴',run:'🏃',walk:'🚶',gym:'🏋️'};
+  const icons = {hpv:'🏎️',ride:'🚴',run:'🏃',treadmill:'🏃‍♂️',walk:'🚶',gym:'🏋️'};
   const wType = w.type||'ride';
 
   const ov = document.createElement('div');
