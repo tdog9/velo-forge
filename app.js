@@ -320,7 +320,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -1930,7 +1930,7 @@ function renderToday() {
   const lastRoute = lastRouteId ? storedRoutes[lastRouteId] : null;
   const hasLastRoute = lastRoute && lastRoute.length > 1;
   if (isToday && lastActivity) {
-    const typeIcons = {ride:'🚴',run:'🏃',walk:'🚶',gym:'🏋️'};
+    const typeIcons = {hpv:'🏎️',ride:'🚴',run:'🏃',treadmill:'🏃‍♂️',walk:'🚶',gym:'🏋️',HPV:'🏎️',Ride:'🚴',Run:'🏃',Treadmill:'🏃‍♂️',Strength:'🏋️',Cardio:'❤️',Flexibility:'🧘'};
     html += `<div class="card" style="margin-top:10px;overflow:hidden">`;
     if (hasLastRoute) html += `<div class="activity-map-thumb" id="today-route-map" data-route-id="${lastRouteId}" style="height:120px;margin:0;border-radius:0"></div>`;
     html += `<div class="card-pad" style="padding:8px 12px"><div style="display:flex;align-items:center;gap:8px">
@@ -3148,10 +3148,13 @@ function renderWorkouts() {
     // Filter buttons
     html += `<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <button class="wo-filter-btn active" data-wofilter="all" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--primary);background:var(--primary);color:var(--primary-fg);cursor:pointer;font-weight:600">All (${userWorkouts.length})</button>`;
-    const types = ['ride','run','walk','gym'];
-    const typeIcons = {ride:'🚴',run:'🏃',walk:'🚶',gym:'🏋️'};
+    // Collect unique workout types from actual data
+    const typeSet = new Set();
+    userWorkouts.forEach(w => { if (w.type) typeSet.add(w.type.toLowerCase()); });
+    const types = [...typeSet].sort();
+    const typeIcons = {hpv:'🏎️',ride:'🚴',run:'🏃',treadmill:'🏃‍♂️',walk:'🚶',gym:'🏋️',strength:'🏋️',cardio:'❤️',flexibility:'🧘',workout:'🏋️'};
     types.forEach(t => {
-      const count = userWorkouts.filter(w => (w.type || 'ride') === t || (!w.type && t === 'ride')).length;
+      const count = userWorkouts.filter(w => (w.type || 'ride').toLowerCase() === t).length;
       if (count > 0) {
         html += `<button class="wo-filter-btn" data-wofilter="${t}" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">${typeIcons[t]} ${capitalize(t)} (${count})</button>`;
       }
@@ -3174,7 +3177,7 @@ function renderWorkouts() {
       const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
       const dateStr = date.toLocaleDateString('en-AU', {day:'numeric',month:'short'});
       const timeStr = date.toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'});
-      const wType = w.type || 'ride';
+      const wType = (w.type || 'ride').toLowerCase();
       const isTracked = w.source === 'tracker';
       const isStrava = w.source === 'strava';
       const routeId = w.routeId || (w.stravaId ? 'strava-' + w.stravaId : w._id);
@@ -3288,7 +3291,10 @@ function openWorkoutSheet() {
       <div class="form-group">
         <label class="label" for="wo-type">Type</label>
         <select class="input" id="wo-type">
+          <option value="HPV">HPV Vehicle</option>
           <option value="Ride">Ride</option>
+          <option value="Run">Run</option>
+          <option value="Treadmill">Treadmill</option>
           <option value="Strength">Strength</option>
           <option value="Cardio">Cardio</option>
           <option value="Flexibility">Flexibility</option>
@@ -4806,7 +4812,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '3.0.0';
+  const APP_VERSION = '3.1.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
