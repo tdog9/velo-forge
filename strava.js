@@ -136,7 +136,9 @@ export function renderStravaActivities() {
       const duration = parseInt(btn.dataset.stravaDur) || 0;
       const distance = parseFloat(btn.dataset.stravaDist) || null;
       const dateStr = btn.dataset.stravaDate;
-      const type = btn.dataset.stravaType === 'Ride' ? 'Ride' : btn.dataset.stravaType === 'Run' ? 'Cardio' : 'Ride';
+      const stravaTypeRaw = btn.dataset.stravaType || 'Ride';
+      const importTypeMap = { Ride: 'ride', Run: 'run', Walk: 'walk', Workout: 'gym', WeightTraining: 'gym', Yoga: 'gym', Swim: 'cardio', Hike: 'walk', VirtualRide: 'ride', VirtualRun: 'treadmill', Elliptical: 'treadmill' };
+      const type = importTypeMap[stravaTypeRaw] || 'ride';
       const dateObj = dateStr ? new Date(dateStr) : new Date();
       const routeId = 'strava-' + stravaId;
 
@@ -223,8 +225,8 @@ export async function stravaUploadActivity(workout) {
     if (!refreshed) return false;
   }
   try {
-    const typeMap = { ride: 'Ride', run: 'Run', walk: 'Walk', gym: 'Workout' };
-    const stravaType = typeMap[workout.type] || 'Workout';
+    const typeMap = { hpv: 'Ride', ride: 'Ride', run: 'Run', treadmill: 'Run', walk: 'Walk', gym: 'Workout', HPV: 'Ride', Ride: 'Ride', Run: 'Run', Treadmill: 'Run', Strength: 'Workout', Cardio: 'Workout', Flexibility: 'Workout' };
+    const stravaType = typeMap[workout.type] || typeMap[workout.type?.toLowerCase()] || 'Workout';
     const startDate = workout.date ? (workout.date.toDate ? workout.date.toDate() : new Date(workout.date)) : new Date();
     const body = {
       name: workout.name || 'VeloForge Activity',
@@ -289,7 +291,7 @@ export async function stravaAutoSync() {
         return dayMatch && durMatch;
       });
       if (isDuplicate) continue;
-      const typeMap = { Ride: 'ride', Run: 'run', Walk: 'walk', Hike: 'walk', WeightTraining: 'gym', Workout: 'gym' };
+      const typeMap = { Ride: 'ride', Run: 'run', Walk: 'walk', Hike: 'walk', WeightTraining: 'gym', Workout: 'gym', VirtualRide: 'ride', VirtualRun: 'treadmill', Elliptical: 'treadmill', Yoga: 'gym', Swim: 'cardio' };
       const type = typeMap[a.type] || 'ride';
       const routeId = 'strava-' + a.id;
       // Decode and store polyline route
