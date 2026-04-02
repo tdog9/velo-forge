@@ -320,7 +320,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.2.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -525,6 +525,26 @@ function showAuthSignup() {
   hide('signup-error');
   hide('ai-fab');
   $('signup-btn').disabled = false;
+  // Load available teams into dropdown
+  loadSignupTeams();
+}
+async function loadSignupTeams() {
+  const select = $('signup-team');
+  if (!select || !db) return;
+  try {
+    const teamsSnap = await getDocs(collection(db, 'teams'));
+    select.innerHTML = '<option value="">Select your team...</option>';
+    teamsSnap.docs.forEach(d => {
+      const t = d.data();
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = t.name || d.id;
+      select.appendChild(opt);
+    });
+    if (teamsSnap.docs.length === 0) {
+      select.innerHTML = '<option value="">No teams created yet</option>';
+    }
+  } catch(e) { console.warn('Failed to load teams for signup:', e); }
 }
 function showMainApp() {
   hide('auth-login');
@@ -594,6 +614,7 @@ $('signup-btn')?.addEventListener('click', async () => {
   const role = $('signup-role').value || 'student';
   const yearLevel = role === 'student' ? $('signup-year').value : null;
   const tier = role === 'student' ? (document.querySelector('input[name="signup-tier"]:checked')?.value || 'basic') : null;
+  const selectedTeamId = role === 'student' ? ($('signup-team')?.value || null) : null;
   const childEmail = role === 'parent' ? ($('signup-child-email')?.value?.trim() || null) : null;
   if (!name || !email || !password) {
     $('signup-error').textContent = 'Please fill in all fields.';
@@ -635,6 +656,18 @@ $('signup-btn')?.addEventListener('click', async () => {
     };
     if (role === 'parent') userData.linkedChildEmail = childEmail;
     if (role === 'coach') userData.isCoach = true;
+    // Auto-join selected team
+    if (selectedTeamId && db) {
+      try {
+        const teamSnap = await getDoc(doc(db, 'teams', selectedTeamId));
+        if (teamSnap.exists()) {
+          const td = teamSnap.data();
+          await updateDoc(doc(db, 'teams', selectedTeamId), { members: arrayUnion(cred.user.uid) });
+          userData.teamId = selectedTeamId;
+          userData.teamName = td.name;
+        }
+      } catch(e) { console.warn('Auto-join team failed:', e); }
+    }
     await setDoc(doc(db, 'users', cred.user.uid), userData);
   } catch(e) {
     hideLoading();
@@ -1703,14 +1736,14 @@ function renderTeamChallenge() {
   const colors = ['#BFFF00', '#7c3aed', '#f97316', '#3b82f6', '#ec4899'];
   let html = '<div class="challenge-card">';
   html += '<div class="challenge-title">🏆 ' + escHtml(activeChallenge.title || 'Team Challenge') + '</div>';
-  html += '<div class="challenge-meta">' + (daysLeft > 0 ? daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' remaining' : 'Challenge ended!') + '</div>';
+  html += '<div class="challenge-meta">' + (daysLeft > 0 ? daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' remaining' : 'Challenge ended!') + ' · Mins + XP</div>';
   teams.sort((a, b) => b.score - a.score);
   teams.forEach((t, i) => {
     const pct = maxScore > 0 ? (t.score / maxScore) * 100 : 0;
     html += '<div class="challenge-team">';
     html += '<div class="challenge-team-name">' + (i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '') + escHtml(t.name) + '</div>';
     html += '<div class="challenge-team-bar"><div class="challenge-team-fill" style="width:' + pct + '%;background:' + (colors[i] || colors[4]) + '"></div></div>';
-    html += '<div class="challenge-team-score">' + t.score + '</div>';
+    html += '<div class="challenge-team-score">' + t.score + ' pts</div>';
     html += '</div>';
   });
   html += '</div>';
@@ -3061,8 +3094,8 @@ async function loadTeamChallenge() {
   if (demoMode) {
     activeChallenge = {
       id: 'demo-challenge',
-      title: 'Monthly Minutes Challenge',
-      type: 'minutes',
+      title: 'Monthly Challenge',
+      type: 'monthly',
       repeat: true,
       startDate: new Date(Date.now() - 3 * 86400000).toISOString(),
       endDate: new Date(Date.now() + 27 * 86400000).toISOString(),
@@ -3437,7 +3470,7 @@ async function saveWorkout(rpe, photoData) {
         }
       });
     }
-    autoUpdateChallengeScore(duration);
+    autoUpdateChallengeScore(duration, 10 + (rpeVal ? 5 : 0));
   } catch(e) {
     hideLoading();
     // Network error — queue offline
@@ -4812,7 +4845,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '3.1.0';
+  const APP_VERSION = '3.2.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -4878,7 +4911,7 @@ function startApp() {
                   if (sid) { try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid), source: 'tracker' }); } catch(e) {} showToast('Synced to Strava!', 'success'); }
                 });
               }
-              autoUpdateChallengeScore(workout.duration || 0);
+              autoUpdateChallengeScore(workout.duration || 0, 10);
             } catch(e) { showError('Failed to save activity', 'tracker', e, { action: 'save' }); }
           } else { userWorkouts.unshift({ ...workout, id: workoutId, routeId: workoutId }); showToast('Activity saved (demo).', 'success'); }
         },
@@ -5168,19 +5201,19 @@ let plansSubTab = 'manage'; // manage | workouts | videos
 let usersSubTab = 'all'; // all | permissions
 // RACE LOG (all users)
 // GPS Tracker — imported from tracker.js (see import at top of file)
-async function autoUpdateChallengeScore(minutes) {
-  if (!activeChallenge || !minutes || minutes <= 0) return;
+async function autoUpdateChallengeScore(minutes, xpEarned) {
+  if (!activeChallenge) return;
+  const totalPoints = Math.round((minutes || 0) + (xpEarned || 0));
+  if (totalPoints <= 0) return;
   if (demoMode || !db || !currentUser) return;
   // Find user's team
   const teamId = userProfile?.teamId;
   if (!teamId) return;
   // Match teamId to a challenge team key
   const teams = activeChallenge.teams || {};
-  // Try direct match first, then match by team name
   let matchKey = null;
   if (teams[teamId]) { matchKey = teamId; }
   else {
-    // Try matching by team data name
     if (teamData?.name) {
       const entry = Object.entries(teams).find(([k, v]) => v.name && v.name.toLowerCase() === teamData.name.toLowerCase());
       if (entry) matchKey = entry[0];
@@ -5193,7 +5226,7 @@ async function autoUpdateChallengeScore(minutes) {
     if (!snap.exists()) return;
     const data = snap.data();
     if (data.teams && data.teams[matchKey]) {
-      data.teams[matchKey].score = (data.teams[matchKey].score || 0) + Math.round(minutes);
+      data.teams[matchKey].score = (data.teams[matchKey].score || 0) + totalPoints;
       await setDoc(challengeRef, data);
       activeChallenge = data;
     }
@@ -5317,7 +5350,7 @@ const TUTORIAL_STEPS = [
   {
     icon: '👥', bg: 'linear-gradient(135deg,#f97316,#fb923c)',
     title: 'Teams & Challenges',
-    desc: 'Join or create a team in the Leaderboard tab. Teams compete in monthly challenges (like "Total Training Minutes") set by your coach. The scoreboard shows live rankings with medals for the top 3 teams. Your workout minutes auto-count toward your team\'s score.',
+    desc: 'Join or create a team in the Leaderboard tab. Teams compete in monthly challenges set by your coach. The scoreboard shows live rankings with medals for the top 3 teams. Your workout minutes AND XP auto-count toward your team\'s score.',
     highlight: null
   },
   {
