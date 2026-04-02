@@ -1030,3 +1030,6 @@ select.input{appearance:none;cursor:pointer;
 .role-btn{flex:1;padding:10px 6px;border:1px solid var(--border);border-radius:10px;background:var(--surface-alt);color:var(--muted-fg);font-size:13px;font-weight:600;text-align:center;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
 .role-btn:active{transform:scale(.97)}
 .role-btn.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+
+/* Weather skeleton pulse */
+@keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:.8} }
