@@ -325,7 +325,7 @@ export async function renderCoachDashboard() {
   // Create new challenge form
   chHtml += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px">
     <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">${A.activeChallenge ? 'Start New Challenge' : 'Create Challenge'}</div>
-    <input class="input" id="ch-new-title" type="text" placeholder="Challenge title" value="Monthly Minutes Challenge" style="margin-bottom:6px;width:100%;font-size:12px">
+    <input class="input" id="ch-new-title" type="text" placeholder="Challenge title" value="Monthly Challenge" style="margin-bottom:6px;width:100%;font-size:12px">
     <div style="display:flex;gap:6px;margin-bottom:6px">
       <select class="input" id="ch-new-duration" style="flex:1;font-size:12px;padding:6px"><option value="7">1 Week</option><option value="14">2 Weeks</option><option value="30" selected>1 Month</option><option value="60">2 Months</option></select>
       <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted-fg);white-space:nowrap"><input type="checkbox" id="ch-new-repeat" checked> Auto-repeat</label>
