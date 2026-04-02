@@ -142,20 +142,36 @@ let checklistUnsubscribe = null;
 // XP & Levelling (imported from state.js)
 function calcXp() {
   let xp = 0;
-  xp += userWorkouts.length * 10; // 10 XP per workout
-  // Streak bonus
+  // Base XP: 10 per workout
+  xp += userWorkouts.length * 10;
+  // Daily 2x bonus: first workout each day gets bonus 10 XP
+  const dailyDates = new Set();
+  userWorkouts.forEach(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    if (d) {
+      const key = d.toISOString().split('T')[0];
+      if (!dailyDates.has(key)) { dailyDates.add(key); xp += 10; } // +10 bonus for first workout of each day
+    }
+  });
+  // Streak calculation with freeze support
   const dates = [...new Set(userWorkouts.map(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     return d ? d.toISOString().split('T')[0] : null;
   }).filter(Boolean))].sort();
   let streak = 0, best = 0, cur = 0;
+  let freezesEarned = 0, freezesUsed = 0;
   dates.forEach((d, i) => {
     if (i === 0) { cur = 1; } else {
       const diff = (new Date(d) - new Date(dates[i-1])) / 86400000;
-      cur = diff === 1 ? cur + 1 : 1;
+      if (diff === 1) { cur += 1; }
+      else if (diff === 2 && freezesEarned > freezesUsed) { cur += 1; freezesUsed++; } // Use a freeze for 1 missed day
+      else { cur = 1; }
     }
     if (cur > best) best = cur;
+    if (cur > 0 && cur % 7 === 0) freezesEarned++; // Earn a freeze every 7 days
   });
+  // Store streak freeze balance for display
+  try { localStorage.setItem('vf_streak_freezes', String(Math.max(0, freezesEarned - freezesUsed))); } catch(e) {}
   if (best >= 7) xp += 25;
   if (best >= 14) xp += 50;
   if (best >= 30) xp += 100;
@@ -169,12 +185,42 @@ function calcXp() {
         const k = userProfile.activePlanId + '-' + w.week + '-' + w.day + '-' + (plan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
         if (userChecklist[k]) done++;
       });
-      if (done >= total && total > 0) xp += 75; // completed plan bonus
+      if (done >= total && total > 0) xp += 75;
     }
   }
   // RPE logging bonus (5 XP per workout with RPE)
   xp += userWorkouts.filter(w => w.rpe).length * 5;
   return xp;
+}
+// Level-up detection
+function checkLevelUp(oldXp, newXp) {
+  const oldLvl = getXpLevel(oldXp);
+  const newLvl = getXpLevel(newXp);
+  if (newLvl.idx > oldLvl.idx) {
+    showLevelUpAnimation(newLvl);
+  }
+}
+function showLevelUpAnimation(level) {
+  haptic('success');
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;flex-direction:column;animation:fadeIn .3s';
+  ov.innerHTML = `
+    <div style="font-size:80px;animation:bounceIn .6s">${level.icon}</div>
+    <div style="font-size:28px;font-weight:800;color:#fff;margin-top:16px;animation:bounceIn .6s .1s both">LEVEL UP!</div>
+    <div style="font-size:18px;color:var(--primary);font-weight:700;margin-top:8px;animation:bounceIn .6s .2s both">${level.name}</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.6);margin-top:6px;animation:bounceIn .6s .3s both">${level.xp} XP</div>
+    <button style="margin-top:24px;padding:12px 32px;font-size:14px;font-weight:700;border-radius:10px;border:none;background:var(--primary);color:var(--primary-fg);cursor:pointer;animation:bounceIn .6s .4s both" id="lvlup-dismiss">Nice!</button>
+  `;
+  if (!document.getElementById('lvlup-style')) {
+    const style = document.createElement('style');
+    style.id = 'lvlup-style';
+    style.textContent = '@keyframes bounceIn{0%{transform:scale(0);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}} @keyframes fadeIn{from{opacity:0}to{opacity:1}}';
+    document.head.appendChild(style);
+  }
+  document.body.appendChild(ov);
+  showCelebration('');
+  ov.querySelector('#lvlup-dismiss')?.addEventListener('click', () => ov.remove());
+  setTimeout(() => { if (ov.parentNode) ov.remove(); }, 8000);
 }
 // Personal Goals
 let userGoals = []; // [{id, type, target, current, label, createdAt}]
@@ -320,7 +366,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '3.3.0';
+const APP_VERSION = '3.4.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -1868,7 +1914,17 @@ function renderToday() {
       <span style="font-size:12px;font-weight:700;color:var(--primary)">${lvl.icon} ${xp} XP</span>
     </div>
   </div>`;
-  html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
+  html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
+  // Engagement indicators row
+  const freezeCount = parseInt(localStorage.getItem('vf_streak_freezes') || '0');
+  const engTodayStr = now.toISOString().split('T')[0];
+  const hasTrainedToday = userWorkouts.some(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === engTodayStr; });
+  const indicators = [];
+  if (!hasTrainedToday && totalWorkouts > 0) indicators.push('<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(245,158,11,.12);color:#f59e0b">2x XP — log today!</span>');
+  if (freezeCount > 0) indicators.push('<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;background:rgba(59,130,246,.1);color:#3b82f6">🧊 ' + freezeCount + ' freeze' + (freezeCount > 1 ? 's' : '') + '</span>');
+  if (indicators.length > 0) {
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">' + indicators.join('') + '</div>';
+  }
   // Weather card (loaded async, placeholder)
   html += '<div id="weather-card"></div>';
   // Announcements (only if active)
@@ -2400,44 +2456,72 @@ function parseExercisesFromDesc(desc, name, duration) {
 function openExerciseTracker(key, name, desc, duration, exercisesJson) {
   let exercises = [];
   try { exercises = JSON.parse(exercisesJson || '[]'); } catch(e) {}
-  // Load saved progress
   let progress = {};
   try { progress = JSON.parse(localStorage.getItem('vf_sets_' + key) || '{}'); } catch(e) {}
-  // Parse exercises from description for floor/invehicle plans
-  if (exercises.length === 0) {
-    exercises = parseExercisesFromDesc(desc, name, duration);
-  }
-  // Save total for inline progress display
+  if (exercises.length === 0) exercises = parseExercisesFromDesc(desc, name, duration);
   const totalSets = exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
   try { localStorage.setItem('vf_sets_total_' + key, String(totalSets)); } catch(e) {}
+  let restTimerInterval = null;
+  let restSeconds = 0;
+  let liveMode = false;
+  let liveExIdx = 0;
   const ov = document.createElement('div');
   ov.id = 'exercise-tracker-overlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:201;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
+
+  function startRestTimer(secs) {
+    if (restTimerInterval) clearInterval(restTimerInterval);
+    restSeconds = secs || 60;
+    renderTracker();
+    restTimerInterval = setInterval(() => {
+      restSeconds--;
+      const el = ov.querySelector('#rest-timer-display');
+      if (el) el.textContent = restSeconds + 's';
+      const bar = ov.querySelector('#rest-timer-bar');
+      if (bar) bar.style.width = (restSeconds / (secs || 60) * 100) + '%';
+      if (restSeconds <= 0) {
+        clearInterval(restTimerInterval);
+        restTimerInterval = null;
+        haptic('success');
+        renderTracker();
+      }
+    }, 1000);
+  }
+
   function renderTracker() {
-    const totalSets = exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
-    const doneSets = Object.values(progress).reduce((s, v) => s + v, 0);
-    const pct = totalSets > 0 ? Math.round((doneSets / totalSets) * 100) : 0;
-    const allDone = doneSets >= totalSets;
+    const totalS = exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
+    const doneS = Object.values(progress).reduce((s, v) => s + v, 0);
+    const pct = totalS > 0 ? Math.round((doneS / totalS) * 100) : 0;
+    const allDone = doneS >= totalS;
+    if (liveMode) { renderLiveMode(); return; }
     let html = `<div style="display:flex;align-items:center;padding:12px 16px;padding-top:calc(12px + var(--safe-t));border-bottom:1px solid var(--border);flex-shrink:0">
-      <button id="et-back" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">←</button>
+      <button id="et-back" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">\u2190</button>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</div>
-        <div style="font-size:11px;color:var(--muted-fg)">${doneSets}/${totalSets} sets · ${pct}%</div>
+        <div style="font-size:11px;color:var(--muted-fg)">${doneS}/${totalS} sets \u00b7 ${pct}%</div>
       </div>
-      ${allDone ? '<div style="font-size:12px;font-weight:700;color:var(--primary);background:rgba(191,255,0,.12);padding:4px 10px;border-radius:6px">Done ✓</div>' : ''}
+      <button id="et-live-btn" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;border:1.5px solid var(--primary);background:rgba(191,255,0,.1);color:var(--primary);cursor:pointer">\u25b6 Live Mode</button>
     </div>
-    <div style="height:3px;background:var(--muted)"><div style="height:100%;width:${pct}%;background:var(--primary);border-radius:0 2px 2px 0;transition:width .3s"></div></div>
-    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px;padding-bottom:calc(16px + var(--safe-b))">`;
+    <div style="height:3px;background:var(--muted)"><div style="height:100%;width:${pct}%;background:var(--primary);border-radius:0 2px 2px 0;transition:width .3s"></div></div>`;
+    if (restTimerInterval && restSeconds > 0) {
+      html += `<div style="padding:12px 16px;background:rgba(59,130,246,.08);border-bottom:1px solid rgba(59,130,246,.15);text-align:center">
+        <div style="font-size:11px;font-weight:600;color:#3b82f6;margin-bottom:4px">REST</div>
+        <div id="rest-timer-display" style="font-size:32px;font-weight:800;color:var(--text)">${restSeconds}s</div>
+        <div style="height:3px;background:rgba(59,130,246,.15);border-radius:99px;margin-top:6px"><div id="rest-timer-bar" style="height:100%;width:${(restSeconds/60)*100}%;background:#3b82f6;border-radius:99px;transition:width 1s linear"></div></div>
+        <button id="skip-rest" style="margin-top:6px;font-size:11px;color:var(--muted-fg);background:none;border:none;cursor:pointer">Skip \u2192</button>
+      </div>`;
+    }
+    html += `<div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px;padding-bottom:calc(16px + var(--safe-b))">`;
     exercises.forEach((ex, i) => {
       const setsTarget = ex.sets || 1;
       const setsCompleted = progress[i] || 0;
       const exDone = setsCompleted >= setsTarget;
       const repInfo = ex.reps ? ex.reps + ' reps' : ex.duration || '';
-      const resistInfo = ex.resistance ? ' · ' + ex.resistance : '';
+      const resistInfo = ex.resistance ? ' \u00b7 ' + ex.resistance : '';
       html += `<div class="card" style="margin-bottom:8px;${exDone ? 'opacity:.5' : ''}">
         <div style="padding:12px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${ex.notes ? '4' : '6'}px">
-            <div style="font-weight:700;font-size:14px;color:var(--text);flex:1;min-width:0">${exDone ? '<span style="color:var(--primary)">✓</span> ' : ''}${escHtml(ex.name)}</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text);flex:1;min-width:0">${exDone ? '<span style="color:var(--primary)">\u2713</span> ' : ''}${escHtml(ex.name)}</div>
             <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-left:8px">${repInfo}${resistInfo}</div>
           </div>
           ${ex.notes ? '<div style="font-size:12px;color:var(--muted-fg);line-height:1.4;margin-bottom:6px">' + escHtml(ex.notes) + '</div>' : ''}
@@ -2445,32 +2529,128 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
             <div style="display:flex;gap:4px;flex:1;flex-wrap:wrap">`;
       for (let s = 0; s < setsTarget; s++) {
         const setDone = s < setsCompleted;
-        html += `<button class="et-set-btn" data-ex="${i}" data-set="${s}" style="min-width:36px;height:36px;border-radius:8px;border:2px solid ${setDone ? 'var(--primary)' : 'var(--border)'};background:${setDone ? 'var(--primary)' : 'var(--card)'};color:${setDone ? 'var(--primary-fg)' : 'var(--muted-fg)'};font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;padding:0 6px">${setsTarget === 1 ? '✓' : s + 1}</button>`;
+        html += `<button class="et-set-btn" data-ex="${i}" data-set="${s}" style="min-width:36px;height:36px;border-radius:8px;border:2px solid ${setDone ? 'var(--primary)' : 'var(--border)'};background:${setDone ? 'var(--primary)' : 'var(--card)'};color:${setDone ? 'var(--primary-fg)' : 'var(--muted-fg)'};font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;padding:0 6px">${setsTarget === 1 ? '\u2713' : s + 1}</button>`;
       }
       html += `</div>
-            <button class="et-reset-btn" data-ex="${i}" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:4px 2px">↺</button>
+            <button class="et-rest-btn" data-ex="${i}" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted-fg);font-size:10px;cursor:pointer;padding:4px 8px;white-space:nowrap">\u23f1 Rest</button>
+            <button class="et-reset-btn" data-ex="${i}" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:4px 2px">\u21ba</button>
           </div>
         </div>
       </div>`;
     });
     html += `<div style="display:flex;gap:8px;margin-top:8px">
       <button id="et-reset-all" class="btn btn-secondary" style="flex:1;padding:12px;font-size:13px">Reset All</button>
-      <button id="et-complete" class="btn ${allDone ? 'btn-primary' : 'btn-secondary'}" style="flex:2;padding:12px;font-size:14px;font-weight:700">${allDone ? '✓ Mark Complete' : 'Mark Complete'}</button>
-    </div>`;
-    html += '</div>';
+      <button id="et-complete" class="btn ${allDone ? 'btn-primary' : 'btn-secondary'}" style="flex:2;padding:12px;font-size:14px;font-weight:700">${allDone ? '\u2713 Mark Complete' : 'Mark Complete'}</button>
+    </div></div>`;
     ov.innerHTML = html;
-    // Bindings
-    ov.querySelector('#et-back').addEventListener('click', () => { ov.remove(); renderToday(); });
+    bindTrackerEvents();
+  }
+
+  function renderLiveMode() {
+    const ex = exercises[liveExIdx];
+    if (!ex) { liveMode = false; renderTracker(); return; }
+    const setsTarget = ex.sets || 1;
+    const setsCompleted = progress[liveExIdx] || 0;
+    const exDone = setsCompleted >= setsTarget;
+    const repInfo = ex.reps ? ex.reps + ' reps' : ex.duration || '';
+    const nextEx = exercises[liveExIdx + 1];
+    const totalDone = Object.values(progress).reduce((s, v) => s + v, 0);
+    const totalS2 = exercises.reduce((s, ex2) => s + (ex2.sets || 1), 0);
+    let html = `<div style="display:flex;align-items:center;padding:12px 16px;padding-top:calc(12px + var(--safe-t));border-bottom:1px solid var(--border);flex-shrink:0">
+      <button id="et-exit-live" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">\u2190</button>
+      <div style="flex:1;font-size:12px;color:var(--muted-fg)">${liveExIdx + 1} of ${exercises.length}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--primary)">${totalDone}/${totalS2} sets</div>
+    </div>
+    <div style="height:3px;background:var(--muted)"><div style="height:100%;width:${(totalDone/totalS2)*100}%;background:var(--primary);transition:width .3s"></div></div>`;
+    if (restTimerInterval && restSeconds > 0) {
+      html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+        <div style="font-size:14px;font-weight:600;color:#3b82f6;margin-bottom:8px">REST</div>
+        <div id="rest-timer-display" style="font-size:72px;font-weight:800;color:var(--text)">${restSeconds}s</div>
+        <div style="width:200px;height:4px;background:rgba(59,130,246,.15);border-radius:99px;margin:16px 0"><div id="rest-timer-bar" style="height:100%;width:${(restSeconds/60)*100}%;background:#3b82f6;border-radius:99px;transition:width 1s linear"></div></div>
+        ${nextEx ? '<div style="font-size:13px;color:var(--muted-fg)">Next: ' + escHtml(nextEx.name) + '</div>' : ''}
+        <button id="skip-rest" style="margin-top:16px;padding:10px 24px;font-size:13px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer">Skip Rest \u2192</button>
+      </div>`;
+    } else {
+      html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
+        <div style="font-size:48px;margin-bottom:12px">${exDone ? '\u2705' : '\ud83c\udfcb\ufe0f'}</div>
+        <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px">${escHtml(ex.name)}</div>
+        <div style="font-size:16px;color:var(--muted-fg);margin-bottom:4px">${repInfo}${ex.resistance ? ' \u00b7 ' + ex.resistance : ''}</div>
+        ${ex.notes ? '<div style="font-size:13px;color:var(--muted-fg);line-height:1.5;margin-bottom:12px;max-width:300px">' + escHtml(ex.notes) + '</div>' : ''}
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px">Set ${Math.min(setsCompleted + 1, setsTarget)} of ${setsTarget}</div>
+        <div style="display:flex;gap:6px;margin-bottom:20px">`;
+      for (let s = 0; s < setsTarget; s++) {
+        const done = s < setsCompleted;
+        html += `<div style="width:12px;height:12px;border-radius:50%;background:${done ? 'var(--primary)' : 'var(--border)'}"></div>`;
+      }
+      html += `</div>
+        ${exDone ? `<button id="live-next" class="btn btn-primary" style="padding:14px 40px;font-size:16px;font-weight:700;border-radius:12px">${liveExIdx < exercises.length - 1 ? 'Next Exercise \u2192' : '\u2713 Finish Workout'}</button>`
+        : `<button id="live-done-set" class="btn btn-primary" style="padding:14px 40px;font-size:16px;font-weight:700;border-radius:12px;min-width:180px">Done \u2713</button>`}
+      </div>`;
+    }
+    ov.innerHTML = html;
+    ov.querySelector('#et-exit-live')?.addEventListener('click', () => { liveMode = false; if (restTimerInterval) { clearInterval(restTimerInterval); restTimerInterval = null; } renderTracker(); });
+    ov.querySelector('#skip-rest')?.addEventListener('click', () => { if (restTimerInterval) { clearInterval(restTimerInterval); restTimerInterval = null; } restSeconds = 0; renderTracker(); });
+    ov.querySelector('#live-done-set')?.addEventListener('click', () => {
+      haptic('medium');
+      progress[liveExIdx] = (progress[liveExIdx] || 0) + 1;
+      try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
+      const newDone = progress[liveExIdx] || 0;
+      const target = exercises[liveExIdx]?.sets || 1;
+      if (newDone >= target) {
+        if (liveExIdx < exercises.length - 1) startRestTimer(60);
+        renderTracker();
+      } else {
+        startRestTimer(45);
+      }
+    });
+    ov.querySelector('#live-next')?.addEventListener('click', () => {
+      if (liveExIdx < exercises.length - 1) {
+        liveExIdx++;
+        renderTracker();
+      } else {
+        liveMode = false;
+        haptic('success');
+        toggleChecklist(key);
+        ov.remove();
+        showToast('Workout complete! \ud83d\udcaa', 'success');
+      }
+    });
+  }
+
+  function bindTrackerEvents() {
+    ov.querySelector('#et-back')?.addEventListener('click', () => { if (restTimerInterval) clearInterval(restTimerInterval); ov.remove(); renderToday(); });
+    ov.querySelector('#et-live-btn')?.addEventListener('click', () => {
+      liveMode = true;
+      liveExIdx = exercises.findIndex((ex, i) => (progress[i] || 0) < (ex.sets || 1));
+      if (liveExIdx < 0) liveExIdx = 0;
+      haptic('medium');
+      renderTracker();
+    });
+    ov.querySelector('#skip-rest')?.addEventListener('click', () => {
+      if (restTimerInterval) { clearInterval(restTimerInterval); restTimerInterval = null; }
+      restSeconds = 0;
+      renderTracker();
+    });
     ov.querySelectorAll('.et-set-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         haptic('light');
         const exIdx = parseInt(btn.dataset.ex);
         const setIdx = parseInt(btn.dataset.set);
         const current = progress[exIdx] || 0;
-        progress[exIdx] = setIdx < current ? setIdx : setIdx + 1;
+        if (setIdx < current) {
+          progress[exIdx] = setIdx;
+        } else {
+          progress[exIdx] = setIdx + 1;
+          const target = exercises[exIdx]?.sets || 1;
+          if (progress[exIdx] < target) startRestTimer(45);
+          else if (progress[exIdx] >= target) startRestTimer(60);
+        }
         try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
         renderTracker();
       });
+    });
+    ov.querySelectorAll('.et-rest-btn').forEach(btn => {
+      btn.addEventListener('click', () => { haptic('light'); startRestTimer(60); });
     });
     ov.querySelectorAll('.et-reset-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -2487,9 +2667,10 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
     });
     ov.querySelector('#et-complete')?.addEventListener('click', () => {
       haptic('medium');
+      if (restTimerInterval) clearInterval(restTimerInterval);
       toggleChecklist(key);
       ov.remove();
-      showToast('Workout complete! 💪', 'success');
+      showToast('Workout complete! \ud83d\udcaa', 'success');
     });
   }
   document.body.appendChild(ov);
@@ -3463,7 +3644,11 @@ async function saveWorkout(rpe, photoData) {
       createdAt: serverTimestamp()
     });
     hideLoading();
+    const oldXp = calcXp();
     showToast('Workout logged!', 'success');
+    // Estimate new XP and check for level up
+    const estNewXp = oldXp + 10 + 10 + (rpeVal ? 5 : 0); // workout + daily bonus + RPE
+    setTimeout(() => checkLevelUp(oldXp, estNewXp), 500);
     if (stravaTokens?.access_token) {
       stravaUploadActivity({ name, type, duration, distance, date: dateObj }).then(async (sid) => {
         if (sid) {
@@ -4861,7 +5046,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '3.3.0';
+  const APP_VERSION = '3.4.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
