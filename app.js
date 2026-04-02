@@ -320,7 +320,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '3.2.0';
+const APP_VERSION = '3.3.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -1078,7 +1078,7 @@ function switchPage(page) {
 }
 function renderCurrentPage() {
   switch(currentPage) {
-    case 'today': renderToday(); break;
+    case 'today': renderToday(); loadWeather(); break;
     case 'fitness': renderFitness(); break;
     case 'races': renderRaces(); renderRaceLog(); break;
     case 'team': renderTeam(); break;
@@ -1869,6 +1869,8 @@ function renderToday() {
     </div>
   </div>`;
   html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:12px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
+  // Weather card (loaded async, placeholder)
+  html += '<div id="weather-card"></div>';
   // Announcements (only if active)
   const activeAnns = adminAnnouncements.filter(a => a.active);
   activeAnns.forEach(a => {
@@ -4302,6 +4304,20 @@ function renderProfile() {
     </button>
   </div>`;
   // Help & Tutorial
+  html += '<div class="profile-section"><div class="profile-section-title">Apple Health &amp; Google Fit</div>';
+  html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px">
+    Web apps can't access Apple Health or Google Fit directly. But you can sync your data through Strava:
+  </div>
+  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
+    <strong style="color:var(--text)">Apple Watch / iPhone:</strong> Install Strava on your iPhone. It auto-reads Apple Health workouts. Connect Strava above and your data flows into VeloForge.
+  </div>
+  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
+    <strong style="color:var(--text)">Garmin / Fitbit:</strong> Connect your device to Strava in the Strava app settings. Your workouts sync automatically to VeloForge.
+  </div>
+  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px">
+    <strong style="color:var(--text)">Google Fit / Samsung Health:</strong> Use Strava as the bridge — connect Google Fit to Strava, then connect Strava to VeloForge.
+  </div>`;
+  html += '</div>';
   html += '<div class="profile-section"><div class="profile-section-title">Help</div>';
   html += `<div class="profile-row" id="profile-redo-tutorial" style="cursor:pointer">
     <span class="profile-row-label">🎓 App Tour</span>
@@ -4845,7 +4861,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '3.2.0';
+  const APP_VERSION = '3.3.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -5083,30 +5099,107 @@ function checkForNewAnnouncements(announcements) {
 }
 // Listen for announcements in real-time (triggers notification for new ones)
 // --- Training Session Notifications ---
+// --- Weather ---
+async function loadWeather() {
+  const el = $('weather-card');
+  if (!el) return;
+  // Check cache (15 min TTL)
+  try {
+    const cached = JSON.parse(localStorage.getItem('vf_weather') || '{}');
+    if (cached.ts && Date.now() - cached.ts < 15 * 60 * 1000) {
+      renderWeatherCard(el, cached);
+      return;
+    }
+  } catch(e) {}
+  // Get location
+  let lat = -35.28, lon = 149.13; // Default: Canberra
+  try {
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
+    lat = pos.coords.latitude;
+    lon = pos.coords.longitude;
+  } catch(e) {} // Use default if denied
+  try {
+    const resp = await fetch(`/.netlify/functions/weather?lat=${lat}&lon=${lon}`);
+    const data = await resp.json();
+    if (data.error) return;
+    data.ts = Date.now();
+    try { localStorage.setItem('vf_weather', JSON.stringify(data)); } catch(e) {}
+    renderWeatherCard(el, data);
+  } catch(e) {}
+}
+function renderWeatherCard(el, w) {
+  const iconUrl = `https://openweathermap.org/img/wn/${w.icon}@2x.png`;
+  const isGood = w.temp >= 10 && w.temp <= 30 && w.wind < 30;
+  const advice = w.wind >= 30 ? 'Strong winds — consider indoor training' : w.temp < 8 ? 'Cold out — wear layers' : w.temp > 35 ? 'Extreme heat — train early or indoors' : 'Good conditions for training';
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:10px">
+    <img src="${iconUrl}" style="width:36px;height:36px" alt="${escHtml(w.desc)}">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:18px;font-weight:800;color:var(--text)">${w.temp}°</span>
+        <span style="font-size:12px;color:var(--muted-fg)">${escHtml(w.desc)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted-fg)">Feels ${w.feels}° · Wind ${w.wind}km/h · ${advice}</div>
+    </div>
+  </div>`;
+}
 function addSessionToCalendar(session) {
   const startDate = new Date(session.date + 'T' + (session.time || '16:00') + ':00');
   const endDate = session.endTime ? new Date(session.date + 'T' + session.endTime + ':00') : new Date(startDate.getTime() + 60 * 60 * 1000);
-  // Format for ICS (UTC)
+  const title = session.title || 'Training Session';
+  const loc = session.location || '';
+  const notes = session.notes || '';
+  // Format dates
   const fmt = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const ics = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//VeloForge//Training//EN',
-    'BEGIN:VEVENT',
-    'DTSTART:' + fmt(startDate),
-    'DTEND:' + fmt(endDate),
-    'SUMMARY:' + (session.title || 'Training Session'),
-    'LOCATION:' + (session.location || ''),
-    'DESCRIPTION:' + (session.notes || '').replace(/\n/g, '\\n'),
-    'BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', 'DESCRIPTION:Training in 30 minutes', 'END:VALARM',
-    'END:VEVENT', 'END:VCALENDAR'
-  ].join('\r\n');
-  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = (session.title || 'training').replace(/[^a-zA-Z0-9]/g, '_') + '.ics';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Calendar event downloaded!', 'success');
+  const fmtLocal = d => d.toISOString().replace(/[-:]/g, '').split('.')[0];
+  // Show calendar picker
+  const content = `<div style="padding:4px 0">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px">Add to Calendar</div>
+    <button class="btn cal-opt" data-cal="google" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer">
+      <span style="font-size:18px">📅</span> Google Calendar
+    </button>
+    <button class="btn cal-opt" data-cal="apple" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer">
+      <span style="font-size:18px">🍎</span> Apple Calendar (.ics)
+    </button>
+    <button class="btn cal-opt" data-cal="outlook" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer">
+      <span style="font-size:18px">📧</span> Outlook Calendar
+    </button>
+  </div>`;
+  $('sheet-content').innerHTML = content;
+  openSheet();
+  document.querySelectorAll('.cal-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cal = btn.dataset.cal;
+      if (cal === 'google') {
+        const gUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${fmtLocal(startDate)}/${fmtLocal(endDate)}&location=${encodeURIComponent(loc)}&details=${encodeURIComponent(notes)}`;
+        window.open(gUrl, '_blank');
+        showToast('Opening Google Calendar...', 'success');
+      } else if (cal === 'outlook') {
+        const oUrl = `https://outlook.live.com/calendar/0/action/compose?subject=${encodeURIComponent(title)}&startdt=${startDate.toISOString()}&enddt=${endDate.toISOString()}&location=${encodeURIComponent(loc)}&body=${encodeURIComponent(notes)}`;
+        window.open(oUrl, '_blank');
+        showToast('Opening Outlook Calendar...', 'success');
+      } else {
+        // Apple / generic .ics download
+        const ics = [
+          'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//VeloForge//Training//EN',
+          'BEGIN:VEVENT',
+          'DTSTART:' + fmt(startDate), 'DTEND:' + fmt(endDate),
+          'SUMMARY:' + title, 'LOCATION:' + loc,
+          'DESCRIPTION:' + notes.replace(/\n/g, '\\n'),
+          'BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', 'DESCRIPTION:Training in 30 minutes', 'END:VALARM',
+          'END:VEVENT', 'END:VCALENDAR'
+        ].join('\r\n');
+        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = title.replace(/[^a-zA-Z0-9]/g, '_') + '.ics';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Calendar file downloaded!', 'success');
+      }
+      closeSheet();
+    });
+  });
 }
 function checkTrainingReminder() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
