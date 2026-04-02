@@ -366,7 +366,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '3.8.0';
+const APP_VERSION = '3.8.1';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -1997,14 +1997,41 @@ function renderToday() {
     html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">' + indicators.join('') + '</div>';
   }
   }
-  // Weather card (loaded async, skeleton shown immediately)
+  // Weather card — render cached inline, fetch fresh in background
   if (isWidgetOn('weather')) {
-  html += `<div id="weather-card" style="margin-bottom:10px">
-    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(124,58,237,.05));border:1px solid rgba(59,130,246,.15);border-radius:12px">
-      <div style="width:44px;height:44px;border-radius:10px;background:rgba(59,130,246,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:20px;height:20px;border-radius:50%;background:rgba(59,130,246,.2);animation:pulse 1.5s infinite"></div></div>
-      <div style="flex:1"><div style="height:14px;width:60%;background:rgba(255,255,255,.06);border-radius:4px;margin-bottom:6px"></div><div style="height:10px;width:80%;background:rgba(255,255,255,.04);border-radius:4px"></div></div>
-    </div>
-  </div>`;
+  let cachedWeather = null;
+  try { cachedWeather = JSON.parse(localStorage.getItem('vf_weather') || 'null'); } catch(e) {}
+  if (cachedWeather && cachedWeather.temp !== undefined) {
+    const _w = cachedWeather;
+    const _iconUrl = `https://openweathermap.org/img/wn/${_w.icon}@2x.png`;
+    const _advice = _w.wind >= 30 ? '💨 Strong winds — consider indoor training' : _w.temp < 8 ? '🥶 Cold out — wear layers' : _w.temp > 35 ? '🔥 Extreme heat — train early or indoors' : _w.temp >= 20 ? '☀️ Great conditions for training' : '👍 Good conditions for training';
+    const _bgGrad = _w.icon?.includes('n') ? 'linear-gradient(135deg,rgba(30,41,59,.9),rgba(51,65,85,.8))' : 'linear-gradient(135deg,rgba(59,130,246,.12),rgba(124,58,237,.06))';
+    const _border = _w.icon?.includes('n') ? 'rgba(100,116,139,.3)' : 'rgba(59,130,246,.2)';
+    html += `<div id="weather-card" style="margin-bottom:10px"><div style="padding:14px 16px;background:${_bgGrad};border:1px solid ${_border};border-radius:14px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <img src="${_iconUrl}" style="width:52px;height:52px;margin:-8px" alt="${escHtml(_w.desc)}">
+        <div style="flex:1">
+          <div style="display:flex;align-items:baseline;gap:6px">
+            <span style="font-size:32px;font-weight:800;color:var(--text);line-height:1">${_w.temp}°</span>
+            <span style="font-size:13px;color:var(--muted-fg);text-transform:capitalize">${escHtml(_w.desc)}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">Feels ${_w.feels}°${_w.city ? ' · ' + escHtml(_w.city) : ''}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:6px">
+        <span style="font-size:11px;color:var(--muted-fg)">💨 ${_w.wind} km/h</span>
+        <span style="font-size:11px;color:var(--muted-fg)">💧 ${_w.humidity}%</span>
+      </div>
+      <div style="font-size:12px;font-weight:600;color:var(--text)">${_advice}</div>
+    </div></div>`;
+  } else {
+    html += `<div id="weather-card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(124,58,237,.05));border:1px solid rgba(59,130,246,.15);border-radius:12px">
+        <div style="width:44px;height:44px;border-radius:10px;background:rgba(59,130,246,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:20px;height:20px;border-radius:50%;background:rgba(59,130,246,.2);animation:pulse 1.5s infinite"></div></div>
+        <div style="flex:1"><div style="height:14px;width:60%;background:rgba(255,255,255,.06);border-radius:4px;margin-bottom:6px"></div><div style="height:10px;width:80%;background:rgba(255,255,255,.04);border-radius:4px"></div></div>
+      </div>
+    </div>`;
+  }
   }
   // Health data from wearable sync
   if (isWidgetOn('health')) {
@@ -5277,7 +5304,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '3.8.0';
+  const APP_VERSION = '3.8.1';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -5516,15 +5543,10 @@ function checkForNewAnnouncements(announcements) {
 // --- Weather ---
 const WEATHER_KEY = 'c286357e02b8753b54b5b7bf3e4ee1ce';
 async function loadWeather() {
-  const el = $('weather-card');
-  if (!el) return;
-  // Check cache (15 min TTL)
+  // Check if fresh data needed (15 min TTL)
   try {
     const cached = JSON.parse(localStorage.getItem('vf_weather') || '{}');
-    if (cached.ts && Date.now() - cached.ts < 15 * 60 * 1000) {
-      renderWeatherCard(el, cached);
-      return;
-    }
+    if (cached.ts && Date.now() - cached.ts < 15 * 60 * 1000) return; // Cache is fresh, already rendered inline
   } catch(e) {}
   // Get location
   let lat = -37.81, lon = 144.96; // Default: Melbourne
@@ -5532,7 +5554,7 @@ async function loadWeather() {
     const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
     lat = pos.coords.latitude;
     lon = pos.coords.longitude;
-  } catch(e) {} // Use default if denied
+  } catch(e) {}
   try {
     const resp = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${WEATHER_KEY}`);
     if (!resp.ok) return;
@@ -5548,7 +5570,9 @@ async function loadWeather() {
       ts: Date.now()
     };
     try { localStorage.setItem('vf_weather', JSON.stringify(w)); } catch(e) {}
-    renderWeatherCard(el, w);
+    // Soft-update the card if it exists on screen
+    const el = $('weather-card');
+    if (el) renderWeatherCard(el, w);
   } catch(e) {}
 }
 function renderWeatherCard(el, w) {
