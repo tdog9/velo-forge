@@ -209,6 +209,10 @@ export async function renderCoachDashboard() {
           ${s.avgRpe ? `<span>RPE <strong>${s.avgRpe.toFixed(1)}</strong></span>` : ''}
           <span>Last active: ${lastStr}</span>
         </div>
+        <div style="display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+          <button class="btn shoutout-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(191,255,0,.08);border:1px solid rgba(191,255,0,.2);color:var(--primary);border-radius:6px;cursor:pointer">👏 Shoutout</button>
+          <button class="btn nudge-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:#f59e0b;border-radius:6px;cursor:pointer">💬 Nudge</button>
+        </div>
       </div>`;
     });
     html += '</div>';
@@ -217,6 +221,92 @@ export async function renderCoachDashboard() {
 
     el.querySelectorAll('.coach-sort-btn').forEach(btn => {
       btn.addEventListener('click', () => render(btn.dataset.coachSort));
+    });
+    // Shoutout buttons — post personalised praise as announcement
+    el.querySelectorAll('.shoutout-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const studentName = btn.dataset.name;
+        const messages = [
+          'Great effort this week, ' + studentName + '! Keep pushing!',
+          studentName + ', your consistency is paying off. The team notices!',
+          'Shoutout to ' + studentName + ' for putting in the work!',
+          studentName + ' — your training is next level right now.'
+        ];
+        const msg = messages[Math.floor(Math.random() * messages.length)];
+        const newAnn = {
+          id: Date.now().toString(),
+          title: '👏 Coach Shoutout',
+          message: msg,
+          date: new Date().toISOString(),
+          by: A.userProfile?.displayName || 'Coach',
+          active: true
+        };
+        if (A.demoMode) {
+          A.adminAnnouncements.unshift(newAnn);
+          A.showToast('Shoutout sent to ' + studentName + '!', 'success');
+          btn.textContent = '✓ Sent';
+          return;
+        }
+        btn.textContent = '...';
+        btn.disabled = true;
+        try {
+          const configRef = A.doc(A.db, 'config', 'announcements');
+          const snap = await A.getDoc(configRef);
+          const items = snap.exists() ? (snap.data().items || []) : [];
+          items.unshift(newAnn);
+          await A.setDoc(configRef, { items });
+          A.adminAnnouncements = items;
+          A.showToast('Shoutout sent to ' + studentName + '!', 'success');
+          btn.textContent = '✓ Sent';
+        } catch(e) {
+          A.showToast('Failed to send.', 'error');
+          btn.textContent = '👏 Shoutout';
+          btn.disabled = false;
+        }
+      });
+    });
+    // Nudge buttons — personalised encouragement for inactive students
+    el.querySelectorAll('.nudge-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const studentName = btn.dataset.name;
+        const messages = [
+          'Hey ' + studentName + ', we haven\'t seen you train this week. Even a short session counts!',
+          studentName + ', your team needs you! Jump back in with a quick workout today.',
+          'Missing you at training, ' + studentName + '. Your streak is at risk!',
+          studentName + ' — one session today gets you back on track.'
+        ];
+        const msg = messages[Math.floor(Math.random() * messages.length)];
+        const newAnn = {
+          id: Date.now().toString(),
+          title: '💬 Coach Message',
+          message: msg,
+          date: new Date().toISOString(),
+          by: A.userProfile?.displayName || 'Coach',
+          active: true
+        };
+        if (A.demoMode) {
+          A.adminAnnouncements.unshift(newAnn);
+          A.showToast('Nudge sent to ' + studentName + '!', 'success');
+          btn.textContent = '✓ Sent';
+          return;
+        }
+        btn.textContent = '...';
+        btn.disabled = true;
+        try {
+          const configRef = A.doc(A.db, 'config', 'announcements');
+          const snap = await A.getDoc(configRef);
+          const items = snap.exists() ? (snap.data().items || []) : [];
+          items.unshift(newAnn);
+          await A.setDoc(configRef, { items });
+          A.adminAnnouncements = items;
+          A.showToast('Nudge sent to ' + studentName + '!', 'success');
+          btn.textContent = '✓ Sent';
+        } catch(e) {
+          A.showToast('Failed to send.', 'error');
+          btn.textContent = '💬 Nudge';
+          btn.disabled = false;
+        }
+      });
     });
     const exportBtn = A.$('coach-export-csv');
     if (exportBtn) {
