@@ -5112,7 +5112,7 @@ async function loadWeather() {
     }
   } catch(e) {}
   // Get location
-  let lat = -35.28, lon = 149.13; // Default: Canberra
+  let lat = -37.81, lon = 144.96; // Default: Melbourne
   try {
     const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
     lat = pos.coords.latitude;
