@@ -1,5 +1,5 @@
 // VeloForge Service Worker v2
-const CACHE_NAME = 'veloforge-v16';
+const CACHE_NAME = 'veloforge-v18';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
