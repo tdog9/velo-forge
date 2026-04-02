@@ -366,7 +366,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '3.5.0';
+const APP_VERSION = '3.6.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -3479,7 +3479,11 @@ function renderWorkouts() {
                 ${w.avgSpeed ? `<span><strong>${w.avgSpeed}</strong> km/h</span>` : ''}
                 ${w.heartRate ? `<span><strong>${w.heartRate}</strong> bpm</span>` : ''}
                 ${w.rpe ? `<span>RPE <strong>${w.rpe}</strong>/10</span>` : ''}
+                ${w.laps ? `<span><strong>${w.laps}</strong> laps</span>` : ''}
+                ${w.pace ? `<span><strong>${w.pace}</strong> /km</span>` : ''}
+                ${w.incline ? `<span><strong>${w.incline}</strong>% incline</span>` : ''}
               </div>
+              ${w.vehicle || w.location || w.bestLap ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${[w.vehicle, w.location, w.bestLap ? 'Best lap: ' + w.bestLap : ''].filter(Boolean).join(' · ')}</div>` : ''}
               <div style="font-size:11px;color:var(--muted-fg);margin-top:3px">${dateStr} · ${timeStr}</div>
             </div>
             <button class="wo-delete" data-id="${w._id}" aria-label="Delete">
@@ -3561,116 +3565,162 @@ function renderWorkouts() {
 // Record moved to nav tab
 function openWorkoutSheet() {
   const today = new Date().toISOString().split('T')[0];
-  $('sheet-content').innerHTML = `
-    <div class="sheet-title">Log Workout</div>
-    <div class="form-group">
-      <label class="label" for="wo-name">Workout Name</label>
-      <input class="input" type="text" id="wo-name" placeholder="e.g. Morning Ride">
-    </div>
-    <div class="form-row">
+  function getTypeFields(type) {
+    const fields = {
+      HPV: { name: 'HPV Session', fields: `
+        <div class="form-row"><div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="45" min="1"></div><div class="form-group"><label class="label">Laps</label><input class="input" type="number" id="wo-laps" placeholder="Optional" min="0"></div></div>
+        <div class="form-row"><div class="form-group"><label class="label">Distance (km)</label><input class="input" type="number" id="wo-distance" placeholder="Optional" min="0" step="0.1"></div><div class="form-group"><label class="label">Avg Speed (km/h)</label><input class="input" type="number" id="wo-speed" placeholder="Optional" min="0" step="0.1"></div></div>
+        <div class="form-group"><label class="label">Vehicle</label><input class="input" type="text" id="wo-vehicle" placeholder="e.g. Team car, Practice trike"></div>
+        <div class="form-group"><label class="label">Track / Location</label><input class="input" type="text" id="wo-location" placeholder="e.g. School oval, velodrome"></div>
+        <div class="form-row"><div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div><div class="form-group"><label class="label">Best Lap Time</label><input class="input" type="text" id="wo-bestlap" placeholder="e.g. 2:15"></div></div>` },
+      Ride: { name: 'Ride', fields: `
+        <div class="form-row"><div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="45" min="1"></div><div class="form-group"><label class="label">Distance (km)</label><input class="input" type="number" id="wo-distance" placeholder="Optional" min="0" step="0.1"></div></div>
+        <div class="form-row"><div class="form-group"><label class="label">Avg Speed (km/h)</label><input class="input" type="number" id="wo-speed" placeholder="Optional" min="0" step="0.1"></div><div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div></div>` },
+      Run: { name: 'Run', fields: `
+        <div class="form-row"><div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="30" min="1"></div><div class="form-group"><label class="label">Distance (km)</label><input class="input" type="number" id="wo-distance" placeholder="5.0" min="0" step="0.1"></div></div>
+        <div class="form-row"><div class="form-group"><label class="label">Avg Pace (min/km)</label><input class="input" type="text" id="wo-pace" placeholder="e.g. 5:30"></div><div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div></div>` },
+      Treadmill: { name: 'Treadmill Run', fields: `
+        <div class="form-row"><div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="30" min="1"></div><div class="form-group"><label class="label">Distance (km)</label><input class="input" type="number" id="wo-distance" placeholder="Optional" min="0" step="0.1"></div></div>
+        <div class="form-row"><div class="form-group"><label class="label">Speed (km/h)</label><input class="input" type="number" id="wo-speed" placeholder="e.g. 10" min="0" step="0.1"></div><div class="form-group"><label class="label">Incline (%)</label><input class="input" type="number" id="wo-incline" placeholder="e.g. 2" min="0" step="0.5"></div></div>
+        <div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div>` },
+      Strength: { name: 'Strength Session', fields: `
+        <div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="45" min="1"></div>
+        <div class="form-group"><label class="label">Exercises</label><textarea class="input" id="wo-exercises" rows="3" placeholder="e.g. Squats 3x12, Push-ups 3x15, Plank 3x30s"></textarea><div style="font-size:10px;color:var(--muted-fg);margin-top:2px">List what you did — sets x reps or time</div></div>
+        <div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div>` },
+      Cardio: { name: 'Cardio Session', fields: `
+        <div class="form-row"><div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="30" min="1"></div><div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div></div>
+        <div class="form-group"><label class="label">Activity</label><input class="input" type="text" id="wo-activity" placeholder="e.g. Skipping, rowing, swimming"></div>` },
+      Flexibility: { name: 'Flexibility / Mobility', fields: `
+        <div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="20" min="1"></div>
+        <div class="form-group"><label class="label">Focus Area</label><input class="input" type="text" id="wo-activity" placeholder="e.g. Hips, hamstrings, full body"></div>` }
+    };
+    return fields[type] || fields.Ride;
+  }
+  function renderForm(type) {
+    const tf = getTypeFields(type);
+    $('sheet-content').innerHTML = `
+      <div class="sheet-title">Log Workout</div>
       <div class="form-group">
         <label class="label" for="wo-type">Type</label>
-        <select class="input" id="wo-type">
-          <option value="HPV">HPV Vehicle</option>
-          <option value="Ride">Ride</option>
-          <option value="Run">Run</option>
-          <option value="Treadmill">Treadmill</option>
-          <option value="Strength">Strength</option>
-          <option value="Cardio">Cardio</option>
-          <option value="Flexibility">Flexibility</option>
-        </select>
+        <div style="display:flex;gap:4px;flex-wrap:wrap" id="wo-type-btns">
+          ${['HPV','Ride','Run','Treadmill','Strength','Cardio','Flexibility'].map(t => {
+            const icons = {HPV:'🏎️',Ride:'🚴',Run:'🏃',Treadmill:'🏃‍♂️',Strength:'🏋️',Cardio:'❤️',Flexibility:'🧘'};
+            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'rgba(191,255,0,.12)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${icons[t]} ${t}</button>`;
+          }).join('')}
+        </div>
       </div>
       <div class="form-group">
-        <label class="label" for="wo-duration">Duration (min)</label>
-        <input class="input" type="number" id="wo-duration" placeholder="45" min="1">
+        <label class="label" for="wo-name">Name</label>
+        <input class="input" type="text" id="wo-name" placeholder="${tf.name}" value="${$('wo-name')?.value || ''}">
       </div>
-    </div>
-    <div class="form-row">
+      <div id="wo-type-fields">${tf.fields}</div>
       <div class="form-group">
-        <label class="label" for="wo-distance">Distance (km)</label>
-        <input class="input" type="number" id="wo-distance" placeholder="Optional" min="0" step="0.1">
+        <label class="label" for="wo-notes">Notes</label>
+        <textarea class="input" id="wo-notes" rows="2" placeholder="Optional">${$('wo-notes')?.value || ''}</textarea>
       </div>
       <div class="form-group">
-        <label class="label" for="wo-hr">Avg Heart Rate</label>
-        <input class="input" type="number" id="wo-hr" placeholder="Optional" min="0">
+        <label class="label">How hard did it feel? (RPE)</label>
+        <div class="rpe-row" id="rpe-row">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n => `<button type="button" class="rpe-btn${n === selectedRpe ? ' selected' : ''}" data-rpe="${n}">${n}</button>`).join('')}
+        </div>
       </div>
-    </div>
-    <div class="form-group">
-      <label class="label" for="wo-notes">Notes</label>
-      <textarea class="input" id="wo-notes" rows="2" placeholder="Optional"></textarea>
-    </div>
-    <div class="form-group">
-      <label class="label">How hard did it feel? (RPE)</label>
-      <div class="rpe-row" id="rpe-row">
-        ${[1,2,3,4,5,6,7,8,9,10].map(n => `<button type="button" class="rpe-btn" data-rpe="${n}">${n}</button>`).join('')}
+      <div class="form-group">
+        <label class="label" for="wo-date">Date</label>
+        <input class="input" type="date" id="wo-date" value="${today}">
       </div>
-    </div>
-    <div class="form-group">
-      <label class="label" for="wo-date">Date</label>
-      <input class="input" type="date" id="wo-date" value="${today}">
-    </div>
-    <div class="form-group">
-      <label class="label">Photo (optional)</label>
-      <label style="display:flex;align-items:center;gap:8px;padding:10px;border:1px dashed var(--border);border-radius:8px;cursor:pointer;color:var(--muted-fg);font-size:13px" id="wo-photo-label">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-        <span id="wo-photo-text">Add a photo</span>
-        <input type="file" accept="image/*" capture="environment" id="wo-photo" style="display:none">
-      </label>
-      <img id="wo-photo-preview" style="display:none;width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-top:6px">
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="wo-save-btn">Save Workout</button>
-  `;
-  openSheet();
-  // Bind RPE buttons
+      <div class="form-group">
+        <label class="label">Photo (optional)</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:10px;border:1px dashed var(--border);border-radius:8px;cursor:pointer;color:var(--muted-fg);font-size:13px" id="wo-photo-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+          <span id="wo-photo-text">${workoutPhotoData ? 'Photo attached' : 'Add a photo'}</span>
+          <input type="file" accept="image/*" capture="environment" id="wo-photo" style="display:none">
+        </label>
+        <img id="wo-photo-preview" style="${workoutPhotoData ? '' : 'display:none;'}width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-top:6px" ${workoutPhotoData ? 'src="' + workoutPhotoData + '"' : ''}>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:4px" id="wo-save-btn">Save Workout</button>
+    `;
+    // Bind type switcher
+    document.querySelectorAll('.wo-type-pick').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentType = btn.dataset.wotype;
+        renderForm(currentType);
+      });
+    });
+    bindFormEvents();
+  }
+  function bindFormEvents() {
+    document.querySelectorAll('#rpe-row .rpe-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedRpe = parseInt(btn.dataset.rpe);
+        document.querySelectorAll('#rpe-row .rpe-btn').forEach(b => b.classList.toggle('selected', parseInt(b.dataset.rpe) === selectedRpe));
+      });
+    });
+    $('wo-photo')?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { showToast('Photo too large (max 2MB)', 'warn'); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxW = 600;
+          const scale = Math.min(1, maxW / img.width);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          workoutPhotoData = canvas.toDataURL('image/jpeg', 0.7);
+          const preview = $('wo-photo-preview');
+          if (preview) { preview.src = workoutPhotoData; preview.style.display = ''; }
+          const txt = $('wo-photo-text'); if (txt) txt.textContent = '📷 Photo attached';
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+    $('wo-save-btn')?.addEventListener('click', () => saveWorkout(selectedRpe, workoutPhotoData, currentType));
+  }
   let selectedRpe = 0;
   let workoutPhotoData = null;
-  document.querySelectorAll('#rpe-row .rpe-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      selectedRpe = parseInt(btn.dataset.rpe);
-      document.querySelectorAll('#rpe-row .rpe-btn').forEach(b => b.classList.toggle('selected', parseInt(b.dataset.rpe) === selectedRpe));
-    });
-  });
-  // Photo attachment
-  $('wo-photo')?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { showToast('Photo too large (max 2MB)', 'warn'); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      // Resize to thumbnail
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxW = 600;
-        const scale = Math.min(1, maxW / img.width);
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        workoutPhotoData = canvas.toDataURL('image/jpeg', 0.7);
-        const preview = $('wo-photo-preview');
-        if (preview) { preview.src = workoutPhotoData; preview.style.display = ''; }
-        $('wo-photo-text').textContent = '📷 Photo attached';
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-  $('wo-save-btn').addEventListener('click', () => saveWorkout(selectedRpe, workoutPhotoData));
+  let currentType = 'HPV';
+  renderForm(currentType);
+  openSheet();
 }
-async function saveWorkout(rpe, photoData) {
-  const name = $('wo-name').value.trim();
-  const type = $('wo-type').value;
-  const duration = parseInt($('wo-duration').value) || 0;
-  const distance = parseFloat($('wo-distance').value) || null;
-  const heartRate = parseInt($('wo-hr').value) || null;
-  const notes = $('wo-notes').value.trim() || null;
-  const dateVal = $('wo-date').value;
+async function saveWorkout(rpe, photoData, workoutType) {
+  const name = $('wo-name')?.value?.trim() || '';
+  const type = workoutType || 'Ride';
+  const duration = parseInt($('wo-duration')?.value) || 0;
+  const distance = parseFloat($('wo-distance')?.value) || null;
+  const heartRate = parseInt($('wo-hr')?.value) || null;
+  const notes = $('wo-notes')?.value?.trim() || null;
+  const dateVal = $('wo-date')?.value;
   const rpeVal = rpe || null;
+  // Type-specific fields
+  const avgSpeed = parseFloat($('wo-speed')?.value) || null;
+  const laps = parseInt($('wo-laps')?.value) || null;
+  const vehicle = $('wo-vehicle')?.value?.trim() || null;
+  const location = $('wo-location')?.value?.trim() || null;
+  const bestLap = $('wo-bestlap')?.value?.trim() || null;
+  const pace = $('wo-pace')?.value?.trim() || null;
+  const incline = parseFloat($('wo-incline')?.value) || null;
+  const exercises = $('wo-exercises')?.value?.trim() || null;
+  const activity = $('wo-activity')?.value?.trim() || null;
   if (!name) { showToast('Please enter a workout name.', 'warn'); return; }
   if (!duration) { showToast('Please enter duration.', 'warn'); return; }
   closeSheet();
   const dateObj = dateVal ? new Date(dateVal + 'T12:00:00') : new Date();
   const workoutId = 'wo-' + Date.now();
+  // Build extra fields (type-specific, only include non-null)
+  const extra = {};
+  if (avgSpeed) extra.avgSpeed = avgSpeed;
+  if (laps) extra.laps = laps;
+  if (vehicle) extra.vehicle = vehicle;
+  if (location) extra.location = location;
+  if (bestLap) extra.bestLap = bestLap;
+  if (pace) extra.pace = pace;
+  if (incline) extra.incline = incline;
+  if (exercises) extra.exerciseNotes = exercises;
+  if (activity) extra.activity = activity;
   // Store photo in localStorage if provided
   if (photoData) {
     try {
@@ -3682,7 +3732,7 @@ async function saveWorkout(rpe, photoData) {
     } catch(e) {}
   }
   if (demoMode) {
-    userWorkouts.unshift({ _id: workoutId, name, type, duration, distance, heartRate, notes, rpe: rpeVal, photoId: photoData ? workoutId : null, date: dateObj, createdAt: new Date() });
+    userWorkouts.unshift({ _id: workoutId, name, type, duration, distance, heartRate, notes, rpe: rpeVal, ...extra, photoId: photoData ? workoutId : null, date: dateObj, createdAt: new Date() });
     renderWorkouts();
     return;
   }
@@ -3703,7 +3753,7 @@ async function saveWorkout(rpe, photoData) {
   }
   try {
     const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
-      name, type, duration, distance, heartRate, notes, rpe: rpeVal,
+      name, type, duration, distance, heartRate, notes, rpe: rpeVal, ...extra,
       date: Timestamp.fromDate(dateObj),
       createdAt: serverTimestamp()
     });
@@ -5110,7 +5160,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '3.5.0';
+  const APP_VERSION = '3.6.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -5347,6 +5397,7 @@ function checkForNewAnnouncements(announcements) {
 // Listen for announcements in real-time (triggers notification for new ones)
 // --- Training Session Notifications ---
 // --- Weather ---
+const WEATHER_KEY = 'c286357e02b8753b54b5b7bf3e4ee1ce';
 async function loadWeather() {
   const el = $('weather-card');
   if (!el) return;
@@ -5366,12 +5417,21 @@ async function loadWeather() {
     lon = pos.coords.longitude;
   } catch(e) {} // Use default if denied
   try {
-    const resp = await fetch(`/.netlify/functions/weather?lat=${lat}&lon=${lon}`);
+    const resp = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${WEATHER_KEY}`);
+    if (!resp.ok) return;
     const data = await resp.json();
-    if (data.error) return;
-    data.ts = Date.now();
-    try { localStorage.setItem('vf_weather', JSON.stringify(data)); } catch(e) {}
-    renderWeatherCard(el, data);
+    const w = {
+      temp: Math.round(data.main?.temp || 0),
+      feels: Math.round(data.main?.feels_like || 0),
+      desc: data.weather?.[0]?.description || '',
+      icon: data.weather?.[0]?.icon || '01d',
+      wind: Math.round((data.wind?.speed || 0) * 3.6),
+      humidity: data.main?.humidity || 0,
+      city: data.name || '',
+      ts: Date.now()
+    };
+    try { localStorage.setItem('vf_weather', JSON.stringify(w)); } catch(e) {}
+    renderWeatherCard(el, w);
   } catch(e) {}
 }
 function renderWeatherCard(el, w) {
