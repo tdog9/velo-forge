@@ -366,7 +366,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '3.6.0';
+const APP_VERSION = '3.8.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -1968,6 +1968,11 @@ function renderToday() {
   // XP level inline
   const xp = calcXp();
   const lvl = getXpLevel(xp);
+  // Widget pin state
+  const defaultWidgets = { weather: true, health: true, engagement: true, training: true, challenge: true, weekly: true, quickActions: true };
+  let pinnedWidgets = defaultWidgets;
+  try { pinnedWidgets = { ...defaultWidgets, ...JSON.parse(localStorage.getItem('vf_widgets') || '{}') }; } catch(e) {}
+  const isWidgetOn = (id) => pinnedWidgets[id] !== false;
   // === BUILD HTML — simplified layout ===
   let html = '';
   // ── SECTION 1: Compact header (date + XP + streak in one row) ──
@@ -1976,10 +1981,12 @@ function renderToday() {
     <div style="display:flex;align-items:center;gap:8px">
       ${streak > 0 ? `<span style="font-size:12px;font-weight:700;color:#f59e0b">🔥 ${streak}d</span>` : ''}
       <span style="font-size:12px;font-weight:700;color:var(--primary)">${lvl.icon} ${xp} XP</span>
+      <button id="today-customize" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:2px;font-size:14px" title="Customize widgets">⚙️</button>
     </div>
   </div>`;
   html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
   // Engagement indicators row
+  if (isWidgetOn('engagement')) {
   const freezeCount = parseInt(localStorage.getItem('vf_streak_freezes') || '0');
   const engTodayStr = now.toISOString().split('T')[0];
   const hasTrainedToday = userWorkouts.some(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === engTodayStr; });
@@ -1989,8 +1996,28 @@ function renderToday() {
   if (indicators.length > 0) {
     html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">' + indicators.join('') + '</div>';
   }
-  // Weather card (loaded async, placeholder)
-  html += '<div id="weather-card"></div>';
+  }
+  // Weather card (loaded async, skeleton shown immediately)
+  if (isWidgetOn('weather')) {
+  html += `<div id="weather-card" style="margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(124,58,237,.05));border:1px solid rgba(59,130,246,.15);border-radius:12px">
+      <div style="width:44px;height:44px;border-radius:10px;background:rgba(59,130,246,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:20px;height:20px;border-radius:50%;background:rgba(59,130,246,.2);animation:pulse 1.5s infinite"></div></div>
+      <div style="flex:1"><div style="height:14px;width:60%;background:rgba(255,255,255,.06);border-radius:4px;margin-bottom:6px"></div><div style="height:10px;width:80%;background:rgba(255,255,255,.04);border-radius:4px"></div></div>
+    </div>
+  </div>`;
+  }
+  // Health data from wearable sync
+  if (isWidgetOn('health')) {
+  const healthData = userProfile?.health;
+  if (healthData && (healthData.latestHr || healthData.latestSteps || healthData.latestSleep)) {
+    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">';
+    if (healthData.latestHr) html += `<span style="font-size:11px;padding:4px 8px;border-radius:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);color:#ef4444;font-weight:600">❤️ ${healthData.latestHr} bpm</span>`;
+    if (healthData.latestSteps) html += `<span style="font-size:11px;padding:4px 8px;border-radius:8px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.15);color:#22c55e;font-weight:600">👟 ${healthData.latestSteps.toLocaleString()}</span>`;
+    if (healthData.latestSleep) html += `<span style="font-size:11px;padding:4px 8px;border-radius:8px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.15);color:#a855f7;font-weight:600">😴 ${healthData.latestSleep}h</span>`;
+    if (healthData.restingHr) html += `<span style="font-size:11px;padding:4px 8px;border-radius:8px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.15);color:#3b82f6;font-weight:600">💓 ${healthData.restingHr} rest</span>`;
+    html += '</div>';
+  }
+  }
   // Announcements (only if active)
   const activeAnns = adminAnnouncements.filter(a => a.active);
   activeAnns.forEach(a => {
@@ -2343,6 +2370,49 @@ function renderToday() {
     const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay() + 1); ws.setHours(0,0,0,0);
     localStorage.setItem('vf_summary_week', ws.toISOString().split('T')[0]);
     $('dismiss-weekly')?.closest('div[style]')?.remove();
+  });
+  // Widget customization
+  $('today-customize')?.addEventListener('click', () => {
+    haptic('light');
+    const widgets = [
+      { id: 'weather', icon: '🌤️', label: 'Weather', desc: 'Local conditions and training advice' },
+      { id: 'health', icon: '❤️', label: 'Health Data', desc: 'Heart rate, steps, sleep from wearables' },
+      { id: 'engagement', icon: '🔥', label: 'XP & Streaks', desc: '2x XP badge and streak freezes' },
+      { id: 'training', icon: '📅', label: 'Training Sessions', desc: 'Upcoming sessions with calendar add' },
+      { id: 'challenge', icon: '🏆', label: 'Team Challenge', desc: 'Monthly leaderboard' },
+      { id: 'weekly', icon: '📊', label: 'Weekly Summary', desc: 'Last week stats and goals' },
+      { id: 'quickActions', icon: '⚡', label: 'Quick Actions', desc: 'Log and Record GPS buttons' }
+    ];
+    let stored = {};
+    try { stored = JSON.parse(localStorage.getItem('vf_widgets') || '{}'); } catch(e) {}
+    const isOn = (id) => stored[id] !== false;
+    let sheetHtml = '<div class="sheet-title">Customize Today Page</div>';
+    sheetHtml += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">Toggle widgets on or off. Your layout is saved automatically.</div>';
+    widgets.forEach(w => {
+      sheetHtml += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:20px;width:28px;text-align:center">${w.icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${w.label}</div>
+          <div style="font-size:11px;color:var(--muted-fg)">${w.desc}</div>
+        </div>
+        <div class="theme-toggle${isOn(w.id) ? ' on' : ''}" data-widget-id="${w.id}" style="cursor:pointer">
+          <div class="theme-toggle-knob"></div>
+        </div>
+      </div>`;
+    });
+    sheetHtml += '<button class="btn btn-primary" id="widgets-done" style="width:100%;margin-top:12px;padding:10px">Done</button>';
+    $('sheet-content').innerHTML = sheetHtml;
+    openSheet();
+    document.querySelectorAll('[data-widget-id]').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        const id = toggle.dataset.widgetId;
+        const current = stored[id] !== false;
+        stored[id] = !current;
+        toggle.classList.toggle('on', !current);
+        try { localStorage.setItem('vf_widgets', JSON.stringify(stored)); } catch(e) {}
+      });
+    });
+    $('widgets-done')?.addEventListener('click', () => { closeSheet(); renderToday(); loadWeather(); });
   });
   $('today-quick-record')?.addEventListener('click', () => { haptic('medium'); openActivityTracker(); });
   $('today-strava-connect')?.addEventListener('click', () => { stravaStartAuth(); });
@@ -4603,19 +4673,45 @@ function renderProfile() {
     </button>
   </div>`;
   // Help & Tutorial
-  html += '<div class="profile-section"><div class="profile-section-title">Apple Health &amp; Google Fit</div>';
+  html += '<div class="profile-section"><div class="profile-section-title">Health &amp; Wearable Sync</div>';
+  const syncToken = userProfile?.syncToken || null;
   html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px">
-    Web apps can't access Apple Health or Google Fit directly. But you can sync your data through Strava:
+    Connect your wearable to automatically sync workouts, heart rate, steps, and sleep.
   </div>
   <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--text)">Apple Watch / iPhone:</strong> Install Strava on your iPhone. It auto-reads Apple Health workouts. Connect Strava above and your data flows into VeloForge.
+    <strong style="color:var(--text)">Option 1: Via Strava (easiest)</strong><br>
+    Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
   </div>
   <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--text)">Garmin / Fitbit:</strong> Connect your device to Strava in the Strava app settings. Your workouts sync automatically to VeloForge.
-  </div>
-  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px">
-    <strong style="color:var(--text)">Google Fit / Samsung Health:</strong> Use Strava as the bridge — connect Google Fit to Strava, then connect Strava to VeloForge.
+    <strong style="color:var(--text)">Option 2: Direct Sync (advanced)</strong><br>
+    Use Health Auto Export, IFTTT, Home Assistant, or Tasker to send data directly to VeloForge via webhook.
   </div>`;
+  if (syncToken) {
+    html += `<div style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px">Your Sync Token</div>
+      <div style="font-size:11px;font-family:monospace;color:var(--primary);word-break:break-all;margin-bottom:4px">${escHtml(syncToken)}</div>
+      <div style="font-size:10px;color:var(--muted-fg)">Webhook URL: veloforge.netlify.app/.netlify/functions/health-sync</div>
+      <button id="copy-sync-token" style="margin-top:6px;font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer">Copy Token</button>
+    </div>`;
+  } else {
+    html += `<button id="generate-sync-token" style="width:100%;padding:10px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer;margin-bottom:8px">Generate Sync Token</button>`;
+  }
+  // Show latest health data if available
+  const health = userProfile?.health;
+  if (health) {
+    const healthItems = [];
+    if (health.latestHr) healthItems.push('❤️ ' + health.latestHr + ' bpm');
+    if (health.latestSteps) healthItems.push('👟 ' + health.latestSteps.toLocaleString() + ' steps');
+    if (health.latestSleep) healthItems.push('😴 ' + health.latestSleep + 'h sleep');
+    if (health.restingHr) healthItems.push('💓 ' + health.restingHr + ' resting');
+    if (health.vo2max) healthItems.push('🫁 VO2 ' + health.vo2max);
+    if (healthItems.length > 0) {
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">';
+      healthItems.forEach(item => { html += '<span style="font-size:11px;padding:3px 8px;border-radius:6px;background:var(--surface-alt);color:var(--text)">' + item + '</span>'; });
+      html += '</div>';
+      if (health.lastSync) html += '<div style="font-size:10px;color:var(--muted-fg);margin-top:2px">Last sync: ' + timeAgo(new Date(health.lastSync)) + '</div>';
+    }
+  }
   html += '</div>';
   html += '<div class="profile-section"><div class="profile-section-title">Help</div>';
   html += `<div class="profile-row" id="profile-redo-tutorial" style="cursor:pointer">
@@ -4744,6 +4840,27 @@ function renderProfile() {
   });
   $('profile-export-btn')?.addEventListener('click', exportTrainingReport);
   // Tutorial & Help bindings
+  // Health sync token
+  $('generate-sync-token')?.addEventListener('click', async () => {
+    const token = crypto.randomUUID ? crypto.randomUUID() : 'vf-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    if (!demoMode && db && currentUser) {
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), { syncToken: token });
+        userProfile.syncToken = token;
+        showToast('Sync token generated!', 'success');
+        renderProfile();
+      } catch(e) { showToast('Failed to generate token.', 'error'); }
+    } else {
+      userProfile.syncToken = token;
+      renderProfile();
+    }
+  });
+  $('copy-sync-token')?.addEventListener('click', () => {
+    const token = userProfile?.syncToken;
+    if (token) {
+      navigator.clipboard?.writeText(token).then(() => showToast('Token copied!', 'success')).catch(() => showToast('Copy failed — tap and hold to copy manually.', 'warn'));
+    }
+  });
   $('profile-redo-tutorial')?.addEventListener('click', () => {
     closeProfile();
     try { localStorage.removeItem('vf_tutorial_seen'); } catch(e) {}
@@ -5160,7 +5277,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '3.6.0';
+  const APP_VERSION = '3.8.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -5436,17 +5553,29 @@ async function loadWeather() {
 }
 function renderWeatherCard(el, w) {
   const iconUrl = `https://openweathermap.org/img/wn/${w.icon}@2x.png`;
-  const isGood = w.temp >= 10 && w.temp <= 30 && w.wind < 30;
-  const advice = w.wind >= 30 ? 'Strong winds — consider indoor training' : w.temp < 8 ? 'Cold out — wear layers' : w.temp > 35 ? 'Extreme heat — train early or indoors' : 'Good conditions for training';
-  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:10px">
-    <img src="${iconUrl}" style="width:36px;height:36px" alt="${escHtml(w.desc)}">
-    <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:18px;font-weight:800;color:var(--text)">${w.temp}°</span>
-        <span style="font-size:12px;color:var(--muted-fg)">${escHtml(w.desc)}</span>
+  const advice = w.wind >= 30 ? '💨 Strong winds — consider indoor training'
+    : w.temp < 8 ? '🥶 Cold out — wear layers'
+    : w.temp > 35 ? '🔥 Extreme heat — train early or indoors'
+    : w.temp >= 20 ? '☀️ Great conditions for training'
+    : '👍 Good conditions for training';
+  const bgGrad = w.icon?.includes('n') ? 'linear-gradient(135deg,rgba(30,41,59,.9),rgba(51,65,85,.8))' : 'linear-gradient(135deg,rgba(59,130,246,.12),rgba(124,58,237,.06))';
+  const borderCol = w.icon?.includes('n') ? 'rgba(100,116,139,.3)' : 'rgba(59,130,246,.2)';
+  el.innerHTML = `<div style="padding:14px 16px;background:${bgGrad};border:1px solid ${borderCol};border-radius:14px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+      <img src="${iconUrl}" style="width:52px;height:52px;margin:-8px" alt="${escHtml(w.desc)}">
+      <div style="flex:1">
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <span style="font-size:32px;font-weight:800;color:var(--text);line-height:1">${w.temp}°</span>
+          <span style="font-size:13px;color:var(--muted-fg);text-transform:capitalize">${escHtml(w.desc)}</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">Feels ${w.feels}°${w.city ? ' · ' + escHtml(w.city) : ''}</div>
       </div>
-      <div style="font-size:11px;color:var(--muted-fg)">Feels ${w.feels}° · Wind ${w.wind}km/h · ${advice}</div>
     </div>
+    <div style="display:flex;gap:12px;margin-bottom:6px">
+      <span style="font-size:11px;color:var(--muted-fg)">💨 ${w.wind} km/h</span>
+      <span style="font-size:11px;color:var(--muted-fg)">💧 ${w.humidity}%</span>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--text)">${advice}</div>
   </div>`;
 }
 function addSessionToCalendar(session) {
