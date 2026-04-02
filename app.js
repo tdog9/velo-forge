@@ -366,7 +366,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '3.4.0';
+const APP_VERSION = '3.5.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -386,35 +386,99 @@ const CHANGELOG = [
     '📊 Activity detail view with route maps'
   ]}
 ];
-function checkWhatsNew() {
-  try {
-    const seen = localStorage.getItem('vf_changelog_seen');
-    if (seen === APP_VERSION) return;
-  } catch(e) {}
-  setTimeout(() => showWhatsNew(), 1500);
-}
+// Welcome setup replaces what's-new popup
 function showWhatsNew() {
-  const latest = CHANGELOG[0];
-  if (!latest) return;
+  // Disabled — replaced by welcome setup for new users
+}
+function showWelcomeSetup() {
+  const name = userProfile?.displayName || 'there';
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.id = 'whatsnew-overlay';
-  let items = latest.items.map(i => `<div style="padding:6px 0;font-size:13px;color:var(--text)">${i}</div>`).join('');
+  overlay.id = 'welcome-overlay';
   overlay.innerHTML = `<div class="modal-backdrop"></div>
-    <div class="modal-card" style="max-width:340px">
-      <div style="text-align:center;font-size:32px;margin-bottom:8px">🎉</div>
-      <div class="modal-title" style="text-align:center">What's New in v${latest.version}</div>
-      <div style="margin:12px 0;max-height:250px;overflow-y:auto">${items}</div>
-      <button class="modal-btn primary" id="whatsnew-close" style="width:100%">Got it!</button>
+    <div class="modal-card" style="max-width:360px;padding:20px">
+      <div style="text-align:center;font-size:36px;margin-bottom:8px">🚀</div>
+      <div class="modal-title" style="text-align:center;margin-bottom:4px">Welcome, ${escHtml(name)}!</div>
+      <div style="text-align:center;font-size:13px;color:var(--muted-fg);margin-bottom:16px">Connect your accounts to get the most out of VeloForge</div>
+      <div id="welcome-steps" style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn welcome-step" id="ws-strava" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
+          <span style="font-size:20px;width:28px;text-align:center">⬡</span>
+          <div style="flex:1"><div style="font-weight:700">Connect Strava</div><div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Import Apple Watch, Garmin, Fitbit workouts</div></div>
+          <span style="color:var(--muted-fg)">&rsaquo;</span>
+        </button>
+        <button class="btn welcome-step" id="ws-notifs" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
+          <span style="font-size:20px;width:28px;text-align:center">🔔</span>
+          <div style="flex:1"><div style="font-weight:700">Enable Notifications</div><div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Training reminders and coach messages</div></div>
+          <span style="color:var(--muted-fg)">&rsaquo;</span>
+        </button>
+        <button class="btn welcome-step" id="ws-plan" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
+          <span style="font-size:20px;width:28px;text-align:center">📋</span>
+          <div style="flex:1"><div style="font-weight:700">Pick a Training Plan</div><div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Matched to your year level and fitness tier</div></div>
+          <span style="color:var(--muted-fg)">&rsaquo;</span>
+        </button>
+        <button class="btn welcome-step" id="ws-homescreen" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
+          <span style="font-size:20px;width:28px;text-align:center">📱</span>
+          <div style="flex:1"><div style="font-weight:700">Add to Home Screen</div><div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Works like a native app</div></div>
+          <span style="color:var(--muted-fg)">&rsaquo;</span>
+        </button>
+      </div>
+      <button class="btn btn-primary" id="ws-done" style="width:100%;padding:12px;font-size:14px;font-weight:700;margin-top:12px;border-radius:10px">Let's Go!</button>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted-fg)">You can set these up later in Profile</div>
     </div>`;
   document.body.appendChild(overlay);
-  $('whatsnew-close').addEventListener('click', () => {
-    overlay.remove();
-    try { localStorage.setItem('vf_changelog_seen', APP_VERSION); } catch(e) {}
+  const markDone = (btn) => {
+    btn.style.borderColor = 'var(--primary)';
+    btn.style.background = 'rgba(191,255,0,.06)';
+    btn.querySelector('span:last-child').textContent = '✓';
+    btn.querySelector('span:last-child').style.color = 'var(--primary)';
+  };
+  $('ws-strava')?.addEventListener('click', () => {
+    stravaStartAuth();
+    markDone($('ws-strava'));
   });
-  overlay.querySelector('.modal-backdrop').addEventListener('click', () => {
+  $('ws-notifs')?.addEventListener('click', async () => {
+    if (!('Notification' in window)) { showToast('Notifications not supported on this device.', 'warn'); return; }
+    if (Notification.permission === 'denied') { showToast('Notifications blocked. Enable in browser settings.', 'warn'); return; }
+    const result = await Notification.requestPermission();
+    if (result === 'granted') {
+      markDone($('ws-notifs'));
+      showToast('Notifications enabled!', 'success');
+    } else {
+      showToast('Permission denied.', 'warn');
+    }
+  });
+  $('ws-plan')?.addEventListener('click', () => {
+    const year = userProfile?.yearLevel || 'Y9';
+    const tier = userProfile?.fitnessLevel || 'basic';
+    const match = ALL_PLANS.find(p => p.yearLevel === year && p.fitnessLevel === tier && p.category === 'floor')
+      || ALL_PLANS.find(p => p.yearLevel === year && p.fitnessLevel === tier)
+      || ALL_PLANS[0];
+    if (match) {
+      activatePlan(match.id);
+      markDone($('ws-plan'));
+      showToast('Plan activated!', 'success');
+    }
+  });
+  $('ws-homescreen')?.addEventListener('click', () => {
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    if (isIOS) {
+      showToast('Tap the Share button ↑ then "Add to Home Screen"', 'info');
+    } else if (isAndroid) {
+      showToast('Tap the menu ⋮ then "Add to Home Screen"', 'info');
+    } else {
+      showToast('Look for "Install" or "Add to Home Screen" in your browser menu', 'info');
+    }
+    markDone($('ws-homescreen'));
+  });
+  $('ws-done')?.addEventListener('click', () => {
     overlay.remove();
-    try { localStorage.setItem('vf_changelog_seen', APP_VERSION); } catch(e) {}
+    try { localStorage.setItem('vf_onboarded', '1'); } catch(e) {}
+    renderToday();
+  });
+  overlay.querySelector('.modal-backdrop')?.addEventListener('click', () => {
+    overlay.remove();
+    try { localStorage.setItem('vf_onboarded', '1'); } catch(e) {}
   });
 }
 function openRaceResultForm(raceName, raceDate) {
@@ -5046,7 +5110,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '3.4.0';
+  const APP_VERSION = '3.5.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -5136,11 +5200,9 @@ function startApp() {
       try { loadGoals(); } catch(e) {}
       // Re-render current page with full data
       renderCurrentPage();
-      // Show tutorial for new users
-      if (shouldShowTutorial()) {
-        setTimeout(() => showTutorial(), 500);
-      } else {
-        checkWhatsNew();
+      // Show welcome/onboarding for new users with API connection options
+      if (!localStorage.getItem('vf_onboarded')) {
+        setTimeout(() => showWelcomeSetup(), 800);
       }
       // Check training reminders
       checkTrainingReminder();
