@@ -1033,3 +1033,143 @@ select.input{appearance:none;cursor:pointer;
 
 /* Weather skeleton pulse */
 @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:.8} }
+
+/* ===== RESPONSIVE LAYOUT ===== */
+
+/* Desktop container — center content with max width */
+.content { max-width: 100%; }
+
+/* Small phones (< 375px) — tighten spacing */
+@media (max-width: 374px) {
+  .content { padding: 12px 12px calc(12px + var(--tab-h)); }
+  .header { padding: 0 12px; padding-top: var(--safe-t); }
+  .card-pad { padding: 10px; }
+  .header-brand { font-size: 15px; }
+  .header-logo { width: 30px; height: 26px; font-size: 10px; }
+  .tab-btn { min-width: 48px; }
+  .tab-btn-label { font-size: 9px; }
+  .tab-btn svg { width: 20px; height: 20px; }
+  .auth-screen { padding: 16px; }
+  .page-title { font-size: 18px; }
+  .challenge-team-name { font-size: 11px; }
+  .challenge-team-score { font-size: 11px; }
+  .checklist-item { padding: 10px; }
+  .cl-title { font-size: 13px; }
+  .cl-desc { font-size: 11px; }
+  .cl-meta { font-size: 10px; }
+  .rpe-btn { width: 28px; height: 28px; font-size: 11px; }
+  .admin-tab { font-size: 11px; padding: 6px 10px; }
+}
+
+/* Standard phones (375px - 428px) — default, no changes needed */
+
+/* Large phones / small tablets (429px - 768px) */
+@media (min-width: 429px) {
+  .content { padding: 20px 24px calc(20px + var(--tab-h)); max-width: 600px; margin: 0 auto; }
+  .header { padding: 0 24px; padding-top: var(--safe-t); }
+  .card-pad { padding: 16px; }
+  .auth-form { max-width: 380px; }
+  .checklist-item { padding: 14px; }
+  .rpe-btn { width: 36px; height: 36px; }
+}
+
+/* Tablets (769px - 1024px) */
+@media (min-width: 769px) {
+  .content { max-width: 680px; padding: 24px 32px calc(24px + var(--tab-h)); }
+  .header { max-width: 680px; margin: 0 auto; width: 100%; }
+  .tab-bar { max-width: 680px; margin: 0 auto; }
+  .page-title { font-size: 24px; }
+  .card-pad { padding: 18px; }
+  .auth-form { max-width: 400px; }
+  .admin-tabs { gap: 4px; }
+  .admin-tab { font-size: 13px; padding: 8px 16px; }
+  .coach-card { padding: 14px; }
+  .ai-panel { max-width: 680px; }
+  .rpe-btn { width: 40px; height: 40px; font-size: 15px; }
+}
+
+/* Desktop (1025px+) */
+@media (min-width: 1025px) {
+  .content { max-width: 720px; padding: 28px 40px calc(28px + var(--tab-h)); margin-left: auto; margin-right: auto; }
+  .header {
+    max-width: 720px; margin: 0 auto; width: 100%;
+    border-bottom: none; border-radius: 0 0 12px 12px;
+  }
+  .tab-bar {
+    max-width: 720px; left: 50%; right: auto;
+    transform: translateX(-50%); width: 100%;
+    border-radius: 12px 12px 0 0; border-top: 1px solid var(--border);
+  }
+  .page-title { font-size: 26px; }
+  .card { border-radius: 14px; }
+  .card-pad { padding: 20px; }
+  .auth-screen { padding: 40px; }
+  .auth-form { max-width: 420px; }
+  .checklist-item { padding: 16px; border-radius: 12px; }
+  .btn-primary { font-size: 15px; padding: 14px 24px; }
+  .rpe-btn { width: 42px; height: 42px; font-size: 16px; }
+  /* Wider sheets on desktop */
+  .sheet { max-width: 480px; left: 50%; right: auto; transform: translateX(-50%); border-radius: 16px 16px 0 0; }
+  /* AI overlay centered */
+  .ai-overlay { max-width: 720px; left: 50%; right: auto; transform: translateX(-50%); }
+  /* Profile overlay centered */
+  .profile-overlay { max-width: 720px; left: 50%; right: auto; transform: translateX(-50%); }
+  /* Sheet overlay centered */
+  #sheet-overlay { display: flex; justify-content: center; }
+}
+
+/* Extra wide (1440px+) — add visual breathing room */
+@media (min-width: 1440px) {
+  .content { max-width: 760px; }
+  .header { max-width: 760px; }
+  .tab-bar { max-width: 760px; }
+}
+
+/* ===== TEXT SCALING ===== */
+/* Respect user's system font size preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Dynamic text scaling for accessibility */
+@supports (font-size: clamp(1rem, 1vw, 2rem)) {
+  .page-title { font-size: clamp(18px, 4vw, 28px); }
+  .today-date { font-size: clamp(22px, 5vw, 32px); }
+  .header-brand { font-size: clamp(15px, 3.5vw, 19px); }
+  .sheet-title { font-size: clamp(16px, 4vw, 22px); }
+}
+
+/* ===== TOUCH TARGETS ===== */
+/* Ensure minimum 44x44px touch targets on mobile */
+@media (pointer: coarse) {
+  button, .tab-btn, .rpe-btn, .cl-check, .admin-tab, .fitness-sub-tab,
+  .role-btn, .wo-filter-btn, .tracker-type-btn, .et-set-btn {
+    min-height: 44px; min-width: 44px;
+  }
+  .cl-check { padding: 8px; }
+  input, select, textarea { min-height: 44px; }
+}
+
+/* Fine pointer (mouse) — smaller targets OK */
+@media (pointer: fine) {
+  button { min-height: unset; min-width: unset; }
+  .tab-btn { min-height: 44px; }
+  input, select, textarea { min-height: 36px; }
+}
+
+/* ===== ORIENTATION ===== */
+/* Landscape phone — reduce vertical padding */
+@media (max-height: 500px) and (orientation: landscape) {
+  .content { padding-top: 8px; }
+  .header { height: 44px; min-height: calc(44px + var(--safe-t)); --header-h: 44px; }
+  .tab-bar { height: 48px; }
+  :root { --tab-h: calc(48px + var(--safe-b)); }
+}
+
+/* ===== PRINT ===== */
+@media print {
+  .tab-bar, .header, .ai-fab, .scroll-top-btn { display: none !important; }
+  .content { padding: 0; max-width: 100%; overflow: visible; }
+  body { position: static; overflow: visible; background: #fff; color: #000; }
+  .card { border: 1px solid #ddd; break-inside: avoid; }
+}
