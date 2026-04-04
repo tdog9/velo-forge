@@ -366,7 +366,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '4.2.0';
+const APP_VERSION = '4.3.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -852,7 +852,7 @@ try {
     currentPage = saved;
   }
   const savedFitSub = localStorage.getItem('vf_fitnessSub');
-  if (savedFitSub && ['workouts','plans','demos'].includes(savedFitSub)) {
+  if (savedFitSub && ['workouts','plans','health','demos'].includes(savedFitSub)) {
     fitnessSubTab = savedFitSub;
   }
 } catch(e) {}
@@ -1206,9 +1206,11 @@ function renderFitness() {
   // Show/hide content areas
   const wc = $('workouts-content');
   const pc = $('plans-content');
+  const hc = $('health-content');
   const dc = $('demos-content');
   wc.style.display = 'none';
   pc.style.display = 'none';
+  hc.style.display = 'none';
   dc.style.display = 'none';
   
   if (fitnessSubTab === 'workouts') {
@@ -1218,6 +1220,9 @@ function renderFitness() {
   } else if (fitnessSubTab === 'plans') {
     pc.style.display = '';
     renderPlans();
+  } else if (fitnessSubTab === 'health') {
+    hc.style.display = '';
+    renderHealthTab();
   } else if (fitnessSubTab === 'demos') {
     dc.style.display = '';
     renderDemonstration();
@@ -1235,7 +1240,7 @@ document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
 });
 // --- Feature 5: Swipe between fitness sub-tabs ---
 const fitnessPage = $('page-fitness');
-const fitSubOrder = ['workouts', 'plans', 'demos'];
+const fitSubOrder = ['workouts', 'plans', 'health', 'demos'];
 let swipeStartX = 0, swipeStartY = 0, swipeDeltaX = 0, swiping = false;
 fitnessPage.addEventListener('touchstart', (e) => {
   swipeStartX = e.touches[0].clientX;
@@ -5402,7 +5407,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '4.2.0';
+  const APP_VERSION = '4.3.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -5638,6 +5643,204 @@ function checkForNewAnnouncements(announcements) {
 }
 // Listen for announcements in real-time (triggers notification for new ones)
 // --- Training Session Notifications ---
+// --- Health Tab (Fitness page) ---
+function renderHealthTab() {
+  const c = $('health-content');
+  if (!c) return;
+  const h = userProfile?.health || {};
+  const now = new Date();
+  let html = '';
+
+  // Current stats row
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div class="page-title" style="margin:0">Health</div>';
+  if (h.lastSync) html += '<span style="font-size:11px;color:var(--muted-fg)">Synced ' + timeAgo(new Date(h.lastSync)) + '</span>';
+  html += '</div>';
+
+  // Stat cards
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">';
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:#ef4444">${h.latestHr || '--'}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">❤️ Heart Rate</div>
+  </div>`;
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:#3b82f6">${h.restingHr || '--'}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">💓 Resting HR</div>
+  </div>`;
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:#22c55e">${h.latestSteps ? (h.latestSteps > 999 ? (h.latestSteps/1000).toFixed(1) + 'k' : h.latestSteps) : '--'}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">👟 Steps</div>
+  </div>`;
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:#a855f7">${h.latestSleep ? h.latestSleep + 'h' : '--'}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">😴 Sleep</div>
+  </div>`;
+  html += '</div>';
+
+  // Heart Rate chart — from workout data
+  const hrWorkouts = userWorkouts.filter(w => w.heartRate && w.heartRate > 0).slice(0, 14).reverse();
+  if (hrWorkouts.length > 0) {
+    const hrMax = Math.max(...hrWorkouts.map(w => w.heartRate));
+    const hrMin = Math.min(...hrWorkouts.map(w => w.heartRate));
+    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">❤️ Heart Rate History</div>
+        <div style="font-size:11px;color:var(--muted-fg)">Last ${hrWorkouts.length} workouts</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <span style="font-size:11px;color:var(--muted-fg)">Avg: <strong style="color:var(--text)">${Math.round(hrWorkouts.reduce((s,w)=>s+w.heartRate,0)/hrWorkouts.length)}</strong></span>
+        <span style="font-size:11px;color:var(--muted-fg)">Low: <strong style="color:#22c55e">${hrMin}</strong></span>
+        <span style="font-size:11px;color:var(--muted-fg)">High: <strong style="color:#ef4444">${hrMax}</strong></span>
+      </div>
+      <div style="display:flex;align-items:end;gap:3px;height:80px">`;
+    hrWorkouts.forEach(w => {
+      const pct = hrMax > hrMin ? ((w.heartRate - hrMin) / (hrMax - hrMin)) * 70 + 30 : 50;
+      const color = w.heartRate > 160 ? '#ef4444' : w.heartRate > 140 ? '#f59e0b' : w.heartRate > 120 ? '#22c55e' : '#3b82f6';
+      const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
+      html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="font-size:8px;font-weight:600;color:var(--muted-fg)">${w.heartRate}</div>
+        <div style="width:100%;height:${pct}%;background:${color};border-radius:4px 4px 0 0;min-height:6px;transition:height .3s"></div>
+        <div style="font-size:7px;color:var(--muted-fg)">${d.getDate()}/${d.getMonth()+1}</div>
+      </div>`;
+    });
+    html += '</div>';
+    // HR zone legend
+    html += `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3b82f6;margin-right:3px"></span>Low &lt;120</span>
+      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#22c55e;margin-right:3px"></span>Moderate 120-140</span>
+      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f59e0b;margin-right:3px"></span>Hard 140-160</span>
+      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ef4444;margin-right:3px"></span>Max &gt;160</span>
+    </div>`;
+    html += '</div>';
+  }
+
+  // Training volume chart — duration per day for last 14 days
+  const days14 = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
+    const key = d.toISOString().split('T')[0];
+    const dayWos = userWorkouts.filter(w => { const wd = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return wd && wd.toISOString().split('T')[0] === key; });
+    const mins = dayWos.reduce((s, w) => s + (w.duration || 0), 0);
+    const dist = dayWos.reduce((s, w) => s + (w.distance || 0), 0);
+    days14.push({ date: d, key, mins, dist, count: dayWos.length });
+  }
+  const maxMins = Math.max(1, ...days14.map(d => d.mins));
+  html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">📊 Training Volume</div>
+      <div style="font-size:11px;color:var(--muted-fg)">Last 14 days</div>
+    </div>
+    <div style="display:flex;align-items:end;gap:2px;height:70px">`;
+  days14.forEach(d => {
+    const pct = d.mins > 0 ? (d.mins / maxMins) * 100 : 0;
+    const isToday = d.key === now.toISOString().split('T')[0];
+    html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
+      ${d.mins > 0 ? `<div style="font-size:7px;font-weight:600;color:var(--muted-fg)">${d.mins}</div>` : ''}
+      <div style="width:100%;height:${pct}%;background:${isToday ? 'var(--primary)' : d.mins > 0 ? 'rgba(191,255,0,.4)' : 'rgba(255,255,255,.04)'};border-radius:3px 3px 0 0;min-height:${d.mins > 0 ? '6' : '2'}px"></div>
+      <div style="font-size:7px;color:${isToday ? 'var(--primary)' : 'var(--muted-fg)'};font-weight:${isToday ? '700' : '400'}">${d.date.toLocaleDateString('en-AU',{weekday:'narrow'})}</div>
+    </div>`;
+  });
+  html += '</div></div>';
+
+  // Weekly summary stats
+  const thisWeek = days14.slice(-7);
+  const lastWeek = days14.slice(0, 7);
+  const twMins = thisWeek.reduce((s, d) => s + d.mins, 0);
+  const lwMins = lastWeek.reduce((s, d) => s + d.mins, 0);
+  const twCount = thisWeek.reduce((s, d) => s + d.count, 0);
+  const lwCount = lastWeek.reduce((s, d) => s + d.count, 0);
+  const twDist = thisWeek.reduce((s, d) => s + d.dist, 0);
+  const minsDiff = twMins - lwMins;
+  html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📈 Week Comparison</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Sessions</div>
+        <div style="font-size:20px;font-weight:800;color:var(--text)">${twCount}</div>
+        <div style="font-size:10px;color:${twCount >= lwCount ? '#22c55e' : '#ef4444'}">${twCount >= lwCount ? '↑' : '↓'} vs ${lwCount}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Minutes</div>
+        <div style="font-size:20px;font-weight:800;color:var(--text)">${twMins}</div>
+        <div style="font-size:10px;color:${minsDiff >= 0 ? '#22c55e' : '#ef4444'}">${minsDiff >= 0 ? '+' : ''}${minsDiff} min</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Distance</div>
+        <div style="font-size:20px;font-weight:800;color:var(--text)">${twDist > 0 ? twDist.toFixed(1) : '--'}</div>
+        <div style="font-size:10px;color:var(--muted-fg)">${twDist > 0 ? 'km' : ''}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // RPE effort trend
+  const rpeWorkouts = userWorkouts.filter(w => w.rpe).slice(0, 14).reverse();
+  if (rpeWorkouts.length >= 3) {
+    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">💪 Effort Trend (RPE)</div>
+        <div style="font-size:11px;color:var(--muted-fg)">Last ${rpeWorkouts.length}</div>
+      </div>
+      <div style="display:flex;align-items:end;gap:3px;height:60px">`;
+    rpeWorkouts.forEach(w => {
+      const pct = (w.rpe / 10) * 100;
+      const color = w.rpe >= 8 ? '#ef4444' : w.rpe >= 6 ? '#f59e0b' : w.rpe >= 4 ? '#22c55e' : '#3b82f6';
+      const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
+      html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="font-size:8px;font-weight:600;color:var(--muted-fg)">${w.rpe}</div>
+        <div style="width:100%;height:${pct}%;background:${color};border-radius:4px 4px 0 0;min-height:6px"></div>
+        <div style="font-size:7px;color:var(--muted-fg)">${d.getDate()}/${d.getMonth()+1}</div>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+
+  // Sync setup prompt if no health data
+  if (!h.latestHr && !h.latestSteps && !h.latestSleep) {
+    html += `<div style="text-align:center;padding:24px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px">
+      <div style="font-size:32px;margin-bottom:8px">❤️</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">No Health Data Yet</div>
+      <div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:12px">Connect your wearable to see heart rate, steps, and sleep data here with charts and trends.</div>
+      <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;text-align:left;padding:10px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
+        <strong style="color:var(--text)">Option 1:</strong> Connect Strava in Profile — auto-imports workouts with heart rate<br><br>
+        <strong style="color:var(--text)">Option 2:</strong> Apple Shortcut — ask your coach for the setup link. Syncs heart rate, steps, and sleep automatically.
+      </div>
+      <button class="btn btn-primary" id="health-go-profile" style="padding:10px 20px;font-size:13px">Go to Profile → Health Sync</button>
+    </div>`;
+  }
+
+  // Personal bests
+  const allDurations = userWorkouts.map(w => w.duration || 0).filter(d => d > 0);
+  const allDistances = userWorkouts.map(w => w.distance || 0).filter(d => d > 0);
+  const allSpeeds = userWorkouts.map(w => w.avgSpeed || 0).filter(s => s > 0);
+  if (allDurations.length > 0 || allDistances.length > 0) {
+    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">🏆 Personal Bests</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${allDurations.length > 0 ? `<div style="padding:8px;background:var(--surface-alt);border-radius:8px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--primary)">${Math.max(...allDurations)}</div>
+          <div style="font-size:10px;color:var(--muted-fg)">Longest session (min)</div>
+        </div>` : ''}
+        ${allDistances.length > 0 ? `<div style="padding:8px;background:var(--surface-alt);border-radius:8px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--primary)">${Math.max(...allDistances).toFixed(1)}</div>
+          <div style="font-size:10px;color:var(--muted-fg)">Longest ride (km)</div>
+        </div>` : ''}
+        ${allSpeeds.length > 0 ? `<div style="padding:8px;background:var(--surface-alt);border-radius:8px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--primary)">${Math.max(...allSpeeds).toFixed(1)}</div>
+          <div style="font-size:10px;color:var(--muted-fg)">Top speed (km/h)</div>
+        </div>` : ''}
+        ${userWorkouts.length > 0 ? `<div style="padding:8px;background:var(--surface-alt);border-radius:8px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:var(--primary)">${userWorkouts.length}</div>
+          <div style="font-size:10px;color:var(--muted-fg)">Total workouts</div>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  c.innerHTML = html;
+
+  // Bind
+  $('health-go-profile')?.addEventListener('click', () => { openProfile(); });
+}
+
 // --- Health Dashboard ---
 function openHealthDashboard() {
   const h = userProfile?.health || {};
