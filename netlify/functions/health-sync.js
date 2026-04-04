@@ -9,7 +9,12 @@ function getDb() {
   if (!app) {
     const projectId = process.env.FIREBASE_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+    let privateKey = '';
+    if (process.env.FIREBASE_PRIVATE_KEY_B64) {
+      privateKey = Buffer.from(process.env.FIREBASE_PRIVATE_KEY_B64, 'base64').toString('utf8');
+    } else {
+      privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+    }
     if (!projectId || !clientEmail || !privateKey) return null;
     app = admin.initializeApp({
       credential: admin.credential.cert({ projectId, clientEmail, privateKey })
