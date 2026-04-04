@@ -366,7 +366,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '3.8.1';
+const APP_VERSION = '4.1.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -2037,12 +2037,34 @@ function renderToday() {
   if (isWidgetOn('health')) {
   const healthData = userProfile?.health;
   if (healthData && (healthData.latestHr || healthData.latestSteps || healthData.latestSleep)) {
-    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">';
-    if (healthData.latestHr) html += `<span style="font-size:11px;padding:4px 8px;border-radius:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);color:#ef4444;font-weight:600">❤️ ${healthData.latestHr} bpm</span>`;
-    if (healthData.latestSteps) html += `<span style="font-size:11px;padding:4px 8px;border-radius:8px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.15);color:#22c55e;font-weight:600">👟 ${healthData.latestSteps.toLocaleString()}</span>`;
-    if (healthData.latestSleep) html += `<span style="font-size:11px;padding:4px 8px;border-radius:8px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.15);color:#a855f7;font-weight:600">😴 ${healthData.latestSleep}h</span>`;
-    if (healthData.restingHr) html += `<span style="font-size:11px;padding:4px 8px;border-radius:8px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.15);color:#3b82f6;font-weight:600">💓 ${healthData.restingHr} rest</span>`;
-    html += '</div>';
+    html += `<div id="health-card-tap" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">❤️ Health Sync</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${healthData.lastSync ? '<span style="font-size:10px;color:var(--muted-fg)">' + timeAgo(new Date(healthData.lastSync)) + '</span>' : ''}
+          <span style="font-size:12px;color:var(--muted-fg)">›</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(${[healthData.latestHr, healthData.latestSteps, healthData.latestSleep, healthData.restingHr].filter(Boolean).length > 3 ? 4 : [healthData.latestHr, healthData.latestSteps, healthData.latestSleep, healthData.restingHr].filter(Boolean).length}, 1fr);gap:8px">
+        ${healthData.latestHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(239,68,68,.06);border-radius:10px">
+          <div style="font-size:22px;font-weight:800;color:#ef4444">${healthData.latestHr}</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">❤️ bpm</div>
+        </div>` : ''}
+        ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:rgba(34,197,94,.06);border-radius:10px">
+          <div style="font-size:22px;font-weight:800;color:#22c55e">${healthData.latestSteps > 999 ? (healthData.latestSteps / 1000).toFixed(1) + 'k' : healthData.latestSteps}</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">👟 steps</div>
+        </div>` : ''}
+        ${healthData.latestSleep ? `<div style="text-align:center;padding:10px 4px;background:rgba(124,58,237,.06);border-radius:10px">
+          <div style="font-size:22px;font-weight:800;color:#a855f7">${healthData.latestSleep}</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">😴 hours</div>
+        </div>` : ''}
+        ${healthData.restingHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(59,130,246,.06);border-radius:10px">
+          <div style="font-size:22px;font-weight:800;color:#3b82f6">${healthData.restingHr}</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">💓 resting</div>
+        </div>` : ''}
+      </div>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted-fg)">Tap for details</div>
+    </div>`;
   }
   }
   // Announcements (only if active)
@@ -2124,6 +2146,27 @@ function renderToday() {
       html += `<div class="today-no-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><div><strong>No plan active</strong></div><div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one.</div></div>`;
     }
   }
+  // Daily Roundup Card
+  if (isWidgetOn('engagement') && totalWorkouts > 0) {
+    const roundupToday = now.toISOString().split('T')[0];
+    const todaysWorkouts = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === roundupToday; });
+    const todayMins = todaysWorkouts.reduce((s, w) => s + (w.duration || 0), 0);
+    const todayXp = todaysWorkouts.length * 10 + todaysWorkouts.filter(w => w.rpe).length * 5;
+    const healthD = userProfile?.health;
+    if (todaysWorkouts.length > 0 || (healthD && healthD.latestSteps > 0)) {
+      const msgs = todaysWorkouts.length >= 2 ? 'Crushing it today!' : todaysWorkouts.length === 1 ? 'Nice session logged.' : todayMins > 60 ? 'Big training day!' : '';
+      html += `<div style="background:linear-gradient(135deg,rgba(191,255,0,.05),rgba(34,197,94,.03));border:1px solid rgba(191,255,0,.15);border-radius:12px;padding:12px 14px;margin-top:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📋 Today's Roundup</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          ${todaysWorkouts.length > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--text)">${todaysWorkouts.length}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">workout${todaysWorkouts.length > 1 ? 's' : ''}</span></div>` : ''}
+          ${todayMins > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--text)">${todayMins}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">mins</span></div>` : ''}
+          ${todayXp > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--primary)">+${todayXp}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">XP</span></div>` : ''}
+          ${healthD?.latestSteps ? `<div><span style="font-size:18px;font-weight:800;color:#22c55e">${healthD.latestSteps > 999 ? (healthD.latestSteps / 1000).toFixed(1) + 'k' : healthD.latestSteps}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">steps</span></div>` : ''}
+        </div>
+        ${msgs ? '<div style="font-size:12px;font-weight:600;color:var(--text);margin-top:6px">' + msgs + '</div>' : ''}
+      </div>`;
+    }
+  }
   // ── SECTION 3: Quick actions ──
   html += `<div style="display:flex;gap:8px;margin-top:10px">
     <button class="btn" id="today-quick-log" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Log</button>
@@ -2194,6 +2237,51 @@ function renderToday() {
   if (totalWorkouts >= 5) {
     const insight = generateTrainingInsight();
     if (insight) html += `<div style="margin-top:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted-fg);line-height:1.4;display:flex;align-items:start;gap:8px"><span style="font-size:14px;flex-shrink:0">🧠</span><span>${insight}</span></div>`;
+  }
+  // Daily Roundup (shows after 5pm if student trained today)
+  const roundupHour = now.getHours();
+  const roundupDateStr = now.toISOString().split('T')[0];
+  const todayWos = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === roundupDateStr; });
+  const roundupDismissed = localStorage.getItem('vf_roundup_' + roundupDateStr);
+  if (roundupHour >= 17 && todayWos.length > 0 && !roundupDismissed) {
+    const rMins = todayWos.reduce((s, w) => s + (w.duration || 0), 0);
+    const rDist = todayWos.reduce((s, w) => s + (w.distance || 0), 0);
+    const rXp = todayWos.length * 10 + todayWos.filter(w => w.rpe).length * 5;
+    const rAvgRpe = todayWos.filter(w => w.rpe).length > 0 ? (todayWos.filter(w => w.rpe).reduce((s, w) => s + w.rpe, 0) / todayWos.filter(w => w.rpe).length).toFixed(1) : null;
+    const rTypes = [...new Set(todayWos.map(w => w.type || 'workout'))].join(', ');
+    const healthD = userProfile?.health;
+    let encouragement = '';
+    if (rMins >= 60) encouragement = 'Massive session today. Recovery is just as important — rest well tonight.';
+    else if (todayWos.length >= 2) encouragement = 'Multiple sessions in one day — that\'s dedication. Your team will notice.';
+    else if (streak >= 7) encouragement = 'Streak going strong! Every day you show up, you get better.';
+    else encouragement = 'Another day in the books. Consistency is what separates good from great.';
+    html += `<div style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(191,255,0,.04));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:700;color:var(--text)">📋 Today's Roundup</div>
+        <button id="dismiss-roundup" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(${rDist > 0 ? 4 : 3},1fr);gap:6px;margin-bottom:10px">
+        <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
+          <div style="font-size:20px;font-weight:800;color:var(--primary)">${todayWos.length}</div>
+          <div style="font-size:9px;color:var(--muted-fg)">sessions</div>
+        </div>
+        <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
+          <div style="font-size:20px;font-weight:800;color:var(--text)">${rMins}</div>
+          <div style="font-size:9px;color:var(--muted-fg)">mins</div>
+        </div>
+        ${rDist > 0 ? `<div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
+          <div style="font-size:20px;font-weight:800;color:var(--text)">${rDist.toFixed(1)}</div>
+          <div style="font-size:9px;color:var(--muted-fg)">km</div>
+        </div>` : ''}
+        <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
+          <div style="font-size:20px;font-weight:800;color:#f59e0b">+${rXp}</div>
+          <div style="font-size:9px;color:var(--muted-fg)">XP</div>
+        </div>
+      </div>
+      ${rAvgRpe ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Effort: ${rAvgRpe}/10 · Types: ${rTypes}</div>` : ''}
+      ${healthD?.latestHr ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Peak HR: ${healthD.latestHr} bpm${healthD.latestSteps ? ' · Steps: ' + healthD.latestSteps.toLocaleString() : ''}</div>` : ''}
+      <div style="font-size:12px;color:var(--text);line-height:1.4;margin-top:6px;padding-top:6px;border-top:1px solid rgba(124,58,237,.1)">${encouragement}</div>
+    </div>`;
   }
   // Strava connect (new users only)
   if (!stravaTokens?.access_token && totalWorkouts <= 3 && !demoMode) {
@@ -2443,6 +2531,16 @@ function renderToday() {
   });
   $('today-quick-record')?.addEventListener('click', () => { haptic('medium'); openActivityTracker(); });
   $('today-strava-connect')?.addEventListener('click', () => { stravaStartAuth(); });
+  // Dismiss daily roundup
+  $('dismiss-roundup')?.addEventListener('click', () => {
+    localStorage.setItem('vf_roundup_' + new Date().toISOString().split('T')[0], '1');
+    $('dismiss-roundup')?.closest('div[style*="background:linear-gradient"]')?.remove();
+  });
+  // Health card → open detailed dashboard
+  $('health-card-tap')?.addEventListener('click', () => {
+    haptic('light');
+    openHealthDashboard();
+  });
   // Add to Calendar buttons
   document.querySelectorAll('.add-to-cal-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -4710,8 +4808,8 @@ function renderProfile() {
     Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
   </div>
   <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--text)">Option 2: Direct Sync (advanced)</strong><br>
-    Use Health Auto Export, IFTTT, Home Assistant, or Tasker to send data directly to VeloForge via webhook.
+    <strong style="color:var(--text)">Option 2: Via Home Assistant (live data)</strong><br>
+    HA Companion App reads Apple Health, heart rate, steps, and sleep. Automations push data to VeloForge in real time. Generate a token below.
   </div>`;
   if (syncToken) {
     html += `<div style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
@@ -5304,7 +5402,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '3.8.1';
+  const APP_VERSION = '4.1.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -5540,6 +5638,87 @@ function checkForNewAnnouncements(announcements) {
 }
 // Listen for announcements in real-time (triggers notification for new ones)
 // --- Training Session Notifications ---
+// --- Health Dashboard ---
+function openHealthDashboard() {
+  const h = userProfile?.health || {};
+  const workoutsWithHr = userWorkouts.filter(w => w.heartRate).slice(0, 10);
+  const avgHr = workoutsWithHr.length > 0 ? Math.round(workoutsWithHr.reduce((s, w) => s + w.heartRate, 0) / workoutsWithHr.length) : null;
+  const maxHr = workoutsWithHr.length > 0 ? Math.max(...workoutsWithHr.map(w => w.heartRate)) : null;
+  const totalMins = userWorkouts.reduce((s, w) => s + (w.duration || 0), 0);
+  const totalDist = userWorkouts.reduce((s, w) => s + (w.distance || 0), 0);
+  let html = '<div class="sheet-title">Health Dashboard</div>';
+  // Current stats
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
+  if (h.latestHr) html += `<div style="text-align:center;padding:14px 8px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.1);border-radius:12px">
+    <div style="font-size:28px;font-weight:800;color:#ef4444">${h.latestHr}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Current HR</div>
+  </div>`;
+  if (h.restingHr) html += `<div style="text-align:center;padding:14px 8px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.1);border-radius:12px">
+    <div style="font-size:28px;font-weight:800;color:#3b82f6">${h.restingHr}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Resting HR</div>
+  </div>`;
+  if (h.latestSteps) html += `<div style="text-align:center;padding:14px 8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.1);border-radius:12px">
+    <div style="font-size:28px;font-weight:800;color:#22c55e">${h.latestSteps > 999 ? (h.latestSteps / 1000).toFixed(1) + 'k' : h.latestSteps}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Steps Today</div>
+  </div>`;
+  if (h.latestSleep) html += `<div style="text-align:center;padding:14px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);border-radius:12px">
+    <div style="font-size:28px;font-weight:800;color:#a855f7">${h.latestSleep}h</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Sleep</div>
+  </div>`;
+  if (h.vo2max) html += `<div style="text-align:center;padding:14px 8px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.1);border-radius:12px">
+    <div style="font-size:28px;font-weight:800;color:#f59e0b">${h.vo2max}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">VO2 Max</div>
+  </div>`;
+  html += '</div>';
+  // Workout heart rate history
+  if (workoutsWithHr.length > 0) {
+    html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">Workout Heart Rate</div>';
+    html += `<div style="display:flex;gap:12px;margin-bottom:10px">
+      ${avgHr ? `<div style="font-size:12px;color:var(--muted-fg)">Avg: <strong style="color:var(--text)">${avgHr}</strong> bpm</div>` : ''}
+      ${maxHr ? `<div style="font-size:12px;color:var(--muted-fg)">Peak: <strong style="color:#ef4444">${maxHr}</strong> bpm</div>` : ''}
+    </div>`;
+    // Simple bar chart of recent HR
+    html += '<div style="display:flex;align-items:end;gap:3px;height:60px;margin-bottom:12px">';
+    const hrMax = Math.max(...workoutsWithHr.map(w => w.heartRate));
+    workoutsWithHr.reverse().forEach(w => {
+      const pct = hrMax > 0 ? (w.heartRate / hrMax) * 100 : 0;
+      const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
+      const color = w.heartRate > 160 ? '#ef4444' : w.heartRate > 140 ? '#f59e0b' : '#22c55e';
+      html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="font-size:8px;color:var(--muted-fg)">${w.heartRate}</div>
+        <div style="width:100%;height:${pct}%;min-height:4px;background:${color};border-radius:3px 3px 0 0"></div>
+        <div style="font-size:7px;color:var(--muted-fg)">${d.getDate()}/${d.getMonth() + 1}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  // Training totals
+  html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">Training Totals</div>';
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+    <div style="text-align:center;padding:10px 4px;background:var(--surface-alt);border-radius:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--text)">${userWorkouts.length}</div>
+      <div style="font-size:10px;color:var(--muted-fg)">workouts</div>
+    </div>
+    <div style="text-align:center;padding:10px 4px;background:var(--surface-alt);border-radius:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--text)">${totalMins > 60 ? (totalMins / 60).toFixed(1) + 'h' : totalMins + 'm'}</div>
+      <div style="font-size:10px;color:var(--muted-fg)">total time</div>
+    </div>
+    <div style="text-align:center;padding:10px 4px;background:var(--surface-alt);border-radius:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--text)">${totalDist > 0 ? totalDist.toFixed(1) + 'km' : '--'}</div>
+      <div style="font-size:10px;color:var(--muted-fg)">distance</div>
+    </div>
+  </div>`;
+  // Sync info
+  html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">How to Sync</div>';
+  html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px">
+    <strong style="color:var(--text)">Strava:</strong> Profile → Connect Strava<br>
+    <strong style="color:var(--text)">Apple Watch:</strong> Coach shares a Shortcut link. Tap to add → paste your sync token → heart rate syncs automatically during workouts.<br>
+    <strong style="color:var(--text)">Token:</strong> ${userProfile?.syncToken ? '<span style="font-family:monospace;color:var(--primary)">' + escHtml(userProfile.syncToken.substring(0, 12)) + '...</span>' : 'Generate in Profile → Health Sync'}
+  </div>`;
+  if (h.lastSync) html += `<div style="font-size:10px;color:var(--muted-fg)">Last sync: ${timeAgo(new Date(h.lastSync))}</div>`;
+  $('sheet-content').innerHTML = html;
+  openSheet();
+}
 // --- Weather ---
 const WEATHER_KEY = 'c286357e02b8753b54b5b7bf3e4ee1ce';
 async function loadWeather() {
@@ -5819,127 +5998,97 @@ const TUTORIAL_STEPS = [
   {
     icon: '👋', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
     title: 'Welcome to VeloForge!',
-    desc: 'Hey! Welcome to your HPV training app. This tour takes about 2 minutes and shows you everything you need to start training like a champion. You can skip anytime or redo it later from your Profile.',
+    desc: 'Hey! Welcome to your HPV training app. This tour takes about 2 minutes and shows you everything you need. Skip anytime or redo later from Profile.',
     highlight: null
   },
   {
     icon: '📊', bg: 'linear-gradient(135deg,#3b82f6,#60a5fa)',
     title: 'Today — Your Dashboard',
-    desc: 'This is your home base. At the top you\'ll see your XP level and streak count — these track how consistent you are. Below that is today\'s scheduled workout from your active training plan, plus your personal goals and team challenge scores.',
+    desc: 'Your home base. Weather, XP, streak, health data at the top. Today\'s workout below. Training sessions, team challenges, and daily roundup further down. Tap ⚙️ to show/hide any widget.',
     highlight: '[data-page="today"]'
   },
   {
+    icon: '🌤️', bg: 'linear-gradient(135deg,#3b82f6,#60a5fa)',
+    title: 'Weather & Training Advice',
+    desc: 'Live local weather with training advice. Updates every 15 minutes using your location. Tells you when conditions are good for outdoor training or when to train indoors.',
+    highlight: null
+  },
+  {
     icon: '⭐', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
-    title: 'XP & Levelling Up',
-    desc: 'Every workout you log earns 10 XP. Rating your effort (RPE) earns 5 XP. Streaks earn bonus XP at 7, 14, and 30 days. Completing a full training plan gives 75 XP. Level up from Rookie → Racer → Athlete → Champion → Legend → Elite!',
-    highlight: null
-  },
-  {
-    icon: '🏅', bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
-    title: 'Achievement Badges',
-    desc: 'There are 14 badges to earn — from your first workout to covering 50km total distance. Badges appear on your Today page. Some are easy (log 1 workout), some take real dedication (30-day streak). How many can you collect?',
-    highlight: null
-  },
-  {
-    icon: '🎯', bg: 'linear-gradient(135deg,#22c55e,#4ade80)',
-    title: 'Personal Goals',
-    desc: 'Scroll down on Today to find "My Goals". Tap "+ Add a Goal" to set targets like "Complete 20 workouts" or "Build a 7-day streak". Each goal shows a progress ring so you can see exactly how close you are.',
+    title: 'XP, Levels & Streaks',
+    desc: 'Every workout: +10 XP. First workout of the day: +10 bonus (2x XP badge). RPE rating: +5 XP. Every 7-day streak earns a Streak Freeze 🧊 that protects you if you miss a day. Levels: Rookie → Racer → Athlete → Champion → Legend → Elite.',
     highlight: null
   },
   {
     icon: '🏋️', bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
-    title: 'Fitness — Activities',
-    desc: 'The Fitness tab has 4 sub-tabs. "Activities" shows every workout you\'ve done — GPS-tracked rides with route maps, Strava imports, and manual logs. Tap any activity card to see the full detail view with your route, stats, pace, and heart rate zone.',
+    title: 'Training Plans',
+    desc: '54 plans across In Vehicle, Floor, and Machine. Matched to your year level and fitness tier. Tap a workout on Today to open the set tracker with auto rest timers between sets.',
     highlight: '[data-page="fitness"]'
   },
   {
-    icon: '📋', bg: 'linear-gradient(135deg,#3b82f6,#60a5fa)',
-    title: 'Fitness — Training Plans',
-    desc: 'The "Plans" sub-tab has 54 training plans across 3 categories: In Vehicle (HPV riding), Floor (bodyweight), and Machine (gym). Each plan is tailored to your year level (Y7-Y12) and fitness tier (basic, average, intense). Tap any plan to preview it, then hit "Start This Plan" to activate it.',
-    highlight: null
-  },
-  {
-    icon: '🎬', bg: 'linear-gradient(135deg,#8b5cf6,#a78bfa)',
-    title: 'Fitness — Exercise Demos',
-    desc: 'The "Demos" sub-tab has video demonstrations for exercises in your plans. Search for any exercise by name to see how to perform it correctly. Good technique means better results and fewer injuries.',
+    icon: '💪', bg: 'linear-gradient(135deg,#22c55e,#4ade80)',
+    title: 'Set Tracker & Live Mode',
+    desc: 'Tap any workout to open the exercise tracker. Tap set buttons as you complete them — rest timer starts automatically (45s between sets, 60s between exercises). Hit "Live Mode" for a full-screen guided workout that advances exercise by exercise.',
     highlight: null
   },
   {
     icon: '🟢', bg: 'linear-gradient(135deg,#22c55e,#16a34a)',
-    title: 'Record — GPS Tracker',
-    desc: 'The green Record button in the centre of the nav bar opens a full-screen GPS tracker. Pick your activity type (Ride, Run, Walk, or Gym), tap the play button, and it tracks your route on a live map with distance, speed, pace, and elevation — all in real time.',
+    title: 'GPS Tracker',
+    desc: 'The green Record button opens GPS tracking with 6 types: 🏎️ HPV, 🚴 Ride, 🏃 Run, 🏃‍♂️ Treadmill, 🚶 Walk, 🏋️ Gym. Live map, distance, speed, pace, and elevation in real time.',
     highlight: '#record-tab-btn'
   },
   {
-    icon: '⏸️', bg: 'linear-gradient(135deg,#16a34a,#22c55e)',
-    title: 'Recording Controls',
-    desc: 'While recording: the pause button freezes tracking (great for rest stops), resume continues, and stop opens the save screen. You can rate your effort 1-10, give it a name, then save. Your route map appears in Activities with a green start dot and red finish dot.',
-    highlight: null
-  },
-  {
     icon: '✏️', bg: 'linear-gradient(135deg,#64748b,#94a3b8)',
-    title: 'Manual Logging',
-    desc: 'Don\'t want GPS? No worries. Go to Fitness → Activities and tap "Log Manually" in the top right. Enter the workout name, type, duration, distance, heart rate, and effort rating. It counts for XP, streaks, and team challenges just the same.',
+    title: 'Smart Logging',
+    desc: 'Tap "Log" to manually record. The form adapts per type — HPV asks for laps, vehicle, best lap. Treadmill asks for speed and incline. Strength lets you list exercises. Add a photo and rate your effort 1-10.',
     highlight: null
   },
   {
-    icon: '🏁', bg: 'linear-gradient(135deg,#ef4444,#f87171)',
-    title: 'Races — Calendar',
-    desc: 'The Races tab shows all upcoming HPV race events with countdown timers. Tap the footage links when they\'re available to watch race replays. Your coach adds new events throughout the season.',
-    highlight: '[data-page="races"]'
-  },
-  {
-    icon: '📝', bg: 'linear-gradient(135deg,#ef4444,#f87171)',
-    title: 'Race Results',
-    desc: 'After a race, the app prompts you to log your result. Enter your finishing position, total time, fastest lap, number of laps, and a reflection on what went well. This builds your race history across the season so you can see your improvement.',
+    icon: '📅', bg: 'linear-gradient(135deg,#f97316,#fb923c)',
+    title: 'Training Sessions',
+    desc: 'Coach-scheduled sessions appear on Today with a countdown. Tap "Add to Calendar" to add to Google Calendar, Apple Calendar, or Outlook with a 30-minute reminder.',
     highlight: null
   },
   {
     icon: '🏆', bg: 'linear-gradient(135deg,#f97316,#fb923c)',
-    title: 'Leaderboard — XP Rankings',
-    desc: 'The Leaderboard tab ranks everyone by XP. The top 3 get a podium with their level badges. Below that is the full table showing everyone\'s XP, level, and streak. This is where friendly competition drives everyone to train harder.',
+    title: 'Teams & Monthly Challenge',
+    desc: 'Pick your team at signup. Your training minutes AND XP count toward the Monthly Challenge. Top 3 teams get medals. Coach shoutouts appear as announcements when you\'re doing well.',
     highlight: '[data-page="team"]'
   },
   {
-    icon: '👥', bg: 'linear-gradient(135deg,#f97316,#fb923c)',
-    title: 'Teams & Challenges',
-    desc: 'Join or create a team in the Leaderboard tab. Teams compete in monthly challenges set by your coach. The scoreboard shows live rankings with medals for the top 3 teams. Your workout minutes AND XP auto-count toward your team\'s score.',
+    icon: '📋', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+    title: 'Daily Roundup',
+    desc: 'Every evening after 5pm, a roundup card shows today\'s sessions, minutes, distance, XP earned, effort level, and health data. Plus a personalised message. Your training receipt for the day.',
     highlight: null
   },
   {
     icon: '🤖', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
     title: 'AI Coach',
-    desc: 'The purple button in the bottom-left corner is your AI training assistant. Ask it anything — "What plan should I pick?", "How do I warm up for a race?", "My legs are sore, should I train?" It knows your year level, fitness tier, and current plan.',
+    desc: 'Purple button, bottom corner. Ask anything — plans, warm-ups, nutrition, injuries. It generates custom plans, reviews your week, and gives race prep advice. Knows your level and current plan.',
     highlight: '#ai-fab'
   },
   {
-    icon: '✨', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
-    title: 'AI Plan Generator',
-    desc: 'Inside the AI Coach, tap "✨ Generate a Plan" to create a custom training plan. Choose In Vehicle, Floor, Machine, Off-Season, Holiday, or describe your own goal. The AI builds a complete multi-week plan tailored to your level. Find your generated plans in Fitness → My Plans.',
-    highlight: null
-  },
-  {
     icon: '⬡', bg: 'linear-gradient(135deg,#fc5200,#ff7043)',
-    title: 'Strava — Two-Way Sync',
-    desc: 'Connect Strava in your Profile to automatically import your Apple Watch or Garmin workouts — including route maps, heart rate, and distance. Activities you record in VeloForge also appear on your Strava profile. It\'s fully two-way.',
+    title: 'Strava Sync',
+    desc: 'Connect Strava in Profile to auto-import Apple Watch, Garmin, and Fitbit workouts with routes and heart rate. VeloForge activities upload back to Strava. Fully two-way.',
     highlight: null
   },
   {
     icon: '❤️', bg: 'linear-gradient(135deg,#ef4444,#f87171)',
-    title: 'Heart Rate Zones',
-    desc: 'If your workouts have heart rate data (from Strava or a watch), the app shows which HR zone you trained in — from Zone 1 (easy recovery) to Zone 5 (max effort). Most HPV training should be in Zones 2-3, with race efforts in Zones 4-5.',
+    title: 'Health Sync — Apple Watch',
+    desc: 'For live heart rate during workouts: your coach shares an Apple Shortcut link. Tap to add it, paste your sync token from Profile → Health Sync. It auto-runs when you start an Apple Watch workout and sends heart rate every 5 seconds. Steps and sleep sync daily.',
     highlight: null
   },
   {
     icon: '👤', bg: 'linear-gradient(135deg,#64748b,#94a3b8)',
     title: 'Your Profile',
-    desc: 'Tap your avatar in the top-right corner to open your Profile. Here you can change your display name, year level, fitness tier, toggle dark/light mode, connect Strava, export a training report, and redo this tutorial anytime.',
+    desc: 'Tap your avatar for Profile. Change name, year, tier, dark/light mode, Strava, health sync token, training report export. Redo this tour anytime from Profile → Help.',
     highlight: '#user-avatar-btn'
   },
   {
     icon: '🚀', bg: 'linear-gradient(135deg,var(--primary),#a3e635)',
     title: 'You\'re Ready!',
-    desc: 'Here\'s what to do first:\n\n1. Go to Fitness → Plans and start a training plan\n2. Hit Record to track your first ride or run\n3. Check back on the Today page to see your streak grow\n\nYou can redo this tour anytime from Profile → Help. Now let\'s get training!',
+    desc: 'Do this now:\n\n1. Go to Fitness → Plans → start a training plan\n2. Tap a workout on Today → try Live Mode\n3. Hit Record to track your first ride\n4. Check back tomorrow for your streak\n\nRedo this tour anytime from Profile → Help.',
     highlight: null
   }
 ];
