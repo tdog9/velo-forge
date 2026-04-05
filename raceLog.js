@@ -59,13 +59,13 @@ export function renderFootageLinks(raceId) {
 export function getCompletedRacesNeedingLogs() {
   const races = A.getActiveRaces();
   const today = new Date().toISOString().split('T')[0];
-  const loggedTracks = new Set(A.userRaceLogs.map(l => (l.trackName || '').toLowerCase()));
+  const loggedTracks = new Set((A.userRaceLogs || []).map(l => (l.trackName || '').toLowerCase()));
   return races.filter(r => {
     if (!r.date || r.date > today) return false;
     // Check if user already logged this specific race
     const trackLower = (r.location || r.name || '').toLowerCase();
     const nameLower = (r.name || '').toLowerCase();
-    return !A.userRaceLogs.some(l => {
+    return !(A.userRaceLogs || []).some(l => {
       const lt = (l.trackName || '').toLowerCase();
       return (lt === trackLower || lt.includes(trackLower.split(',')[0].toLowerCase()) || nameLower.includes(lt)) && l.date === r.date;
     });
