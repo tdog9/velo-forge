@@ -3,18 +3,19 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     match /users/{userId} {
-      // Any authenticated user can read profiles (leaderboard + coach dashboard)
+      // Authenticated users can read profiles
       allow read: if request.auth != null;
+      // Allow unauthenticated query by syncToken (for health webhook)
+      allow list: if request.auth == null;
       // Owner can write their own profile
       allow write: if request.auth != null && request.auth.uid == userId;
-      // Health sync webhook can update health fields (unauthenticated, validated by secret in function)
+      // Health sync webhook can update health fields only
       allow update: if request.auth == null
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['health']);
 
       match /workouts/{workoutId} {
         allow read: if request.auth != null;
         allow write: if request.auth != null && request.auth.uid == userId;
-        // Health sync can create workouts
         allow create: if request.auth == null;
       }
 
@@ -23,6 +24,10 @@ service cloud.firestore {
       }
 
       match /customPlans/{planId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /raceLogs/{logId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
