@@ -5472,6 +5472,7 @@ function buildModuleCtx() {
     get teamData() { return teamData; },
     get teamMembers() { return teamMembers; },
     get userWorkouts() { return userWorkouts; }, set userWorkouts(v) { userWorkouts = v; },
+    get userRaceLogs() { return userRaceLogs; }, set userRaceLogs(v) { userRaceLogs = v; },
     get ALL_PLANS() { return ALL_PLANS; },
     get stravaTokens() { return stravaTokens; }, set stravaTokens(v) { stravaTokens = v; },
     get stravaActivities() { return stravaActivities; }, set stravaActivities(v) { stravaActivities = v; },
