@@ -366,7 +366,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '4.3.4';
+const APP_VERSION = '4.3.5';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -791,6 +791,7 @@ $('logout-btn')?.addEventListener('click', async () => {
   try {
     if (workoutsUnsubscribe) { workoutsUnsubscribe(); workoutsUnsubscribe = null; }
     if (checklistUnsubscribe) { checklistUnsubscribe(); checklistUnsubscribe = null; }
+    if (profileUnsubscribe) { profileUnsubscribe(); profileUnsubscribe = null; }
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
     await signOut(auth);
     currentUser = null;
@@ -1324,8 +1325,12 @@ contentEl.addEventListener('touchend', () => {
   if (ptrTriggered) {
     ptrEl.classList.add('refreshing');
     haptic('medium');
-    // Reload data
-    renderCurrentPage();
+    // Reload profile and workouts from Firestore
+    if (db && currentUser) {
+      loadUserProfile(currentUser.uid).then(() => renderCurrentPage());
+    } else {
+      renderCurrentPage();
+    }
     setTimeout(() => {
       ptrEl.classList.remove('pulling', 'refreshing');
       ptrEl.style.transform = 'translateX(-50%) translateY(-40px)';
@@ -5388,13 +5393,27 @@ function setupListeners(uid) {
     userChecklist = {};
   });
 }
+let profileUnsubscribe = null;
 async function loadUserProfile(uid) {
   try {
+    // Real-time listener — picks up webhook health updates instantly
+    if (profileUnsubscribe) profileUnsubscribe();
+    profileUnsubscribe = onSnapshot(doc(db, 'users', uid), (snap) => {
+      if (snap.exists()) {
+        const oldHealth = JSON.stringify(userProfile?.health || {});
+        userProfile = snap.data();
+        const newHealth = JSON.stringify(userProfile?.health || {});
+        // Re-render Today if health data changed
+        if (oldHealth !== newHealth && currentPage === 'today') {
+          renderCurrentPage();
+        }
+      }
+    });
+    // Also do initial fetch for immediate render
     const snap = await getDoc(doc(db, 'users', uid));
     if (snap.exists()) {
       userProfile = snap.data();
     } else {
-      // Create default profile
       userProfile = {
         displayName: currentUser.displayName || 'User',
         email: currentUser.email || '',
@@ -5467,7 +5486,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '4.3.4';
+  const APP_VERSION = '4.3.5';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
