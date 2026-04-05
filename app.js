@@ -366,7 +366,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '4.3.0';
+const APP_VERSION = '4.3.4';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -4813,15 +4813,20 @@ function renderProfile() {
     Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
   </div>
   <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--text)">Option 2: Via Home Assistant (live data)</strong><br>
-    HA Companion App reads Apple Health, heart rate, steps, and sleep. Automations push data to VeloForge in real time. Generate a token below.
+    <strong style="color:var(--text)">Option 2: Apple Shortcut (live HR during workouts)</strong><br>
+    Your coach shares a Shortcut link. Tap to add it, paste your token below. It auto-runs when you start an Apple Watch workout and syncs heart rate every 5 seconds. Steps and sleep sync daily at 8am.
   </div>`;
   if (syncToken) {
     html += `<div style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
       <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px">Your Sync Token</div>
       <div style="font-size:11px;font-family:monospace;color:var(--primary);word-break:break-all;margin-bottom:4px">${escHtml(syncToken)}</div>
-      <div style="font-size:10px;color:var(--muted-fg)">Webhook URL: veloforge.netlify.app/.netlify/functions/health-sync</div>
-      <button id="copy-sync-token" style="margin-top:6px;font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer">Copy Token</button>
+      <div style="font-size:10px;color:var(--muted-fg);margin-bottom:6px">Paste this into your Apple Shortcut when prompted.</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <button id="copy-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer">Copy Token</button>
+        <button id="test-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--primary);background:rgba(191,255,0,.1);color:var(--primary);cursor:pointer">Test Sync</button>
+      </div>
+      <button id="install-shortcut-workout" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#ef4444,#f87171);color:#fff;cursor:pointer;margin-bottom:6px">❤️ Install Workout Shortcut (live HR)</button>
+      <button id="install-shortcut-daily" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;cursor:pointer">😴 Install Daily Sync (steps + sleep)</button>
     </div>`;
   } else {
     html += `<button id="generate-sync-token" style="width:100%;padding:10px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer;margin-bottom:8px">Generate Sync Token</button>`;
@@ -4990,6 +4995,61 @@ function renderProfile() {
     if (token) {
       navigator.clipboard?.writeText(token).then(() => showToast('Token copied!', 'success')).catch(() => showToast('Copy failed — tap and hold to copy manually.', 'warn'));
     }
+  });
+  $('test-sync-token')?.addEventListener('click', async () => {
+    const token = userProfile?.syncToken;
+    if (!token) return showToast('No token generated.', 'error');
+    const btn = $('test-sync-token');
+    btn.textContent = 'Testing...';
+    btn.disabled = true;
+    try {
+      const resp = await fetch('https://veloforge.netlify.app/.netlify/functions/health-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: token,
+          secret: 'vf-health-8k3mP9xR2nQ7',
+          type: 'heart_rate',
+          data: { bpm: 72, timestamp: new Date().toISOString() }
+        })
+      });
+      const result = await resp.json();
+      if (result.success) {
+        showToast('Sync works! Test heart rate sent.', 'success');
+        btn.textContent = '✓ Working';
+        btn.style.color = '#22c55e';
+        btn.style.borderColor = '#22c55e';
+      } else {
+        showToast('Sync failed: ' + (result.error || 'Unknown error'), 'error');
+        btn.textContent = '✗ Failed';
+        btn.style.color = '#ef4444';
+      }
+    } catch(e) {
+      showToast('Network error: ' + e.message, 'error');
+      btn.textContent = '✗ Error';
+      btn.style.color = '#ef4444';
+    }
+    setTimeout(() => { btn.textContent = 'Test Sync'; btn.disabled = false; btn.style.color = ''; btn.style.borderColor = ''; }, 5000);
+  });
+  $('install-shortcut-workout')?.addEventListener('click', () => {
+    const token = userProfile?.syncToken;
+    if (!token) return showToast('Generate a sync token first.', 'warn');
+    navigator.clipboard?.writeText(token).then(() => {
+      showToast('Token copied! Paste when the Shortcut asks for it.', 'success');
+    }).catch(() => {});
+    setTimeout(() => {
+      window.open('https://www.icloud.com/shortcuts/88fcd11cf7f5473eaf74d111df3b3d8c', '_blank');
+    }, 800);
+  });
+  $('install-shortcut-daily')?.addEventListener('click', () => {
+    const token = userProfile?.syncToken;
+    if (!token) return showToast('Generate a sync token first.', 'warn');
+    navigator.clipboard?.writeText(token).then(() => {
+      showToast('Token copied! Paste when the Shortcut asks for it.', 'success');
+    }).catch(() => {});
+    setTimeout(() => {
+      window.open('https://www.icloud.com/shortcuts/b38cfdbdd64f4aecbc495776cfe355ed', '_blank');
+    }, 800);
   });
   $('profile-redo-tutorial')?.addEventListener('click', () => {
     closeProfile();
@@ -5407,7 +5467,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '4.3.0';
+  const APP_VERSION = '4.3.4';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
