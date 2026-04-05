@@ -792,7 +792,7 @@ $('logout-btn')?.addEventListener('click', async () => {
   try {
     if (workoutsUnsubscribe) { workoutsUnsubscribe(); workoutsUnsubscribe = null; }
     if (checklistUnsubscribe) { checklistUnsubscribe(); checklistUnsubscribe = null; }
-    if (profileUnsubscribe) { profileUnsubscribe(); profileUnsubscribe = null; }
+    if (profileUnsubscribe) { clearInterval(profileUnsubscribe); profileUnsubscribe = null; }
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
     await signOut(auth);
     currentUser = null;
@@ -5396,20 +5396,6 @@ function setupListeners(uid) {
 }
 async function loadUserProfile(uid) {
   try {
-    // Real-time listener — picks up webhook health updates instantly
-    if (profileUnsubscribe) profileUnsubscribe();
-    profileUnsubscribe = onSnapshot(doc(db, 'users', uid), (snap) => {
-      if (snap.exists()) {
-        const oldHealth = JSON.stringify(userProfile?.health || {});
-        userProfile = snap.data();
-        const newHealth = JSON.stringify(userProfile?.health || {});
-        // Re-render Today if health data changed
-        if (oldHealth !== newHealth && currentPage === 'today') {
-          renderCurrentPage();
-        }
-      }
-    });
-    // Also do initial fetch for immediate render
     const snap = await getDoc(doc(db, 'users', uid));
     if (snap.exists()) {
       userProfile = snap.data();
@@ -5424,6 +5410,22 @@ async function loadUserProfile(uid) {
       };
       await setDoc(doc(db, 'users', uid), userProfile);
     }
+    // Refresh health data every 30 seconds for live updates
+    if (profileUnsubscribe) clearInterval(profileUnsubscribe);
+    profileUnsubscribe = setInterval(async () => {
+      try {
+        const refreshSnap = await getDoc(doc(db, 'users', uid));
+        if (refreshSnap.exists()) {
+          const oldHealth = JSON.stringify(userProfile?.health || {});
+          const newData = refreshSnap.data();
+          const newHealth = JSON.stringify(newData?.health || {});
+          if (oldHealth !== newHealth) {
+            userProfile = newData;
+            if (currentPage === 'today') renderCurrentPage();
+          }
+        }
+      } catch(e) {}
+    }, 30000);
   } catch(e) {
     console.error('Load profile error:', e);
     userProfile = {
