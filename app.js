@@ -139,6 +139,7 @@ let userWorkouts = [];
 let userChecklist = {};
 let workoutsUnsubscribe = null;
 let checklistUnsubscribe = null;
+let profileUnsubscribe = null;
 // XP & Levelling (imported from state.js)
 function calcXp() {
   let xp = 0;
@@ -5393,7 +5394,6 @@ function setupListeners(uid) {
     userChecklist = {};
   });
 }
-let profileUnsubscribe = null;
 async function loadUserProfile(uid) {
   try {
     // Real-time listener — picks up webhook health updates instantly
