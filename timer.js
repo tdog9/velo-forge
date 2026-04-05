@@ -1,7 +1,38 @@
 // CGS VeloForge Workout Timer Module
 import { escHtml } from './state.js';
 let A = {};
-export function initTimer(ctx) { A = ctx; }
+export function initTimer(ctx) {
+  A = ctx;
+  // Bind timer controls after context is available
+  A.$('timer-close')?.addEventListener('click', closeWorkoutTimer);
+  A.$('timer-play')?.addEventListener('click', () => {
+    A.haptic('light');
+    if (timerRunning) pauseTimer();
+    else startTimer();
+  });
+  A.$('timer-reset')?.addEventListener('click', () => {
+    A.haptic('light');
+    resetTimer();
+  });
+  A.$('timer-skip')?.addEventListener('click', () => {
+    A.haptic('light');
+    if (timerExercises.length > 0 && timerCurrentStep < timerExercises.length - 1) {
+      advanceTimerStep();
+    } else {
+      stopTimer();
+      A.$('timer-label').textContent = 'Complete!';
+      playBeep(880, 0.2, 2);
+    }
+  });
+  document.querySelectorAll('.timer-rest-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      A.haptic('light');
+      const sec = parseInt(btn.dataset.rest);
+      setTimerDuration(sec, 'Rest');
+      startTimer();
+    });
+  });
+}
 
 let timerInterval = null;
 let timerSeconds = 0;
@@ -180,37 +211,6 @@ export function closeWorkoutTimer() {
   timerCurrentStep = -1;
 }
 
-// Bind timer controls
-A.$('timer-close').addEventListener('click', closeWorkoutTimer);
-A.$('timer-play').addEventListener('click', () => {
-  A.haptic('light');
-  if (timerRunning) pauseTimer();
-  else startTimer();
-});
-A.$('timer-reset').addEventListener('click', () => {
-  A.haptic('light');
-  resetTimer();
-});
-A.$('timer-skip').addEventListener('click', () => {
-  A.haptic('light');
-  if (timerExercises.length > 0 && timerCurrentStep < timerExercises.length - 1) {
-    advanceTimerStep();
-  } else {
-    stopTimer();
-    A.$('timer-label').textContent = 'Complete!';
-    playBeep(880, 0.2, 2);
-  }
-});
-
-// Rest timer presets
-document.querySelectorAll('.timer-rest-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    A.haptic('light');
-    const sec = parseInt(btn.dataset.rest);
-    setTimerDuration(sec, 'Rest');
-    startTimer();
-  });
-});
 
 // ============================================
 // WORKOUTS PAGE
