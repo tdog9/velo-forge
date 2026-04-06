@@ -1031,6 +1031,111 @@ select.input{appearance:none;cursor:pointer;
 .role-btn:active{transform:scale(.97)}
 .role-btn.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
 
+/* ===== GLOBAL OVERFLOW & TEXT FIXES ===== */
+/* Prevent text from breaking out of containers */
+.content * { max-width: 100%; }
+.content img, .content svg { max-width: 100%; height: auto; }
+
+/* All inline cards/boxes: prevent overflow */
+.content [style*="border-radius"] {
+  overflow: hidden;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+/* Grid children: prevent text push-out */
+.content [style*="display:grid"] > div,
+.content [style*="display: grid"] > div {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Flex children: prevent overflow */
+.content [style*="display:flex"] > div,
+.content [style*="display: flex"] > div {
+  min-width: 0;
+}
+
+/* Monospace token text */
+.content [style*="font-family:monospace"] {
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+/* Profile section overflow */
+.profile-content [style*="border-radius"] {
+  overflow: hidden;
+  overflow-wrap: break-word;
+}
+
+/* Sheet content overflow */
+.sheet [style*="border-radius"] {
+  overflow: hidden;
+  overflow-wrap: break-word;
+}
+
+/* ===== CARD & SECTION SPACING ===== */
+/* Consistent card margins */
+.content > div[style*="margin-bottom"] { overflow: hidden; }
+
+/* Profile rows */
+.profile-row { overflow: hidden; }
+.profile-row-value { 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  white-space: nowrap;
+  max-width: 60%;
+  text-align: right;
+}
+
+/* Admin cards */
+.coach-card { overflow: hidden; }
+.coach-card-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Challenge team names */
+.challenge-team-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
+
+/* Announcement text */
+.announce-banner-msg { overflow-wrap: break-word; word-wrap: break-word; }
+
+/* Button text */
+.btn, .btn-primary, .btn-secondary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== Z-INDEX STACK ORDER ===== */
+/* Ensure overlays don't fight each other */
+/* 10: sticky sub-bars */
+/* 30: header */
+/* 35-36: FABs (scroll-top, AI) */
+/* 40: tab bar */
+/* 49: user menu overlay */
+/* 50: user menu */
+/* 100: sheet overlay */
+/* 101: sheet */
+/* 200: timer, profile, AI overlays */
+/* 300: setup overlay */
+
+/* ===== FORM ELEMENTS ===== */
+/* Prevent inputs from overflowing containers */
+input[type="text"], input[type="email"], input[type="password"], input[type="number"],
+input[type="date"], input[type="time"], input[type="url"],
+select, textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Textarea in sheets */
+.sheet textarea {
+  width: 100%;
+  max-width: 100%;
+  resize: vertical;
+}
+
+/* ===== CHART CONTAINERS ===== */
+/* Bar charts: prevent overflow on small screens */
+.content [style*="display:flex"][style*="height:"] {
+  overflow: hidden;
+}
+
 /* Weather skeleton pulse */
 @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:.8} }
 
