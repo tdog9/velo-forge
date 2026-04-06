@@ -367,7 +367,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '4.3.5';
+const APP_VERSION = '4.3.6';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -2056,7 +2056,7 @@ function renderToday() {
           <span style="font-size:12px;color:var(--muted-fg)">›</span>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(${[healthData.latestHr, healthData.latestSteps, healthData.latestSleep, healthData.restingHr].filter(Boolean).length > 3 ? 4 : [healthData.latestHr, healthData.latestSteps, healthData.latestSleep, healthData.restingHr].filter(Boolean).length}, 1fr);gap:8px">
+      <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
         ${healthData.latestHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(239,68,68,.06);border-radius:10px">
           <div style="font-size:22px;font-weight:800;color:#ef4444">${healthData.latestHr}</div>
           <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">❤️ bpm</div>
@@ -5489,7 +5489,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '4.3.5';
+  const APP_VERSION = '4.3.6';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
