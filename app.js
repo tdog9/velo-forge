@@ -367,7 +367,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '4.3.6';
+const APP_VERSION = '4.4.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -2122,6 +2122,12 @@ function renderToday() {
     });
     const progressPct = totalPlanWorkouts > 0 ? Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100) : 0;
     html += `<div class="plan-progress"><div class="plan-progress-text"><span>${escHtml(pdData.name)}</span><span>${completedPlanWorkouts}/${totalPlanWorkouts} · ${progressPct}%</span></div><div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div></div>`;
+    // Duration selector
+    const selectedDur = parseInt(localStorage.getItem('vf_session_duration') || '0');
+    html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <span style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-right:2px">Time:</span>
+      ${[0,10,15,20,25,30].map(d => `<button class="dur-pick" data-dur="${d}" style="padding:5px 8px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid ${selectedDur === d ? 'var(--primary)' : 'var(--border)'};background:${selectedDur === d ? 'rgba(191,255,0,.15)' : 'var(--surface-alt)'};color:${selectedDur === d ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer;white-space:nowrap">${d === 0 ? 'Full' : d + 'min'}</button>`).join('')}
+    </div>`;
     const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
     const todayDay = now.getDay();
     const todayWorkouts = activePlan.workouts.filter(w => dayMap[w.day] === todayDay);
@@ -2131,6 +2137,12 @@ function renderToday() {
         const globalIdx = activePlan.workouts.indexOf(origW);
         const w = getWorkoutData(activePlanId, globalIdx, origW);
         w.week = origW.week; w.day = origW.day;
+        // Apply selected duration cap
+        if (selectedDur > 0 && w.duration > selectedDur) {
+          w.originalDuration = w.duration;
+          w.duration = selectedDur;
+          w.scaled = true;
+        }
         const checkKey = activePlanId + '-' + origW.week + '-' + origW.day + '-' + i;
         const isChecked = userChecklist[checkKey] === true;
         html += renderChecklistItem(w, checkKey, isChecked);
@@ -2332,6 +2344,15 @@ function renderToday() {
   html += renderTeamFeed();
   html += '</div></div>';
   c.innerHTML = html;
+  // Bind duration picker
+  document.querySelectorAll('.dur-pick').forEach(btn => {
+    btn.addEventListener('click', () => {
+      haptic('light');
+      const dur = btn.dataset.dur;
+      localStorage.setItem('vf_session_duration', dur);
+      renderCurrentPage();
+    });
+  });
   // Bind "More Stats" toggle
   const moreToggle = $('extras-toggle');
   if (moreToggle) {
@@ -2467,7 +2488,20 @@ function renderToday() {
     el.addEventListener('click', (e) => {
       if (e.target.closest('.cl-timer-btn')) return;
       haptic('light');
-      openExerciseTracker(el.dataset.workoutKey, el.dataset.workoutName, el.dataset.workoutDesc, parseInt(el.dataset.workoutDur) || 30, el.dataset.workoutExercises);
+      let desc = el.dataset.workoutDesc || '';
+      const isScaled = el.dataset.workoutScaled === '1';
+      const origDur = parseInt(el.dataset.workoutOrigDur) || 30;
+      const dur = parseInt(el.dataset.workoutDur) || 30;
+      if (isScaled) {
+        const ratio = dur / origDur;
+        const scaleNote = ratio <= 0.4
+          ? `⏱ ${dur}-minute version: Do the warm-up (3 min), pick 2-3 key exercises, skip cool-down intervals. Focus on quality over quantity.`
+          : ratio <= 0.6
+          ? `⏱ ${dur}-minute version: Shorten warm-up to 5 min, reduce sets by half, keep rest periods short (30s). Skip the last exercise if time is tight.`
+          : `⏱ ${dur}-minute version: Reduce warm-up/cool-down by 5 min each, do 2 fewer sets per exercise. Same intensity, less volume.`;
+        desc = scaleNote + '\n\n' + desc;
+      }
+      openExerciseTracker(el.dataset.workoutKey, el.dataset.workoutName, desc, dur, el.dataset.workoutExercises);
     });
   });
   // Quick Log + Record GPS buttons
@@ -2624,12 +2658,12 @@ function renderChecklistItem(workout, key, isChecked) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
       </div>
-      <div class="cl-info cl-info-tap" data-workout-key="${key}" data-workout-name="${escHtml(workout.name)}" data-workout-desc="${escHtml(workout.description || '')}" data-workout-dur="${workout.duration || 30}" data-workout-exercises="${exerciseData}" style="cursor:pointer">
+      <div class="cl-info cl-info-tap" data-workout-key="${key}" data-workout-name="${escHtml(workout.name)}" data-workout-desc="${escHtml(workout.description || '')}" data-workout-dur="${workout.duration || 30}" data-workout-scaled="${workout.scaled ? '1' : '0'}" data-workout-orig-dur="${workout.originalDuration || workout.duration || 30}" data-workout-exercises="${exerciseData}" style="cursor:pointer">
         <div class="cl-title">${workout.name} <span class="intensity-dot ${intensityClass}"></span>${progressText}</div>
         ${shortDesc ? '<div class="cl-desc">' + escHtml(shortDesc) + '</div>' : ''}
         <div class="cl-meta">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          ${workout.duration} min · Week ${workout.week}
+          ${workout.duration} min${workout.scaled ? ' <span style="font-size:9px;color:var(--primary)">(of ' + workout.originalDuration + ')</span>' : ''} · Week ${workout.week}
           <button class="cl-timer-btn" data-timer-name="${escHtml(workout.name)}" data-timer-dur="${workout.duration || 30}" data-timer-exercises='${workout.exercises ? JSON.stringify(workout.exercises).replace(/'/g,"&#39;") : "[]"}'>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             Timer
@@ -5489,7 +5523,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '4.3.6';
+  const APP_VERSION = '4.4.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
