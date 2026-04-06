@@ -1,4 +1,4 @@
-// Health Sync Webhook — Firebase REST API (NO private key needed)
+// Health Sync Webhook — Firebase REST API
 // ENV VARS: FIREBASE_API_KEY, FIREBASE_PROJECT_ID, HEALTH_SYNC_SECRET
 
 exports.handler = async (event) => {
@@ -20,7 +20,7 @@ exports.handler = async (event) => {
     const projectId = process.env.FIREBASE_PROJECT_ID;
     const apiKey = process.env.FIREBASE_API_KEY;
     if (!projectId || !apiKey) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase not configured. Need FIREBASE_PROJECT_ID and FIREBASE_API_KEY.' }) };
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase not configured' }) };
     }
 
     const base = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
@@ -42,25 +42,45 @@ exports.handler = async (event) => {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Invalid sync token' }) };
     }
 
-    const userId = results[0].document.name.split('/').pop();
+    const userDoc = results[0].document;
+    const userId = userDoc.name.split('/').pop();
     const now = new Date().toISOString();
 
-    // Build health fields to update
-    const fields = {};
-    if (type === 'heart_rate' && data.bpm) fields['health.latestHr'] = { integerValue: String(Math.round(data.bpm)) };
-    if (type === 'steps' && data.count) fields['health.latestSteps'] = { integerValue: String(Math.round(data.count)) };
-    if (type === 'sleep' && data.duration) fields['health.latestSleep'] = { doubleValue: parseFloat(data.duration) };
-    if (type === 'body' && data.restingHr) fields['health.restingHr'] = { integerValue: String(Math.round(data.restingHr)) };
-    if (type === 'body' && data.vo2max) fields['health.vo2max'] = { doubleValue: parseFloat(data.vo2max) };
-    fields['health.lastSync'] = { stringValue: now };
+    // Get existing health data from user doc
+    const existingHealth = userDoc.fields?.health?.mapValue?.fields || {};
 
-    // Update user doc
-    const mask = Object.keys(fields).map(k => 'updateMask.fieldPaths=' + encodeURIComponent(k)).join('&');
-    const ur = await fetch(`${base}/users/${userId}?${mask}&key=${apiKey}`, {
+    // Build updated health map
+    const healthFields = {};
+    // Preserve existing values
+    if (existingHealth.latestHr) healthFields.latestHr = existingHealth.latestHr;
+    if (existingHealth.latestSteps) healthFields.latestSteps = existingHealth.latestSteps;
+    if (existingHealth.latestSleep) healthFields.latestSleep = existingHealth.latestSleep;
+    if (existingHealth.restingHr) healthFields.restingHr = existingHealth.restingHr;
+    if (existingHealth.vo2max) healthFields.vo2max = existingHealth.vo2max;
+
+    // Apply new data
+    if (type === 'heart_rate' && data.bpm) healthFields.latestHr = { integerValue: String(Math.round(data.bpm)) };
+    if (type === 'steps' && data.count) healthFields.latestSteps = { integerValue: String(Math.round(data.count)) };
+    if (type === 'sleep' && data.duration) healthFields.latestSleep = { doubleValue: parseFloat(data.duration) };
+    if (type === 'body' && data.restingHr) healthFields.restingHr = { integerValue: String(Math.round(data.restingHr)) };
+    if (type === 'body' && data.vo2max) healthFields.vo2max = { doubleValue: parseFloat(data.vo2max) };
+    healthFields.lastSync = { stringValue: now };
+
+    // Update with proper nested map structure
+    const ur = await fetch(`${base}/users/${userId}?updateMask.fieldPaths=health&key=${apiKey}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields })
+      body: JSON.stringify({
+        fields: {
+          health: {
+            mapValue: {
+              fields: healthFields
+            }
+          }
+        }
+      })
     });
+
     if (!ur.ok) {
       const err = await ur.text();
       return { statusCode: 500, headers, body: JSON.stringify({ error: 'Update failed', detail: err }) };
