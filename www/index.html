@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--
+   ______                            __
+  / ____/___  ____ ___  ____  __  __/ /____  _____
+ / /   / __ \/ __ `__ \/ __ \/ / / / __/ _ \/ ___/
+/ /___/ /_/ / / / / / / /_/ / /_/ / /_/  __/ /
+\____/\____/_/ /_/ /_/ .___/\__,_/\__/\___/_/
+                    /_/
+        CGS VeloForge HPV Training
+-->
+<meta name="generator" content="CGS VeloForge">
+<meta name="author" content="CGS VeloForge">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CGS VeloForge">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0b0f">
+<meta name="application-name" content="CGS VeloForge">
+<meta name="format-detection" content="telephone=no">
+<!-- Generate real PNG icons for iOS (Safari ignores SVG data URIs) -->
+<script>
+// NUCLEAR CACHE KILLER — runs before app.js loads
+// On version change: kill all caches + SWs, reload once to ensure fresh code
+(function() {
+  var VER = '2.5.1';
+  var lastVer = localStorage.getItem('vf_app_ver');
+  if (lastVer !== VER) {
+    localStorage.setItem('vf_app_ver', VER);
+    // First time or version changed — nuke everything
+    var cleared = false;
+    function done() {
+      if (cleared) return; cleared = true;
+      // Only reload if we actually had old stuff (not first visit)
+      if (lastVer) { console.log('[VeloForge] Cache cleared, reloading...'); window.location.reload(); }
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(keys) {
+        return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+      }).then(done).catch(done);
+    }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(r) { r.unregister(); });
+        done();
+      }).catch(done);
+    }
+    // Timeout fallback
+    setTimeout(done, 2000);
+    if (lastVer) return; // stop page load — reload is coming
+  }
+})();
+</script>
+<script>
+(function(){
+  function makeIcon(size) {
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    // Rounded rect background
+    const r = size * 0.22;
+    ctx.beginPath();
+    ctx.moveTo(r, 0); ctx.lineTo(size - r, 0);
+    ctx.quadraticCurveTo(size, 0, size, r);
+    ctx.lineTo(size, size - r);
+    ctx.quadraticCurveTo(size, size, size - r, size);
+    ctx.lineTo(r, size);
+    ctx.quadraticCurveTo(0, size, 0, size - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.fillStyle = '#BFFF00';
+    ctx.fill();
+    // VF text
+    ctx.fillStyle = '#0d0e12';
+    ctx.font = 'bold ' + (size * 0.48) + 'px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('VF', size / 2, size / 2 + size * 0.03);
+    return c.toDataURL('image/png');
+  }
+  // Apple touch icon (180px)
+  const touchIcon = document.createElement('link');
+  touchIcon.rel = 'apple-touch-icon';
+  touchIcon.href = makeIcon(180);
+  document.head.appendChild(touchIcon);
+  // Larger icon
+  const touchIcon2 = document.createElement('link');
+  touchIcon2.rel = 'apple-touch-icon';
+  touchIcon2.sizes = '152x152';
+  touchIcon2.href = makeIcon(152);
+  document.head.appendChild(touchIcon2);
+  // Favicon
+  const favicon = document.createElement('link');
+  favicon.rel = 'icon'; favicon.type = 'image/png';
+  favicon.href = makeIcon(32);
+  document.head.appendChild(favicon);
+  // PWA manifest
+  const iconUrl = makeIcon(512);
+  const manifest = {
+    name: "CGS VELOFORGE — HPV Training",
+    short_name: "CGS VeloForge",
+    start_url: ".",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#0a0b0f",
+    theme_color: "#0a0b0f",
+    icons: [{ src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" }]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  const mLink = document.createElement('link');
+  mLink.rel = 'manifest';
+  mLink.href = URL.createObjectURL(blob);
+  document.head.appendChild(mLink);
+})();
+</script>
+<!-- iOS splash screens (all modern iPhones) -->
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1290 2796'%3E%3Crect fill='%230a0b0f' width='1290' height='2796'/%3E%3Ctext x='645' y='1398' text-anchor='middle' dominant-baseline='central' font-size='200' font-weight='800' font-family='system-ui' fill='%23BFFF00'%3ECGS%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1179 2556'%3E%3Crect fill='%230a0b0f' width='1179' height='2556'/%3E%3Ctext x='590' y='1278' text-anchor='middle' dominant-baseline='central' font-size='180' font-weight='800' font-family='system-ui' fill='%23BFFF00'%3ECGS%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1170 2532'%3E%3Crect fill='%230a0b0f' width='1170' height='2532'/%3E%3Ctext x='585' y='1266' text-anchor='middle' dominant-baseline='central' font-size='180' font-weight='800' font-family='system-ui' fill='%23BFFF00'%3ECGS%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1125 2436'%3E%3Crect fill='%230a0b0f' width='1125' height='2436'/%3E%3Ctext x='563' y='1218' text-anchor='middle' dominant-baseline='central' font-size='180' font-weight='800' font-family='system-ui' fill='%23BFFF00'%3ECGS%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1284 2778'%3E%3Crect fill='%230a0b0f' width='1284' height='2778'/%3E%3Ctext x='642' y='1389' text-anchor='middle' dominant-baseline='central' font-size='200' font-weight='800' font-family='system-ui' fill='%23BFFF00'%3ECGS%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1242 2688'%3E%3Crect fill='%230a0b0f' width='1242' height='2688'/%3E%3Ctext x='621' y='1344' text-anchor='middle' dominant-baseline='central' font-size='180' font-weight='800' font-family='system-ui' fill='%23BFFF00'%3ECGS%3C/text%3E%3C/svg%3E">
+<title>CGS VELOFORGE — HPV Training</title>
+<link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400;500;700;800&f[]=satoshi@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+<div class="toast-container" id="toast-container"></div>
+<div id="app">
+  <!-- Auth Screen (Login) -->
+  <div id="auth-login" class="auth-screen">
+    <div class="auth-logo">CGS</div>
+    <div class="auth-brand">CGS VELOFORGE</div>
+    <div class="auth-tagline">HPV Race Training</div>
+    <div class="auth-form">
+      <div id="login-error" class="auth-error hidden"></div>
+      <div class="form-group">
+        <label class="label" for="login-email">Email</label>
+        <input class="input" type="email" id="login-email" placeholder="your@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="label" for="login-password">Password</label>
+        <input class="input" type="password" id="login-password" placeholder="Your password" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" style="width:100%" id="login-btn">Log In</button>
+      <div class="auth-switch">
+        Don't have an account? <a id="show-signup">Create Account</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Screen (Signup) -->
+  <div id="auth-signup" class="auth-screen hidden">
+    <div class="auth-logo">CGS</div>
+    <div class="auth-brand">CGS VELOFORGE</div>
+    <div class="auth-tagline">Create your training account</div>
+    <div class="auth-form">
+      <div id="signup-error" class="auth-error hidden"></div>
+      <div class="form-group">
+        <label class="label">I am a...</label>
+        <div class="role-selector" id="role-selector">
+          <button class="role-btn active" data-role="student" type="button">🎓 Student</button>
+          <button class="role-btn" data-role="coach" type="button">🏫 Coach</button>
+          <button class="role-btn" data-role="parent" type="button">👪 Parent</button>
+        </div>
+        <input type="hidden" id="signup-role" value="student">
+      </div>
+      <div class="form-group">
+        <label class="label" for="signup-name">Display Name</label>
+        <input class="input" type="text" id="signup-name" placeholder="Your name" autocomplete="name">
+      </div>
+      <div class="form-group" id="signup-child-group" style="display:none">
+        <label class="label" for="signup-child-email">Your Child's Account Email</label>
+        <input class="input" type="email" id="signup-child-email" placeholder="child@email.com">
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">Enter the email your child used to sign up so you can view their progress.</div>
+      </div>
+      <div class="form-group">
+        <label class="label" for="signup-email">Email</label>
+        <input class="input" type="email" id="signup-email" placeholder="your@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="label" for="signup-password">Password</label>
+        <input class="input" type="password" id="signup-password" placeholder="Min 6 characters" autocomplete="new-password">
+      </div>
+      <div id="signup-student-fields">
+        <div class="form-group">
+          <label class="label" for="signup-year">Year Level</label>
+          <select class="input" id="signup-year">
+            <option value="Y7">Year 7</option>
+            <option value="Y8">Year 8</option>
+            <option value="Y9">Year 9</option>
+            <option value="Y10">Year 10</option>
+            <option value="Y11">Year 11</option>
+            <option value="Y12">Year 12</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="label">Fitness Tier</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" name="signup-tier" id="tier-basic" value="basic" checked>
+              <label for="tier-basic">Basic</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="signup-tier" id="tier-average" value="average">
+              <label for="tier-average">Average</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="signup-tier" id="tier-intense" value="intense">
+              <label for="tier-intense">Intense</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="label" for="signup-team">Your Team</label>
+          <select class="input" id="signup-team" style="border-color:var(--primary)">
+            <option value="">Select your team...</option>
+          </select>
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">Your XP and training minutes count toward your team's monthly challenge.</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" id="signup-btn">Create Account</button>
+      <div class="auth-switch">
+        Already have an account? <a id="show-login">Log In</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Shell -->
+  <div id="main-app" class="hidden" style="display:none;flex-direction:column;height:100vh;height:100dvh;width:100%;overflow:hidden">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-logo">CGS</div>
+      <div class="header-brand">CGS VELOFORGE</div>
+      <button class="user-avatar" id="user-avatar-btn" aria-label="User menu"></button>
+    </header>
+
+    <!-- User dropdown menu -->
+    <div id="user-menu-overlay" class="user-menu-overlay hidden" style="display:none"></div>
+    <div id="user-menu" class="user-menu hidden" style="display:none">
+      <div class="user-menu-name" id="menu-name"></div>
+      <div class="user-menu-info" id="menu-info"></div>
+      <div class="user-menu-divider"></div>
+      <button class="user-menu-btn" id="profile-menu-btn" style="color:var(--fg)">Profile & Settings</button>
+      <div class="user-menu-divider"></div>
+      <button class="user-menu-btn" id="logout-btn">Log Out</button>
+    </div>
+
+    <!-- Profile overlay -->
+    <div id="profile-overlay" class="profile-overlay" style="display:none">
+      <div class="profile-header">
+        <button class="profile-back" id="profile-close-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div style="font-size:16px;font-weight:600">Profile & Settings</div>
+      </div>
+      <div class="profile-body" id="profile-body"></div>
+    </div>
+
+    <!-- Pages -->
+    <div class="content" id="content">
+      <!-- TODAY page -->
+      <div id="page-today" class="page active">
+        <div id="today-content"></div>
+      </div>
+      <!-- FITNESS page (Workouts + Plans + Demonstration) -->
+      <div id="page-fitness" class="page">
+        <div class="fitness-sub-bar-sticky">
+          <div id="fitness-tabs" class="fitness-sub-bar" style="display:flex;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)">
+            <button class="fitness-sub-tab active" data-fitness-sub="workouts" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;transition:all .15s">Activities</button>
+            <button class="fitness-sub-tab" data-fitness-sub="plans" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Plans</button>
+            <button class="fitness-sub-tab" data-fitness-sub="health" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Health</button>
+            <button class="fitness-sub-tab" data-fitness-sub="demos" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Demos</button>
+          </div>
+        </div>
+        <div id="workouts-content"></div>
+        <div id="plans-content" style="display:none"></div>
+        <div id="health-content" style="display:none"></div>
+        <div id="demos-content" style="display:none"></div>
+        <div id="myplans-content" style="display:none"></div>
+      </div>
+      <!-- RACES page -->
+      <div id="page-races" class="page">
+        <div id="races-content"></div>
+        <div id="racelog-content" style="margin-top:24px"></div>
+      </div>
+      <!-- ADMIN page -->
+      <div id="page-admin" class="page">
+        <div id="admin-content"></div>
+      </div>
+      <!-- TEAM page -->
+      <div id="page-team" class="page">
+        <div class="fitness-sub-bar-sticky">
+          <div class="fitness-sub-bar" style="display:flex;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)">
+            <button class="lb-sub-tab active" data-lb-sub="global" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;transition:all .15s">Global</button>
+            <button class="lb-sub-tab" data-lb-sub="team" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Your Team</button>
+          </div>
+        </div>
+        <div id="lb-global-content"></div>
+        <div id="lb-team-content" style="display:none"></div>
+      </div>
+
+    </div>
+
+    <!-- Tab bar -->
+    <nav class="tab-bar">
+      <button class="tab-btn active" data-page="today">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="tab-btn-label">Today</span>
+      </button>
+      <button class="tab-btn" data-page="fitness">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg>
+        <span class="tab-btn-label">Fitness</span>
+      </button>
+      <button class="tab-btn record-tab" id="record-tab-btn">
+        <div class="record-tab-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>
+        </div>
+        <span class="tab-btn-label">Record</span>
+      </button>
+      <button class="tab-btn" data-page="races">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        <span class="tab-btn-label">Races</span>
+      </button>
+      <button class="tab-btn" data-page="team">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M6 13l-2 4h16l-2-4"/><path d="M7 13V8a5 5 0 0 1 10 0v5"/><circle cx="12" cy="3" r="1"/></svg>
+        <span class="tab-btn-label">Leaderboard</span>
+      </button>
+      <button class="tab-btn" data-page="admin" id="admin-tab" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span class="tab-btn-label">Admin</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Bottom Sheet Overlay -->
+  <!-- Scroll-to-top -->
+  <button id="scroll-top-btn" class="scroll-top-btn" aria-label="Scroll to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+  </button>
+
+  <!-- AI Coach FAB (bottom-left, hidden on login) -->
+  <button id="ai-fab" class="ai-fab" aria-label="AI Coach" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
+  </button>
+
+  <!-- AI Coach Overlay -->
+  <div id="ai-overlay" class="ai-overlay" style="display:none">
+    <div class="ai-header">
+      <button class="ai-header-back" id="ai-close-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="ai-header-title">AI Coach</div>
+      <div class="ai-header-badge">Powered by Claude</div>
+    </div>
+    <div class="ai-messages" id="ai-messages">
+      <div class="ai-msg ai">Hey! I'm your AI Coach. Ask me anything about training, plans, or race prep.</div>
+      <div class="ai-quick-btns" id="ai-quick-btns">
+        <button class="ai-quick-btn ai-gen-trigger" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.3);color:#a855f7">✨ Generate Plan</button>
+        <button class="ai-quick-btn ai-action-trigger" data-action="weekly-review" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#22c55e">📊 Review My Week</button>
+        <button class="ai-quick-btn ai-action-trigger" data-action="help-menu" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.25);color:#3b82f6">💬 Help Me With...</button>
+        <button class="ai-quick-btn" data-q="Show me how to use all the features in the app — recording, plans, Strava, goals, everything.">📱 App Guide</button>
+      </div>
+    </div>
+    <div class="ai-input-bar">
+      <input class="ai-input" type="text" id="ai-input" placeholder="Ask your coach..." autocomplete="off">
+      <button class="ai-send" id="ai-send-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="sheet-overlay" class="sheet-overlay" style="display:none"></div>
+  <!-- Bottom Sheet -->
+  <div id="sheet" class="sheet">
+    <div class="sheet-handle"></div>
+    <div id="sheet-content"></div>
+  </div>
+
+  <!-- Workout Timer Overlay -->
+  <div id="timer-overlay" class="timer-overlay" style="display:none">
+    <div class="timer-header">
+      <button id="timer-close" class="timer-close" aria-label="Close timer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div id="timer-workout-name" class="timer-workout-name"></div>
+    </div>
+    <div class="timer-body">
+      <div id="timer-display" class="timer-display">
+        <div id="timer-minutes" class="timer-digits">00</div>
+        <div class="timer-sep">:</div>
+        <div id="timer-seconds" class="timer-digits">00</div>
+      </div>
+      <div id="timer-label" class="timer-label"></div>
+      <div id="timer-progress-wrap" class="timer-progress-wrap">
+        <div id="timer-progress" class="timer-progress"></div>
+      </div>
+      <div class="timer-controls">
+        <button id="timer-reset" class="timer-ctrl-btn timer-ctrl-secondary" aria-label="Reset">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+        <button id="timer-play" class="timer-ctrl-btn timer-ctrl-primary" aria-label="Start">
+          <svg id="timer-play-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <svg id="timer-pause-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button id="timer-skip" class="timer-ctrl-btn timer-ctrl-secondary" aria-label="Skip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+        </button>
+      </div>
+      <!-- Rest timer presets -->
+      <div id="timer-rest-presets" class="timer-rest-presets">
+        <div class="timer-rest-label">Quick Rest Timer</div>
+        <div class="timer-rest-btns">
+          <button class="timer-rest-btn" data-rest="30">0:30</button>
+          <button class="timer-rest-btn" data-rest="60">1:00</button>
+          <button class="timer-rest-btn" data-rest="90">1:30</button>
+          <button class="timer-rest-btn" data-rest="120">2:00</button>
+        </div>
+      </div>
+      <!-- Exercise steps for machine workouts -->
+      <div id="timer-steps" class="timer-steps"></div>
+    </div>
+  </div>
+
+  <!-- Setup overlay for unconfigured Firebase -->
+  <div id="setup-overlay" class="setup-overlay hidden" style="display:none">
+    <div class="setup-box">
+      <div class="auth-logo" style="margin:0 auto 16px">CGS</div>
+      <h2>Firebase Setup Required</h2>
+      <p>To use CGS VELOFORGE, you need to configure Firebase. Replace the placeholder config in index.html with your Firebase project credentials.</p>
+      <code>const firebaseConfig = &#123;\n  apiKey: "YOUR_API_KEY",\n  authDomain: "YOUR_PROJECT.firebaseapp.com",\n  ...\n&#125;</code>
+      <p>Visit <a href="https://console.firebase.google.com" target="_blank" style="color:var(--primary)">Firebase Console</a> to create a project and get your config.</p>
+      <button id="demo-mode-btn" class="btn btn-primary" style="margin-top:20px;width:100%">Try Demo Mode</button>
+      <p style="font-size:12px;color:var(--muted-fg);margin-top:8px;text-align:center">Preview the app without Firebase — data will not be saved.</p>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay" class="loading-overlay hidden" style="display:none">
+    <div class="spinner"></div>
+    <div id="loading-text">Loading...</div>
+  </div>
+</div>
+
+<!-- Footer (positioned inside content via JS) -->
+
+
+<script>
+// Visible error catcher — shows errors on screen if app.js fails
+window.addEventListener('error', function(e) {
+  var d = document.getElementById('boot-error');
+  if (!d) { d = document.createElement('div'); d.id = 'boot-error'; d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a0000;border-top:2px solid #ef4444;color:#fca5a5;font-family:monospace;font-size:12px;padding:12px;max-height:40vh;overflow:auto'; document.body.appendChild(d); }
+  d.innerHTML += '<div style="margin-bottom:4px"><b style="color:#ef4444">Error:</b> ' + (e.message||'Unknown') + '</div><div style="opacity:.6;font-size:10px">' + (e.filename||'').split('/').pop() + ':' + (e.lineno||'?') + '</div><hr style="border-color:#333;margin:4px 0">';
+});
+window.addEventListener('unhandledrejection', function(e) {
+  var d = document.getElementById('boot-error');
+  if (!d) { d = document.createElement('div'); d.id = 'boot-error'; d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a0000;border-top:2px solid #ef4444;color:#fca5a5;font-family:monospace;font-size:12px;padding:12px;max-height:40vh;overflow:auto'; document.body.appendChild(d); }
+  d.innerHTML += '<div style="margin-bottom:4px"><b style="color:#ef4444">Promise:</b> ' + (e.reason?.message || e.reason || 'Unknown') + '</div><hr style="border-color:#333;margin:4px 0">';
+});
+// Emergency nuclear reset — runs from HTML, not from cached JS
+if (window.location.search.includes('nuke=true')) {
+  window.history.replaceState({}, '', window.location.pathname);
+  localStorage.clear();
+  if ('caches' in window) caches.keys().then(function(k) { k.forEach(function(c) { caches.delete(c); }); });
+  if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function(r) { r.forEach(function(w) { w.unregister(); }); });
+  document.body.innerHTML = '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0b0f;color:#BFFF00;font-family:system-ui;font-size:18px;text-align:center;padding:20px">Cache cleared.<br>Reloading in 2 seconds...</div>';
+  setTimeout(function() { window.location.href = window.location.pathname; }, 2000);
+}
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

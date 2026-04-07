@@ -1,0 +1,9 @@
+{
+  "appId": "com.tdog9.veloforge",
+  "appName": "VeloForge",
+  "webDir": "www",
+  "server": {
+    "url": "https://veloforge.netlify.app",
+    "cleartext": true
+  }
+}
