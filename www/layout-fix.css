@@ -1,0 +1,389 @@
+/* ===== LAYOUT FIX OVERRIDES ===== */
+/* Add after styles.css: <link rel="stylesheet" href="layout-fix.css"> */
+
+/* === 1. HEADER — clean, no double padding === */
+.header {
+  height: auto;
+  min-height: 0;
+  padding: 0 16px;
+  padding-top: max(var(--safe-t), env(safe-area-inset-top, 0px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 30;
+}
+.header::after {
+  content: '';
+  display: block;
+  min-height: 52px;
+  width: 0;
+  flex-shrink: 0;
+}
+.header-logo {
+  width: 34px;
+  height: 28px;
+  border-radius: 7px;
+  flex-shrink: 0;
+}
+.header-brand {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.user-avatar {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* === 2. TAB BAR — locked bottom === */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: rgba(14, 16, 22, 0.95);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 6px 0;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 6px);
+  flex-shrink: 0;
+  height: auto;
+  min-height: 56px;
+}
+.tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 0;
+  min-width: 0;
+  flex: 1;
+  max-width: 80px;
+}
+.tab-btn-label {
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.record-tab-circle {
+  width: 46px;
+  height: 46px;
+  margin: -16px auto 0;
+  flex-shrink: 0;
+}
+
+/* === 3. CONTENT — proper bottom padding for tab bar + FAB === */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  /* Extra padding: tab bar (~56px) + safe area + FAB clearance */
+  padding-bottom: calc(16px + 56px + max(env(safe-area-inset-bottom, 0px), 12px) + 56px);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* === 4. CATEGORY FILTER PILLS — horizontal scroll, never squish === */
+.demo-cat-pills {
+  display: flex !important;
+  gap: 6px;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  flex-wrap: nowrap !important;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  margin-bottom: 10px;
+}
+.demo-cat-pills::-webkit-scrollbar {
+  display: none;
+}
+.demo-cat-pill {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+/* Same fix for year pills, tier pills, workout filter buttons */
+.year-tabs,
+.tier-tabs {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 6px;
+}
+.year-tabs::-webkit-scrollbar,
+.tier-tabs::-webkit-scrollbar {
+  display: none;
+}
+.year-pill,
+.tier-pill {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* Workout filter buttons row */
+.wo-filter-btn {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* === 5. AI FAB — ensure it doesn't cover content === */
+.ai-fab {
+  bottom: calc(56px + max(env(safe-area-inset-bottom, 0px), 12px) + 12px);
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  z-index: 36;
+}
+
+/* Scroll-to-top also above tab bar */
+.scroll-top-btn {
+  bottom: calc(56px + max(env(safe-area-inset-bottom, 0px), 12px) + 16px);
+}
+
+/* === 6. FITNESS SUB-TABS — locked in place, proper sizing === */
+.fitness-sub-bar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: -16px -16px 12px -16px;
+  padding: 12px 16px 8px 16px;
+  background: var(--bg);
+}
+.fitness-sub-tab,
+.lb-sub-tab {
+  flex: 1;
+  padding: 10px 4px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* === 7. DEMO FILTER STICKY — proper spacing === */
+.demo-filter-sticky {
+  position: sticky;
+  top: -16px;
+  z-index: 10;
+  margin: -16px -16px 8px -16px;
+  padding: 8px 16px 0 16px;
+  background: var(--bg);
+}
+.demo-filter-sticky .demo-search-wrap {
+  margin-bottom: 8px;
+}
+.demo-filter-sticky .demo-cat-pills {
+  margin-bottom: 6px;
+}
+
+/* Exercise count + collapse row */
+.demo-filter-sticky > div:last-child {
+  margin-bottom: 4px;
+}
+
+/* === 8. TEXT OVERFLOW FIXES === */
+.card-title, .wo-name, .race-name, .page-title, .section-title,
+.coach-card-name, .member-name, .feed-name, .strava-activity-name,
+.challenge-team-name, .demo-ex-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.card-desc, .wo-notes, .cl-desc, .pw-desc, .race-notes,
+.announce-banner-msg, .category-desc, .tier-desc, .plan-rec-desc {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.today-stat-val, .kpi-value, .tracker-stat-val, .lb-stat, .pb-val {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* === 9. CARDS — prevent blowout === */
+.card, .wo-card, .race-card, .strava-card, .plan-card,
+.coach-card, .member-card, .demo-ex-card, .announce-banner,
+.challenge-card, .today-stats-row, .today-race-row {
+  overflow: hidden;
+  word-break: break-word;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* === 10. GRID/FLEX CHILDREN — prevent push-out === */
+.today-stats-row > *, .kpi-grid > *, .countdown-grid > *,
+.tracker-stats > *, .form-row > *, .pb-grid > *,
+.race-log-grid > *, .member-stats > * {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* === 11. PROFILE ROW — value doesn't overlap label === */
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+.profile-row-label {
+  flex-shrink: 0;
+  max-width: 45%;
+}
+.profile-row-value {
+  flex: 1;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* === 12. CHECKLIST ITEMS — no text overlap === */
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  overflow: hidden;
+}
+.cl-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.cl-title {
+  word-break: break-word;
+}
+.cl-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow: hidden;
+}
+
+/* === 13. DEMO EXERCISE CARDS — badge doesn't overlap name === */
+.demo-ex-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+.demo-ex-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.demo-ex-name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.demo-ex-badge {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* === 14. SHEET bottom spacing === */
+.sheet {
+  padding-bottom: calc(20px + max(env(safe-area-inset-bottom, 0px), 12px));
+}
+
+/* === 15. OVERLAYS — respect safe areas === */
+.profile-overlay, .timer-overlay, .ai-overlay {
+  padding-top: max(env(safe-area-inset-top, 0px), 20px);
+}
+
+/* === 16. USER MENU positioning === */
+.user-menu {
+  position: absolute;
+  top: calc(52px + max(env(safe-area-inset-top, 0px), 0px) + 4px);
+  right: 16px;
+}
+
+/* === 17. WORKOUT CARDS === */
+.wo-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  overflow: hidden;
+}
+.wo-left {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.wo-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+/* === 18. BADGE OVERFLOW — badges never wrap weirdly === */
+.badge, .activity-badge {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* === 19. RESPONSIVE SMALL SCREENS === */
+@media (max-width: 374px) {
+  .tab-btn-label { font-size: 8px; }
+  .tab-btn { max-width: 60px; }
+  .header-brand { font-size: 14px; }
+  .fitness-sub-tab, .lb-sub-tab { font-size: 11px; padding: 8px 0; }
+  .demo-cat-pill { font-size: 11px; padding: 5px 10px; }
+}
+
+/* === 20. iOS WEBVIEW SPECIFIC === */
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  .content {
+    overscroll-behavior-y: contain;
+  }
+}
