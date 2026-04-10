@@ -1146,7 +1146,7 @@ export function renderAdminRaces() {
     const distance = parseInt(A.$('race-distance').value) || 0;
     const notes = A.$('race-notes').value.trim();
     if (!name || !date) { A.showToast('Enter a name and date.', 'warn'); return; }
-    const newRaces = [...(A.adminRaces || RACES)];
+    const newRaces = [...(A.adminRaces || A.getActiveRaces())];
     newRaces.push({ id: 'r-' + Date.now(), name, date, location, distance, type: 'endurance', notes });
     newRaces.sort((a, b) => a.date.localeCompare(b.date));
     A.adminRaces = newRaces;
@@ -1159,7 +1159,7 @@ export function renderAdminRaces() {
     btn.addEventListener('click', async () => {
       if (!confirm('Delete this race?')) return;
       const idx = parseInt(btn.dataset.raceDel);
-      const newRaces = [...(A.adminRaces || RACES)];
+      const newRaces = [...(A.adminRaces || A.getActiveRaces())];
       newRaces.splice(idx, 1);
       A.adminRaces = newRaces;
       await saveRaces();
@@ -1606,8 +1606,8 @@ function openPlanEditSheet(plan) {
     await savePlanOverrides();
     A.closeSheet();
     renderAdminPlansMerged();
-    if (currentPage === 'fitness' && fitnessSubTab === 'plans') A.renderPlans();
-    if (currentPage === 'today') A.renderToday();
+    if (A.currentPage === 'fitness' && A.fitnessSubTab === 'plans') A.renderPlans();
+    if (A.currentPage === 'today') A.renderToday();
   });
 
   const resetBtn = A.$('plan-edit-reset');
@@ -1618,8 +1618,8 @@ function openPlanEditSheet(plan) {
       await savePlanOverrides();
       A.closeSheet();
       renderAdminPlansMerged();
-      if (currentPage === 'fitness' && fitnessSubTab === 'plans') A.renderPlans();
-      if (currentPage === 'today') A.renderToday();
+      if (A.currentPage === 'fitness' && A.fitnessSubTab === 'plans') A.renderPlans();
+      if (A.currentPage === 'today') A.renderToday();
     });
   }
 }
@@ -1699,7 +1699,7 @@ function renderPlansWorkouts(el) {
 }
 
 function renderPlansVideos(el) {
-  const allExercises = extractAllExercises();
+  const allExercises = A.extractAllExercises();
   const categories = [
     { id: 'invehicle', name: 'In Vehicle' },
     { id: 'floor', name: 'Floor & Home' },
@@ -1979,8 +1979,8 @@ function openExerciseEditSheet(key, originalWorkout, currentOverride) {
     A.closeSheet();
     renderAdminPlansMerged();
     // Also re-render plans and today if visible
-    if (currentPage === 'fitness' && fitnessSubTab === 'plans') A.renderPlans();
-    if (currentPage === 'today') A.renderToday();
+    if (A.currentPage === 'fitness' && A.fitnessSubTab === 'plans') A.renderPlans();
+    if (A.currentPage === 'today') A.renderToday();
   });
 }
 
