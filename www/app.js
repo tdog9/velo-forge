@@ -367,7 +367,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '4.4.0';
+const APP_VERSION = '5.3.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -794,6 +794,8 @@ $('logout-btn')?.addEventListener('click', async () => {
     if (checklistUnsubscribe) { checklistUnsubscribe(); checklistUnsubscribe = null; }
     if (profileUnsubscribe) { clearInterval(profileUnsubscribe); profileUnsubscribe = null; }
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
+    stopFastHealthSync();
+    stopNativeHeartRateStream().catch(() => {});
     await signOut(auth);
     currentUser = null;
     userProfile = null;
@@ -860,10 +862,14 @@ try {
 } catch(e) {}
 // --- Feature 10: Haptic feedback helper ---
 function haptic(style) {
+  if (window.nativeHaptic) { window.nativeHaptic(style || 'light'); return; }
   try { if (navigator.vibrate) navigator.vibrate(style === 'light' ? 8 : style === 'medium' ? 15 : 5); } catch(e) {}
 }
 // Toast notification system
 function showToast(message, type = 'info') {
+  if (type === 'success') haptic('success');
+  else if (type === 'error') haptic('error');
+  else haptic('light');
   const container = $('toast-container');
   if (!container) return;
   const toast = document.createElement('div');
@@ -1170,6 +1176,7 @@ if (recordTabBtn) {
   });
 }
 function switchPage(page) {
+  haptic('light');
   // Feature 3: Save scroll position before leaving
   scrollPositions[currentPage] = $('content').scrollTop;
   currentPage = page;
@@ -2048,9 +2055,11 @@ function renderToday() {
   if (isWidgetOn('health')) {
   const healthData = userProfile?.health;
   if (healthData && (healthData.latestHr || healthData.latestSteps || healthData.latestSleep)) {
-    html += `<div id="health-card-tap" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer">
+    const syncAge = healthData.lastSync ? Math.round((Date.now() - new Date(healthData.lastSync).getTime()) / 60000) : null;
+    const isLive = syncAge !== null && syncAge < 2;
+    html += `<div id="health-card-tap" style="background:var(--card);border:1px solid ${isLive ? 'rgba(34,197,94,.3)' : 'var(--border)'};border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">❤️ Health Sync</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">❤️ Health ${isLive ? '<span style="font-size:9px;color:#22c55e;background:rgba(34,197,94,.1);padding:2px 6px;border-radius:4px;margin-left:6px">● LIVE</span>' : ''}</div>
         <div style="display:flex;align-items:center;gap:6px">
           ${healthData.lastSync ? '<span style="font-size:10px;color:var(--muted-fg)">' + timeAgo(new Date(healthData.lastSync)) + '</span>' : ''}
           <span style="font-size:12px;color:var(--muted-fg)">›</span>
@@ -2063,18 +2072,19 @@ function renderToday() {
         </div>` : ''}
         ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:rgba(34,197,94,.06);border-radius:10px">
           <div style="font-size:22px;font-weight:800;color:#22c55e">${healthData.latestSteps > 999 ? (healthData.latestSteps / 1000).toFixed(1) + 'k' : healthData.latestSteps}</div>
-          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">👟 steps</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">👟 steps${healthData.yesterdaySteps ? ' <span style="color:' + (healthData.latestSteps >= healthData.yesterdaySteps ? '#22c55e' : '#ef4444') + '">' + (healthData.latestSteps >= healthData.yesterdaySteps ? '↑' : '↓') + '</span>' : ''}</div>
         </div>` : ''}
         ${healthData.latestSleep ? `<div style="text-align:center;padding:10px 4px;background:rgba(124,58,237,.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:#a855f7">${healthData.latestSleep}</div>
-          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">😴 hours</div>
+          <div style="font-size:22px;font-weight:800;color:#a855f7">${healthData.latestSleep}h</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">😴 sleep${healthData.yesterdaySleep ? ' <span style="font-size:9px;color:var(--muted-fg)">y:' + healthData.yesterdaySleep + 'h</span>' : ''}</div>
         </div>` : ''}
         ${healthData.restingHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(59,130,246,.06);border-radius:10px">
           <div style="font-size:22px;font-weight:800;color:#3b82f6">${healthData.restingHr}</div>
           <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">💓 resting</div>
         </div>` : ''}
       </div>
-      <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted-fg)">Tap for details</div>
+      ${healthData.yesterdaySteps || healthData.yesterdaySleep ? `<div style="margin-top:8px;padding:6px 8px;background:var(--surface-alt);border-radius:6px;font-size:10px;color:var(--muted-fg)">Yesterday: ${healthData.yesterdaySteps ? (healthData.yesterdaySteps > 999 ? (healthData.yesterdaySteps/1000).toFixed(1) + 'k steps' : healthData.yesterdaySteps + ' steps') : ''}${healthData.yesterdaySteps && healthData.yesterdaySleep ? ' · ' : ''}${healthData.yesterdaySleep ? healthData.yesterdaySleep + 'h sleep' : ''}</div>` : ''}
+      <div style="text-align:center;margin-top:6px;font-size:11px;color:var(--muted-fg)">Tap for details</div>
     </div>`;
   }
   }
@@ -2860,12 +2870,46 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
     const nextEx = exercises[liveExIdx + 1];
     const totalDone = Object.values(progress).reduce((s, v) => s + v, 0);
     const totalS2 = exercises.reduce((s, ex2) => s + (ex2.sets || 1), 0);
+    
+    // Live health data
+    const h = userProfile?.health || {};
+    const hrVal = h.latestHr || 0;
+    const stepsVal = h.latestSteps || 0;
+    const syncAge = h.lastSync ? Math.round((Date.now() - new Date(h.lastSync).getTime()) / 60000) : null;
+    const isLive = syncAge !== null && syncAge < 2;
+    
+    // HR Zone calculation
+    const maxHR = 220 - (parseInt(userProfile?.age) || 15);
+    const hrPct = hrVal > 0 ? Math.round((hrVal / maxHR) * 100) : 0;
+    const hrZone = hrPct < 60 ? 'Recovery' : hrPct < 70 ? 'Fat Burn' : hrPct < 80 ? 'Cardio' : hrPct < 90 ? 'Threshold' : 'Max';
+    const hrColor = hrPct < 60 ? '#3b82f6' : hrPct < 70 ? '#22c55e' : hrPct < 80 ? '#f59e0b' : hrPct < 90 ? '#ef4444' : '#dc2626';
+    
     let html = `<div style="display:flex;align-items:center;padding:12px 16px;padding-top:calc(12px + var(--safe-t));border-bottom:1px solid var(--border);flex-shrink:0">
       <button id="et-exit-live" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">\u2190</button>
       <div style="flex:1;font-size:12px;color:var(--muted-fg)">${liveExIdx + 1} of ${exercises.length}</div>
       <div style="font-size:12px;font-weight:700;color:var(--primary)">${totalDone}/${totalS2} sets</div>
     </div>
     <div style="height:3px;background:var(--muted)"><div style="height:100%;width:${(totalDone/totalS2)*100}%;background:var(--primary);transition:width .3s"></div></div>`;
+    
+    // Live stats bar (always visible during workout)
+    if (hrVal > 0 || stepsVal > 0) {
+      html += `<div style="display:flex;gap:0;border-bottom:1px solid var(--border);background:rgba(0,0,0,.3)">
+        ${hrVal > 0 ? `<div style="flex:1;text-align:center;padding:10px 4px;border-right:1px solid var(--border)">
+          <div style="font-size:24px;font-weight:800;color:${hrColor}">${hrVal}</div>
+          <div style="font-size:9px;color:var(--muted-fg);margin-top:1px">\u2764\ufe0f BPM ${isLive ? '<span style="color:#22c55e">\u25cf</span>' : ''}</div>
+          <div style="font-size:8px;color:${hrColor};font-weight:600;margin-top:2px">${hrZone} ${hrPct}%</div>
+        </div>` : ''}
+        <div style="flex:1;text-align:center;padding:10px 4px;${hrVal > 0 ? 'border-right:1px solid var(--border)' : ''}">
+          <div style="font-size:24px;font-weight:800;color:#22c55e">${stepsVal > 999 ? (stepsVal/1000).toFixed(1) + 'k' : stepsVal}</div>
+          <div style="font-size:9px;color:var(--muted-fg);margin-top:1px">\ud83d\udc5f Steps</div>
+        </div>
+        ${h.latestSleep ? `<div style="flex:1;text-align:center;padding:10px 4px">
+          <div style="font-size:24px;font-weight:800;color:#a855f7">${h.latestSleep}h</div>
+          <div style="font-size:9px;color:var(--muted-fg);margin-top:1px">\ud83d\ude34 Sleep</div>
+        </div>` : ''}
+      </div>`;
+    }
+    
     if (restTimerInterval && restSeconds > 0) {
       html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
         <div style="font-size:14px;font-weight:600;color:#3b82f6;margin-bottom:8px">REST</div>
@@ -3001,6 +3045,9 @@ async function toggleChecklist(key) {
   const newVal = !userChecklist[key];
   userChecklist[key] = newVal;
   renderToday();
+  // Define activePlan in this scope (was missing — caused "can't find variable" error)
+  const activePlanId = userProfile?.activePlanId;
+  const activePlan = findPlan(activePlanId);
   // Check if all workouts for the current plan week are done → celebrate
   if (newVal && activePlan) {
     try {
@@ -4404,6 +4451,26 @@ function renderRaces() {
           </div>
           ${!isPast ? `<div class="countdown-grid" data-race-date="${race.date}"></div>` : ''}
           <div class="race-notes">${race.notes}</div>
+          ${race.footageUrls && race.footageUrls.length > 0 ? `
+            <div style="margin-top:10px">
+              ${race.footageUrls.map(f => `
+                <a href="${escHtml(f.url)}" target="_blank" rel="noopener" class="race-footage-link" style="display:flex;align-items:center;gap:8px;padding:12px;border-radius:8px;background:rgba(191,255,0,0.06);border:1px solid rgba(191,255,0,0.15);text-decoration:none;color:var(--fg);font-size:13px;margin-bottom:6px;cursor:pointer;-webkit-tap-highlight-color:transparent">
+                  <svg viewBox="0 0 24 24" fill="var(--primary)" style="width:20px;height:20px;flex-shrink:0"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:600">${escHtml(f.label)}</div>
+                    <div style="font-size:11px;color:var(--muted-fg)">${f.type === 'stream' ? 'Watch the full race' : f.type === 'results' ? 'View results' : 'Watch footage'}</div>
+                  </div>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              `).join('')}
+            </div>
+          ` : ''}
+          ${race.streamUrl && (!race.footageUrls || race.footageUrls.length === 0) ? `
+            <a href="${escHtml(race.streamUrl)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:12px;border-radius:8px;background:rgba(191,255,0,0.06);border:1px solid rgba(191,255,0,0.15);text-decoration:none;color:var(--fg);font-size:13px;margin-top:10px;cursor:pointer">
+              <svg viewBox="0 0 24 24" fill="var(--primary)" style="width:20px;height:20px;flex-shrink:0"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span style="font-weight:600">Watch Race Stream</span>
+            </a>
+          ` : ''}
         </div>
       </div>
     `;
@@ -4847,15 +4914,30 @@ function renderProfile() {
   const syncToken = userProfile?.syncToken || null;
   html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px">
     Connect your wearable to automatically sync workouts, heart rate, steps, and sleep.
-  </div>
-  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--text)">Option 1: Via Strava (easiest)</strong><br>
-    Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
-  </div>
-  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--text)">Option 2: Apple Shortcut (live HR during workouts)</strong><br>
-    Your coach shares a Shortcut link. Tap to add it, paste your token below. It auto-runs when you start an Apple Watch workout and syncs heart rate every 5 seconds. Steps and sleep sync daily at 8am.
   </div>`;
+  if (isNativeApp) {
+    // Native app — direct Apple Health access
+    html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:8px;margin-bottom:8px">
+      <strong style="color:#22c55e">✓ Native Health Access</strong><br>
+      This app reads directly from Apple Health. Heart rate, steps, sleep, and resting HR sync automatically. No shortcuts needed.
+    </div>
+    <button id="native-health-sync-btn" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;cursor:pointer;margin-bottom:6px">❤️ Sync Health Data Now</button>
+    <button id="native-hr-stream-btn" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;cursor:pointer;margin-bottom:6px">🔴 Start Live Heart Rate (5s)</button>
+    <button id="native-fast-sync-btn" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;cursor:pointer;margin-bottom:8px">⚡ Fast Mode (10s steps + HR)</button>
+    <div style="font-size:10px;color:var(--muted-fg);line-height:1.4;margin-bottom:8px">
+      Auto-syncs on app open and every 5 minutes. Fast mode polls every 10 seconds. Live HR streams every 5 seconds during workouts.
+    </div>`;
+  } else {
+    // Web app — Strava + Shortcuts
+    html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
+      <strong style="color:var(--text)">Option 1: Via Strava (easiest)</strong><br>
+      Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
+    </div>
+    <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
+      <strong style="color:var(--text)">Option 2: Apple Shortcut (live HR during workouts)</strong><br>
+      Your coach shares a Shortcut link. Tap to add it, paste your token below. It auto-runs when you start an Apple Watch workout and syncs heart rate every 5 seconds. Steps and sleep sync daily at 8am.
+    </div>`;
+  }
   if (syncToken) {
     html += `<div style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
       <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px">Your Sync Token</div>
@@ -5090,6 +5172,69 @@ function renderProfile() {
     setTimeout(() => {
       window.open('https://www.icloud.com/shortcuts/b38cfdbdd64f4aecbc495776cfe355ed', '_blank');
     }, 800);
+  });
+  // Native health buttons
+  $('native-health-sync-btn')?.addEventListener('click', async () => {
+    const btn = $('native-health-sync-btn');
+    btn.textContent = 'Syncing...';
+    btn.disabled = true;
+    
+    // If native app, ask Swift to sync via webkit message handler
+    if (window.isVeloForgeNative && window.webkit?.messageHandlers?.syncHealth) {
+      window.webkit.messageHandlers.syncHealth.postMessage('sync');
+      showToast('Syncing from Apple Health...', 'success');
+      btn.textContent = '✓ Synced';
+      btn.style.background = '#22c55e';
+      setTimeout(() => { btn.textContent = '❤️ Sync Health Data Now'; btn.disabled = false; btn.style.background = ''; }, 3000);
+      return;
+    }
+    
+    // Fallback: try Capacitor plugin
+    const ok = await nativeHealthSync();
+    if (ok) {
+      showToast('Health data synced from Apple Health!', 'success');
+      btn.textContent = '✓ Synced';
+      btn.style.background = '#22c55e';
+      renderCurrentPage();
+    } else {
+      showToast('Health syncs automatically every 30 seconds in the native app.', 'success');
+      btn.textContent = '❤️ Sync Health Data Now';
+    }
+    setTimeout(() => { btn.textContent = '❤️ Sync Health Data Now'; btn.disabled = false; btn.style.background = ''; }, 4000);
+  });
+  let hrStreaming = false;
+  $('native-hr-stream-btn')?.addEventListener('click', async () => {
+    const btn = $('native-hr-stream-btn');
+    if (!hrStreaming) {
+      await startNativeHeartRateStream();
+      hrStreaming = true;
+      btn.textContent = '⏹ Stop Live Heart Rate';
+      btn.style.background = 'linear-gradient(135deg,#7c3aed,#a855f7)';
+      showToast('Live heart rate streaming started!', 'success');
+    } else {
+      await stopNativeHeartRateStream();
+      hrStreaming = false;
+      btn.textContent = '🔴 Start Live Heart Rate (5s)';
+      btn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+      showToast('Heart rate streaming stopped.', 'success');
+    }
+  });
+  let fastSyncing = false;
+  $('native-fast-sync-btn')?.addEventListener('click', () => {
+    const btn = $('native-fast-sync-btn');
+    if (!fastSyncing) {
+      startFastHealthSync();
+      fastSyncing = true;
+      btn.textContent = '⏹ Stop Fast Mode';
+      btn.style.background = 'linear-gradient(135deg,#7c3aed,#a855f7)';
+      showToast('Fast sync started — HR + steps every 10 seconds.', 'success');
+    } else {
+      stopFastHealthSync();
+      fastSyncing = false;
+      btn.textContent = '⚡ Fast Mode (10s steps + HR)';
+      btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+      showToast('Fast sync stopped.', 'success');
+    }
   });
   $('profile-redo-tutorial')?.addEventListener('click', () => {
     closeProfile();
@@ -5523,7 +5668,7 @@ function buildModuleCtx() {
 }
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '4.4.0';
+  const APP_VERSION = '5.3.0';
   console.log('[VeloForge] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -5759,7 +5904,225 @@ function checkForNewAnnouncements(announcements) {
 }
 // Listen for announcements in real-time (triggers notification for new ones)
 // --- Training Session Notifications ---
+// --- Native HealthKit Bridge ---
+const isCapacitor = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform?.();
+const isNativeApp = typeof window.isVeloForgeNative !== 'undefined' || isCapacitor;
+let HealthPlugin = null;
+let healthSyncInterval = null;
+
+// Detect plugin with retry (Capacitor only)
+function getHealthPlugin() {
+  if (HealthPlugin) return HealthPlugin;
+  if (!isCapacitor) return null;
+  try { HealthPlugin = window.Capacitor?.Plugins?.VeloForgeHealth || null; } catch (e) { HealthPlugin = null; }
+  return HealthPlugin;
+}
+
+// Listen for native health data injected by Swift WKWebView
+window.addEventListener('nativeHealthData', async (e) => {
+  const d = e.detail;
+  if (!db || !currentUser) return;
+  try {
+    const update = { 'health.lastSync': d.timestamp || new Date().toISOString() };
+    if (d.heartRate > 0) update['health.latestHr'] = d.heartRate;
+    if (d.steps > 0) update['health.latestSteps'] = d.steps;
+    if (d.sleep > 0) update['health.latestSleep'] = d.sleep;
+    if (d.restingHR > 0) update['health.restingHr'] = d.restingHR;
+    if (d.yesterdaySteps > 0) update['health.yesterdaySteps'] = d.yesterdaySteps;
+    if (d.yesterdaySleep > 0) update['health.yesterdaySleep'] = d.yesterdaySleep;
+    if (d.hrTimestamp) update['health.hrTimestamp'] = d.hrTimestamp;
+    
+    await updateDoc(doc(db, 'users', currentUser.uid), update);
+    if (!userProfile) userProfile = {};
+    if (!userProfile.health) userProfile.health = {};
+    if (d.heartRate > 0) userProfile.health.latestHr = d.heartRate;
+    if (d.steps > 0) userProfile.health.latestSteps = d.steps;
+    if (d.sleep > 0) userProfile.health.latestSleep = d.sleep;
+    if (d.restingHR > 0) userProfile.health.restingHr = d.restingHR;
+    if (d.yesterdaySteps > 0) userProfile.health.yesterdaySteps = d.yesterdaySteps;
+    if (d.yesterdaySleep > 0) userProfile.health.yesterdaySleep = d.yesterdaySleep;
+    userProfile.health.lastSync = d.timestamp || new Date().toISOString();
+    if (currentPage === 'today') renderCurrentPage();
+  } catch (err) { console.warn('Native health sync error:', err); }
+});
+
+async function nativeHealthSync() {
+  const hp = getHealthPlugin();
+  if (!hp || !db || !currentUser) return false;
+  try {
+    const avail = await hp.isAvailable();
+    if (!avail.available) return false;
+    await hp.requestPermission();
+
+    const [hr, steps, sleep, rhr] = await Promise.all([
+      hp.getHeartRate().catch(() => ({ bpm: 0 })),
+      hp.getSteps().catch(() => ({ count: 0 })),
+      hp.getSleep().catch(() => ({ duration: 0 })),
+      hp.getRestingHeartRate().catch(() => ({ bpm: 0 }))
+    ]);
+
+    // Also get yesterday's data
+    const [ySteps, ySleep] = await Promise.all([
+      hp.getYesterdaySteps?.().catch(() => ({ count: 0 })) || Promise.resolve({ count: 0 }),
+      hp.getYesterdaySleep?.().catch(() => ({ duration: 0 })) || Promise.resolve({ duration: 0 })
+    ]);
+
+    const now = new Date().toISOString();
+    const update = { 'health.lastSync': now };
+    if (hr.bpm > 0) update['health.latestHr'] = hr.bpm;
+    if (steps.count > 0) update['health.latestSteps'] = steps.count;
+    if (sleep.duration > 0) update['health.latestSleep'] = sleep.duration;
+    if (rhr.bpm > 0) update['health.restingHr'] = rhr.bpm;
+    if (hr.timestamp) update['health.hrTimestamp'] = hr.timestamp;
+    if (ySteps.count > 0) update['health.yesterdaySteps'] = ySteps.count;
+    if (ySleep.duration > 0) update['health.yesterdaySleep'] = ySleep.duration;
+
+    await updateDoc(doc(db, 'users', currentUser.uid), update);
+    if (!userProfile) userProfile = {};
+    if (!userProfile.health) userProfile.health = {};
+    if (hr.bpm > 0) userProfile.health.latestHr = hr.bpm;
+    if (steps.count > 0) userProfile.health.latestSteps = steps.count;
+    if (sleep.duration > 0) userProfile.health.latestSleep = sleep.duration;
+    if (rhr.bpm > 0) userProfile.health.restingHr = rhr.bpm;
+    if (ySteps.count > 0) userProfile.health.yesterdaySteps = ySteps.count;
+    if (ySleep.duration > 0) userProfile.health.yesterdaySleep = ySleep.duration;
+    userProfile.health.lastSync = now;
+    return true;
+  } catch (e) {
+    console.warn('Native health sync error:', e);
+    return false;
+  }
+}
+
+// Fast sync — polls every 10 seconds for real-time heart rate
+function startFastHealthSync() {
+  stopFastHealthSync();
+  healthSyncInterval = setInterval(async () => {
+    const hp = getHealthPlugin();
+    if (!hp || !db || !currentUser) return;
+    try {
+      const hr = await hp.getHeartRate().catch(() => ({ bpm: 0 }));
+      if (hr.bpm > 0 && hr.bpm !== userProfile?.health?.latestHr) {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          'health.latestHr': hr.bpm,
+          'health.hrTimestamp': hr.timestamp || new Date().toISOString(),
+          'health.lastSync': new Date().toISOString()
+        });
+        if (userProfile.health) userProfile.health.latestHr = hr.bpm;
+        if (currentPage === 'today') renderCurrentPage();
+      }
+    } catch (e) {}
+  }, 10000); // Every 10 seconds
+}
+
+function stopFastHealthSync() {
+  if (healthSyncInterval) { clearInterval(healthSyncInterval); healthSyncInterval = null; }
+}
+
+async function startNativeHeartRateStream() {
+  const hp = getHealthPlugin();
+  if (!hp) return;
+  try {
+    await hp.startHeartRateStream();
+    hp.addListener('heartRateUpdate', async (data) => {
+      if (data.bpm > 0 && db && currentUser) {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          'health.latestHr': data.bpm,
+          'health.lastSync': new Date().toISOString()
+        });
+        if (userProfile.health) userProfile.health.latestHr = data.bpm;
+        if (currentPage === 'today') renderCurrentPage();
+      }
+    });
+  } catch (e) { console.warn('HR stream error:', e); }
+}
+
+async function stopNativeHeartRateStream() {
+  const hp = getHealthPlugin();
+  if (!hp) return;
+  try { await hp.stopHeartRateStream(); } catch (e) {}
+}
+
+// Auto-sync on app events (native only)
+if (isCapacitor) {
+  // Sync on load after login completes
+  const waitForAuth = setInterval(() => {
+    if (currentUser && db) {
+      clearInterval(waitForAuth);
+      nativeHealthSync().then(ok => {
+        if (ok && currentPage === 'today') renderCurrentPage();
+      });
+      // Start background sync every 5 minutes
+      setInterval(() => {
+        if (currentUser && db) nativeHealthSync();
+      }, 300000);
+    }
+  }, 1000);
+
+  // Sync when app comes to foreground
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && currentUser && db) {
+      nativeHealthSync().then(ok => {
+        if (ok && currentPage === 'today') renderCurrentPage();
+      });
+    }
+  });
+
+  // Sync when Capacitor app resumes from background
+  document.addEventListener('resume', () => {
+    if (currentUser && db) {
+      nativeHealthSync().then(ok => {
+        if (ok && currentPage === 'today') renderCurrentPage();
+      });
+    }
+  });
+}
+
 // --- Health Tab (Fitness page) ---
+
+// Listen for Apple Watch data via WatchConnectivity
+if (isNativeApp) {
+  window.addEventListener('watchHealthUpdate', async (e) => {
+    const d = e.detail;
+    if (!db || !currentUser) return;
+    const update = { 'health.lastSync': new Date().toISOString() };
+    if (d.heartRate > 0) update['health.latestHr'] = d.heartRate;
+    if (d.steps > 0) update['health.latestSteps'] = d.steps;
+    if (d.sleep > 0) update['health.latestSleep'] = d.sleep;
+    if (d.restingHR > 0) update['health.restingHr'] = d.restingHR;
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), update);
+      if (!userProfile) userProfile = {};
+      if (!userProfile.health) userProfile.health = {};
+      if (d.heartRate > 0) userProfile.health.latestHr = d.heartRate;
+      if (d.steps > 0) userProfile.health.latestSteps = d.steps;
+      if (d.sleep > 0) userProfile.health.latestSleep = d.sleep;
+      if (d.restingHR > 0) userProfile.health.restingHr = d.restingHR;
+      userProfile.health.lastSync = new Date().toISOString();
+      if (currentPage === 'today') renderCurrentPage();
+    } catch (err) { console.warn('Watch sync error:', err); }
+  });
+
+  window.addEventListener('watchWorkoutComplete', async (e) => {
+    const d = e.detail;
+    if (!db || !currentUser) return;
+    try {
+      await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
+        name: 'Apple Watch Workout',
+        type: 'hpv',
+        duration: Math.round((d.duration || 0) / 60),
+        calories: d.calories || 0,
+        heartRate: d.avgHR || 0,
+        source: 'apple_watch',
+        notes: 'Recorded on Apple Watch',
+        date: serverTimestamp(),
+        createdAt: serverTimestamp()
+      });
+      showToast('Watch workout saved!', 'success');
+      renderCurrentPage();
+    } catch (err) { console.warn('Watch workout save error:', err); }
+  });
+}
 function renderHealthTab() {
   const c = $('health-content');
   if (!c) return;
@@ -5772,25 +6135,42 @@ function renderHealthTab() {
   if (h.lastSync) html += '<span style="font-size:11px;color:var(--muted-fg)">Synced ' + timeAgo(new Date(h.lastSync)) + '</span>';
   html += '</div>';
 
-  // Stat cards
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">';
-  html += `<div style="text-align:center;padding:16px 8px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.1);border-radius:12px">
-    <div style="font-size:32px;font-weight:800;color:#ef4444">${h.latestHr || '--'}</div>
+  // Stat cards — Today
+  html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Today</div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">';
+  html += `<div style="text-align:center;padding:14px 8px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.1);border-radius:12px;overflow:hidden">
+    <div style="font-size:28px;font-weight:800;color:#ef4444">${h.latestHr || '--'}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">❤️ Heart Rate</div>
   </div>`;
-  html += `<div style="text-align:center;padding:16px 8px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.1);border-radius:12px">
-    <div style="font-size:32px;font-weight:800;color:#3b82f6">${h.restingHr || '--'}</div>
+  html += `<div style="text-align:center;padding:14px 8px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.1);border-radius:12px;overflow:hidden">
+    <div style="font-size:28px;font-weight:800;color:#3b82f6">${h.restingHr || '--'}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">💓 Resting HR</div>
   </div>`;
-  html += `<div style="text-align:center;padding:16px 8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.1);border-radius:12px">
-    <div style="font-size:32px;font-weight:800;color:#22c55e">${h.latestSteps ? (h.latestSteps > 999 ? (h.latestSteps/1000).toFixed(1) + 'k' : h.latestSteps) : '--'}</div>
-    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">👟 Steps</div>
+  html += `<div style="text-align:center;padding:14px 8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.1);border-radius:12px;overflow:hidden">
+    <div style="font-size:28px;font-weight:800;color:#22c55e">${h.latestSteps ? (h.latestSteps > 999 ? (h.latestSteps/1000).toFixed(1) + 'k' : h.latestSteps) : '--'}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">👟 Steps${h.yesterdaySteps ? ' <span style="color:' + (h.latestSteps >= h.yesterdaySteps ? '#22c55e' : '#ef4444') + '">' + (h.latestSteps >= h.yesterdaySteps ? '↑' : '↓') + '</span>' : ''}</div>
   </div>`;
-  html += `<div style="text-align:center;padding:16px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);border-radius:12px">
-    <div style="font-size:32px;font-weight:800;color:#a855f7">${h.latestSleep ? h.latestSleep + 'h' : '--'}</div>
-    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">😴 Sleep</div>
+  html += `<div style="text-align:center;padding:14px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);border-radius:12px;overflow:hidden">
+    <div style="font-size:28px;font-weight:800;color:#a855f7">${h.latestSleep ? h.latestSleep + 'h' : '--'}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">😴 Sleep${h.yesterdaySleep ? ' <span style="color:' + (h.latestSleep >= h.yesterdaySleep ? '#22c55e' : '#ef4444') + '">' + (h.latestSleep >= h.yesterdaySleep ? '↑' : '↓') + '</span>' : ''}</div>
   </div>`;
   html += '</div>';
+
+  // Yesterday row
+  if (h.yesterdaySteps || h.yesterdaySleep) {
+    html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Yesterday</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">';
+    html += `<div style="text-align:center;padding:10px 8px;background:var(--surface-alt);border-radius:10px;overflow:hidden">
+      <div style="font-size:20px;font-weight:800;color:var(--muted-fg)">${h.yesterdaySteps ? (h.yesterdaySteps > 999 ? (h.yesterdaySteps/1000).toFixed(1) + 'k' : h.yesterdaySteps) : '--'}</div>
+      <div style="font-size:10px;color:var(--muted-fg);margin-top:3px">👟 Steps</div>
+    </div>`;
+    html += `<div style="text-align:center;padding:10px 8px;background:var(--surface-alt);border-radius:10px;overflow:hidden">
+      <div style="font-size:20px;font-weight:800;color:var(--muted-fg)">${h.yesterdaySleep ? h.yesterdaySleep + 'h' : '--'}</div>
+      <div style="font-size:10px;color:var(--muted-fg);margin-top:3px">😴 Sleep</div>
+    </div>`;
+    html += '</div>';
+  }
+
 
   // Heart Rate chart — from workout data
   const hrWorkouts = userWorkouts.filter(w => w.heartRate && w.heartRate > 0).slice(0, 14).reverse();

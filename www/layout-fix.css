@@ -1,5 +1,4 @@
-/* ===== LAYOUT FIX OVERRIDES ===== */
-/* Add after styles.css: <link rel="stylesheet" href="layout-fix.css"> */
+/* ===== LAYOUT FIX OVERRIDES v3 ===== */
 
 /* === 1. HEADER — clean, no double padding === */
 .header {
@@ -22,12 +21,7 @@
   width: 0;
   flex-shrink: 0;
 }
-.header-logo {
-  width: 34px;
-  height: 28px;
-  border-radius: 7px;
-  flex-shrink: 0;
-}
+.header-logo { flex-shrink: 0; }
 .header-brand {
   font-size: 16px;
   font-weight: 700;
@@ -37,10 +31,7 @@
   flex: 1;
   min-width: 0;
 }
-.user-avatar {
-  flex-shrink: 0;
-  margin-left: auto;
-}
+.user-avatar { flex-shrink: 0; margin-left: auto; }
 
 /* === 2. TAB BAR — locked bottom === */
 .tab-bar {
@@ -81,28 +72,55 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.record-tab-circle {
-  width: 46px;
-  height: 46px;
-  margin: -16px auto 0;
-  flex-shrink: 0;
-}
 
-/* === 3. CONTENT — proper bottom padding for tab bar + FAB === */
+/* === 3. CONTENT — enough bottom padding for tab bar + FAB === */
 .content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding: 16px;
-  /* Extra padding: tab bar (~56px) + safe area + FAB clearance */
-  padding-bottom: calc(16px + 56px + max(env(safe-area-inset-bottom, 0px), 12px) + 56px);
+  padding-bottom: calc(16px + 60px + max(env(safe-area-inset-bottom, 0px), 12px) + 60px);
   max-width: 100%;
   box-sizing: border-box;
 }
 
-/* === 4. CATEGORY FILTER PILLS — horizontal scroll, never squish === */
-.demo-cat-pills {
+/* === 4. AI FAB — move to right side, above tab bar, no overlap === */
+.ai-fab {
+  bottom: calc(56px + max(env(safe-area-inset-bottom, 0px), 12px) + 16px) !important;
+  left: auto !important;
+  right: 16px !important;
+  z-index: 36;
+}
+.scroll-top-btn {
+  bottom: calc(56px + max(env(safe-area-inset-bottom, 0px), 12px) + 72px) !important;
+  right: 16px;
+}
+
+/* === 5. ADMIN TABS — horizontal scroll, never truncate === */
+.admin-tabs {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 4px !important;
+  padding-bottom: 4px;
+  margin-bottom: 16px;
+}
+.admin-tabs::-webkit-scrollbar { display: none; }
+.admin-tab {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  padding: 8px 16px !important;
+  font-size: 13px !important;
+  min-width: auto !important;
+}
+
+/* === 6. CATEGORY/FILTER PILLS — always scroll, never squish === */
+.demo-cat-pills,
+.year-tabs,
+.tier-tabs {
   display: flex !important;
   gap: 6px;
   overflow-x: auto !important;
@@ -110,59 +128,74 @@
   flex-wrap: nowrap !important;
   padding-bottom: 4px;
   scrollbar-width: none;
-  margin-bottom: 10px;
 }
-.demo-cat-pills::-webkit-scrollbar {
-  display: none;
-}
-.demo-cat-pill {
-  flex-shrink: 0 !important;
-  white-space: nowrap !important;
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 999px;
-}
-
-/* Same fix for year pills, tier pills, workout filter buttons */
-.year-tabs,
-.tier-tabs {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  overflow-x: auto !important;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  gap: 6px;
-}
+.demo-cat-pills::-webkit-scrollbar,
 .year-tabs::-webkit-scrollbar,
-.tier-tabs::-webkit-scrollbar {
-  display: none;
-}
+.tier-tabs::-webkit-scrollbar { display: none; }
+.demo-cat-pill,
 .year-pill,
 .tier-pill {
   flex-shrink: 0 !important;
   white-space: nowrap !important;
 }
 
-/* Workout filter buttons row */
+/* Workout filter buttons — scroll row */
+[style*="display:flex"][style*="flex-wrap:wrap"]:has(> .wo-filter-btn) {
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
 .wo-filter-btn {
   flex-shrink: 0 !important;
   white-space: nowrap !important;
 }
 
-/* === 5. AI FAB — ensure it doesn't cover content === */
-.ai-fab {
-  bottom: calc(56px + max(env(safe-area-inset-bottom, 0px), 12px) + 12px);
-  left: calc(12px + env(safe-area-inset-left, 0px));
-  z-index: 36;
+/* === 7. AI COACH OVERLAY — fix blank screen === */
+.ai-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding-top: max(env(safe-area-inset-top, 0px), 20px);
+}
+.ai-messages {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+.ai-input-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + max(env(safe-area-inset-bottom, 0px), 12px));
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.ai-msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+.ai-msg.ai {
+  align-self: flex-start;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--fg);
 }
 
-/* Scroll-to-top also above tab bar */
-.scroll-top-btn {
-  bottom: calc(56px + max(env(safe-area-inset-bottom, 0px), 12px) + 16px);
-}
-
-/* === 6. FITNESS SUB-TABS — locked in place, proper sizing === */
+/* === 8. FITNESS SUB-TABS — locked sticky === */
 .fitness-sub-bar-sticky {
   position: sticky;
   top: 0;
@@ -177,8 +210,6 @@
   padding: 10px 4px;
   font-size: 13px;
   font-weight: 600;
-  border: none;
-  cursor: pointer;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -189,37 +220,15 @@
   justify-content: center;
 }
 
-/* === 7. DEMO FILTER STICKY — proper spacing === */
-.demo-filter-sticky {
-  position: sticky;
-  top: -16px;
-  z-index: 10;
-  margin: -16px -16px 8px -16px;
-  padding: 8px 16px 0 16px;
-  background: var(--bg);
-}
-.demo-filter-sticky .demo-search-wrap {
-  margin-bottom: 8px;
-}
-.demo-filter-sticky .demo-cat-pills {
-  margin-bottom: 6px;
-}
-
-/* Exercise count + collapse row */
-.demo-filter-sticky > div:last-child {
-  margin-bottom: 4px;
-}
-
-/* === 8. TEXT OVERFLOW FIXES === */
+/* === 9. TEXT OVERFLOW FIXES === */
 .card-title, .wo-name, .race-name, .page-title, .section-title,
 .coach-card-name, .member-name, .feed-name, .strava-activity-name,
-.challenge-team-name, .demo-ex-name {
+.challenge-team-name, .demo-ex-name, .admin-item-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
 }
-
 .card-desc, .wo-notes, .cl-desc, .pw-desc, .race-notes,
 .announce-banner-msg, .category-desc, .tier-desc, .plan-rec-desc {
   white-space: normal;
@@ -230,12 +239,7 @@
   word-break: break-word;
 }
 
-.today-stat-val, .kpi-value, .tracker-stat-val, .lb-stat, .pb-val {
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-/* === 9. CARDS — prevent blowout === */
+/* === 10. CARDS — prevent blowout === */
 .card, .wo-card, .race-card, .strava-card, .plan-card,
 .coach-card, .member-card, .demo-ex-card, .announce-banner,
 .challenge-card, .today-stats-row, .today-race-row {
@@ -245,35 +249,36 @@
   box-sizing: border-box;
 }
 
-/* === 10. GRID/FLEX CHILDREN — prevent push-out === */
-.today-stats-row > *, .kpi-grid > *, .countdown-grid > *,
-.tracker-stats > *, .form-row > *, .pb-grid > *,
-.race-log-grid > *, .member-stats > * {
+/* === 11. DEMO EXERCISE CARDS — badge doesn't overlap name === */
+.demo-ex-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.demo-ex-info {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
 }
+.demo-ex-badge {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
 
-/* === 11. PROFILE ROW — value doesn't overlap label === */
+/* === 12. PROFILE ROW — no overlap === */
 .profile-row {
   display: flex;
   align-items: center;
   gap: 12px;
   overflow: hidden;
 }
-.profile-row-label {
-  flex-shrink: 0;
-  max-width: 45%;
-}
+.profile-row-label { flex-shrink: 0; max-width: 45%; }
 .profile-row-value {
-  flex: 1;
-  text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
+  flex: 1; text-align: right; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
 
-/* === 12. CHECKLIST ITEMS — no text overlap === */
+/* === 13. CHECKLIST ITEMS === */
 .checklist-item {
   display: flex;
   align-items: flex-start;
@@ -281,98 +286,160 @@
   padding: 12px;
   overflow: hidden;
 }
-.cl-info {
-  flex: 1;
+.cl-info { flex: 1; min-width: 0; overflow: hidden; }
+.cl-title { word-break: break-word; }
+.cl-meta { display: flex; flex-wrap: wrap; gap: 6px; overflow: hidden; }
+
+/* === 14. WORKOUT CARDS === */
+.wo-top { display: flex; align-items: flex-start; gap: 8px; overflow: hidden; }
+.wo-left { flex: 1; min-width: 0; overflow: hidden; }
+.wo-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+/* === 15. BADGE — never wrap === */
+.badge, .activity-badge { flex-shrink: 0; white-space: nowrap; }
+
+/* === 16. GRID CHILDREN === */
+.today-stats-row > *, .kpi-grid > *, .countdown-grid > *,
+.tracker-stats > *, .form-row > *, .pb-grid > *,
+.race-log-grid > *, .member-stats > * {
   min-width: 0;
   overflow: hidden;
 }
-.cl-title {
-  word-break: break-word;
-}
-.cl-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  overflow: hidden;
-}
 
-/* === 13. DEMO EXERCISE CARDS — badge doesn't overlap name === */
-.demo-ex-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-}
-.demo-ex-info {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-.demo-ex-name {
-  font-size: 14px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.demo-ex-badge {
-  flex-shrink: 0 !important;
-  white-space: nowrap !important;
-}
-
-/* === 14. SHEET bottom spacing === */
+/* === 17. SHEET === */
 .sheet {
   padding-bottom: calc(20px + max(env(safe-area-inset-bottom, 0px), 12px));
 }
 
-/* === 15. OVERLAYS — respect safe areas === */
-.profile-overlay, .timer-overlay, .ai-overlay {
+/* === 18. OVERLAYS === */
+.profile-overlay, .timer-overlay {
   padding-top: max(env(safe-area-inset-top, 0px), 20px);
 }
 
-/* === 16. USER MENU positioning === */
+/* === 19. USER MENU === */
 .user-menu {
   position: absolute;
   top: calc(52px + max(env(safe-area-inset-top, 0px), 0px) + 4px);
   right: 16px;
 }
 
-/* === 17. WORKOUT CARDS === */
-.wo-top {
+/* === 20. RACE FOOTAGE LINKS — ensure they're tappable === */
+.race-footage-link {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  overflow: hidden;
-}
-.wo-left {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-.wo-title-row {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  overflow: hidden;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(191, 255, 0, 0.06);
+  border: 1px solid rgba(191, 255, 0, 0.15);
+  text-decoration: none;
+  color: var(--fg);
+  font-size: 13px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 48px;
+}
+.race-footage-link:active {
+  background: rgba(191, 255, 0, 0.15);
+}
+.race-footage-link svg {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
 }
 
-/* === 18. BADGE OVERFLOW — badges never wrap weirdly === */
-.badge, .activity-badge {
-  flex-shrink: 0;
+/* === 21. RACE VIDEO CARDS — tappable === */
+.race-video-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(191, 255, 0, 0.04);
+  border: 1px solid rgba(191, 255, 0, 0.12);
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: var(--fg);
+  cursor: pointer;
+  min-height: 48px;
+}
+
+/* === 22. ADMIN PANEL — ensure content scrolls === */
+.admin-section {
+  overflow-y: visible;
+  overflow-x: hidden;
+}
+.admin-section.active {
+  display: block;
+}
+
+/* Admin form inputs — full width === */
+.admin-form .input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Admin exercise/plan cards — no overflow === */
+.admin-exercise-card,
+.perm-admin-card,
+.footage-admin-item {
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* === 23. WEEKLY CHART — fix bar labels === */
+.chart-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 80px;
+}
+.chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.chart-bar-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.chart-bar-val {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--fg);
+  min-height: 12px;
+}
+.chart-bar {
+  width: 80%;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+}
+.chart-bar.current {
+  background: var(--primary) !important;
+}
+.chart-label {
+  font-size: 9px;
+  color: var(--muted-fg);
   white-space: nowrap;
 }
 
-/* === 19. RESPONSIVE SMALL SCREENS === */
+/* === 24. RESPONSIVE — small screens === */
 @media (max-width: 374px) {
   .tab-btn-label { font-size: 8px; }
   .tab-btn { max-width: 60px; }
   .header-brand { font-size: 14px; }
   .fitness-sub-tab, .lb-sub-tab { font-size: 11px; padding: 8px 0; }
   .demo-cat-pill { font-size: 11px; padding: 5px 10px; }
+  .admin-tab { font-size: 11px !important; padding: 6px 12px !important; }
 }
 
-/* === 20. iOS WEBVIEW SPECIFIC === */
+/* === 25. iOS WEBVIEW === */
 @supports (-webkit-touch-callout: none) {
   html, body {
     position: fixed;
