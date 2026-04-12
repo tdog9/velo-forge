@@ -1,5 +1,6 @@
 // TurboPrep HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
+import { initRaceDay, loadRaceDayState, getRaceDayActive, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay } from './raceday.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)
 let renderAdmin = () => {}, renderCoachDashboard = async () => {}, loadAdminEmails = async () => {},
@@ -548,6 +549,7 @@ let teamData = null; // {id, name, code, members:[]}
 let teamMembers = []; // [{uid, displayName, yearLevel, fitnessLevel, activePlanId, totalWorkouts, streak, checklistPct}]
 let isAdmin = false;
 const ADMIN_EMAIL = 'hearn.tenny@icloud.com';
+let globalSettings = {}; // Live settings from Firestore global_settings/config — controlled by ADMIN_EMAIL
 let adminAnnouncements = [];
 let adminRaces = null; // null = use hardcoded, array = use Firestore
 let hiddenPlans = new Set();
@@ -628,6 +630,7 @@ function showAuthLogin() {
   hide('login-error');
   hide('ai-fab');
   $('login-btn').disabled = false;
+  loadApprovedClubs();
 }
 function showAuthSignup() {
   hide('auth-login');
@@ -643,19 +646,65 @@ async function loadSignupTeams() {
   const select = $('signup-team');
   if (!select || !db) return;
   try {
-    const teamsSnap = await getDocs(collection(db, 'teams'));
+    const snap = await getDocs(collection(db, 'approved_clubs'));
     select.innerHTML = '<option value="">Select your team...</option>';
-    teamsSnap.docs.forEach(d => {
+    snap.docs.forEach(d => {
       const t = d.data();
+      if (!t.teamId) return;
       const opt = document.createElement('option');
-      opt.value = d.id;
+      opt.value = t.teamId;
       opt.textContent = t.name || d.id;
       select.appendChild(opt);
     });
-    if (teamsSnap.docs.length === 0) {
-      select.innerHTML = '<option value="">No teams created yet</option>';
+    if (snap.docs.length === 0) {
+      select.innerHTML = '<option value="">No teams available yet</option>';
     }
   } catch(e) { console.warn('Failed to load teams for signup:', e); }
+}
+async function loadApprovedClubs() {
+  const sel = $('login-club');
+  if (!sel || !db) return;
+  try {
+    const snap = await getDocs(collection(db, 'approved_clubs'));
+    sel.innerHTML = '<option value="">Select your club...</option>';
+    snap.docs.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = d.data().name || d.id;
+      sel.appendChild(opt);
+    });
+    if (snap.docs.length === 0) {
+      sel.innerHTML = '<option value="">No clubs available yet</option>';
+    }
+  } catch(e) { console.warn('loadApprovedClubs:', e); }
+}
+async function submitTeamRequest(user, displayName, email) {
+  const clubName = $('signup-club-name')?.value?.trim() || '';
+  const clubDesc = $('signup-club-desc')?.value?.trim() || '';
+  if (!clubName) return;
+  try {
+    if (db) {
+      await addDoc(collection(db, 'team_requests'), {
+        coachUid: user.uid,
+        coachName: displayName,
+        coachEmail: email,
+        clubName,
+        clubDesc,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+    }
+  } catch(e) { console.warn('submitTeamRequest:', e); }
+  const subject = encodeURIComponent('TurboPrep Club Request: ' + clubName);
+  const body = encodeURIComponent(
+    'New club request from TurboPrep:\n\n' +
+    'Coach: ' + displayName + '\n' +
+    'Email: ' + email + '\n' +
+    'Club Name: ' + clubName + '\n' +
+    'Description: ' + clubDesc + '\n\n' +
+    'To approve: add document to Firestore approved_clubs/{id} with fields: name, teamId.'
+  );
+  setTimeout(() => { window.open('mailto:hearn.tenny@icloud.com?subject=' + subject + '&body=' + body); }, 800);
 }
 function showMainApp() {
   hide('auth-login');
@@ -689,6 +738,8 @@ document.querySelectorAll('.role-btn').forEach(btn => {
     } else {
       if (studentFields) studentFields.style.display = 'none';
       if (childGroup) childGroup.style.display = 'none';
+      const coachFields = $('signup-coach-fields');
+      if (coachFields) coachFields.style.display = role === 'coach' ? '' : 'none';
     }
   });
 });
@@ -706,11 +757,17 @@ $('login-btn')?.addEventListener('click', async () => {
     return;
   }
   hide('login-error');
+  const selectedClub = $('login-club')?.value || '';
   const btn = $('login-btn');
   btn.disabled = true;
   showLoading('Logging in...');
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    if (selectedClub && db) {
+      try {
+        await updateDoc(doc(db, 'users', cred.user.uid), { clubId: selectedClub });
+      } catch(e) {}
+    }
   } catch(e) {
     hideLoading();
     btn.disabled = false;
@@ -780,6 +837,7 @@ $('signup-btn')?.addEventListener('click', async () => {
       } catch(e) { console.warn('Auto-join team failed:', e); }
     }
     await setDoc(doc(db, 'users', cred.user.uid), userData);
+    if (role === 'coach') await submitTeamRequest(cred.user, name, email);
   } catch(e) {
     hideLoading();
     btn.disabled = false;
@@ -4636,19 +4694,24 @@ function renderTeamTab(c) {
   const hasTeam = userProfile?.teamId && teamData;
   if (!hasTeam) {
     html += `
-      <div class="team-empty">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <div class="team-empty-title">Join or Create a Team</div>
-        <div class="team-empty-desc">Compete with your squad on a private leaderboard.</div>
-        <div class="team-btn-group">
-          <button class="btn btn-primary" id="team-create-btn">Create Team</button>
-          <button class="btn btn-secondary" id="team-join-btn">Join Team</button>
-        </div>
+      <div class="page-title" style="margin-bottom:12px">Find a Team</div>
+      <div class="demo-search-wrap" style="margin-bottom:12px">
+        <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="demo-search" type="text" id="team-search-input" placeholder="Search clubs and teams...">
       </div>
+      <div id="team-search-results" style="margin-bottom:16px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        ${userProfile?.isCoach ? '<button class="btn btn-primary" style="flex:1" id="team-create-btn">Request a Team</button>' : ''}
+        <button class="btn btn-secondary" style="flex:1" id="team-join-btn">Join by Code</button>
+      </div>
+      ${!userProfile?.isCoach ? '<div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:4px">Team creation requires a coach account.</div>' : ''}
     `;
     c.innerHTML = html;
-    $('team-create-btn').addEventListener('click', openCreateTeamSheet);
+    if (userProfile?.isCoach) $('team-create-btn')?.addEventListener('click', openCreateTeamSheet);
     $('team-join-btn').addEventListener('click', openJoinTeamSheet);
+    // Load and render approved clubs for search
+    renderTeamSearchResults(c, '');
+    $('team-search-input').addEventListener('input', e => renderTeamSearchResults(c, e.target.value));
     return;
   }
   // Team header
@@ -4680,6 +4743,25 @@ function renderTeamTab(c) {
     </tr>`;
   });
   html += '</tbody></table></div>';
+  // Coach settings panel
+  if (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid) {
+    html += `
+      <div style="margin-top:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Coach Settings</div>
+        <div class="card card-pad" style="margin-bottom:8px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:12px">Team Feature Toggles</div>
+          <div style="display:flex;flex-direction:column;gap:10px" id="coach-feature-toggles">
+            ${renderCoachFeatureToggles()}
+          </div>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-manage-sub-btn">Manage Subteams</button>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">Race Day</div>
+          ${getRaceDayActive() ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:13px;cursor:pointer">🏁 End Race Day Mode</button>` : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e;font-weight:700;font-size:13px;cursor:pointer">🏁 Activate Race Day Mode</button>`}
+        </div>
+      </div>
+    `;
+  }
   // Leave team
   html += '<div style="text-align:center;margin-top:16px"><button class="leave-team-btn" id="leave-team-btn">Leave Team</button></div>';
   c.innerHTML = html;
@@ -4694,6 +4776,31 @@ function renderTeamTab(c) {
   });
   // Bind leave
   $('leave-team-btn').addEventListener('click', leaveTeam);
+  // Bind coach features
+  if (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid) {
+    c.querySelectorAll('.coach-feat-toggle').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const feat = btn.dataset.feat;
+        const current = teamData.features?.[feat] !== false;
+        const newVal = !current;
+        btn.classList.toggle('on', newVal);
+        try {
+          if (db) await updateDoc(doc(db, 'teams', userProfile.teamId), { ['features.' + feat]: newVal });
+          if (!teamData.features) teamData.features = {};
+          teamData.features[feat] = newVal;
+        } catch(e) { console.warn('feature toggle:', e); }
+      });
+    });
+    $('coach-manage-sub-btn')?.addEventListener('click', openManageSubteamsSheet);
+    $('coach-start-rd')?.addEventListener('click', async () => {
+      const ok=await activateRaceDay();
+      if(ok){ showToast('Race day mode activated!','success'); openRaceDayOverlay(); }
+    });
+    $('coach-end-rd')?.addEventListener('click', async () => {
+      await deactivateRaceDay();
+      renderTeam();
+    });
+  }
 }
 // Bind leaderboard sub-tabs
 document.querySelectorAll('.lb-sub-tab').forEach(btn => {
@@ -4907,7 +5014,15 @@ function renderProfile() {
     </div>`;
   }
   html += '</div>';
+  // God admin master control panel
+  if (currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    html += renderGodAdminPanel();
+  }
   el.innerHTML = html;
+  // Bind god admin panel
+  if (currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    bindGodAdminPanel(el);
+  }
   // Bindings
   $('theme-toggle-btn')?.addEventListener('click', toggleTheme);
   $('student-view-toggle')?.addEventListener('click', () => {
@@ -5126,16 +5241,52 @@ async function updateProfileField(field, value) {
   renderProfile();
 }
 function openCreateTeamSheet() {
+  if (!userProfile?.isCoach) {
+    showToast('Only coaches can request team creation.', 'warn');
+    return;
+  }
   $('sheet-content').innerHTML = `
-    <div class="sheet-title">Create Team</div>
+    <div class="sheet-title">Request a Team</div>
+    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px;line-height:1.5">Team creation requires approval from TurboPrep. Submit your request below — you'll be notified once approved and your team will appear in the club directory.</p>
     <div class="form-group">
-      <label class="label" for="team-name-input">Team Name</label>
-      <input class="input" type="text" id="team-name-input" placeholder="e.g. Lightning Bolts" maxlength="30">
+      <label class="label" for="team-req-name">Club / Team Name</label>
+      <input class="input" type="text" id="team-req-name" placeholder="e.g. Caulfield Grammar HPV" maxlength="60" value="${escHtml(userProfile?.clubName || '')}">
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="team-create-save">Create Team</button>
+    <div class="form-group">
+      <label class="label" for="team-req-desc">Short Description</label>
+      <input class="input" type="text" id="team-req-desc" placeholder="e.g. Year 8-12 HPV racing program" maxlength="120">
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="team-req-save">Submit Request</button>
   `;
   openSheet();
-  $('team-create-save').addEventListener('click', createTeam);
+  $('team-req-save').addEventListener('click', async () => {
+    const clubName = $('team-req-name').value.trim();
+    const clubDesc = $('team-req-desc').value.trim();
+    if (!clubName) { showToast('Please enter a club name.', 'warn'); return; }
+    closeSheet();
+    try {
+      if (db) {
+        await addDoc(collection(db, 'team_requests'), {
+          coachUid: currentUser.uid,
+          coachName: userProfile.displayName,
+          coachEmail: currentUser.email,
+          clubName, clubDesc,
+          status: 'pending',
+          createdAt: serverTimestamp()
+        });
+      }
+    } catch(e) { console.warn('team request:', e); }
+    const subject = encodeURIComponent('TurboPrep Club Request: ' + clubName);
+    const body = encodeURIComponent(
+      'New club request:\n\nCoach: ' + (userProfile.displayName || '') +
+      '\nEmail: ' + (currentUser.email || '') +
+      '\nClub: ' + clubName +
+      '\nDescription: ' + clubDesc +
+      '\n\nTo approve: add to Firestore approved_clubs/{id} with fields: name, teamId.'
+    );
+    window.open('mailto:hearn.tenny@icloud.com?subject=' + subject + '&body=' + body);
+    showToast('Request submitted! Check your email app to send the request.', 'success');
+  });
 }
 function openJoinTeamSheet() {
   $('sheet-content').innerHTML = `
@@ -5250,6 +5401,124 @@ async function joinTeam() {
     }
   }
 }
+// --- Team Search ---
+let approvedClubsCache = null;
+async function getApprovedClubs() {
+  if (approvedClubsCache) return approvedClubsCache;
+  if (!db) return [];
+  try {
+    const snap = await getDocs(collection(db, 'approved_clubs'));
+    approvedClubsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return approvedClubsCache;
+  } catch(e) { return []; }
+}
+async function renderTeamSearchResults(container, query) {
+  const el = container.querySelector('#team-search-results');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:16px"><div class="spinner"></div></div>';
+  const clubs = await getApprovedClubs();
+  const q = query.toLowerCase().trim();
+  const filtered = q ? clubs.filter(c => (c.name || '').toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q)) : clubs;
+  if (filtered.length === 0) {
+    el.innerHTML = q
+      ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:16px">No clubs found.</div>'
+      : '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:16px">No approved clubs yet.</div>';
+    return;
+  }
+  el.innerHTML = filtered.map(club => `
+    <div class="card card-pad" style="margin-bottom:8px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:var(--fg)">${escHtml(club.name || '')}</div>
+        ${club.description ? `<div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${escHtml(club.description)}</div>` : ''}
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:3px">${club.memberCount ? club.memberCount + ' members' : ''}</div>
+      </div>
+      <button class="btn btn-primary" style="flex-shrink:0;font-size:12px;padding:8px 14px;min-height:36px" data-club-team="${escHtml(club.teamId || '')}">Join</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-club-team]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const teamId = btn.dataset.clubTeam;
+      if (!teamId) { showToast('This club has no team yet.', 'warn'); return; }
+      if (demoMode) { showToast('Teams require an account. Exit demo mode.', 'warn'); return; }
+      btn.disabled = true;
+      showLoading('Joining team...');
+      try {
+        const teamDoc = await getDoc(doc(db, 'teams', teamId));
+        if (!teamDoc.exists()) { hideLoading(); showToast('Team not found.', 'error'); return; }
+        await updateDoc(doc(db, 'teams', teamId), { members: arrayUnion(currentUser.uid) });
+        await updateDoc(doc(db, 'users', currentUser.uid), { teamId, teamName: teamDoc.data().name });
+        userProfile.teamId = teamId;
+        userProfile.teamName = teamDoc.data().name;
+        await loadTeamData();
+        hideLoading();
+        showToast('Joined ' + teamDoc.data().name + '!', 'success');
+        lbSubTab = 'team';
+        renderTeam();
+      } catch(e) {
+        hideLoading();
+        showError('Failed to join team', 'team', e, { action: 'join' });
+      }
+    });
+  });
+}
+
+// --- Coach Feature Toggles ---
+const COACH_FEATURES = [
+  { id: 'ai_coach', label: 'AI Coach' },
+  { id: 'leaderboard', label: 'Leaderboard' },
+  { id: 'race_log', label: 'Race Log' },
+  { id: 'plans', label: 'Training Plans' },
+  { id: 'demos', label: 'Exercise Demos' },
+  { id: 'health', label: 'Health Tab' },
+  { id: 'strava', label: 'Strava Sync' },
+];
+function renderCoachFeatureToggles() {
+  return COACH_FEATURES.map(f => {
+    const enabled = teamData?.features?.[f.id] !== false;
+    return `<div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;color:var(--fg)">${f.label}</span>
+      <button class="admin-toggle coach-feat-toggle ${enabled ? 'on' : ''}" data-feat="${f.id}" aria-label="Toggle ${f.label}"></button>
+    </div>`;
+  }).join('');
+}
+
+// --- Manage Subteams ---
+function openManageSubteamsSheet() {
+  const subteams = teamData?.subteams || [];
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">Manage Subteams</div>
+    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px">Create subteams within your club and assign members to them.</p>
+    <div id="subteams-list" style="margin-bottom:14px">
+      ${subteams.length === 0
+        ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:12px">No subteams yet.</div>'
+        : subteams.map((s, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="flex:1;font-size:14px;font-weight:600">${escHtml(s.name)}</span>
+            <span style="font-size:11px;color:var(--muted-fg)">${(s.members || []).length} members</span>
+          </div>`).join('')
+      }
+    </div>
+    <div class="form-group">
+      <label class="label" for="new-subteam-name">New Subteam Name</label>
+      <input class="input" type="text" id="new-subteam-name" placeholder="e.g. Year 9 Squad" maxlength="40">
+    </div>
+    <button class="btn btn-primary" style="width:100%" id="subteam-create-btn">Create Subteam</button>
+  `;
+  openSheet();
+  $('subteam-create-btn').addEventListener('click', async () => {
+    const name = $('new-subteam-name').value.trim();
+    if (!name) { showToast('Enter a subteam name.', 'warn'); return; }
+    const newSub = { id: 'sub_' + Date.now(), name, members: [], createdAt: new Date().toISOString() };
+    const updated = [...(teamData.subteams || []), newSub];
+    try {
+      await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updated });
+      teamData.subteams = updated;
+      closeSheet();
+      showToast('Subteam "' + name + '" created.', 'success');
+      renderTeam();
+    } catch(e) { showToast('Failed to create subteam.', 'error'); }
+  });
+}
+
 async function leaveTeam() {
   if (!currentUser || !userProfile?.teamId) return;
   const teamName = teamData?.name || 'this team';
@@ -5481,6 +5750,8 @@ function buildModuleCtx() {
   return {
     // DOM + UI helpers
     $, show, hide, showToast, showError, logError, showLoading, hideLoading, haptic, openSheet, closeSheet,
+    escHtml,
+    renderGodAdminPanel, bindGodAdminPanel,
     // Firebase refs (getters for fresh values)
     get db() { return db; },
     get currentUser() { return currentUser; },
@@ -5528,6 +5799,131 @@ function buildModuleCtx() {
     sendAiMessage, calcStreak,
   };
 }
+// ── God Admin — Global Settings ─────────────────────────────────────────────
+// hearn.tenny@icloud.com controls global_settings/config in Firestore.
+// Any change there propagates to ALL users in real time.
+function listenGlobalSettings() {
+  if (!db) return;
+  try {
+    onSnapshot(doc(db, 'global_settings', 'config'), snap => {
+      if (!snap.exists()) return;
+      globalSettings = snap.data();
+      applyGlobalSettings(globalSettings);
+    });
+  } catch(e) { console.warn('listenGlobalSettings:', e); }
+}
+
+function applyGlobalSettings(s) {
+  // Primary colour override
+  if (s.primaryColor) {
+    document.documentElement.style.setProperty('--primary', s.primaryColor);
+    // Update primary-fg contrast
+    document.documentElement.style.setProperty('--primary-fg', s.primaryColorFg || '#0d0e12');
+  }
+  // App name override
+  if (s.appName) {
+    document.querySelector('.header-brand') && (document.querySelector('.header-brand').textContent = s.appName);
+  }
+  // Maintenance mode — only affects non-master users
+  const isMaster = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const mo = document.getElementById('maintenance-overlay');
+  if (s.maintenanceMode && !isMaster) {
+    if (mo) { mo.style.display = 'flex'; document.getElementById('maintenance-msg').textContent = s.maintenanceMessage || 'TurboPrep is temporarily unavailable. Check back shortly.'; }
+  } else {
+    if (mo) mo.style.display = 'none';
+  }
+  // Global feature flags — hide/show tabs for everyone
+  if (s.features) {
+    const tabMap = { leaderboard: '[data-page="team"]', races: '[data-page="races"]', fitness: '[data-page="fitness"]', admin: '#admin-tab' };
+    Object.entries(s.features).forEach(([key, enabled]) => {
+      const sel = tabMap[key];
+      if (sel) {
+        document.querySelectorAll(sel).forEach(el => { el.style.display = enabled ? '' : 'none'; });
+      }
+      // Fitness sub-tabs
+      if (key === 'plans') { document.querySelector('.fitness-sub-tab[data-fitness-sub="plans"]')?.style && (document.querySelector('.fitness-sub-tab[data-fitness-sub="plans"]').style.display = enabled ? '' : 'none'); }
+      if (key === 'health') { document.querySelector('.fitness-sub-tab[data-fitness-sub="health"]')?.style && (document.querySelector('.fitness-sub-tab[data-fitness-sub="health"]').style.display = enabled ? '' : 'none'); }
+      if (key === 'demos') { document.querySelector('.fitness-sub-tab[data-fitness-sub="demos"]')?.style && (document.querySelector('.fitness-sub-tab[data-fitness-sub="demos"]').style.display = enabled ? '' : 'none'); }
+      if (key === 'ai_coach') { document.getElementById('ai-fab')?.style && (document.getElementById('ai-fab').style.display = enabled ? '' : 'none'); }
+    });
+  }
+  // Global announcement banner (shown at top of Today page)
+  window._globalAnnouncement = s.globalAnnouncement || null;
+  window._globalAnnouncementStyle = s.announcementStyle || 'info';
+  if (currentPage === 'today') renderToday();
+}
+
+// God admin panel section — only rendered for ADMIN_EMAIL
+function renderGodAdminPanel() {
+  const isMaster = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  if (!isMaster) return '';
+  const s = globalSettings;
+  return `
+    <div style="margin-top:20px;padding:16px;background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:14px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:12px">⚡ Master Control</div>
+      <div class="form-group">
+        <label class="label">Primary Colour</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="color" id="gc-color" value="${s.primaryColor||'#f97316'}" style="width:44px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:none;padding:2px">
+          <input class="input" type="text" id="gc-color-hex" value="${s.primaryColor||'#f97316'}" placeholder="#f97316" maxlength="7" style="flex:1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="label">App Name</label>
+        <input class="input" type="text" id="gc-appname" value="${s.appName||'TURBOPREP'}" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label class="label">Global Announcement</label>
+        <input class="input" type="text" id="gc-announce" value="${s.globalAnnouncement||''}" placeholder="Leave blank to hide" maxlength="200">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:600">Maintenance Mode</span>
+        <button class="admin-toggle ${s.maintenanceMode?'on':''}" id="gc-maintenance"></button>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Feature Flags (All Users)</div>
+      ${['leaderboard','races','plans','health','demos','ai_coach'].map(f=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:13px;color:var(--fg)">${f.replace('_',' ').replace(/\w/g,l=>l.toUpperCase())}</span>
+          <button class="admin-toggle gc-feat-toggle ${(s.features?.[f]!==false)?'on':''}" data-feat="${f}"></button>
+        </div>`).join('')}
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" id="gc-save">Save Global Settings</button>
+    </div>
+  `;
+}
+
+function bindGodAdminPanel(el) {
+  if (!el) return;
+  // Colour pickers sync
+  const colorInput = el.querySelector('#gc-color'), hexInput = el.querySelector('#gc-color-hex');
+  colorInput?.addEventListener('input', ()=>{ if(hexInput) hexInput.value=colorInput.value; });
+  hexInput?.addEventListener('input', ()=>{ if(/^#[0-9a-f]{6}$/i.test(hexInput.value)&&colorInput) colorInput.value=hexInput.value; });
+  // Feature toggles
+  el.querySelectorAll('.gc-feat-toggle').forEach(btn=>{
+    btn.addEventListener('click',()=>btn.classList.toggle('on'));
+  });
+  el.querySelector('#gc-maintenance')?.addEventListener('click', e=>e.currentTarget.classList.toggle('on'));
+  // Save
+  el.querySelector('#gc-save')?.addEventListener('click', async ()=>{
+    if (!db) return;
+    const color = el.querySelector('#gc-color-hex')?.value || '#f97316';
+    const featFlags = {};
+    el.querySelectorAll('.gc-feat-toggle').forEach(b=>{ featFlags[b.dataset.feat]=b.classList.contains('on'); });
+    const data = {
+      primaryColor: color,
+      appName: el.querySelector('#gc-appname')?.value?.trim()||'TURBOPREP',
+      globalAnnouncement: el.querySelector('#gc-announce')?.value?.trim()||null,
+      maintenanceMode: el.querySelector('#gc-maintenance')?.classList.contains('on')||false,
+      features: featFlags,
+      updatedAt: serverTimestamp(),
+      updatedBy: currentUser?.email,
+    };
+    try {
+      await setDoc(doc(db,'global_settings','config'), data);
+      showToast('Global settings saved — all users updated.','success');
+    } catch(e) { showToast('Failed to save: '+e.message,'error'); }
+  });
+}
+
 function startApp() {
   // App version — bump this on every deploy
   const APP_VERSION = '4.4.0';
@@ -5570,7 +5966,14 @@ function startApp() {
         userProfile = { displayName: user.displayName || 'User', email: user.email || '', yearLevel: 'Y7', fitnessLevel: 'basic', activePlanId: null };
       }
       try { setupListeners(user.uid); } catch(e) { console.warn('Listeners:', e); }
-      try { initAdmin(buildModuleCtx()); initStrava(buildModuleCtx()); initRaceLog(buildModuleCtx()); initTimer(buildModuleCtx()); initAiFeatures(buildModuleCtx()); } catch(e) { console.warn('Module init:', e); }
+      try { initAdmin(buildModuleCtx()); initStrava(buildModuleCtx()); initRaceLog(buildModuleCtx()); initTimer(buildModuleCtx()); initAiFeatures(buildModuleCtx()); initRaceDay(buildModuleCtx()); } catch(e) { console.warn('Module init:', e); }
+      // Start global settings listener
+      try { listenGlobalSettings(); } catch(e) {}
+      // Check race day state — if active, take over full screen
+      try {
+        const rdActive=await loadRaceDayState();
+        if (rdActive) { setTimeout(()=>openRaceDayOverlay(),300); }
+      } catch(e) {}
       try { await loadAdminEmails(); } catch(e) {}
       try { checkAdmin(user.email); } catch(e) {}
       // PHASE 2: Show the app NOW — don't wait for all data

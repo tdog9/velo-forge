@@ -87,7 +87,7 @@ export function renderRaceLog() {
   // --- Completed races needing logs ---
   const needsLog = getCompletedRacesNeedingLogs();
   if (needsLog.length > 0) {
-    html += '<div style="font-size:13px;font-weight:700;color:#BFFF00;margin-bottom:8px">Races to Log</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px">Races to Log</div>';
     needsLog.forEach(race => {
       const footage = getFootageForRace(race.id);
       const stream = getStreamForRace(race.id);
