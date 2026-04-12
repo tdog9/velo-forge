@@ -236,11 +236,31 @@ export async function openRaceDayOverlay() {
   if (aiFab) aiFab.style.display='none';
   const ov=document.createElement('div');
   ov.id='raceday-overlay';
-  ov.style.cssText='position:fixed;inset:0;z-index:150;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
-  ov.innerHTML=buildOverlayHTML();
+  ov.style.cssText='position:fixed;inset:0;z-index:150;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;';
+  // Responsive centering on non-phone screens
+  const rdStyle=document.createElement('style');
+  rdStyle.id='rd-responsive-style';
+  rdStyle.textContent=`
+    @media(min-width:600px){
+      #raceday-overlay{background:rgba(0,0,0,.6)!important;align-items:center;justify-content:center;}
+      #rd-inner{max-width:520px;width:100%;height:100%;max-height:900px;border-radius:16px;overflow:hidden;}
+    }
+    @media(min-width:900px){
+      #rd-inner{max-width:680px;max-height:860px;}
+    }
+    @media(min-width:1200px){
+      #rd-inner{max-width:720px;}
+    }
+  `;
+  document.head.appendChild(rdStyle);
+  const inner=document.createElement('div');
+  inner.id='rd-inner';
+  inner.style.cssText='flex:1;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;width:100%;height:100%;';
+  ov.appendChild(inner);
+  inner.innerHTML=buildOverlayHTML();
   document.body.appendChild(ov);
-  bindOverlay(ov);
-  showRdTab(ov,'roster');
+  bindOverlay(inner);
+  showRdTab(inner,'roster');
 }
 
 function buildOverlayHTML() {
@@ -313,7 +333,8 @@ ${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--
 
 function bindOverlay(ov) {
   function closeOverlay() {
-    ov.remove();
+    document.getElementById('rd-responsive-style')?.remove();
+    ov.remove(); // removes full overlay including backdrop
     document.getElementById('rd-roster-fab')?.remove();
     if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
     const ma=document.getElementById('main-app');

@@ -2197,7 +2197,8 @@ function renderToday() {
       html += '<div class="space-y">';
       todayWorkouts.forEach((origW, i) => {
         const globalIdx = activePlan.workouts.indexOf(origW);
-        const w = getWorkoutData(activePlanId, globalIdx, origW);
+        const w = getWorkoutData(activePlanId, globalIdx, origW) || {...origW};
+        if (!w) return;
         w.week = origW.week; w.day = origW.day;
         // Apply selected duration cap
         if (selectedDur > 0 && w.duration > selectedDur) {
@@ -6370,14 +6371,14 @@ function checkAdmin(email) {
   isAdmin = isMaster;
   currentAdminPerms = isMaster ? ALL_ADMIN_FEATURES.map(f => f.id) : [];
 
+  const studentView = localStorage.getItem('vf_student_view') === 'true';
   // Admin tab — master only
   const adminTab = document.getElementById('admin-tab');
-  const studentView = localStorage.getItem('vf_student_view') === 'true';
   if (adminTab) adminTab.style.display = (isMaster && !studentView) ? '' : 'none';
-
-  // Coach tab — coaches AND master get it
+  // Coach tab — coaches AND master get it, nobody else
   const coachTab = document.getElementById('coach-tab');
-  if (coachTab) coachTab.style.display = ((userProfile?.isCoach || isMaster) && !studentView) ? '' : 'none';
+  const isCoach = userProfile?.isCoach === true;
+  if (coachTab) coachTab.style.display = ((isCoach || isMaster) && !studentView) ? '' : 'none';
 }
 async function loadAdminData() {
   if (!isAdmin || !db) return;
