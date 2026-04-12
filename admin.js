@@ -1,4 +1,4 @@
-// CGS VeloForge Admin Panel Module
+// CGS TurboPrep Admin Panel Module
 // All state accessed via A (app context set by initAdmin)
 import { escHtml, capitalize, getXpLevel, timeAgo } from './state.js';
 
@@ -125,7 +125,7 @@ export async function renderCoachDashboard() {
     if (lastNotif !== today) {
       localStorage.setItem('vf_coach_notif_date', today);
       try {
-        new Notification('VeloForge Coach Alert', {
+        new Notification('TurboPrep Coach Alert', {
           body: needsFollowUp.length + ' student' + (needsFollowUp.length > 1 ? 's haven\'t' : ' hasn\'t') + ' trained in 5+ days: ' + needsFollowUp.map(s => s.name).slice(0, 3).join(', ') + (needsFollowUp.length > 3 ? '...' : ''),
           icon: '🏋️',
           tag: 'coach-inactive'
@@ -323,7 +323,7 @@ export async function renderCoachDashboard() {
         const blob = new Blob([csv], { type: 'text/csv' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'veloforge-students-' + new Date().toISOString().split('T')[0] + '.csv';
+        a.download = 'turboprep-students-' + new Date().toISOString().split('T')[0] + '.csv';
         a.click();
         A.showToast('CSV downloaded!', 'success');
       });

@@ -1,4 +1,4 @@
-// CGS VeloForge Workout Timer Module
+// CGS TurboPrep Workout Timer Module
 import { escHtml } from './state.js';
 let A = {};
 export function initTimer(ctx) {

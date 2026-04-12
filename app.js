@@ -1,4 +1,4 @@
-// CGS VeloForge HPV Training App
+// CGS TurboPrep HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)
@@ -132,7 +132,7 @@ function getMapTileUrl() {
 }
 // Strava integration
 const STRAVA_CLIENT_ID = '213628'; // Set your Strava API client ID here
-const STRAVA_REDIRECT_URI = 'https://veloforge.netlify.app';
+const STRAVA_REDIRECT_URI = 'https://turboprep.netlify.app';
 let stravaTokens = null; // { access_token, refresh_token, expires_at, athlete }
 let stravaActivities = []; // cached recent activities
 let userWorkouts = [];
@@ -400,7 +400,7 @@ function showWelcomeSetup() {
     <div class="modal-card" style="max-width:360px;padding:20px">
       <div style="text-align:center;font-size:36px;margin-bottom:8px">🚀</div>
       <div class="modal-title" style="text-align:center;margin-bottom:4px">Welcome, ${escHtml(name)}!</div>
-      <div style="text-align:center;font-size:13px;color:var(--muted-fg);margin-bottom:16px">Connect your accounts to get the most out of VeloForge</div>
+      <div style="text-align:center;font-size:13px;color:var(--muted-fg);margin-bottom:16px">Connect your accounts to get the most out of TurboPrep</div>
       <div id="welcome-steps" style="display:flex;flex-direction:column;gap:8px">
         <button class="btn welcome-step" id="ws-strava" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
           <span style="font-size:20px;width:28px;text-align:center">⬡</span>
@@ -599,8 +599,8 @@ let demoMode = false;
 function enterDemoMode() {
   demoMode = true;
   firebaseReady = false;
-  currentUser = { uid: 'demo-user', email: 'demo@veloforge.app', displayName: 'Demo Rider' };
-  userProfile = { displayName: 'Demo Rider', email: 'demo@veloforge.app', yearLevel: 'Y9', fitnessLevel: 'average', activePlanId: 'invehicle-y9-average', teamId: null, teamName: null };
+  currentUser = { uid: 'demo-user', email: 'demo@turboprep.app', displayName: 'Demo Rider' };
+  userProfile = { displayName: 'Demo Rider', email: 'demo@turboprep.app', yearLevel: 'Y9', fitnessLevel: 'average', activePlanId: 'invehicle-y9-average', teamId: null, teamName: null };
   userWorkouts = [
     { _id:'d1', name:'Morning Spin', type:'Ride', duration:45, distance:18, heartRate:142, notes:'Felt strong today', date: new Date(), createdAt: new Date() },
     { _id:'d2', name:'Core Circuit', type:'Strength', duration:30, distance:null, heartRate:118, notes:'Focused on planks', date: new Date(Date.now()-86400000), createdAt: new Date(Date.now()-86400000) },
@@ -887,7 +887,7 @@ function logError(area, error, context) {
   };
   errorLog.unshift(entry);
   if (errorLog.length > 20) errorLog.pop();
-  console.error('[VeloForge Error]', area, error);
+  console.error('[TurboPrep Error]', area, error);
   return entry;
 }
 // Smart error toast with tap-to-diagnose
@@ -2160,7 +2160,7 @@ function renderToday() {
       const tier = userProfile?.fitnessLevel || 'basic';
       html += `<div style="background:linear-gradient(135deg,rgba(191,255,0,.06),rgba(34,197,94,.04));border:1.5px solid rgba(191,255,0,.2);border-radius:12px;padding:16px;text-align:center">
         <div style="font-size:28px;margin-bottom:6px">🚀</div>
-        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">Welcome to VeloForge!</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">Welcome to TurboPrep!</div>
         <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px;line-height:1.4">Let's get you a training plan. We've matched one to your year level (${year}) and fitness tier (${capitalize(tier)}).</div>
         <button class="btn btn-primary" id="onboard-pick-plan" style="width:100%;padding:12px;font-size:14px;font-weight:700;border-radius:10px">🏋️ Pick My Plan</button>
         <div style="font-size:11px;color:var(--muted-fg);margin-top:8px">Or go to Fitness → Plans to browse all 54 options</div>
@@ -3119,7 +3119,7 @@ th{font-weight:600;color:#555;font-size:11px;text-transform:uppercase}.bar-row{d
 .print-btn{margin-top:24px;padding:10px 24px;background:#BFFF00;border:none;font-weight:600;border-radius:6px;cursor:pointer;font-size:13px}
 @media print{.print-btn{display:none}}
 </style></head><body>
-<h1>CGS VeloForge Training Report</h1>
+<h1>CGS TurboPrep Training Report</h1>
 <div class="meta">${escHtml(name)} · ${year} · ${tier} tier · Generated ${dateStr}</div>
 <div class="stat-grid">
   <div class="stat"><div class="stat-val">${total}</div><div class="stat-lbl">Total Workouts</div></div>
@@ -5043,7 +5043,7 @@ function renderProfile() {
     btn.textContent = 'Testing...';
     btn.disabled = true;
     try {
-      const resp = await fetch('https://veloforge.netlify.app/.netlify/functions/health-sync', {
+      const resp = await fetch('https://turboprep.netlify.app/.netlify/functions/health-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5524,25 +5524,25 @@ function buildModuleCtx() {
 function startApp() {
   // App version — bump this on every deploy
   const APP_VERSION = '4.4.0';
-  console.log('[VeloForge] v' + APP_VERSION + ' loading...');
+  console.log('[TurboPrep] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.has('reset_admin')) {
     localStorage.removeItem('vf_student_view');
     window.history.replaceState({}, '', window.location.pathname);
-    console.log('[VeloForge] Student view reset');
+    console.log('[TurboPrep] Student view reset');
   }
   // Force clear all caches via URL param: ?clear_cache=true
   if (urlParams.has('clear_cache')) {
     window.history.replaceState({}, '', window.location.pathname);
     if ('caches' in window) {
       caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
-        console.log('[VeloForge] All caches cleared');
+        console.log('[TurboPrep] All caches cleared');
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(regs => {
             regs.forEach(r => r.unregister());
-            console.log('[VeloForge] Service workers unregistered');
+            console.log('[TurboPrep] Service workers unregistered');
             window.location.reload();
           });
         } else {
@@ -5711,7 +5711,7 @@ function showAnnouncementNotification(title, message) {
   // Prefer service worker showNotification (required for iOS PWA)
   if (navigator.serviceWorker && navigator.serviceWorker.ready) {
     navigator.serviceWorker.ready.then(reg => {
-      reg.showNotification('VeloForge: ' + title, {
+      reg.showNotification('TurboPrep: ' + title, {
         body: message,
         icon: document.querySelector('link[rel="apple-touch-icon"]')?.href || '',
         badge: document.querySelector('link[rel="apple-touch-icon"]')?.href || '',
@@ -5722,7 +5722,7 @@ function showAnnouncementNotification(title, message) {
     }).catch(() => {
       // Fallback to Notification constructor (desktop/Android)
       try {
-        const n = new Notification('VeloForge: ' + title, {
+        const n = new Notification('TurboPrep: ' + title, {
           body: message,
           icon: document.querySelector('link[rel="apple-touch-icon"]')?.href || '',
           tag: 'vf-announcement',
@@ -5733,7 +5733,7 @@ function showAnnouncementNotification(title, message) {
     });
   } else {
     try {
-      const n = new Notification('VeloForge: ' + title, {
+      const n = new Notification('TurboPrep: ' + title, {
         body: message,
         tag: 'vf-announcement',
         renotify: true
@@ -6138,7 +6138,7 @@ function addSessionToCalendar(session) {
       } else {
         // Apple / generic .ics download
         const ics = [
-          'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//VeloForge//Training//EN',
+          'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//TurboPrep//Training//EN',
           'BEGIN:VEVENT',
           'DTSTART:' + fmt(startDate), 'DTEND:' + fmt(endDate),
           'SUMMARY:' + title, 'LOCATION:' + loc,
@@ -6316,7 +6316,7 @@ function checkRaceResultPrompt() {
 const TUTORIAL_STEPS = [
   {
     icon: '👋', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
-    title: 'Welcome to VeloForge!',
+    title: 'Welcome to TurboPrep!',
     desc: 'Hey! Welcome to your HPV training app. This tour takes about 2 minutes and shows you everything you need. Skip anytime or redo later from Profile.',
     highlight: null
   },
@@ -6389,7 +6389,7 @@ const TUTORIAL_STEPS = [
   {
     icon: '⬡', bg: 'linear-gradient(135deg,#fc5200,#ff7043)',
     title: 'Strava Sync',
-    desc: 'Connect Strava in Profile to auto-import Apple Watch, Garmin, and Fitbit workouts with routes and heart rate. VeloForge activities upload back to Strava. Fully two-way.',
+    desc: 'Connect Strava in Profile to auto-import Apple Watch, Garmin, and Fitbit workouts with routes and heart rate. TurboPrep activities upload back to Strava. Fully two-way.',
     highlight: null
   },
   {
@@ -6526,7 +6526,7 @@ if ('serviceWorker' in navigator) {
       if (newWorker) {
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'activated') {
-            console.log('[VeloForge] New service worker activated — refreshing');
+            console.log('[TurboPrep] New service worker activated — refreshing');
             window.location.reload();
           }
         });
