@@ -2,11 +2,11 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#0a0b0f;--fg:#e3e0d5;--card:#101218;--card-fg:#e3e0d5;
-  --border:#1e2028;--primary:#BFFF00;--primary-fg:#0d0e12;
+  --border:#1e2028;--primary:#f97316;--primary-fg:#0d0e12;
   --muted:#242730;--muted-fg:#7a7d85;--destructive:#ef4444;--destructive-fg:#fafafa;
-  --secondary:#1e2028;--secondary-fg:#e3e0d5;--input:#2a2d38;--ring:#BFFF00;
+  --secondary:#1e2028;--secondary-fg:#e3e0d5;--input:#2a2d38;--ring:#f97316;
   --radius:12px;
-  --chart-endurance:#BFFF00;--chart-intervals:#FF8C33;--chart-cycling:#2EA693;
+  --chart-endurance:#f97316;--chart-intervals:#FF8C33;--chart-cycling:#2EA693;
   --chart-sprint:#8B5CF6;--chart-strength:#DC2626;
   --font-sans:'Cabinet Grotesk','Satoshi',system-ui,sans-serif;
   --font-body:'Satoshi','Cabinet Grotesk',system-ui,sans-serif;
@@ -504,13 +504,13 @@ select.input{appearance:none;cursor:pointer;
 .year-tabs{display:flex;gap:6px;padding:0 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .year-tabs::-webkit-scrollbar{display:none}
 .year-pill{font-family:'Cabinet Grotesk',sans-serif;font-size:13px;font-weight:600;padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;color:var(--muted-fg);cursor:pointer;transition:all .2s ease;white-space:nowrap;min-height:34px}
-.year-pill.active{background:#BFFF00;color:#0a0b0f;border-color:#BFFF00}
+.year-pill.active{background:#f97316;color:#0a0b0f;border-color:#f97316}
 .year-pill:not(.active):active{background:rgba(191,255,0,.1)}
 
 /* Safety banner */
 .safety-banner{background:rgba(191,255,0,.06);border:1px solid rgba(191,255,0,.15);border-radius:12px;padding:12px 14px;margin:0 0 4px}
 .safety-header{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--fg);margin-bottom:6px}
-.safety-header svg{width:16px;height:16px;color:#BFFF00;flex-shrink:0}
+.safety-header svg{width:16px;height:16px;color:#f97316;flex-shrink:0}
 .safety-ages{color:var(--muted-fg);font-weight:400}
 .safety-details{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--muted-fg);margin-bottom:6px}
 .safety-details svg{width:12px;height:12px;vertical-align:-1px}
@@ -687,7 +687,7 @@ select.input{appearance:none;cursor:pointer;
 .admin-item-title{font-size:14px;font-weight:600;color:var(--text)}
 .admin-item-meta{font-size:12px;color:var(--text-muted);margin-top:2px}
 .admin-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
-.admin-badge-active{background:rgba(191,255,0,0.15);color:#BFFF00}
+.admin-badge-active{background:rgba(191,255,0,0.15);color:#f97316}
 .admin-badge-inactive{background:rgba(255,255,255,0.05);color:var(--text-muted)}
 .admin-badge-hidden{background:rgba(239,68,68,0.15);color:#ef4444}
 .admin-form{display:flex;flex-direction:column;gap:10px;padding:14px}
@@ -732,26 +732,26 @@ select.input{appearance:none;cursor:pointer;
 .race-footage-section{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .race-footage-link{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(191,255,0,0.06);border:1px solid rgba(191,255,0,0.15);text-decoration:none;color:var(--text);font-size:13px;margin-bottom:6px;transition:background .2s}
 .race-footage-link:active{background:rgba(191,255,0,0.12)}
-.race-footage-link svg{flex-shrink:0;width:20px;height:20px;color:#BFFF00}
+.race-footage-link svg{flex-shrink:0;width:20px;height:20px;color:#f97316}
 .race-footage-label{flex:1;line-height:1.3}
 .race-footage-label small{display:block;font-size:11px;color:var(--text-muted)}
 .race-prompt-card{border:1px solid rgba(191,255,0,0.3);border-radius:12px;padding:14px;margin-bottom:10px;background:rgba(191,255,0,0.04)}
 .race-prompt-header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.race-prompt-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(191,255,0,0.15);color:#BFFF00;white-space:nowrap}
+.race-prompt-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:rgba(191,255,0,0.15);color:#f97316;white-space:nowrap}
 .race-prompt-track{font-size:15px;font-weight:700;color:var(--text);flex:1}
 .race-prompt-date{font-size:12px;color:var(--text-muted)}
 .race-prompt-desc{font-size:13px;color:var(--text-muted);margin-bottom:10px;line-height:1.4}
 .footage-admin-item{padding:10px;border-bottom:1px solid var(--border)}
 .footage-admin-item:last-child{border-bottom:none}
 .race-video-section{margin-top:16px;padding-top:12px}
-.race-video-heading{font-size:13px;font-weight:700;color:#BFFF00;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.race-video-heading{font-size:13px;font-weight:700;color:#f97316;margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .race-video-heading svg{width:16px;height:16px}
 .race-video-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(191,255,0,0.04);border:1px solid rgba(191,255,0,0.12);margin-bottom:8px;text-decoration:none;color:var(--text);transition:background .2s}
 .race-video-card:active{background:rgba(191,255,0,0.1)}
 .today-replay{margin-bottom:14px}
-.today-replay-header{font-size:13px;font-weight:700;color:#BFFF00;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.today-replay-header{font-size:13px;font-weight:700;color:#f97316;margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .today-replay-header svg{width:16px;height:16px}
-.exercise-expand-btn{font-size:11px;color:#BFFF00;background:none;border:none;cursor:pointer;padding:2px 0;font-weight:600;display:flex;align-items:center;gap:3px;margin-top:4px}
+.exercise-expand-btn{font-size:11px;color:#f97316;background:none;border:none;cursor:pointer;padding:2px 0;font-weight:600;display:flex;align-items:center;gap:3px;margin-top:4px}
 .exercise-expand-btn svg{width:12px;height:12px;transition:transform .2s}
 .exercise-expand-btn.open svg{transform:rotate(180deg)}
 .exercise-detail{display:none;margin-top:6px;padding:8px 10px;border-radius:8px;background:rgba(191,255,0,0.03);border:1px solid rgba(191,255,0,0.08);font-size:12px;line-height:1.5;color:var(--muted-fg)}
@@ -821,7 +821,7 @@ select.input{appearance:none;cursor:pointer;
 .admin-exercise-name{font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px}
 .admin-exercise-meta{font-size:11px;color:var(--muted-fg);margin-bottom:6px}
 .race-video-thumb{width:48px;height:36px;border-radius:6px;background:rgba(191,255,0,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.race-video-thumb svg{width:22px;height:22px;color:#BFFF00}
+.race-video-thumb svg{width:22px;height:22px;color:#f97316}
 .race-video-info{flex:1;min-width:0}
 .race-video-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .race-video-meta{font-size:11px;color:var(--text-muted);margin-top:1px}
@@ -833,12 +833,12 @@ select.input{appearance:none;cursor:pointer;
 .admin-perm-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
 .admin-perm-item:last-child{border-bottom:none}
 .admin-perm-email{flex:1;font-size:14px;color:var(--text)}
-.admin-perm-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(191,255,0,0.15);color:#BFFF00}
+.admin-perm-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(191,255,0,0.15);color:#f97316}
 .perm-feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
 .perm-feature-toggle{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:border-color .2s,background .2s}
-.perm-feature-toggle.active{border-color:#BFFF00;background:rgba(191,255,0,0.08)}
+.perm-feature-toggle.active{border-color:#f97316;background:rgba(191,255,0,0.08)}
 .perm-feature-toggle .perm-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
-.perm-feature-toggle.active .perm-check{border-color:#BFFF00;background:#BFFF00}
+.perm-feature-toggle.active .perm-check{border-color:#f97316;background:#f97316}
 .perm-feature-toggle .perm-check svg{width:12px;height:12px;opacity:0;transition:opacity .2s}
 .perm-feature-toggle.active .perm-check svg{opacity:1}
 .perm-feature-label{font-size:12px;color:var(--text-muted);line-height:1.3}
@@ -847,7 +847,7 @@ select.input{appearance:none;cursor:pointer;
 .perm-admin-header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .perm-admin-email{flex:1;font-size:14px;font-weight:600;color:var(--text);word-break:break-all}
 .perm-admin-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.perm-tag{font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(191,255,0,0.12);color:#BFFF00;font-weight:600}
+.perm-tag{font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(191,255,0,0.12);color:#f97316;font-weight:600}
 .perm-admin-actions{display:flex;gap:6px;margin-top:8px;justify-content:flex-end}
 /* Demo link editor */
 .demo-plan-expand{cursor:pointer;user-select:none}

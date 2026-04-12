@@ -429,7 +429,7 @@ function showWelcomeSetup() {
   document.body.appendChild(overlay);
   const markDone = (btn) => {
     btn.style.borderColor = 'var(--primary)';
-    btn.style.background = 'rgba(191,255,0,.06)';
+    btn.style.background = 'rgba(249,115,22,.06)';
     btn.querySelector('span:last-child').textContent = '✓';
     btn.querySelector('span:last-child').style.color = 'var(--primary)';
   };
@@ -1934,7 +1934,7 @@ function renderTeamFeed() {
         <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
           <div class="feed-time">${item.timeAgo}</div>
           <div class="feed-reactions" style="display:flex;gap:2px;margin-left:auto">
-            ${['🔥','💪','👏'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? 'rgba(191,255,0,.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? 'var(--primary)' : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
+            ${['🔥','💪','👏'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? 'rgba(249,115,22,.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? 'var(--primary)' : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
           </div>
         </div>
       </div>
@@ -2126,7 +2126,7 @@ function renderToday() {
     const selectedDur = parseInt(localStorage.getItem('vf_session_duration') || '0');
     html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch">
       <span style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-right:2px">Time:</span>
-      ${[0,10,15,20,25,30].map(d => `<button class="dur-pick" data-dur="${d}" style="padding:5px 8px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid ${selectedDur === d ? 'var(--primary)' : 'var(--border)'};background:${selectedDur === d ? 'rgba(191,255,0,.15)' : 'var(--surface-alt)'};color:${selectedDur === d ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer;white-space:nowrap">${d === 0 ? 'Full' : d + 'min'}</button>`).join('')}
+      ${[0,10,15,20,25,30].map(d => `<button class="dur-pick" data-dur="${d}" style="padding:5px 8px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid ${selectedDur === d ? 'var(--primary)' : 'var(--border)'};background:${selectedDur === d ? 'rgba(249,115,22,.15)' : 'var(--surface-alt)'};color:${selectedDur === d ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer;white-space:nowrap">${d === 0 ? 'Full' : d + 'min'}</button>`).join('')}
     </div>`;
     const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
     const todayDay = now.getDay();
@@ -2158,7 +2158,7 @@ function renderToday() {
       // First-time onboarding — guided plan picker
       const year = userProfile?.yearLevel || 'Y9';
       const tier = userProfile?.fitnessLevel || 'basic';
-      html += `<div style="background:linear-gradient(135deg,rgba(191,255,0,.06),rgba(34,197,94,.04));border:1.5px solid rgba(191,255,0,.2);border-radius:12px;padding:16px;text-align:center">
+      html += `<div style="background:linear-gradient(135deg,rgba(249,115,22,.06),rgba(34,197,94,.04));border:1.5px solid rgba(249,115,22,.2);border-radius:12px;padding:16px;text-align:center">
         <div style="font-size:28px;margin-bottom:6px">🚀</div>
         <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">Welcome to TurboPrep!</div>
         <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px;line-height:1.4">Let's get you a training plan. We've matched one to your year level (${year}) and fitness tier (${capitalize(tier)}).</div>
@@ -2178,7 +2178,7 @@ function renderToday() {
     const healthD = userProfile?.health;
     if (todaysWorkouts.length > 0 || (healthD && healthD.latestSteps > 0)) {
       const msgs = todaysWorkouts.length >= 2 ? 'Crushing it today!' : todaysWorkouts.length === 1 ? 'Nice session logged.' : todayMins > 60 ? 'Big training day!' : '';
-      html += `<div style="background:linear-gradient(135deg,rgba(191,255,0,.05),rgba(34,197,94,.03));border:1px solid rgba(191,255,0,.15);border-radius:12px;padding:12px 14px;margin-top:8px">
+      html += `<div style="background:linear-gradient(135deg,rgba(249,115,22,.05),rgba(34,197,94,.03));border:1px solid rgba(249,115,22,.15);border-radius:12px;padding:12px 14px;margin-top:8px">
         <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📋 Today's Roundup</div>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           ${todaysWorkouts.length > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--text)">${todaysWorkouts.length}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">workout${todaysWorkouts.length > 1 ? 's' : ''}</span></div>` : ''}
@@ -2212,7 +2212,7 @@ function renderToday() {
       <span style="font-size:18px">${typeIcons[lastActivity.type] || '🏋️'}</span>
       <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${escHtml(lastActivity.name || 'Workout')}</div>
       <div style="font-size:11px;color:var(--muted-fg)">${lastActivity.duration ? lastActivity.duration + 'min' : ''}${lastActivity.distance ? ' · ' + lastActivity.distance + 'km' : ''}</div></div>
-      <div style="font-size:10px;font-weight:600;color:var(--primary);background:rgba(191,255,0,.1);padding:2px 8px;border-radius:6px">TODAY</div>
+      <div style="font-size:10px;font-weight:600;color:var(--primary);background:rgba(249,115,22,.1);padding:2px 8px;border-radius:6px">TODAY</div>
     </div></div></div>`;
   }
   // Race countdown (compact, only next race)
@@ -2239,9 +2239,9 @@ function renderToday() {
     if (isSessionToday && diffMs > 0) timeLabel = diffHrs > 0 ? 'in ' + diffHrs + 'h ' + diffMins + 'm' : 'in ' + diffMins + 'm';
     else if (isSessionToday && diffMs <= 0) timeLabel = 'NOW';
     else { const d = sDate; timeLabel = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
-    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(191,255,0,.08),rgba(34,197,94,.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba(191,255,0,.25)' : 'var(--border)'};border-radius:10px">
+    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(249,115,22,.08),rgba(34,197,94,.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba(249,115,22,.25)' : 'var(--border)'};border-radius:10px">
       <div style="display:flex;align-items:start;gap:10px">
-        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(191,255,0,.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
+        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(249,115,22,.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
             <div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(nextSession.title)}</div>
@@ -2278,7 +2278,7 @@ function renderToday() {
     else if (todayWos.length >= 2) encouragement = 'Multiple sessions in one day — that\'s dedication. Your team will notice.';
     else if (streak >= 7) encouragement = 'Streak going strong! Every day you show up, you get better.';
     else encouragement = 'Another day in the books. Consistency is what separates good from great.';
-    html += `<div style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(191,255,0,.04));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px">
+    html += `<div style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(249,115,22,.04));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:14px;font-weight:700;color:var(--text)">📋 Today's Roundup</div>
         <button id="dismiss-roundup" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px">✕</button>
@@ -2804,7 +2804,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
         <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</div>
         <div style="font-size:11px;color:var(--muted-fg)">${doneS}/${totalS} sets \u00b7 ${pct}%</div>
       </div>
-      <button id="et-live-btn" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;border:1.5px solid var(--primary);background:rgba(191,255,0,.1);color:var(--primary);cursor:pointer">\u25b6 Live Mode</button>
+      <button id="et-live-btn" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;border:1.5px solid var(--primary);background:rgba(249,115,22,.1);color:var(--primary);cursor:pointer">\u25b6 Live Mode</button>
     </div>
     <div style="height:3px;background:var(--muted)"><div style="height:100%;width:${pct}%;background:var(--primary);border-radius:0 2px 2px 0;transition:width .3s"></div></div>`;
     if (restTimerInterval && restSeconds > 0) {
@@ -3845,7 +3845,7 @@ function openWorkoutSheet() {
         <div style="display:flex;gap:4px;flex-wrap:wrap" id="wo-type-btns">
           ${['HPV','Ride','Run','Treadmill','Strength','Cardio','Flexibility'].map(t => {
             const icons = {HPV:'🏎️',Ride:'🚴',Run:'🏃',Treadmill:'🏃‍♂️',Strength:'🏋️',Cardio:'❤️',Flexibility:'🧘'};
-            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'rgba(191,255,0,.12)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${icons[t]} ${t}</button>`;
+            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'rgba(249,115,22,.12)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${icons[t]} ${t}</button>`;
           }).join('')}
         </div>
       </div>
@@ -4808,7 +4808,7 @@ function renderProfile() {
             <div style="font-size:11px;color:var(--muted-fg)">${club.memberCount || '?'} members · ${club.sportType || 'cycling'}</div>
           </div>
           ${isCurrentTeam
-            ? '<span style="font-size:10px;font-weight:700;color:var(--primary);background:rgba(191,255,0,.12);padding:3px 8px;border-radius:6px;white-space:nowrap">Your Team</span>'
+            ? '<span style="font-size:10px;font-weight:700;color:var(--primary);background:rgba(249,115,22,.12);padding:3px 8px;border-radius:6px;white-space:nowrap">Your Team</span>'
             : `<button class="btn strava-club-join" data-club-id="${club.id}" data-club-name="${escHtml(club.name)}" style="padding:4px 10px;font-size:11px;font-weight:600;border-radius:6px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border);white-space:nowrap">Use as Team</button>`
           }
         </div>`;
@@ -4863,7 +4863,7 @@ function renderProfile() {
       <div style="font-size:10px;color:var(--muted-fg);margin-bottom:6px">Paste this into your Apple Shortcut when prompted.</div>
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <button id="copy-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer">Copy Token</button>
-        <button id="test-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--primary);background:rgba(191,255,0,.1);color:var(--primary);cursor:pointer">Test Sync</button>
+        <button id="test-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--primary);background:rgba(249,115,22,.1);color:var(--primary);cursor:pointer">Test Sync</button>
       </div>
       <button id="install-shortcut-workout" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#ef4444,#f87171);color:#fff;cursor:pointer;margin-bottom:6px">❤️ Install Workout Shortcut (live HR)</button>
       <button id="install-shortcut-daily" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;cursor:pointer">😴 Install Daily Sync (steps + sleep)</button>
@@ -5851,7 +5851,7 @@ function renderHealthTab() {
     const isToday = d.key === now.toISOString().split('T')[0];
     html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
       ${d.mins > 0 ? `<div style="font-size:7px;font-weight:600;color:var(--muted-fg)">${d.mins}</div>` : ''}
-      <div style="width:100%;height:${pct}%;background:${isToday ? 'var(--primary)' : d.mins > 0 ? 'rgba(191,255,0,.4)' : 'rgba(255,255,255,.04)'};border-radius:3px 3px 0 0;min-height:${d.mins > 0 ? '6' : '2'}px"></div>
+      <div style="width:100%;height:${pct}%;background:${isToday ? 'var(--primary)' : d.mins > 0 ? 'rgba(249,115,22,.4)' : 'rgba(255,255,255,.04)'};border-radius:3px 3px 0 0;min-height:${d.mins > 0 ? '6' : '2'}px"></div>
       <div style="font-size:7px;color:${isToday ? 'var(--primary)' : 'var(--muted-fg)'};font-weight:${isToday ? '700' : '400'}">${d.date.toLocaleDateString('en-AU',{weekday:'narrow'})}</div>
     </div>`;
   });
