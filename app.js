@@ -4692,24 +4692,34 @@ function renderTeamTab(c) {
     return;
   }
   const hasTeam = userProfile?.teamId && teamData;
+  const isMasterOrCoach = userProfile?.isCoach || currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
   if (!hasTeam) {
     html += `
-      <div class="page-title" style="margin-bottom:12px">Find a Team</div>
-      <div class="demo-search-wrap" style="margin-bottom:12px">
+      <div class="page-title" style="margin-bottom:4px">Your Team</div>
+      <div style="font-size:13px;color:var(--muted-fg);margin-bottom:16px">You haven't joined a team yet.</div>
+
+      <div class="demo-search-wrap" style="margin-bottom:10px">
         <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="demo-search" type="text" id="team-search-input" placeholder="Search clubs and teams...">
+        <input class="demo-search" type="text" id="team-search-input" placeholder="Search for your club...">
       </div>
-      <div id="team-search-results" style="margin-bottom:16px"></div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        ${userProfile?.isCoach ? '<button class="btn btn-primary" style="flex:1" id="team-create-btn">Request a Team</button>' : ''}
-        <button class="btn btn-secondary" style="flex:1" id="team-join-btn">Join by Code</button>
-      </div>
-      ${!userProfile?.isCoach ? '<div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:4px">Team creation requires a coach account.</div>' : ''}
+      <div id="team-search-results" style="margin-bottom:14px"></div>
+
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" id="team-join-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        Join Team by Code
+      </button>
+
+      ${isMasterOrCoach ? `
+        <button class="btn btn-secondary" style="width:100%" id="team-request-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Request a New Team
+        </button>
+        <div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:6px">Sends a request to TurboPrep — approved teams appear automatically.</div>
+      ` : ''}
     `;
     c.innerHTML = html;
-    if (userProfile?.isCoach) $('team-create-btn')?.addEventListener('click', openCreateTeamSheet);
     $('team-join-btn').addEventListener('click', openJoinTeamSheet);
-    // Load and render approved clubs for search
+    $('team-request-btn')?.addEventListener('click', openCreateTeamSheet);
     renderTeamSearchResults(c, '');
     $('team-search-input').addEventListener('input', e => renderTeamSearchResults(c, e.target.value));
     return;
@@ -4902,31 +4912,7 @@ function renderProfile() {
     html += `<button class="strava-disconnect" id="strava-disconnect-btn">Disconnect Strava</button>`;
     html += `<button class="strava-disconnect" id="strava-resync-routes" style="margin-top:6px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border)">🗺️ Re-sync Route Maps</button>`;
     html += `<div style="font-size:11px;color:var(--muted-fg);margin-top:4px">Re-downloads GPS routes for all Strava activities. Use if maps are missing.</div>`;
-    // Strava Clubs
-    const stravaClubs = userProfile?.stravaClubs || [];
-    if (stravaClubs.length > 0) {
-      html += `<div style="margin-top:12px"><div style="font-size:13px;font-weight:600;margin-bottom:6px">Your Strava Clubs</div>`;
-      stravaClubs.forEach(club => {
-        const isLinked = teamData?.stravaClubId === String(club.id);
-        const isCurrentTeam = userProfile?.teamId && isLinked;
-        html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card);border:1px solid ${isCurrentTeam ? 'var(--primary)' : 'var(--border)'};border-radius:8px;margin-bottom:6px">
-          <div style="width:32px;height:32px;border-radius:8px;background:rgba(252,82,0,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <svg viewBox="0 0 24 24" fill="#fc5200" style="width:16px;height:16px"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(club.name)}</div>
-            <div style="font-size:11px;color:var(--muted-fg)">${club.memberCount || '?'} members · ${club.sportType || 'cycling'}</div>
-          </div>
-          ${isCurrentTeam
-            ? '<span style="font-size:10px;font-weight:700;color:var(--primary);background:rgba(249,115,22,.12);padding:3px 8px;border-radius:6px;white-space:nowrap">Your Team</span>'
-            : `<button class="btn strava-club-join" data-club-id="${club.id}" data-club-name="${escHtml(club.name)}" style="padding:4px 10px;font-size:11px;font-weight:600;border-radius:6px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border);white-space:nowrap">Use as Team</button>`
-          }
-        </div>`;
-      });
-      html += '</div>';
-    } else {
-      html += `<div style="margin-top:8px"><button class="btn" id="strava-fetch-clubs" style="width:100%;padding:8px;font-size:12px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border);border-radius:8px">🔍 Find My Strava Clubs</button></div>`;
-    }
+
   } else {
     html += `<div class="strava-status">
       <div class="strava-status-dot disconnected"></div>
@@ -5070,67 +5056,9 @@ function renderProfile() {
   $('strava-resync-routes')?.addEventListener('click', () => {
     stravaResyncRoutes();
   });
-  // Strava club → team buttons
-  document.querySelectorAll('.strava-club-join').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const clubId = btn.dataset.clubId;
-      const clubName = btn.dataset.clubName;
-      btn.textContent = 'Joining...';
-      btn.disabled = true;
-      try {
-        // Use predictable doc ID: strava-club-{clubId}
-        const teamDocId = 'strava-club-' + clubId;
-        const teamRef = doc(db, 'teams', teamDocId);
-        const teamSnap = await getDoc(teamRef);
-        if (teamSnap.exists()) {
-          // Team exists — join it
-          const td = teamSnap.data();
-          if (!(td.members || []).includes(currentUser.uid)) {
-            await updateDoc(teamRef, { members: arrayUnion(currentUser.uid) });
-          }
-        } else {
-          // Create new team with predictable ID
-          const code = (() => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let r = ''; for (let i = 0; i < 6; i++) r += c[Math.floor(Math.random()*c.length)]; return r; })();
-          await setDoc(teamRef, {
-            name: clubName, code, stravaClubId: String(clubId), stravaClubName: clubName,
-            createdBy: currentUser.uid, createdAt: serverTimestamp(), members: [currentUser.uid]
-          });
-        }
-        // Leave old team if different
-        if (userProfile.teamId && userProfile.teamId !== teamDocId) {
-          try { await updateDoc(doc(db, 'teams', userProfile.teamId), { members: arrayRemove(currentUser.uid) }); } catch(e) {}
-        }
-        await updateDoc(doc(db, 'users', currentUser.uid), { teamId: teamDocId, teamName: clubName });
-        userProfile.teamId = teamDocId;
-        userProfile.teamName = clubName;
-        // Reload team data
-        await loadTeamData();
-        showToast('Team set to "' + clubName + '"!', 'success');
-        renderProfile();
-      } catch(e) {
-        console.error('Club join error:', e);
-        showError('Failed to set team from Strava club', 'strava', e, { action: 'club-join' });
-        btn.textContent = 'Use as Team';
-        btn.disabled = false;
-      }
-    });
-  });
+
   // Fetch clubs button (if clubs not yet loaded)
-  $('strava-fetch-clubs')?.addEventListener('click', async () => {
-    const btn = $('strava-fetch-clubs');
-    btn.textContent = 'Searching...';
-    btn.disabled = true;
-    try {
-      // Import syncStravaClubs dynamically — it fetches and saves clubs
-      const { syncStravaClubs } = await import('./strava.js');
-      await syncStravaClubs();
-      renderProfile();
-    } catch(e) {
-      showError('Failed to fetch Strava clubs', 'strava', e, { action: 'fetch-clubs' });
-      btn.textContent = '🔍 Find My Strava Clubs';
-      btn.disabled = false;
-    }
-  });
+
   $('profile-export-btn')?.addEventListener('click', exportTrainingReport);
   // Tutorial & Help bindings
   // Health sync token
