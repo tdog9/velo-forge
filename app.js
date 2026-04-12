@@ -1184,6 +1184,9 @@ function switchPage(page) {
   const pageEl = $('page-' + page);
   if (pageEl) pageEl.classList.add('active');
   renderCurrentPage();
+  // Show ai-fab only on relevant pages
+  const aiFabPages = ['today','fitness','races'];
+  aiFabPages.includes(page) ? show('ai-fab') : hide('ai-fab');
   // Feature 3: Restore scroll position
   const savedScroll = scrollPositions[page] || 0;
   $('content').scrollTop = savedScroll;
@@ -5515,6 +5518,10 @@ function buildModuleCtx() {
     ADMIN_EMAIL, ALL_ADMIN_FEATURES,
     STRAVA_CLIENT_ID, STRAVA_REDIRECT_URI,
     // Function refs
+    get currentPage() { return currentPage; },
+    get fitnessSubTab() { return fitnessSubTab; },
+    extractAllExercises,
+    RACES,
     findPlan, getActiveRaces, getVisiblePlans, getPlanDisplayData, getEmbedUrl,
     getMapTileUrl, renderToday, renderFitness, renderPlans, renderProfile,
     stravaUploadActivity, autoUpdateChallengeScore, showModal, saveCustomPlansLocal,
