@@ -1,4 +1,4 @@
-// CGS TurboPrep Admin Panel Module
+// TurboPrep Admin Panel Module
 // All state accessed via A (app context set by initAdmin)
 import { escHtml, capitalize, getXpLevel, timeAgo } from './state.js';
 

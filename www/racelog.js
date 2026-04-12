@@ -1,4 +1,4 @@
-// CGS TurboPrep Race Log Module
+// TurboPrep Race Log Module
 import { escHtml } from './state.js';
 
 let A = {};

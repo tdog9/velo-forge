@@ -1,4 +1,4 @@
-// CGS TurboPrep AI Features Module — Plan editing, weekly review, race prep, injury mode
+// TurboPrep AI Features Module — Plan editing, weekly review, race prep, injury mode
 import { escHtml } from './state.js';
 
 let A = {};

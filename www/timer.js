@@ -1,4 +1,4 @@
-// CGS TurboPrep Workout Timer Module
+// TurboPrep Workout Timer Module
 import { escHtml } from './state.js';
 let A = {};
 export function initTimer(ctx) {

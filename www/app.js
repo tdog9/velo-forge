@@ -1,4 +1,4 @@
-// CGS TurboPrep HPV Training App
+// TurboPrep HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)
@@ -3166,7 +3166,7 @@ th{font-weight:600;color:#555;font-size:11px;text-transform:uppercase}.bar-row{d
 .print-btn{margin-top:24px;padding:10px 24px;background:#BFFF00;border:none;font-weight:600;border-radius:6px;cursor:pointer;font-size:13px}
 @media print{.print-btn{display:none}}
 </style></head><body>
-<h1>CGS TurboPrep Training Report</h1>
+<h1>TurboPrep Training Report</h1>
 <div class="meta">${escHtml(name)} · ${year} · ${tier} tier · Generated ${dateStr}</div>
 <div class="stat-grid">
   <div class="stat"><div class="stat-val">${total}</div><div class="stat-lbl">Total Workouts</div></div>

@@ -1,4 +1,4 @@
-// CGS TurboPrep Utilities Module — pure functions, no state
+// TurboPrep Utilities Module — pure functions, no state
 
 export function escHtml(s) {
   if (s == null) return '';
