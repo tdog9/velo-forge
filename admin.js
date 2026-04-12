@@ -10,61 +10,102 @@ export function initAdmin(ctx) { A = ctx; }
 export function renderAdmin() {
   if (!A.isAdmin) return;
   const c = A.$('admin-content');
-  const isMaster = A.currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
-  const allTabs = [
-    { id: 'announcements', label: 'Announcements' },
-    { id: 'training', label: 'Training' },
-    { id: 'races', label: 'Races' },
-    { id: 'users', label: 'Users' },
-    { id: 'plans', label: 'Plans' },
-    { id: 'coach', label: 'Coach' },
-    ...(isMaster ? [{ id: 'requests', label: '🔔 Requests' }] : [])
+
+  // God mode tabs — hearn.tenny only
+  const tabs = [
+    { id: 'announcements', label: '📢 Announce' },
+    { id: 'races', label: '🏁 Races' },
+    { id: 'plans', label: '📋 Plans' },
+    { id: 'users', label: '👥 Users' },
+    { id: 'requests', label: '🔔 Requests' },
+    { id: 'system', label: '⚙️ System' },
   ];
-  // Filter tabs to only show features the current admin has access to
-  const tabs = allTabs.filter(t => A.currentAdminPerms.includes(t.id));
 
-  // If no tabs, show restricted message
-  if (tabs.length === 0) {
-    c.innerHTML = '<div class="page-title">Admin Panel</div><div class="empty-state" style="padding:32px 16px"><div class="empty-state-title">No Permissions</div><div class="empty-state-desc">Your admin account doesn\'t have any features enabled yet. Ask the owner to grant you access.</div></div>';
-    return;
-  }
-
-  // If active tab not in allowed list, switch to first allowed
   if (!tabs.some(t => t.id === A.adminActiveTab)) A.adminActiveTab = tabs[0].id;
 
-  let html = '<div class="page-title">Admin Panel</div>';
-  html += '<div class="admin-tabs">';
+  // Quick maintenance bar
+  const existingBar = c.querySelector('#admin-maintenance-bar');
+  let maintHtml = '';
+  if (!existingBar) {
+    const mo = A.globalSettings?.maintenanceMode;
+    maintHtml = `<div id="admin-maintenance-bar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);display:flex;align-items:center;gap:10px">
+      <span style="font-size:13px;font-weight:600;flex:1;color:var(--fg)">🔧 Maintenance Mode</span>
+      <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?'#ef4444':'var(--muted)'};color:${mo?'#fff':'var(--muted-fg)'}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
+    </div>`;
+  }
+
+  let html = '<div class="page-title" style="margin-bottom:8px">Admin</div>';
+  html += maintHtml;
+  html += '<div class="admin-tabs" style="overflow-x:auto;padding-bottom:2px">';
   tabs.forEach(t => {
-    html += `<button class="admin-tab${A.adminActiveTab === t.id ? ' active' : ''}" data-admin-tab="${t.id}">${t.label}</button>`;
+    html += `<button class="admin-tab${A.adminActiveTab===t.id?' active':''}" data-admin-tab="${t.id}" style="white-space:nowrap">${t.label}</button>`;
   });
   html += '</div>';
-
-  // Create section containers for allowed tabs only
   tabs.forEach(t => {
-    html += '<div id="admin-' + t.id + '" class="admin-section' + (A.adminActiveTab === t.id ? ' active' : '') + '"></div>';
+    html += `<div id="admin-${t.id}" class="admin-section${A.adminActiveTab===t.id?' active':''}"></div>`;
   });
-
-  
   c.innerHTML = html;
 
-  // Bind admin tabs
-  c.querySelectorAll('.admin-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      A.adminActiveTab = btn.dataset.adminTab;
-      renderAdmin();
-    });
+  c.querySelector('#quick-maintenance-toggle')?.addEventListener('click', async () => {
+    if (!A.db) return;
+    const newVal = !A.globalSettings?.maintenanceMode;
+    try {
+      await A.setDoc(A.doc(A.db,'global_settings','config'), {...(A.globalSettings||{}), maintenanceMode: newVal, updatedAt: A.serverTimestamp()});
+      A.showToast(newVal ? 'Maintenance ON — users blocked.' : 'Maintenance OFF — app live.', newVal ? 'warn' : 'success');
+    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
   });
 
-  // Render active section
+  c.querySelectorAll('.admin-tab').forEach(btn => {
+    btn.addEventListener('click', () => { A.adminActiveTab = btn.dataset.adminTab; renderAdmin(); });
+  });
+
   switch (A.adminActiveTab) {
     case 'announcements': renderAdminAnnouncements(); break;
-    case 'training': renderAdminTraining(); break;
     case 'races': renderAdminRaces(); break;
-    case 'users': renderAdminUsersMerged(); break;
     case 'plans': renderAdminPlansMerged(); break;
-    case 'coach': renderCoachDashboard(); break;
+    case 'users': renderAdminUsersMerged(); break;
     case 'requests': renderAdminRequests(); break;
+    case 'system': renderAdminSystem(); break;
   }
+}
+
+// ── System tab (god mode settings) ──────────────────────────────────────────
+function renderAdminSystem() {
+  const el = A.$('admin-system');
+  if (!el) return;
+  const s = A.globalSettings || {};
+  el.innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Global Feature Flags</div>
+      ${['leaderboard','races','plans','health','demos','ai_coach'].map(f=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px">${f.replace('_',' ').replace(/\w/g,l=>l.toUpperCase())}</span>
+          <button class="admin-toggle gc-feat-toggle ${(s.features?.[f]!==false)?'on':''}" data-feat="${f}"></button>
+        </div>`).join('')}
+      <button class="btn btn-primary" style="width:100%;margin-top:12px" id="gc-flags-save">Save Feature Flags</button>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Global Announcement</div>
+      <input class="input" type="text" id="gc-announce" value="${A.escHtml(s.globalAnnouncement||'')}" placeholder="Leave blank to hide" maxlength="200">
+      <button class="btn btn-secondary" style="width:100%;margin-top:8px" id="gc-announce-save">Save Announcement</button>
+    </div>
+  `;
+  el.querySelectorAll('.gc-feat-toggle').forEach(btn => btn.addEventListener('click',()=>btn.classList.toggle('on')));
+  el.querySelector('#gc-flags-save')?.addEventListener('click', async () => {
+    const feats = {};
+    el.querySelectorAll('.gc-feat-toggle').forEach(b=>{ feats[b.dataset.feat]=b.classList.contains('on'); });
+    try {
+      await A.setDoc(A.doc(A.db,'global_settings','config'), {...s, features:feats, updatedAt:A.serverTimestamp()});
+      A.showToast('Feature flags saved.','success');
+    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+  });
+  el.querySelector('#gc-announce-save')?.addEventListener('click', async () => {
+    const msg = el.querySelector('#gc-announce').value.trim();
+    try {
+      await A.setDoc(A.doc(A.db,'global_settings','config'), {...s, globalAnnouncement:msg||null, updatedAt:A.serverTimestamp()});
+      A.showToast('Announcement saved.','success');
+    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+  });
 }
 
 // --- COACH DASHBOARD ---
@@ -677,7 +718,7 @@ async function saveAnnouncements() {
 }
 
 // --- TRAINING SESSIONS ---
-function renderAdminTraining() {
+export function renderAdminTraining() {
   const el = A.$('admin-training');
   if (!el) return;
   const sessions = A.trainingSessions || [];

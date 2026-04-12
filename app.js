@@ -3,7 +3,7 @@ import { initTracker, openActivityTracker, closeActivityTracker, openActivityDet
 import { initRaceDay, loadRaceDayState, getRaceDayActive, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay } from './raceday.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)
-let renderAdmin = () => {}, renderCoachDashboard = async () => {}, loadAdminEmails = async () => {},
+let renderAdmin = () => {}, renderCoachDashboard = async () => {}, renderAdminTraining = () => {}, loadAdminEmails = async () => {},
     loadExerciseOverrides = async () => {}, savePlanOverrides = async () => {},
     loadPlanOverrides = async () => {}, loadExerciseDemoVideos = async () => {},
     saveExerciseDemoVideos = async () => {}, loadRaceFootage = async () => {},
@@ -50,7 +50,7 @@ const [adminRes, stravaRes, racelogRes, timerRes, aifRes, plansRes, fbAppRes, fb
 ]);
 // Unpack results — each is {status:'fulfilled', value:module} or {status:'rejected', reason:error}
 if (adminRes.status === 'fulfilled') {
-  ({ initAdmin, renderAdmin, renderCoachDashboard, loadAdminEmails, loadExerciseOverrides,
+  ({ initAdmin, renderAdmin, renderCoachDashboard, renderAdminTraining, loadAdminEmails, loadExerciseOverrides,
      savePlanOverrides, loadPlanOverrides, loadExerciseDemoVideos, saveExerciseDemoVideos,
      loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides,
      loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } = adminRes.value);
@@ -1256,6 +1256,7 @@ function renderCurrentPage() {
     case 'races': renderRaces(); renderRaceLog(); break;
     case 'team': renderTeam(); break;
     case 'admin': if (isAdmin) renderAdmin(); break;
+    case 'coach': renderCoachPage(); break;
   }
 }
 function renderFitness() {
@@ -4518,11 +4519,15 @@ function renderTeam() {
   });
   const gc = $('lb-global-content');
   const tc = $('lb-team-content');
+  const lc = $('lb-leagues-content');
   gc.style.display = 'none';
   tc.style.display = 'none';
+  if (lc) lc.style.display = 'none';
   if (lbSubTab === 'global') {
     gc.style.display = '';
     renderGlobalLeaderboard(gc);
+  } else if (lbSubTab === 'leagues') {
+    if (lc) { lc.style.display = ''; renderLeaguesTab(lc); }
   } else {
     tc.style.display = '';
     renderTeamTab(tc);
@@ -5329,6 +5334,111 @@ async function joinTeam() {
     }
   }
 }
+// --- Leagues ---
+async function renderLeaguesTab(el) {
+  const isMasterOrCoach = userProfile?.isCoach || currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+  el.innerHTML = '<div style="text-align:center;padding:24px"><div class="spinner"></div></div>';
+  let leagues = [];
+  try {
+    if (db) {
+      const snap = await getDocs(collection(db, 'leagues'));
+      leagues = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+  } catch(e) {}
+
+  let html = '<div class="page-title" style="margin-bottom:4px">Leagues</div>';
+  html += '<div style="font-size:13px;color:var(--muted-fg);margin-bottom:14px">Compete across clubs and schools.</div>';
+
+  if (leagues.length === 0) {
+    html += `<div class="empty-state" style="padding:32px 16px">
+      <div class="empty-state-title">No Leagues Yet</div>
+      <div class="empty-state-desc">Leagues are created by verified coaches and approved by TurboPrep.</div>
+    </div>`;
+  } else {
+    leagues.forEach(lg => {
+      const isMember = (lg.members || []).includes(currentUser?.uid);
+      html += `<div class="card card-pad" style="margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700">${escHtml(lg.name||'')}</div>
+            ${lg.description ? `<div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${escHtml(lg.description)}</div>` : ''}
+            <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">${(lg.members||[]).length} members</div>
+          </div>
+          ${isMember
+            ? '<span style="font-size:11px;font-weight:700;color:var(--primary);background:rgba(249,115,22,.12);padding:3px 10px;border-radius:20px;flex-shrink:0">Joined</span>'
+            : `<button class="btn btn-primary" style="font-size:12px;padding:6px 14px;min-height:36px;flex-shrink:0" data-join-league="${escHtml(lg.id)}">Join</button>`
+          }
+        </div>
+        ${isMember && lg.members && lg.members.length > 0 ? `
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Standings</div>
+            <div style="font-size:12px;color:var(--muted-fg)">Standings coming soon.</div>
+          </div>` : ''}
+      </div>`;
+    });
+  }
+
+  if (isMasterOrCoach) {
+    html += `<button class="btn btn-secondary" style="width:100%;margin-top:8px" id="league-request-btn">
+      Request a League
+    </button>
+    <div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:6px">Sends a request to TurboPrep for approval.</div>`;
+  }
+
+  el.innerHTML = html;
+
+  el.querySelectorAll('[data-join-league]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const lid = btn.dataset.joinLeague;
+      btn.disabled = true; btn.textContent = 'Joining...';
+      try {
+        await updateDoc(doc(db, 'leagues', lid), { members: arrayUnion(currentUser.uid) });
+        showToast('Joined league!', 'success');
+        renderLeaguesTab(el);
+      } catch(e) { showToast('Failed: ' + e.message, 'error'); btn.disabled = false; btn.textContent = 'Join'; }
+    });
+  });
+
+  el.$('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
+  el.querySelector('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
+}
+
+function openLeagueRequestSheet() {
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">Request a League</div>
+    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px;line-height:1.5">Leagues are open to all users once approved. A request will be sent to TurboPrep.</p>
+    <div class="form-group">
+      <label class="label">League Name</label>
+      <input class="input" type="text" id="lg-name" placeholder="e.g. Victorian HPR Schools League" maxlength="60">
+    </div>
+    <div class="form-group">
+      <label class="label">Description</label>
+      <input class="input" type="text" id="lg-desc" placeholder="Short description" maxlength="120">
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="lg-submit">Submit Request</button>
+  `;
+  openSheet();
+  $('lg-submit').addEventListener('click', async () => {
+    const name = $('lg-name').value.trim();
+    if (!name) { showToast('Enter a league name.', 'warn'); return; }
+    const desc = $('lg-desc').value.trim();
+    try {
+      if (db) await addDoc(collection(db, 'league_requests'), {
+        name, description: desc,
+        requestedBy: currentUser.uid,
+        requestedByEmail: currentUser.email,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+    } catch(e) {}
+    const subj = encodeURIComponent('TurboPrep League Request: ' + name);
+    const body = encodeURIComponent('League Request\n\nName: ' + name + '\nDescription: ' + desc + '\nRequested by: ' + (currentUser.email||'') + '\n\nTo approve: add to Firestore leagues/{id} with fields: name, description, members: []');
+    window.open('mailto:hearn.tenny@icloud.com?subject=' + subj + '&body=' + body);
+    closeSheet();
+    showToast('Request submitted!', 'success');
+  });
+}
+
 // --- Team Search ---
 let approvedClubsCache = null;
 async function getApprovedClubs() {
@@ -5680,6 +5790,7 @@ function buildModuleCtx() {
     $, show, hide, showToast, showError, logError, showLoading, hideLoading, haptic, openSheet, closeSheet,
     escHtml,
     renderGodAdminPanel, bindGodAdminPanel,
+    get globalSettings() { return globalSettings; },
     // Firebase refs (getters for fresh values)
     get db() { return db; },
     get currentUser() { return currentUser; },
@@ -5756,7 +5867,7 @@ function applyGlobalSettings(s) {
   const isMaster = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
   const mo = document.getElementById('maintenance-overlay');
   if (s.maintenanceMode && !isMaster) {
-    if (mo) { mo.style.display = 'flex'; document.getElementById('maintenance-msg').textContent = s.maintenanceMessage || 'TurboPrep is temporarily unavailable. Check back shortly.'; }
+    if (mo) { mo.style.cssText = 'display:flex;position:fixed;inset:0;z-index:9000;background:var(--bg);align-items:center;justify-content:center;padding:24px;flex-direction:column'; document.getElementById('maintenance-msg').textContent = s.maintenanceMessage || 'TurboPrep is temporarily unavailable. Check back shortly.'; }
   } else {
     if (mo) mo.style.display = 'none';
   }
@@ -5944,6 +6055,8 @@ function startApp() {
         loadExerciseOverrides(), loadPlanOverrides(), loadExerciseDemoVideos(),
         loadCustomPlans(), loadTeamFeed(), loadTeamChallenge(), loadTrainingSessions()
       ]);
+      // Re-render team tab now that teamData is loaded
+      if (currentPage === 'team') renderTeam();
       // PHASE 4: Non-async finishers
       try { setupAnnouncementListener(); } catch(e) {}
       try { loadStravaTokens(); } catch(e) {}
@@ -5951,6 +6064,8 @@ function startApp() {
       try { loadGoals(); } catch(e) {}
       // Re-render current page with full data
       renderCurrentPage();
+      // If on team page, re-render after team data loads so hasTeam is correct
+      if (currentPage === 'team') renderTeam();
       // Show welcome/onboarding for new users with API connection options
       if (!localStorage.getItem('vf_onboarded')) {
         setTimeout(() => showWelcomeSetup(), 800);
@@ -5976,33 +6091,150 @@ function startApp() {
 // Allow Enter key on login/signup forms
 $('login-password')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('login-btn').click(); });
 $('signup-password')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('signup-btn').click(); });
+
+// ── Coach Page (bottom tab for coach accounts) ───────────────────────────────
+let coachPageTab = 'students';
+function renderCoachPage() {
+  const c = $('coach-content');
+  if (!c) return;
+  if (!userProfile?.isCoach) { c.innerHTML = '<div class="empty-state"><div class="empty-state-title">Coach Access Only</div></div>'; return; }
+
+  const tabs = [
+    { id: 'students', label: 'Students' },
+    { id: 'training', label: 'Training' },
+    { id: 'team', label: 'My Team' },
+    { id: 'raceday', label: '🏁 Race Day' },
+  ];
+
+  let html = '<div class="page-title" style="margin-bottom:12px">Coach</div>';
+  html += '<div class="fitness-sub-bar-sticky"><div class="fitness-sub-bar" style="display:flex;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)">';
+  tabs.forEach(t => {
+    const active = coachPageTab === t.id;
+    html += `<button class="fitness-sub-tab${active?' active':''}" data-coach-sub="${t.id}" style="flex:1;padding:9px 2px;font-size:12px;font-weight:600;background:${active?'var(--primary)':'var(--secondary)'};color:${active?'var(--primary-fg)':'var(--secondary-fg)'};border:none;cursor:pointer;transition:all .15s">${t.label}</button>`;
+  });
+  html += '</div></div>';
+  html += `<div id="coach-sub-content"></div>`;
+  c.innerHTML = html;
+
+  c.querySelectorAll('[data-coach-sub]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      coachPageTab = btn.dataset.coachSub;
+      renderCoachPage();
+    });
+  });
+
+  const sub = $('coach-sub-content');
+  switch(coachPageTab) {
+    case 'students': renderCoachStudents(sub); break;
+    case 'training': renderCoachTraining(sub); break;
+    case 'team': renderCoachTeam(sub); break;
+    case 'raceday': renderCoachRaceDay(sub); break;
+  }
+}
+
+function renderCoachStudents(el) {
+  if (!el) return;
+  // Reuse existing coach dashboard logic from admin module
+  if (typeof renderCoachDashboard === 'function') {
+    // Temporarily point to coach-sub-content
+    const orig = $('admin-coach');
+    const fake = document.createElement('div');
+    fake.id = 'admin-coach';
+    el.appendChild(fake);
+    renderCoachDashboard().then ? renderCoachDashboard() : null;
+  } else {
+    el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted-fg)">Student data loading...</div>';
+  }
+}
+
+function renderCoachTraining(el) {
+  // Inject training session manager
+  el.innerHTML = '<div id="admin-training"></div>';
+  if (typeof renderAdminTraining === 'function') renderAdminTraining();
+  else el.innerHTML = '<div style="padding:20px;color:var(--muted-fg)">Training module loading...</div>';
+}
+
+function renderCoachTeam(el) {
+  if (!el) return;
+  const hasTeam = userProfile?.teamId && teamData;
+  if (!hasTeam) {
+    el.innerHTML = `<div class="empty-state" style="padding:32px 16px">
+      <div class="empty-state-title">No Team Yet</div>
+      <div class="empty-state-desc">Request a team from the Leaderboard tab to get started.</div>
+    </div>`;
+    return;
+  }
+  let html = `<div class="team-hero">
+    <div class="team-hero-title">${escHtml(teamData.name)}</div>
+    <div class="team-hero-code"><span>${teamData.code}</span></div>
+    <div class="team-hero-members">${teamMembers.length} member${teamMembers.length!==1?'s':''}</div>
+  </div>`;
+
+  // Feature toggles
+  html += `<div class="card card-pad" style="margin-bottom:10px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:12px">Feature Toggles</div>
+    <div style="display:flex;flex-direction:column;gap:10px">${renderCoachFeatureToggles()}</div>
+  </div>`;
+
+  // Subteams
+  html += `<button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-sub-manage">Manage Subteams</button>`;
+
+  el.innerHTML = html;
+  el.querySelectorAll('.coach-feat-toggle').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const feat = btn.dataset.feat;
+      const newVal = !btn.classList.contains('on');
+      btn.classList.toggle('on', newVal);
+      try {
+        if (db) await updateDoc(doc(db,'teams',userProfile.teamId),{['features.'+feat]:newVal});
+        if (!teamData.features) teamData.features = {};
+        teamData.features[feat] = newVal;
+      } catch(e) {}
+    });
+  });
+  el.querySelector('#coach-sub-manage')?.addEventListener('click', openManageSubteamsSheet);
+}
+
+function renderCoachRaceDay(el) {
+  if (!el) return;
+  const isActive = getRaceDayActive();
+  el.innerHTML = `
+    <div style="text-align:center;padding:20px 16px">
+      <div style="font-size:48px;margin-bottom:12px">🏁</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:8px">${isActive ? 'Race Day is LIVE' : 'Race Day Mode'}</div>
+      <div style="font-size:13px;color:var(--muted-fg);margin-bottom:20px;line-height:1.5">${isActive ? 'All team members are in race day mode. Tap below to end.' : 'Activating race day mode locks all users into the race day interface for the day.'}</div>
+      ${isActive
+        ? `<button id="coach-rd-end" style="width:100%;padding:14px;border-radius:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:15px;cursor:pointer">End Race Day Mode</button>
+           <button id="coach-rd-open" style="width:100%;padding:12px;border-radius:12px;background:var(--primary);color:var(--primary-fg);font-weight:700;font-size:14px;cursor:pointer;margin-top:8px">Open Race Day Interface</button>`
+        : `<button id="coach-rd-start" style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(34,197,94,.3)">🏁 Activate Race Day Mode</button>`
+      }
+    </div>
+  `;
+  el.querySelector('#coach-rd-start')?.addEventListener('click', async () => {
+    const ok = await activateRaceDay();
+    if (ok) { showToast('Race day activated!','success'); openRaceDayOverlay(); }
+  });
+  el.querySelector('#coach-rd-end')?.addEventListener('click', async () => {
+    await deactivateRaceDay();
+    renderCoachPage();
+  });
+  el.querySelector('#coach-rd-open')?.addEventListener('click', () => openRaceDayOverlay());
+}
+
 function checkAdmin(email) {
   const e = (email || '').toLowerCase();
-  const isOwner = e === ADMIN_EMAIL.toLowerCase();
-  const permEntry = adminPerms.find(a => (a.email || '').toLowerCase() === e);
-  // Legacy compat: also check old flat adminEmails
-  const isLegacyAdmin = adminEmails.some(a => (a || '').toLowerCase() === e);
-  isAdmin = isOwner || !!permEntry || isLegacyAdmin;
-  // Owner gets all features; others get only granted features (mapped)
-  if (isOwner) {
-    currentAdminPerms = ALL_ADMIN_FEATURES.map(f => f.id);
-  } else if (permEntry) {
-    // Map old granular perms to new merged perms
-    const raw = permEntry.perms || [];
-    const mapped = new Set(raw);
-    // If they had demolinks or exercises, grant plans
-    if (mapped.has('demolinks') || mapped.has('exercises')) mapped.add('plans');
-    // If they had permissions, grant users
-    if (mapped.has('permissions')) mapped.add('users');
-    currentAdminPerms = [...mapped];
-  } else if (isLegacyAdmin) {
-    currentAdminPerms = ALL_ADMIN_FEATURES.map(f => f.id);
-  } else {
-    currentAdminPerms = [];
-  }
-  const tab = document.getElementById('admin-tab');
+  const isMaster = e === ADMIN_EMAIL.toLowerCase();
+  isAdmin = isMaster;
+  currentAdminPerms = isMaster ? ALL_ADMIN_FEATURES.map(f => f.id) : [];
+
+  // Admin tab — master only
+  const adminTab = document.getElementById('admin-tab');
   const studentView = localStorage.getItem('vf_student_view') === 'true';
-  if (tab) tab.style.display = (isAdmin && !studentView) ? '' : 'none';
+  if (adminTab) adminTab.style.display = (isMaster && !studentView) ? '' : 'none';
+
+  // Coach tab — coaches only (not master, not students)
+  const coachTab = document.getElementById('coach-tab');
+  if (coachTab) coachTab.style.display = (userProfile?.isCoach && !isMaster && !studentView) ? '' : 'none';
 }
 async function loadAdminData() {
   if (!isAdmin || !db) return;
