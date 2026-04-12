@@ -2103,6 +2103,8 @@ async function renderAdminRequests() {
         await A.updateDoc(A.doc(A.db,'team_requests',reqId), { status:'approved', teamId: teamRef.id, approvedAt: A.serverTimestamp() });
         A.showToast(clubName + ' approved! Team code: ' + code, 'success');
         renderAdminRequests();
+        // Also refresh league requests section
+        renderLeagueRequests(el);
       } catch(e) {
         btn.disabled = false;
         btn.textContent = '✓ Approve & Create Team';

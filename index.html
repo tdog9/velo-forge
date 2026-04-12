@@ -2,353 +2,1145 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="TurboPrep">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="VELO FORGE">
 <meta name="theme-color" content="#0a0b0f">
-<meta name="description" content="TurboPrep — HPV race training for schools. Track sessions, structured plans, team leaderboards, and race day tools.">
-<meta property="og:title" content="TurboPrep — HPV Race Training">
-<meta property="og:description" content="The training platform built for school HPV programs.">
-<meta property="og:url" content="https://turboprep.app">
-<title>TurboPrep — HPV Training</title>
-<script>
-(function(){var VER='2.6.0',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
-</script>
-<script>
-(function(){
-  function icon(size){
-    var c=document.createElement('canvas');c.width=size;c.height=size;
-    var x=c.getContext('2d'),r=size*0.22;
-    x.beginPath();x.moveTo(r,0);x.lineTo(size-r,0);x.quadraticCurveTo(size,0,size,r);x.lineTo(size,size-r);x.quadraticCurveTo(size,size,size-r,size);x.lineTo(r,size);x.quadraticCurveTo(0,size,0,size-r);x.lineTo(0,r);x.quadraticCurveTo(0,0,r,0);x.closePath();
-    x.fillStyle='#0a0b0f';x.fill();
-    var p=size*0.1,ri=size*0.15;
-    x.beginPath();x.moveTo(p+ri,p);x.lineTo(size-p-ri,p);x.quadraticCurveTo(size-p,p,size-p,p+ri);x.lineTo(size-p,size-p-ri);x.quadraticCurveTo(size-p,size-p,size-p-ri,size-p);x.lineTo(p+ri,size-p);x.quadraticCurveTo(p,size-p,p,size-p-ri);x.lineTo(p,p+ri);x.quadraticCurveTo(p,p,p+ri,p);x.closePath();
-    x.fillStyle='#f97316';x.fill();
-    x.fillStyle='#fff';x.font='800 '+(size*0.42)+'px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('T',size/2,size/2+size*0.02);
-    return c.toDataURL('image/png');
-  }
-  var i180=icon(180),i32=icon(32),i512=icon(512);
-  var l=document.createElement('link');l.rel='apple-touch-icon';l.href=i180;document.head.appendChild(l);
-  var f=document.createElement('link');f.rel='icon';f.type='image/png';f.href=i32;document.head.appendChild(f);
-  var m={name:'TurboPrep',short_name:'TurboPrep',start_url:'.',display:'standalone',orientation:'portrait',background_color:'#0a0b0f',theme_color:'#0a0b0f',icons:[{src:i512,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
-  var ml=document.createElement('link');ml.rel='manifest';ml.href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/json'}));document.head.appendChild(ml);
-})();
-</script>
-<link rel="apple-touch-startup-image" media="(device-width:430px) and (device-height:932px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1290 2796'%3E%3Crect fill='%230a0b0f' width='1290' height='2796'/%3E%3Crect x='545' y='1248' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='645' y='1365' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-startup-image" media="(device-width:393px) and (device-height:852px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1179 2556'%3E%3Crect fill='%230a0b0f' width='1179' height='2556'/%3E%3Crect x='490' y='1178' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='590' y='1295' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-startup-image" media="(device-width:390px) and (device-height:844px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1170 2532'%3E%3Crect fill='%230a0b0f' width='1170' height='2532'/%3E%3Crect x='485' y='1166' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='585' y='1283' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-startup-image" media="(device-width:375px) and (device-height:812px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1125 2436'%3E%3Crect fill='%230a0b0f' width='1125' height='2436'/%3E%3Crect x='463' y='1118' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='563' y='1235' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
-<link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400;500;700;800&f[]=satoshi@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="layout-fix.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<title>VELO FORGE — HPV Racing Fitness</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700&f[]=cabinet-grotesk@400,500,700,800&display=swap" rel="stylesheet">
+<style>
+/* ===== Reset & Variables ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0b0f;--fg:#e3e0d5;--card:#101218;--card-fg:#e3e0d5;
+  --border:#1e2028;--primary:#BFFF00;--primary-fg:#0d0e12;
+  --muted:#242730;--muted-fg:#7a7d85;--destructive:#ef4444;--destructive-fg:#fafafa;
+  --secondary:#1e2028;--secondary-fg:#e3e0d5;--input:#2a2d38;--ring:#BFFF00;
+  --radius:12px;
+  --chart-endurance:#BFFF00;--chart-intervals:#FF8C33;--chart-cycling:#2EA693;
+  --chart-sprint:#8B5CF6;--chart-strength:#DC2626;
+  --font-sans:'Cabinet Grotesk','Satoshi',system-ui,sans-serif;
+  --font-body:'Satoshi','Cabinet Grotesk',system-ui,sans-serif;
+  --font-mono:'SF Mono','Menlo',monospace;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+  --header-h:56px;
+  --tab-h:calc(56px + var(--safe-b));
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font-family:var(--font-body);background:var(--bg);color:var(--fg);
+  min-height:100vh;min-height:100dvh;overflow:hidden;position:fixed;width:100%;height:100%}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;border:none;background:none;font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
+input,select,textarea{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
+.tabular-nums{font-variant-numeric:tabular-nums lining-nums}
+
+/* ===== App Shell ===== */
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100%;overflow:hidden}
+
+/* Header */
+.header{
+  height:var(--header-h);padding:0 16px;padding-top:var(--safe-t);
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg);border-bottom:1px solid var(--border);
+  flex-shrink:0;z-index:30;
+  min-height:calc(var(--header-h) + var(--safe-t));
+}
+.header-logo{width:30px;height:30px;border-radius:8px;background:var(--primary);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:14px;color:var(--primary-fg);font-family:var(--font-sans);flex-shrink:0}
+.header-brand{font-size:17px;font-weight:700;letter-spacing:-0.01em;font-family:var(--font-sans)}
+.header-title{margin-left:auto;font-size:14px;color:var(--muted-fg);font-weight:500}
+
+/* Content */
+.content{
+  flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  padding:16px 16px calc(16px + var(--tab-h));
+}
+
+/* Bottom Tab Bar */
+.tab-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:40;
+  background:rgba(14,16,22,0.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+  display:flex;align-items:flex-start;justify-content:space-around;
+  padding:6px 0 calc(6px + var(--safe-b));
+  height:var(--tab-h);
+}
+.tab-btn{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:4px 0;min-width:64px;min-height:44px;
+  color:var(--muted-fg);transition:color .15s;
+}
+.tab-btn.active{color:var(--primary)}
+.tab-btn svg{width:22px;height:22px}
+.tab-btn-label{font-size:10px;font-weight:600;letter-spacing:0.02em}
+
+/* ===== Cards ===== */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.card-pad{padding:14px}
+.card-title{font-size:16px;font-weight:700;font-family:var(--font-sans)}
+.card-desc{font-size:13px;color:var(--muted-fg);line-height:1.4;margin-top:4px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ===== Badges ===== */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;
+  font-size:11px;font-weight:600;white-space:nowrap;line-height:1.5}
+.badge-primary{background:var(--primary);color:var(--primary-fg)}
+.badge-secondary{background:var(--secondary);color:var(--secondary-fg)}
+.badge-destructive{background:var(--destructive);color:var(--destructive-fg)}
+.badge-outline{background:transparent;border:1px solid var(--border);color:var(--muted-fg)}
+
+/* ===== Buttons ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px 16px;border-radius:var(--radius);font-size:14px;font-weight:600;
+  transition:all .15s;white-space:nowrap;min-height:44px}
+.btn-primary{background:var(--primary);color:var(--primary-fg)}
+.btn-primary:active{opacity:.85}
+.btn-secondary{background:var(--secondary);color:var(--secondary-fg)}
+.btn-secondary:active{background:var(--muted)}
+.btn-ghost{background:transparent;color:var(--muted-fg)}
+.btn-ghost:active{background:var(--muted);color:var(--fg)}
+.btn-icon{width:44px;height:44px;padding:0}
+.btn svg{width:18px;height:18px}
+
+/* FAB */
+.fab{
+  position:fixed;right:16px;bottom:calc(var(--tab-h) + 16px);z-index:35;
+  width:56px;height:56px;border-radius:28px;
+  background:var(--primary);color:var(--primary-fg);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 20px rgba(191,255,0,0.3);
+  transition:transform .15s,box-shadow .15s;
+}
+.fab:active{transform:scale(0.92)}
+.fab svg{width:24px;height:24px}
+
+/* ===== Forms ===== */
+.input{
+  width:100%;height:44px;padding:0 14px;border-radius:var(--radius);
+  border:1px solid var(--border);background:var(--bg);font-size:15px;
+  outline:none;transition:border-color .15s;
+}
+.input:focus{border-color:var(--ring)}
+textarea.input{height:auto;padding:10px 14px;resize:vertical}
+select.input{appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a7d85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;
+}
+.label{font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px;display:block}
+.form-group{margin-bottom:14px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* ===== Bottom Sheet Modal ===== */
+.sheet-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;
+  opacity:0;transition:opacity .25s ease;
+}
+.sheet-overlay.visible{opacity:1}
+.sheet{
+  position:fixed;bottom:0;left:0;right:0;z-index:101;
+  background:var(--card);border-top-left-radius:20px;border-top-right-radius:20px;
+  max-height:92vh;max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:0 20px calc(20px + var(--safe-b));
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);
+}
+.sheet.visible{transform:translateY(0)}
+.sheet-handle{width:36px;height:4px;border-radius:2px;background:var(--muted-fg);
+  margin:10px auto 16px;opacity:.4}
+.sheet-title{font-size:18px;font-weight:700;font-family:var(--font-sans);margin-bottom:18px}
+
+/* ===== Spacing ===== */
+.space-y>*+*{margin-top:12px}
+.space-y-sm>*+*{margin-top:8px}
+
+/* ===== Page Title ===== */
+.page-title{font-size:20px;font-weight:700;font-family:var(--font-sans);margin-bottom:16px}
+
+/* ===== Today ===== */
+.today-date{font-size:20px;font-weight:700;font-family:var(--font-sans);margin-bottom:4px}
+.today-sub{font-size:13px;color:var(--muted-fg);margin-bottom:16px}
+
+.checklist-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;
+  border-radius:var(--radius);background:rgba(255,255,255,.03);transition:opacity .15s}
+.checklist-item.checked{opacity:.5}
+.checklist-item.checked .cl-title{text-decoration:line-through;color:var(--muted-fg)}
+.cl-check{width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  border-radius:var(--radius);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cl-box{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cl-box.done{background:var(--primary);border-color:var(--primary)}
+.cl-box.done svg{color:var(--primary-fg)}
+.cl-box svg{width:14px;height:14px;color:transparent}
+.cl-info{flex:1;min-width:0;padding-top:4px}
+.cl-title{font-size:14px;font-weight:600;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.cl-desc{font-size:12px;color:var(--muted-fg);margin-top:3px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cl-meta{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:var(--muted-fg)}
+.cl-meta svg{width:11px;height:11px}
+
+/* Quick Stats */
+.qs-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.qs-card .card-pad{padding:12px 10px;text-align:center}
+.qs-value{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums lining-nums;line-height:1.1}
+.qs-label{font-size:10px;color:var(--muted-fg);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.qs-unit{font-size:10px;font-weight:400;color:var(--muted-fg)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted-fg)}
+.empty-state-icon{margin:0 auto 12px;width:48px;height:48px;color:var(--muted-fg);opacity:.5}
+.empty-state-title{font-size:15px;font-weight:600;color:var(--fg);margin-bottom:6px}
+.empty-state-desc{font-size:13px;line-height:1.4}
+
+/* ===== Dashboard KPIs ===== */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi-card .card-pad{padding:12px 14px}
+.kpi-label{font-size:11px;color:var(--muted-fg);margin-bottom:2px;text-transform:uppercase;letter-spacing:.04em}
+.kpi-value{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums lining-nums;line-height:1.1}
+.kpi-unit{font-size:11px;font-weight:400;color:var(--muted-fg);margin-left:2px}
+.kpi-row{display:flex;align-items:center;justify-content:space-between}
+.kpi-icon{width:28px;height:28px;color:var(--primary);flex-shrink:0}
+.kpi-icon-orange{color:#FF8C33}
+.kpi-icon-red{color:#DC2626}
+
+/* ===== Workouts ===== */
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.filter-bar svg{width:16px;height:16px;color:var(--muted-fg);flex-shrink:0}
+.filter-count{font-size:12px;color:var(--muted-fg);font-variant-numeric:tabular-nums;margin-left:auto}
+
+.wo-card .card-pad{padding:12px 14px}
+.wo-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.wo-left{flex:1;min-width:0}
+.wo-title-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:4px}
+.wo-name{font-weight:600;font-size:14px}
+.wo-stats{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--muted-fg)}
+.wo-stats .tabular-nums{font-variant-numeric:tabular-nums lining-nums}
+.wo-notes{font-size:12px;color:var(--muted-fg);margin-top:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ===== Plans ===== */
+.pill-tabs{display:flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.pill-tab{flex:1;padding:10px 4px;border-radius:8px;text-align:center;
+  font-size:12px;font-weight:600;color:var(--muted-fg);transition:all .15s;min-height:44px;
+  display:flex;align-items:center;justify-content:center;gap:4px}
+.pill-tab.active{background:hsla(75,100%,50%,0.1);color:var(--primary)}
+.pill-tab svg{width:16px;height:16px}
+
+/* old year-pill & safety-banner styles removed — see new ones at end of file */
+
+.plan-card.active-plan{border-color:hsla(75,100%,50%,0.3);box-shadow:0 0 12px -3px hsla(75,100%,50%,0.15)}
+.plan-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px}
+.plan-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.plan-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.plan-chevron{width:20px;height:20px;color:var(--muted-fg);transition:transform .2s}
+.plan-schedule{border-top:1px solid var(--border);padding:14px}
+.week-title{font-size:12px;font-weight:600;color:var(--muted-fg);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
+.pw-row{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;
+  border-radius:8px;background:rgba(255,255,255,.03);margin-bottom:6px}
+.pw-day{width:32px;font-size:11px;font-weight:600;color:var(--muted-fg);text-align:center;padding-top:2px;flex-shrink:0}
+.pw-info{flex:1;min-width:0}
+.pw-name{font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px}
+.pw-desc{font-size:11px;color:var(--muted-fg);margin-top:2px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pw-meta{display:flex;align-items:center;gap:6px;margin-top:4px}
+.pw-dur{font-size:11px;color:var(--muted-fg);font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:3px}
+.pw-dur svg{width:11px;height:11px}
+
+.intensity-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.intensity-easy{background:var(--muted-fg)}
+.intensity-moderate{background:var(--primary)}
+.intensity-hard{background:#FF8C33}
+.intensity-max{background:var(--destructive)}
+
+/* ===== Races ===== */
+.race-card .card-pad{padding:14px}
+.race-name{font-size:15px;font-weight:700;font-family:var(--font-sans);display:flex;align-items:center;gap:6px}
+.race-name svg{width:18px;height:18px;color:var(--primary);flex-shrink:0}
+.race-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--muted-fg);margin-top:6px}
+.race-meta-item{display:flex;align-items:center;gap:3px}
+.race-meta svg{width:13px;height:13px}
+.countdown-grid{display:flex;gap:6px;justify-content:center;align-items:flex-start;margin-top:14px}
+.countdown-sep{font-size:22px;font-weight:700;color:var(--muted-fg);margin-top:6px}
+.time-unit{display:flex;flex-direction:column;align-items:center}
+.time-unit-box{background:var(--muted);border-radius:8px;padding:6px 10px;min-width:50px;text-align:center;
+  font-size:22px;font-weight:700;font-family:var(--font-mono);font-variant-numeric:tabular-nums lining-nums}
+.time-unit-label{font-size:9px;color:var(--muted-fg);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+.race-notes{font-size:12px;color:var(--muted-fg);margin-top:12px;line-height:1.4}
+.race-day-badge{text-align:center;margin-top:14px}
+.race-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+
+/* Footer */
+.footer{text-align:center;padding:24px 0 8px;font-size:11px;color:var(--muted-fg)}
+.footer a{color:var(--muted-fg);text-decoration:underline;text-decoration-color:var(--border)}
+.footer a:active{color:var(--fg)}
+
+/* Section titles */
+.section-title{font-size:14px;font-weight:600;color:var(--muted-fg);margin:16px 0 8px;font-family:var(--font-sans)}
+
+/* Transitions */
+.page-enter{animation:pageIn .2s ease}
+@keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* Year-level sub-tabs */
+.year-tabs{display:flex;gap:6px;padding:0 4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.year-tabs::-webkit-scrollbar{display:none}
+.year-pill{font-family:'Cabinet Grotesk',sans-serif;font-size:13px;font-weight:600;padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;color:var(--muted-fg);cursor:pointer;transition:all .2s ease;white-space:nowrap;min-height:34px}
+.year-pill.active{background:#BFFF00;color:#0a0b0f;border-color:#BFFF00}
+.year-pill:not(.active):active{background:rgba(191,255,0,.1)}
+
+/* Safety banner */
+.safety-banner{background:rgba(191,255,0,.06);border:1px solid rgba(191,255,0,.15);border-radius:12px;padding:12px 14px;margin:0 0 4px}
+.safety-header{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--fg);margin-bottom:6px}
+.safety-header svg{width:16px;height:16px;color:#BFFF00;flex-shrink:0}
+.safety-ages{color:var(--muted-fg);font-weight:400}
+.safety-details{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--muted-fg);margin-bottom:6px}
+.safety-details svg{width:12px;height:12px;vertical-align:-1px}
+.safety-guideline{font-size:12px;color:var(--muted-fg);line-height:1.5}
+</style>
 </head>
 <body>
-<div class="toast-container" id="toast-container"></div>
+
 <div id="app">
-
-<!-- LOGIN -->
-<div id="auth-login" class="auth-screen">
-  <div class="auth-identity">
-    <div class="auth-logo-mark">T</div>
-    <div class="auth-wordmark"><span>TURBO</span><span class="auth-wordmark-2">PREP</span></div>
-    <div class="auth-tagline">HPV Race Training</div>
-  </div>
-  <div class="auth-card">
-    <div id="login-error" class="auth-error hidden"></div>
-    <div class="form-group">
-      <label class="label" for="login-club">Club</label>
-      <select class="input" id="login-club"><option value="">Select your club...</option></select>
-    </div>
-    <div class="form-group">
-      <label class="label" for="login-email">Email</label>
-      <input class="input" type="email" id="login-email" placeholder="you@email.com" autocomplete="email">
-    </div>
-    <div class="form-group">
-      <label class="label" for="login-password">Password</label>
-      <input class="input" type="password" id="login-password" placeholder="Your password" autocomplete="current-password">
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="login-btn">Log In</button>
-    <div class="auth-switch">No account? <a id="show-signup">Create one</a></div>
-  </div>
-</div>
-
-<!-- SIGNUP -->
-<div id="auth-signup" class="auth-screen hidden">
-  <div class="auth-identity">
-    <div class="auth-logo-mark">T</div>
-    <div class="auth-wordmark"><span>TURBO</span><span class="auth-wordmark-2">PREP</span></div>
-    <div class="auth-tagline">Create your account</div>
-  </div>
-  <div class="auth-card">
-    <div id="signup-error" class="auth-error hidden"></div>
-    <div class="form-group">
-      <label class="label">I am a...</label>
-      <div class="role-selector" id="role-selector">
-        <button class="role-btn active" data-role="student" type="button">🎓 Student</button>
-        <button class="role-btn" data-role="coach" type="button">🏫 Coach</button>
-        <button class="role-btn" data-role="parent" type="button">👪 Parent</button>
-      </div>
-      <input type="hidden" id="signup-role" value="student">
-    </div>
-    <div class="form-group">
-      <label class="label" for="signup-name">Display Name</label>
-      <input class="input" type="text" id="signup-name" placeholder="Your name" autocomplete="name">
-    </div>
-    <div class="form-group" id="signup-child-group" style="display:none">
-      <label class="label" for="signup-child-email">Child's Account Email</label>
-      <input class="input" type="email" id="signup-child-email" placeholder="child@email.com">
-    </div>
-    <div class="form-group">
-      <label class="label" for="signup-email">Email</label>
-      <input class="input" type="email" id="signup-email" placeholder="you@email.com" autocomplete="email">
-    </div>
-    <div class="form-group">
-      <label class="label" for="signup-password">Password</label>
-      <input class="input" type="password" id="signup-password" placeholder="Min 6 characters" autocomplete="new-password">
-    </div>
-    <div id="signup-student-fields">
-      <div class="form-group">
-        <label class="label" for="signup-year">Year Level</label>
-        <select class="input" id="signup-year">
-          <option value="Y7">Year 7</option><option value="Y8">Year 8</option>
-          <option value="Y9">Year 9</option><option value="Y10">Year 10</option>
-          <option value="Y11">Year 11</option><option value="Y12">Year 12</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="label">Fitness Level</label>
-        <div class="radio-group">
-          <div class="radio-option"><input type="radio" name="signup-tier" id="tier-basic" value="basic" checked><label for="tier-basic">Basic</label></div>
-          <div class="radio-option"><input type="radio" name="signup-tier" id="tier-average" value="average"><label for="tier-average">Average</label></div>
-          <div class="radio-option"><input type="radio" name="signup-tier" id="tier-intense" value="intense"><label for="tier-intense">Intense</label></div>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="label" for="signup-team">Team</label>
-        <select class="input" id="signup-team"><option value="">Select your team...</option></select>
-      </div>
-    </div>
-    <div id="signup-coach-fields" style="display:none">
-      <div class="form-group">
-        <label class="label" for="signup-club-name">Club / School Name</label>
-        <input class="input" type="text" id="signup-club-name" placeholder="e.g. Caulfield Grammar HPV" maxlength="60">
-      </div>
-      <div class="form-group">
-        <label class="label" for="signup-club-desc">Short Description</label>
-        <input class="input" type="text" id="signup-club-desc" placeholder="e.g. Year 8–12 HPV racing team" maxlength="120">
-        <div class="field-hint">A request will be sent to TurboPrep to approve your team.</div>
-      </div>
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="signup-btn">Create Account</button>
-    <div class="auth-switch">Have an account? <a id="show-login">Log in</a></div>
-  </div>
-</div>
-
-<!-- MAIN APP -->
-<div id="main-app" class="hidden" style="display:none;flex-direction:column;height:100vh;height:100dvh;width:100%;overflow:hidden">
   <header class="header">
-    <div class="header-logo">T</div>
-    <div class="header-brand">TURBOPREP</div>
-    <button class="user-avatar" id="user-avatar-btn" aria-label="Profile"></button>
+    <div class="header-logo" onclick="navigate('/')">V</div>
+    <span class="header-brand" onclick="navigate('/')">VELO FORGE</span>
+    <span class="header-title" id="header-title"></span>
   </header>
-
-  <div id="user-menu-overlay" class="user-menu-overlay hidden" style="display:none"></div>
-  <div id="user-menu" class="user-menu hidden" style="display:none">
-    <div class="user-menu-name" id="menu-name"></div>
-    <div class="user-menu-info" id="menu-info"></div>
-    <div class="user-menu-divider"></div>
-    <button class="user-menu-btn" id="profile-menu-btn" style="color:var(--fg)">Profile & Settings</button>
-    <div class="user-menu-divider"></div>
-    <button class="user-menu-btn" id="logout-btn">Log Out</button>
-  </div>
-
-  <div id="profile-overlay" class="profile-overlay" style="display:none">
-    <div class="profile-header">
-      <button class="profile-back" id="profile-close-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div style="font-size:16px;font-weight:600">Profile & Settings</div>
-    </div>
-    <div class="profile-body" id="profile-body"></div>
-  </div>
-
-  <div class="content" id="content">
-    <div id="page-today" class="page active"><div id="today-content"></div></div>
-    <div id="page-fitness" class="page">
-      <div class="fitness-sub-bar-sticky">
-        <div id="fitness-tabs" class="fitness-sub-bar" style="display:flex;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)">
-          <button class="fitness-sub-tab active" data-fitness-sub="workouts" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;transition:all .15s">Activities</button>
-          <button class="fitness-sub-tab" data-fitness-sub="plans" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Plans</button>
-          <button class="fitness-sub-tab" data-fitness-sub="health" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Health</button>
-          <button class="fitness-sub-tab" data-fitness-sub="demos" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Demos</button>
-        </div>
-      </div>
-      <div id="workouts-content"></div>
-      <div id="plans-content" style="display:none"></div>
-      <div id="health-content" style="display:none"></div>
-      <div id="demos-content" style="display:none"></div>
-      <div id="myplans-content" style="display:none"></div>
-    </div>
-    <div id="page-races" class="page">
-      <div id="races-content"></div>
-      <div id="racelog-content" style="margin-top:24px"></div>
-    </div>
-    <div id="page-admin" class="page"><div id="admin-content"></div></div>
-    <div id="page-team" class="page">
-      <div class="fitness-sub-bar-sticky">
-        <div class="fitness-sub-bar" style="display:flex;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)">
-          <button class="lb-sub-tab active" data-lb-sub="global" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;transition:all .15s">Global</button>
-          <button class="lb-sub-tab" data-lb-sub="team" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Your Team</button>
-        </div>
-      </div>
-      <div id="lb-global-content"></div>
-      <div id="lb-team-content" style="display:none"></div>
-    </div>
-  </div>
-
-  <nav class="tab-bar">
-    <button class="tab-btn active" data-page="today">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <span class="tab-btn-label">Today</span>
-    </button>
-    <button class="tab-btn" data-page="fitness">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg>
-      <span class="tab-btn-label">Fitness</span>
-    </button>
-    <button class="tab-btn record-tab" id="record-tab-btn">
-      <div class="record-tab-circle">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>
-      </div>
-      <span class="tab-btn-label">Record</span>
-    </button>
-    <button class="tab-btn" data-page="races">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-      <span class="tab-btn-label">Races</span>
-    </button>
-    <button class="tab-btn" data-page="team">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M6 13l-2 4h16l-2-4"/><path d="M7 13V8a5 5 0 0 1 10 0v5"/><circle cx="12" cy="3" r="1"/></svg>
-      <span class="tab-btn-label">Leaderboard</span>
-    </button>
-    <button class="tab-btn" data-page="admin" id="admin-tab" style="display:none">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      <span class="tab-btn-label">Admin</span>
-    </button>
-  </nav>
+  <div class="content" id="content"></div>
 </div>
 
-<!-- Global elements -->
-<button id="scroll-top-btn" class="scroll-top-btn" aria-label="Scroll to top">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
-</button>
-
-<button id="ai-fab" class="ai-fab" aria-label="AI Coach" style="display:none">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
-</button>
-
-<div id="ai-overlay" class="ai-overlay" style="display:none">
-  <div class="ai-header">
-    <button class="ai-header-back" id="ai-close-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
-    <div class="ai-header-title">AI Coach</div>
-    <div class="ai-header-badge">Claude</div>
-  </div>
-  <div class="ai-messages" id="ai-messages">
-    <div class="ai-msg ai">Hey! I'm your AI Coach. Ask me anything about training, plans, or race prep.</div>
-    <div class="ai-quick-btns" id="ai-quick-btns">
-      <button class="ai-quick-btn ai-gen-trigger" style="background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.3);color:#a855f7">✨ Generate Plan</button>
-      <button class="ai-quick-btn ai-action-trigger" data-action="weekly-review" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#22c55e">📊 Review My Week</button>
-      <button class="ai-quick-btn ai-action-trigger" data-action="help-menu" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.25);color:#3b82f6">💬 Help Me With...</button>
-      <button class="ai-quick-btn" data-q="Show me how to use all the features.">📱 App Guide</button>
-    </div>
-  </div>
-  <div class="ai-input-bar">
-    <input class="ai-input" type="text" id="ai-input" placeholder="Ask your coach..." autocomplete="off">
-    <button class="ai-send" id="ai-send-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </button>
-  </div>
-</div>
-
-<div id="sheet-overlay" class="sheet-overlay" style="display:none"></div>
-<div id="sheet" class="sheet"><div class="sheet-handle"></div><div id="sheet-content"></div></div>
-
-<div id="timer-overlay" class="timer-overlay" style="display:none">
-  <div class="timer-header">
-    <button id="timer-close" class="timer-close" aria-label="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-    <div id="timer-workout-name" class="timer-workout-name"></div>
-  </div>
-  <div class="timer-body">
-    <div id="timer-display" class="timer-display">
-      <div id="timer-minutes" class="timer-digits">00</div>
-      <div class="timer-sep">:</div>
-      <div id="timer-seconds" class="timer-digits">00</div>
-    </div>
-    <div id="timer-label" class="timer-label"></div>
-    <div id="timer-progress-wrap" class="timer-progress-wrap"><div id="timer-progress" class="timer-progress"></div></div>
-    <div class="timer-controls">
-      <button id="timer-reset" class="timer-ctrl-btn timer-ctrl-secondary" aria-label="Reset">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-      </button>
-      <button id="timer-play" class="timer-ctrl-btn timer-ctrl-primary" aria-label="Play">
-        <svg id="timer-play-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <svg id="timer-pause-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-      </button>
-      <button id="timer-skip" class="timer-ctrl-btn timer-ctrl-secondary" aria-label="Skip">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
-      </button>
-    </div>
-    <div id="timer-rest-presets" class="timer-rest-presets">
-      <div class="timer-rest-label">Quick Rest</div>
-      <div class="timer-rest-btns">
-        <button class="timer-rest-btn" data-rest="30">0:30</button>
-        <button class="timer-rest-btn" data-rest="60">1:00</button>
-        <button class="timer-rest-btn" data-rest="90">1:30</button>
-        <button class="timer-rest-btn" data-rest="120">2:00</button>
-      </div>
-    </div>
-    <div id="timer-steps" class="timer-steps"></div>
-  </div>
-</div>
-
-<!-- Maintenance (god admin controlled) -->
-<div id="maintenance-overlay" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);align-items:center;justify-content:center;padding:24px;flex-direction:column">
-  <div style="max-width:320px;text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">🔧</div>
-    <div style="font-size:20px;font-weight:700;font-family:var(--font-sans);margin-bottom:10px">Under Maintenance</div>
-    <div id="maintenance-msg" style="font-size:14px;color:var(--muted-fg);line-height:1.6">TurboPrep is temporarily unavailable. Check back shortly.</div>
-  </div>
-</div>
-
-<div id="setup-overlay" class="setup-overlay hidden" style="display:none">
-  <div class="setup-box">
-    <div class="auth-logo-mark" style="margin:0 auto 16px;width:56px;height:56px;font-size:22px">T</div>
-    <h2>Firebase Setup Required</h2>
-    <p>Replace the placeholder config in index.html with your Firebase project credentials.</p>
-    <code>const firebaseConfig = {&#10;  apiKey: "YOUR_API_KEY",&#10;  ...&#10;}</code>
-    <p>Visit <a href="https://console.firebase.google.com" target="_blank" style="color:var(--primary)">Firebase Console</a> to get your config.</p>
-    <button id="demo-mode-btn" class="btn btn-primary" style="margin-top:20px;width:100%">Try Demo Mode</button>
-    <p style="font-size:12px;color:var(--muted-fg);margin-top:8px;text-align:center">Data won't be saved in demo mode.</p>
-  </div>
-</div>
-
-<div id="loading-overlay" class="loading-overlay hidden" style="display:none">
-  <div class="spinner"></div>
-  <div id="loading-text">Loading...</div>
-</div>
-</div>
+<nav class="tab-bar" id="tab-bar"></nav>
+<div id="sheet-root"></div>
 
 <script>
-window.addEventListener('error',function(e){var d=document.getElementById('boot-error');if(!d){d=document.createElement('div');d.id='boot-error';d.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a0000;border-top:2px solid #ef4444;color:#fca5a5;font-family:monospace;font-size:12px;padding:12px;max-height:40vh;overflow:auto';document.body.appendChild(d);}d.innerHTML+='<div style="margin-bottom:4px"><b style="color:#ef4444">Error:</b> '+(e.message||'Unknown')+'</div><div style="opacity:.6;font-size:10px">'+(e.filename||'').split('/').pop()+':'+(e.lineno||'?')+'</div><hr style="border-color:#333;margin:4px 0">';});
-window.addEventListener('unhandledrejection',function(e){var d=document.getElementById('boot-error');if(!d){d=document.createElement('div');d.id='boot-error';d.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a0000;border-top:2px solid #ef4444;color:#fca5a5;font-family:monospace;font-size:12px;padding:12px;max-height:40vh;overflow:auto';document.body.appendChild(d);}d.innerHTML+='<div style="margin-bottom:4px"><b style="color:#ef4444">Promise:</b> '+(e.reason?.message||e.reason||'Unknown')+'</div><hr style="border-color:#333;margin:4px 0">';});
-if(window.location.search.includes('nuke=true')){window.history.replaceState({},'',window.location.pathname);localStorage.clear();if('caches' in window)caches.keys().then(function(k){k.forEach(function(c){caches.delete(c)})});if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});document.body.innerHTML='<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0b0f;color:#f97316;font-family:system-ui;font-size:18px;text-align:center;padding:20px">Cache cleared.<br>Reloading...</div>';setTimeout(function(){window.location.href=window.location.pathname;},2000);}
+// ===== ICONS =====
+const I={
+  calendarCheck:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg>',
+  dumbbell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>',
+  calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  flag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+  activity:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  route:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>',
+  zap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+  heart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  flame:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
+  trendingUp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+  filter:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>',
+  checkSmall:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  chevDown:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  chevUp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>',
+  mapPin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  bike:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>',
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
+info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+
+  moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+  shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>',
+};
+
+// ===== DATA =====
+let nextId=1;
+function gid(){return 'id_'+(nextId++)}
+
+// Workouts start EMPTY — user enters all their own data
+const workouts=[];
+
+// Year-level guidelines
+const YEAR_LEVELS=[
+  {id:'y7',label:'Y7',ages:'12\u201313',maxSession:45,sessionsPerWeek:'2\u20133',maxIntensity:'Moderate',focus:'Fun, technique, position comfort',guideline:'Keep sessions fun and short. Focus on learning the recumbent position, smooth pedalling, and basic fitness. No hard or max efforts \u2014 everything should feel enjoyable.'},
+  {id:'y8',label:'Y8',ages:'13\u201314',maxSession:50,sessionsPerWeek:'2\u20133',maxIntensity:'Moderate',focus:'Fundamentals, basic fitness',guideline:'Build on technique with slightly longer sessions. Develop basic fitness and HPV-specific skills like relay changeovers. Keep intensity moderate \u2014 no hard intervals yet.'},
+  {id:'y9',label:'Y9',ages:'14\u201315',maxSession:60,sessionsPerWeek:'3\u20134',maxIntensity:'Hard (1x/wk)',focus:'Aerobic base, coordination',guideline:'Introduce aerobic base building and light structure. One harder effort per week is OK. Focus on coordination, teamwork, and building a love for training.'},
+  {id:'y10',label:'Y10',ages:'15\u201316',maxSession:70,sessionsPerWeek:'3\u20134',maxIntensity:'Hard (1\u20132x/wk)',focus:'Sport-specific, intervals intro',guideline:'More sport-specific training with structured intervals introduced. Recovery between hard sessions is essential. Build towards race readiness.'},
+  {id:'y11',label:'Y11',ages:'16\u201317',maxSession:80,sessionsPerWeek:'4\u20135',maxIntensity:'Max (1x/wk)',focus:'Near-adult, periodisation',guideline:'Near-adult training loads with periodised programming. One max-effort session per week is appropriate. Include proper warm-ups, cool-downs, and recovery days.'},
+  {id:'y12',label:'Y12',ages:'17\u201318',maxSession:90,sessionsPerWeek:'4\u20136',maxIntensity:'Max (1\u20132x/wk)',focus:'Full adult-style training',guideline:'Full adult-style training programmes. Multiple high-intensity sessions per week with proper periodisation. Race simulation and 24hr event preparation.'},
+];
+
+let selectedYear='y7';
+
+// Plan IDs
+var _pid=0;function pid(){return 'p'+(++_pid)}
+// === IN VEHICLE plans ===
+var iv7a=pid(),iv7b=pid(),iv7c=pid(),iv8a=pid(),iv8b=pid(),iv8c=pid(),iv9a=pid(),iv9b=pid(),iv9c=pid();
+var iv10a=pid(),iv10b=pid(),iv10c=pid(),iv11a=pid(),iv11b=pid(),iv11c=pid(),iv12a=pid(),iv12b=pid(),iv12c=pid();
+// === FLOOR & HOME plans ===
+var fh7a=pid(),fh7b=pid(),fh7c=pid(),fh8a=pid(),fh8b=pid(),fh8c=pid(),fh9a=pid(),fh9b=pid(),fh9c=pid();
+var fh10a=pid(),fh10b=pid(),fh10c=pid(),fh11a=pid(),fh11b=pid(),fh11c=pid(),fh12a=pid(),fh12b=pid(),fh12c=pid();
+// === MACHINE plans ===
+var fm7a=pid(),fm7b=pid(),fm7c=pid(),fm8a=pid(),fm8b=pid(),fm8c=pid(),fm9a=pid(),fm9b=pid(),fm9c=pid();
+var fm10a=pid(),fm10b=pid(),fm10c=pid(),fm11a=pid(),fm11b=pid(),fm11c=pid(),fm12a=pid(),fm12b=pid(),fm12c=pid();
+
+const trainingPlans=[
+  // ===== IN VEHICLE — Y7 =====
+  {id:iv7a,name:"HPV Discovery Rides",description:"Learn the recumbent riding position with short, fun rides. Get comfortable in the fairing, practice smooth pedalling, and build confidence on the track.",durationWeeks:4,difficulty:"beginner",type:"endurance",category:"in_vehicle",yearLevel:"y7",active:false},
+  {id:iv7b,name:"Fun Pedalling Games",description:"Cadence games, relay practice, and fun challenges in the HPV. Build pedalling skill through play \u2014 sprint to the cone, slow-race balance, and team relay changeovers.",durationWeeks:4,difficulty:"beginner",type:"cycling",category:"in_vehicle",yearLevel:"y7",active:false},
+  {id:iv7c,name:"Team Ride Skills",description:"Group riding basics for Year 7. Learn to ride in a team, practice safe changeovers, communicate on track, and build trust with your HPV teammates.",durationWeeks:4,difficulty:"beginner",type:"cycling",category:"in_vehicle",yearLevel:"y7",active:false},
+  // ===== IN VEHICLE — Y8 =====
+  {id:iv8a,name:"Position & Pedalling",description:"Refine your recumbent riding technique with focused sessions on body position, pedal stroke efficiency, and smooth cornering in the fairing.",durationWeeks:4,difficulty:"beginner",type:"cycling",category:"in_vehicle",yearLevel:"y8",active:false},
+  {id:iv8b,name:"Endurance Builder Basics",description:"Build basic endurance with steady rides of 35\u201345 minutes. Learn to hold a consistent pace and develop the aerobic base needed for HPV racing.",durationWeeks:5,difficulty:"beginner",type:"endurance",category:"in_vehicle",yearLevel:"y8",active:false},
+  {id:iv8c,name:"Relay Practice",description:"Focus on team relay skills \u2014 fast changeovers, pacing your stint, and communicating with your team. Essential skills for race day.",durationWeeks:4,difficulty:"beginner",type:"cycling",category:"in_vehicle",yearLevel:"y8",active:false},
+  // ===== IN VEHICLE — Y9 =====
+  {id:iv9a,name:"Aerobic Base Camp",description:"Build a strong aerobic base with Zone 2 focused rides of 45\u201360 minutes. The foundation for all future HPV race performance.",durationWeeks:6,difficulty:"intermediate",type:"endurance",category:"in_vehicle",yearLevel:"y9",active:false},
+  {id:iv9b,name:"Race Simulation Intro",description:"Practice race-day scenarios: starts, pace changes, rider changeovers under time pressure, and sustained efforts at race pace.",durationWeeks:5,difficulty:"intermediate",type:"race_prep",category:"in_vehicle",yearLevel:"y9",active:false},
+  {id:iv9c,name:"Team Tactics",description:"Advanced team riding: drafting concepts, strategic changeovers, pacing for different race distances, and communication systems.",durationWeeks:5,difficulty:"intermediate",type:"cycling",category:"in_vehicle",yearLevel:"y9",active:false},
+  // ===== IN VEHICLE — Y10 =====
+  {id:iv10a,name:"Threshold Development",description:"Sweetspot and threshold work in the HPV. Build the ability to sustain higher power outputs for race-length efforts at Casey Fields and Sandown.",durationWeeks:6,difficulty:"intermediate",type:"intervals",category:"in_vehicle",yearLevel:"y10",active:false},
+  {id:iv10b,name:"Race Prep Block",description:"Race-specific preparation for the Victorian HPV Grand Prix Series. Includes race-pace intervals, start drills, and tactical scenarios.",durationWeeks:6,difficulty:"intermediate",type:"race_prep",category:"in_vehicle",yearLevel:"y10",active:false},
+  {id:iv10c,name:"24hr Pacing Intro",description:"Introduction to 24-hour race pacing for Maryborough. Learn sustainable effort levels, rotation strategies, and nutrition timing for long events.",durationWeeks:6,difficulty:"intermediate",type:"endurance",category:"in_vehicle",yearLevel:"y10",active:false},
+  // ===== IN VEHICLE — Y11 =====
+  {id:iv11a,name:"Structured Endurance",description:"Periodised base endurance with progressive volume. Long rides building from 60 to 80 minutes with structured zones and cadence targets.",durationWeeks:8,difficulty:"intermediate",type:"endurance",category:"in_vehicle",yearLevel:"y11",active:false},
+  {id:iv11b,name:"Race Intensity Block",description:"High-intensity race preparation with structured intervals, race simulations, and threshold work. Targets peak fitness for Grand Prix rounds.",durationWeeks:6,difficulty:"advanced",type:"intervals",category:"in_vehicle",yearLevel:"y11",active:false},
+  {id:iv11c,name:"Maryborough Team Prep",description:"Comprehensive 24-hour race preparation. Rider rotation pacing, night riding practice, extended stints, and team logistics for Energy Breakthrough.",durationWeeks:8,difficulty:"advanced",type:"endurance",category:"in_vehicle",yearLevel:"y11",active:false},
+  // ===== IN VEHICLE — Y12 =====
+  {id:iv12a,name:"Base Endurance Builder",description:"Full 8-week periodised base programme. Progressive Zone 2 volume building to 90-minute rides with cadence and power targets. Ideal pre-season preparation.",durationWeeks:8,difficulty:"intermediate",type:"endurance",category:"in_vehicle",yearLevel:"y12",active:false},
+  {id:iv12b,name:"Race Simulation Block",description:"Advanced race simulation with VO2 max intervals, race starts, surge practice, and full race-pace rehearsals for Casey Fields and Sandown.",durationWeeks:6,difficulty:"advanced",type:"race_prep",category:"in_vehicle",yearLevel:"y12",active:false},
+  {id:iv12c,name:"24hr Maryborough Prep",description:"Comprehensive Maryborough preparation. Night riding, nutrition strategy, multi-hour stints, team rotation optimisation, and pacing for the 24-hour Energy Breakthrough.",durationWeeks:10,difficulty:"advanced",type:"endurance",category:"in_vehicle",yearLevel:"y12",active:false},
+  // ===== FLOOR & HOME — Y7 =====
+  {id:fh7a,name:"Core Fun Circuit",description:"Games-based bodyweight exercises that build core strength without feeling like hard work. Animal walks, balance challenges, and partner games.",durationWeeks:4,difficulty:"beginner",type:"strength",category:"floor_home",yearLevel:"y7",active:false},
+  {id:fh7b,name:"Stretchy Time",description:"Flexibility basics made fun. Learn the key stretches every HPV rider needs, with partner stretching and simple yoga-inspired moves.",durationWeeks:4,difficulty:"beginner",type:"general",category:"floor_home",yearLevel:"y7",active:false},
+  {id:fh7c,name:"Balance Challenge",description:"Proprioception and balance games that improve your stability in the HPV. Single-leg stands, balance beam walks, and wobble challenges.",durationWeeks:4,difficulty:"beginner",type:"general",category:"floor_home",yearLevel:"y7",active:false},
+  // ===== FLOOR & HOME — Y8 =====
+  {id:fh8a,name:"Core Foundations",description:"Structured bodyweight core training. Learn proper form for planks, bridges, and dead bugs \u2014 the foundation exercises for HPV riding stability.",durationWeeks:4,difficulty:"beginner",type:"strength",category:"floor_home",yearLevel:"y8",active:false},
+  {id:fh8b,name:"Flexibility Flow",description:"Yoga-based flexibility programme targeting the hips, back, and shoulders. Develops the range of motion needed for comfortable recumbent riding.",durationWeeks:4,difficulty:"beginner",type:"general",category:"floor_home",yearLevel:"y8",active:false},
+  {id:fh8c,name:"Leg Strength Basics",description:"Introduction to bodyweight leg strength: squats, lunges, wall sits, and calf raises. Build the leg power foundation for HPV pedalling.",durationWeeks:4,difficulty:"beginner",type:"strength",category:"floor_home",yearLevel:"y8",active:false},
+  // ===== FLOOR & HOME — Y9 =====
+  {id:fh9a,name:"Recumbent Core Builder",description:"HPV-specific core training targeting the muscles used in recumbent pedalling. Includes anti-rotation work and recumbent position holds.",durationWeeks:5,difficulty:"intermediate",type:"strength",category:"floor_home",yearLevel:"y9",active:false},
+  {id:fh9b,name:"Mobility for Riders",description:"Hip and back focused mobility work specifically designed for HPV riders. Opens up tight hip flexors and strengthens the lower back.",durationWeeks:5,difficulty:"beginner",type:"general",category:"floor_home",yearLevel:"y9",active:false},
+  {id:fh9c,name:"Bodyweight Power",description:"Introduction to plyometrics and explosive movements. Squat jumps, lunge jumps, and bounding to develop pedalling power without equipment.",durationWeeks:5,difficulty:"intermediate",type:"sprint",category:"floor_home",yearLevel:"y9",active:false},
+  // ===== FLOOR & HOME — Y10 =====
+  {id:fh10a,name:"Core Power Circuit",description:"Advanced core circuits with tempo control and isometric holds. Builds the deep stability needed for sustained power output in the fairing.",durationWeeks:6,difficulty:"intermediate",type:"strength",category:"floor_home",yearLevel:"y10",active:false},
+  {id:fh10b,name:"HPV Flexibility Program",description:"Comprehensive flexibility programme addressing all the areas that get tight from recumbent riding: hip flexors, hamstrings, lower back, neck, and shoulders.",durationWeeks:5,difficulty:"beginner",type:"general",category:"floor_home",yearLevel:"y10",active:false},
+  {id:fh10c,name:"Leg Power \u2014 No Equipment",description:"Explosive bodyweight leg training: pistol squat progressions, depth jumps, single-leg work. Builds race-day pedalling power without a gym.",durationWeeks:5,difficulty:"intermediate",type:"sprint",category:"floor_home",yearLevel:"y10",active:false},
+  // ===== FLOOR & HOME — Y11 =====
+  {id:fh11a,name:"Competition Core Training",description:"Race-focused core programme with high-rep circuits and time-under-tension work. Prepares your core for the demands of multi-hour race stints.",durationWeeks:6,difficulty:"advanced",type:"strength",category:"floor_home",yearLevel:"y11",active:false},
+  {id:fh11b,name:"Recovery & Mobility",description:"Advanced flexibility and recovery programme. Includes foam rolling techniques, PNF stretching, and yoga flows for serious HPV athletes.",durationWeeks:5,difficulty:"intermediate",type:"general",category:"floor_home",yearLevel:"y11",active:false},
+  {id:fh11c,name:"Plyometric Sprint Power",description:"Advanced explosive training: depth jumps, bounding, reactive plyometrics. Develops the fast-twitch power for race starts and sprint finishes.",durationWeeks:5,difficulty:"advanced",type:"sprint",category:"floor_home",yearLevel:"y11",active:false},
+  // ===== FLOOR & HOME — Y12 =====
+  {id:fh12a,name:"Recumbent Core Foundation",description:"Comprehensive core programme for the serious HPV racer. Full-body stability, anti-rotation, and hip strength for maximum power transfer in the recumbent position.",durationWeeks:6,difficulty:"intermediate",type:"strength",category:"floor_home",yearLevel:"y12",active:false},
+  {id:fh12b,name:"Flexibility & Recovery",description:"Advanced stretching, mobility, and recovery programme. Targets hip flexors, hamstrings, lower back, and shoulders \u2014 the areas that get tight from the recumbent position.",durationWeeks:4,difficulty:"beginner",type:"general",category:"floor_home",yearLevel:"y12",active:false},
+  {id:fh12c,name:"Leg Power \u2014 No Equipment",description:"Full bodyweight leg power programme: pistol squats, plyometric circuits, single-leg strength, and sprint-specific power development.",durationWeeks:5,difficulty:"advanced",type:"sprint",category:"floor_home",yearLevel:"y12",active:false},
+  // ===== MACHINE — Y7 =====
+  {id:fm7a,name:"Spin Bike Fun",description:"Easy, fun spinning sessions with games and challenges. Learn to use the spin bike properly while having a great time.",durationWeeks:4,difficulty:"beginner",type:"cycling",category:"fitness_machine",yearLevel:"y7",active:false},
+  {id:fm7b,name:"Rowing Discovery",description:"Learn proper rowing technique on the rowing machine. Short, fun sessions focusing on good form and smooth strokes.",durationWeeks:4,difficulty:"beginner",type:"endurance",category:"fitness_machine",yearLevel:"y7",active:false},
+  {id:fm7c,name:"Cross-Training Mix",description:"A variety of machine exercises to build all-round fitness. Try the bike, rower, and elliptical in fun, short sessions.",durationWeeks:4,difficulty:"beginner",type:"endurance",category:"fitness_machine",yearLevel:"y7",active:false},
+  // ===== MACHINE — Y8 =====
+  {id:fm8a,name:"Spin Bike Basics",description:"Steady spin bike efforts building endurance and proper cycling form. Learn about cadence, resistance, and pacing on the bike.",durationWeeks:4,difficulty:"beginner",type:"cycling",category:"fitness_machine",yearLevel:"y8",active:false},
+  {id:fm8b,name:"Rowing Foundations",description:"Build rowing fitness with consistent technique-focused sessions. Develops the upper body and cardiovascular base useful for HPV racing.",durationWeeks:4,difficulty:"beginner",type:"endurance",category:"fitness_machine",yearLevel:"y8",active:false},
+  {id:fm8c,name:"Circuit Introduction",description:"Multi-machine circuit training: rotate between bike, rower, and elliptical. Builds general fitness and keeps training varied.",durationWeeks:4,difficulty:"beginner",type:"endurance",category:"fitness_machine",yearLevel:"y8",active:false},
+  // ===== MACHINE — Y9 =====
+  {id:fm9a,name:"Interval Introduction",description:"First structured interval sessions on the spin bike. Learn the basics of hard/easy efforts and how intervals build race fitness.",durationWeeks:5,difficulty:"intermediate",type:"intervals",category:"fitness_machine",yearLevel:"y9",active:false},
+  {id:fm9b,name:"Rowing Fitness",description:"Moderate rowing intervals and steady-state sessions. Builds cardiovascular capacity and upper body endurance for HPV fairing entry/exit.",durationWeeks:5,difficulty:"intermediate",type:"endurance",category:"fitness_machine",yearLevel:"y9",active:false},
+  {id:fm9c,name:"Gym Circuit Basics",description:"Introduction to light gym machine work: leg press, leg extension, and cable exercises with proper form focus and moderate loads.",durationWeeks:5,difficulty:"intermediate",type:"strength",category:"fitness_machine",yearLevel:"y9",active:false},
+  // ===== MACHINE — Y10 =====
+  {id:fm10a,name:"Spin Bike Intervals",description:"Structured HIIT on the spin bike: threshold intervals, over-unders, and sweetspot work. Directly builds HPV race fitness.",durationWeeks:6,difficulty:"intermediate",type:"intervals",category:"fitness_machine",yearLevel:"y10",active:false},
+  {id:fm10b,name:"Rowing Cross-Training",description:"Varied rowing sessions with intervals and steady state. Cross-training to build overall fitness while giving the legs different stimulus.",durationWeeks:5,difficulty:"intermediate",type:"endurance",category:"fitness_machine",yearLevel:"y10",active:false},
+  {id:fm10c,name:"Gym Strength Basics",description:"Proper form-focused gym work: leg press, leg curl, leg extension, and cable exercises. Build strength safely with moderate loads.",durationWeeks:5,difficulty:"intermediate",type:"strength",category:"fitness_machine",yearLevel:"y10",active:false},
+  // ===== MACHINE — Y11 =====
+  {id:fm11a,name:"Advanced Spin Sessions",description:"Threshold, VO2 max, and sweetspot sessions on the spin bike. Structured periodisation for peak HPV race fitness.",durationWeeks:6,difficulty:"advanced",type:"intervals",category:"fitness_machine",yearLevel:"y11",active:false},
+  {id:fm11b,name:"Rowing & Conditioning",description:"High-intensity rowing combined with conditioning circuits. Builds the full-body fitness needed for demanding 24-hour events.",durationWeeks:5,difficulty:"advanced",type:"endurance",category:"fitness_machine",yearLevel:"y11",active:false},
+  {id:fm11c,name:"Power Development",description:"Heavier gym loading with leg press pyramids, power cleans (machine-based), and explosive cable work. Builds peak wattage.",durationWeeks:6,difficulty:"advanced",type:"strength",category:"fitness_machine",yearLevel:"y11",active:false},
+  // ===== MACHINE — Y12 =====
+  {id:fm12a,name:"Spin Bike Intervals",description:"Full programme with VO2 max, threshold, Tabata, and sweetspot sessions. Periodised for peak race-day performance.",durationWeeks:6,difficulty:"advanced",type:"intervals",category:"fitness_machine",yearLevel:"y12",active:false},
+  {id:fm12b,name:"Rowing & Cross-Training",description:"Comprehensive rowing and cross-training programme. Steady state, intervals, and power rows for full-body HPV race conditioning.",durationWeeks:5,difficulty:"intermediate",type:"endurance",category:"fitness_machine",yearLevel:"y12",active:false},
+  {id:fm12c,name:"Gym Power Circuit",description:"Advanced leg press pyramids, cable power circuits, and explosive machine work. Maximum power output for race-day performance.",durationWeeks:6,difficulty:"advanced",type:"sprint",category:"fitness_machine",yearLevel:"y12",active:false},
+];
+
+const planWorkouts=[
+  {id:gid(),planId:iv7a,weekNumber:1,dayOfWeek:1,title:"Discovery Cruise",type:"cycling",durationMinutes:30,intensity:"easy",description:"Easy ride in the HPV. Focus on getting comfortable in the recumbent position. Keep pedalling smooth and relaxed."},
+  {id:gid(),planId:iv7a,weekNumber:1,dayOfWeek:3,title:"Position Practice",type:"cycling",durationMinutes:25,intensity:"easy",description:"Short ride focused on body position. Practice sitting still, keeping feet on pedals, and smooth steering."},
+  {id:gid(),planId:iv7a,weekNumber:1,dayOfWeek:5,title:"Gentle Endurance Spin",type:"endurance",durationMinutes:35,intensity:"easy",description:"Slightly longer easy ride. Stay comfortable, focus on steady breathing and smooth pedalling at 60-70rpm."},
+  {id:gid(),planId:iv7a,weekNumber:2,dayOfWeek:1,title:"Cornering Fun",type:"cycling",durationMinutes:30,intensity:"easy",description:"Easy ride with gentle cornering practice. Take it slow around bends, build confidence in the fairing."},
+  {id:gid(),planId:iv7a,weekNumber:2,dayOfWeek:4,title:"Team Cruise",type:"cycling",durationMinutes:35,intensity:"moderate",description:"Group ride at easy pace. Practice riding near teammates, basic communication, and having fun together."},
+  {id:gid(),planId:iv7b,weekNumber:1,dayOfWeek:2,title:"Cadence Game",type:"cycling",durationMinutes:25,intensity:"easy",description:"Fun cadence challenges: pedal at different speeds. Count your pedal strokes for 30 seconds — can you hit 40?"},
+  {id:gid(),planId:iv7b,weekNumber:1,dayOfWeek:4,title:"Slow Race",type:"cycling",durationMinutes:30,intensity:"easy",description:"Who can ride the slowest without stopping? Balance challenge in the HPV. Great fun and builds bike control."},
+  {id:gid(),planId:iv7b,weekNumber:2,dayOfWeek:1,title:"Sprint to the Cone",type:"cycling",durationMinutes:30,intensity:"moderate",description:"Short sprints to markers then easy cruising back. 6 sprints of 10 seconds with plenty of rest between."},
+  {id:gid(),planId:iv7b,weekNumber:2,dayOfWeek:3,title:"Relay Tag",type:"cycling",durationMinutes:35,intensity:"moderate",description:"Team relay practice: ride to the line, swap riders. Focus on quick but safe changeovers and having fun."},
+  {id:gid(),planId:iv7b,weekNumber:2,dayOfWeek:5,title:"Free Ride Friday",type:"cycling",durationMinutes:25,intensity:"easy",description:"Open riding session. Choose your own pace, explore the track, and enjoy being in the HPV."},
+  {id:gid(),planId:iv7c,weekNumber:1,dayOfWeek:1,title:"Follow the Leader",type:"cycling",durationMinutes:30,intensity:"easy",description:"Take turns leading and following. Practice riding at someone else’s pace and keeping a safe gap."},
+  {id:gid(),planId:iv7c,weekNumber:1,dayOfWeek:3,title:"Changeover Basics",type:"cycling",durationMinutes:25,intensity:"easy",description:"Practice getting in and out of the HPV safely. Helmet on, buckle up, feet on pedals — smooth and safe."},
+  {id:gid(),planId:iv7c,weekNumber:1,dayOfWeek:5,title:"Team Communication",type:"cycling",durationMinutes:35,intensity:"moderate",description:"Ride together using call-outs: \u2018slowing\u2019, \u2018stopping\u2019, \u2018your turn\u2019. Build team communication habits."},
+  {id:gid(),planId:iv7c,weekNumber:2,dayOfWeek:2,title:"Pace Matching",type:"cycling",durationMinutes:30,intensity:"easy",description:"Ride alongside a teammate and match their speed exactly. Builds awareness of pace and effort levels."},
+  {id:gid(),planId:iv7c,weekNumber:2,dayOfWeek:4,title:"Mini Team Time Trial",type:"cycling",durationMinutes:35,intensity:"moderate",description:"Fun team ride — 3 laps together trying to keep a steady pace. Not racing, just working as a team."},
+  {id:gid(),planId:iv8a,weekNumber:1,dayOfWeek:1,title:"Pedal Stroke Focus",type:"cycling",durationMinutes:35,intensity:"easy",description:"Smooth pedalling practice. Think about pushing AND pulling. Aim for circles, not just stomping down."},
+  {id:gid(),planId:iv8a,weekNumber:1,dayOfWeek:3,title:"Position Refinement",type:"cycling",durationMinutes:35,intensity:"easy",description:"Work on optimal recumbent position. Adjust seat, check reach to pedals, practice relaxed shoulders."},
+  {id:gid(),planId:iv8a,weekNumber:1,dayOfWeek:5,title:"Cadence Control",type:"cycling",durationMinutes:40,intensity:"moderate",description:"Ride at different cadences: 60rpm, 70rpm, 80rpm. Feel the difference. Find what feels smooth."},
+  {id:gid(),planId:iv8a,weekNumber:2,dayOfWeek:2,title:"Cornering Technique",type:"cycling",durationMinutes:35,intensity:"easy",description:"Practice cornering lines. Look through the turn, stay smooth, and keep a steady pedal stroke."},
+  {id:gid(),planId:iv8a,weekNumber:2,dayOfWeek:4,title:"Steady State Ride",type:"cycling",durationMinutes:45,intensity:"moderate",description:"Hold a consistent effort for the whole ride. Practice keeping the same speed without speeding up or slowing down."},
+  {id:gid(),planId:iv8b,weekNumber:1,dayOfWeek:1,title:"Base Ride 1",type:"endurance",durationMinutes:35,intensity:"easy",description:"Easy steady ride. Keep your breathing comfortable — you should be able to talk easily the whole time."},
+  {id:gid(),planId:iv8b,weekNumber:1,dayOfWeek:3,title:"Building Blocks",type:"endurance",durationMinutes:40,intensity:"easy",description:"Slightly longer easy ride. Focus on staying relaxed in the fairing and maintaining smooth pedalling."},
+  {id:gid(),planId:iv8b,weekNumber:1,dayOfWeek:5,title:"Moderate Effort",type:"endurance",durationMinutes:40,intensity:"moderate",description:"Pick up the pace slightly from easy rides. You can still talk but might need a breath every few sentences."},
+  {id:gid(),planId:iv8b,weekNumber:2,dayOfWeek:1,title:"Extended Cruise",type:"endurance",durationMinutes:45,intensity:"easy",description:"Longest ride this week. All easy effort. Practice drinking water while riding if possible."},
+  {id:gid(),planId:iv8b,weekNumber:2,dayOfWeek:4,title:"Tempo Touch",type:"endurance",durationMinutes:40,intensity:"moderate",description:"Moderate effort ride. Push a little harder than easy but stay controlled. This builds your aerobic engine."},
+  {id:gid(),planId:iv8c,weekNumber:1,dayOfWeek:2,title:"Changeover Drills",type:"cycling",durationMinutes:35,intensity:"easy",description:"Practice relay changeovers: rider out, new rider in. Aim for safe, smooth transitions — speed comes later."},
+  {id:gid(),planId:iv8c,weekNumber:1,dayOfWeek:4,title:"Stint Practice",type:"cycling",durationMinutes:40,intensity:"moderate",description:"Ride a 10-minute stint at steady pace, then swap. Practice holding effort for your relay turn."},
+  {id:gid(),planId:iv8c,weekNumber:2,dayOfWeek:1,title:"Timed Changeovers",type:"cycling",durationMinutes:35,intensity:"moderate",description:"Time your changeovers. Can the team get under 30 seconds? Focus on communication and safety first."},
+  {id:gid(),planId:iv8c,weekNumber:2,dayOfWeek:3,title:"Relay Simulation",type:"cycling",durationMinutes:45,intensity:"moderate",description:"Full relay practice: each rider does two stints. Focus on pacing — don’t go too hard on stint one."},
+  {id:gid(),planId:iv8c,weekNumber:2,dayOfWeek:5,title:"Team Debrief Ride",type:"cycling",durationMinutes:35,intensity:"easy",description:"Easy ride together. Talk about what went well in relay practice and what to improve."},
+  {id:gid(),planId:iv9a,weekNumber:1,dayOfWeek:1,title:"Zone 2 Foundation",type:"endurance",durationMinutes:45,intensity:"easy",description:"Easy aerobic ride. Heart rate should stay in Zone 2 (around 130-145bpm for most). Conversational pace."},
+  {id:gid(),planId:iv9a,weekNumber:1,dayOfWeek:3,title:"Steady Build",type:"endurance",durationMinutes:50,intensity:"moderate",description:"Start easy for 15min, then hold moderate effort for 25min, easy cool-down for 10min."},
+  {id:gid(),planId:iv9a,weekNumber:1,dayOfWeek:5,title:"Long Easy Ride",type:"endurance",durationMinutes:55,intensity:"easy",description:"Extended Zone 2 ride. Focus on maintaining form even as you get tired. Smooth pedalling throughout."},
+  {id:gid(),planId:iv9a,weekNumber:2,dayOfWeek:1,title:"Aerobic Tempo",type:"endurance",durationMinutes:50,intensity:"moderate",description:"Moderate effort for 30min in the middle of the ride. Push slightly above comfortable — this builds fitness."},
+  {id:gid(),planId:iv9a,weekNumber:2,dayOfWeek:4,title:"Endurance Check",type:"endurance",durationMinutes:60,intensity:"easy",description:"Full 60-minute easy ride. A milestone session — prove you can hold Zone 2 for a full hour."},
+  {id:gid(),planId:iv9b,weekNumber:1,dayOfWeek:2,title:"Race Start Practice",type:"cycling",durationMinutes:45,intensity:"moderate",description:"Practice race starts: getting up to speed quickly from stationary. 5 practice starts with full recovery."},
+  {id:gid(),planId:iv9b,weekNumber:1,dayOfWeek:4,title:"Pace Change Drills",type:"cycling",durationMinutes:50,intensity:"moderate",description:"Ride at varying speeds: easy for 3min, moderate for 2min. Repeat 6 times. Simulates race pace changes."},
+  {id:gid(),planId:iv9b,weekNumber:2,dayOfWeek:1,title:"Changeover Under Pressure",type:"cycling",durationMinutes:45,intensity:"moderate",description:"Relay changeovers at moderate pace instead of easy. Practice clean swaps when the team is working hard."},
+  {id:gid(),planId:iv9b,weekNumber:2,dayOfWeek:3,title:"Race Pace Effort",type:"cycling",durationMinutes:55,intensity:"hard",description:"1 hard effort this week: 3x8min at race pace with 4min easy between. Learn what race intensity feels like."},
+  {id:gid(),planId:iv9b,weekNumber:2,dayOfWeek:5,title:"Recovery Ride",type:"cycling",durationMinutes:40,intensity:"easy",description:"Very easy spin after yesterday’s hard session. Active recovery — keep the legs moving gently."},
+  {id:gid(),planId:iv9c,weekNumber:1,dayOfWeek:1,title:"Drafting Awareness",type:"cycling",durationMinutes:45,intensity:"easy",description:"Ride close to teammates and feel how effort changes. Understand that HPVs reduce wind resistance differently."},
+  {id:gid(),planId:iv9c,weekNumber:1,dayOfWeek:3,title:"Pacing for Distance",type:"cycling",durationMinutes:50,intensity:"moderate",description:"Practice holding the same speed for different lap counts. Can you do 5 laps at exactly the same pace?"},
+  {id:gid(),planId:iv9c,weekNumber:1,dayOfWeek:5,title:"Communication Drills",type:"cycling",durationMinutes:45,intensity:"moderate",description:"Team riding with active call-outs. Practice hand signals, verbal calls, and rider-swap communication."},
+  {id:gid(),planId:iv9c,weekNumber:2,dayOfWeek:2,title:"Strategic Changeovers",type:"cycling",durationMinutes:50,intensity:"moderate",description:"Practice different changeover strategies: every 5 laps, every 10 minutes, based on fatigue signals."},
+  {id:gid(),planId:iv9c,weekNumber:2,dayOfWeek:4,title:"Mini Race Simulation",type:"cycling",durationMinutes:60,intensity:"hard",description:"Full 60-minute team practice simulating a short race. Rotate riders, keep pace up, work as a unit."},
+  {id:gid(),planId:iv10a,weekNumber:1,dayOfWeek:1,title:"Sweetspot Ride",type:"intervals",durationMinutes:55,intensity:"moderate",description:"15min warm-up, 2x12min at sweetspot effort (comfortably hard), 5min easy between, 10min cool-down."},
+  {id:gid(),planId:iv10a,weekNumber:1,dayOfWeek:3,title:"Threshold Touch",type:"intervals",durationMinutes:50,intensity:"hard",description:"15min warm-up, 2x8min at threshold (hard but sustainable), 5min recovery, 10min cool-down."},
+  {id:gid(),planId:iv10a,weekNumber:1,dayOfWeek:5,title:"Easy Endurance",type:"endurance",durationMinutes:60,intensity:"easy",description:"Long easy ride. Zone 2 throughout. This is your recovery day — resist going harder."},
+  {id:gid(),planId:iv10a,weekNumber:2,dayOfWeek:2,title:"Progressive Ride",type:"intervals",durationMinutes:55,intensity:"moderate",description:"Every 10 minutes increase effort slightly: easy → moderate → tempo → sweetspot, then back down."},
+  {id:gid(),planId:iv10a,weekNumber:2,dayOfWeek:4,title:"Race Pace Intervals",type:"intervals",durationMinutes:65,intensity:"hard",description:"3x10min at target race pace with 4min easy recovery. Focus on holding steady power each interval."},
+  {id:gid(),planId:iv10b,weekNumber:1,dayOfWeek:1,title:"Race Start Drills",type:"cycling",durationMinutes:50,intensity:"moderate",description:"8 race starts with full recovery. Work on getting to race speed within 30 seconds of the go signal."},
+  {id:gid(),planId:iv10b,weekNumber:1,dayOfWeek:3,title:"Tactical Intervals",type:"intervals",durationMinutes:55,intensity:"hard",description:"Race simulation: 4x6min at race pace with 1min surge at the end of each interval. 4min easy between."},
+  {id:gid(),planId:iv10b,weekNumber:1,dayOfWeek:5,title:"Recovery Spin",type:"cycling",durationMinutes:45,intensity:"easy",description:"Very easy recovery ride. Legs should feel fresh by the end, not more tired."},
+  {id:gid(),planId:iv10b,weekNumber:2,dayOfWeek:2,title:"Casey Fields Sim",type:"cycling",durationMinutes:65,intensity:"hard",description:"Simulate Casey Fields race: 6min hard efforts with 3min moderate between. 5 rounds total."},
+  {id:gid(),planId:iv10b,weekNumber:2,dayOfWeek:4,title:"Team Race Practice",type:"cycling",durationMinutes:70,intensity:"moderate",description:"Full team practice: relay changeovers at race pace, communication, and pacing strategy for race day."},
+  {id:gid(),planId:iv10c,weekNumber:1,dayOfWeek:1,title:"Pacing for 24hr",type:"endurance",durationMinutes:60,intensity:"easy",description:"Ride at your target 24-hour pace. This should feel very easy — like you could go all day. That’s the point."},
+  {id:gid(),planId:iv10c,weekNumber:1,dayOfWeek:3,title:"Extended Stint",type:"endurance",durationMinutes:65,intensity:"moderate",description:"Practice a longer stint at moderate effort. Hold steady for 40min — this simulates a good Maryborough stint."},
+  {id:gid(),planId:iv10c,weekNumber:2,dayOfWeek:1,title:"Rotation Practice",type:"cycling",durationMinutes:55,intensity:"moderate",description:"Practice the rotation strategy: ride for 10min, swap, rest, repeat. Each rider does 3 stints."},
+  {id:gid(),planId:iv10c,weekNumber:2,dayOfWeek:3,title:"Nutrition on the Bike",type:"endurance",durationMinutes:70,intensity:"easy",description:"Practice eating and drinking while riding. Long easy ride — focus on taking in fuel every 20 minutes."},
+  {id:gid(),planId:iv10c,weekNumber:2,dayOfWeek:5,title:"Steady State Long",type:"endurance",durationMinutes:65,intensity:"moderate",description:"Hold moderate effort for the full ride. Build mental toughness for sustained efforts at Maryborough."},
+  {id:gid(),planId:iv11a,weekNumber:1,dayOfWeek:1,title:"Zone 2 Base",type:"endurance",durationMinutes:60,intensity:"easy",description:"60min Zone 2 ride. Keep heart rate 130-150bpm. Focus on cadence 80-90rpm and efficient pedalling."},
+  {id:gid(),planId:iv11a,weekNumber:1,dayOfWeek:3,title:"Tempo Build",type:"endurance",durationMinutes:65,intensity:"moderate",description:"20min easy, 30min at tempo (moderate-hard), 15min cool-down. Build sustainable power output."},
+  {id:gid(),planId:iv11a,weekNumber:1,dayOfWeek:5,title:"Long Endurance",type:"endurance",durationMinutes:75,intensity:"easy",description:"75min easy ride. This is your weekly long ride — build duration gradually. Stay disciplined at easy pace."},
+  {id:gid(),planId:iv11a,weekNumber:2,dayOfWeek:2,title:"Sweetspot Blocks",type:"intervals",durationMinutes:70,intensity:"moderate",description:"3x15min at sweetspot with 5min easy between. Just below threshold — great training stimulus."},
+  {id:gid(),planId:iv11a,weekNumber:2,dayOfWeek:4,title:"Progressive Long Ride",type:"endurance",durationMinutes:80,intensity:"moderate",description:"Start easy, finish moderate. Last 20min should be at tempo pace. Total 80min — building to race duration."},
+  {id:gid(),planId:iv11b,weekNumber:1,dayOfWeek:1,title:"Threshold Intervals",type:"intervals",durationMinutes:55,intensity:"hard",description:"15min warm-up, 3x10min at threshold, 4min recovery between, 10min cool-down. Hard but controlled."},
+  {id:gid(),planId:iv11b,weekNumber:1,dayOfWeek:3,title:"VO2 Tasters",type:"intervals",durationMinutes:60,intensity:"hard",description:"15min warm-up, 5x3min at VO2 max effort (very hard), 3min easy between, 15min cool-down."},
+  {id:gid(),planId:iv11b,weekNumber:1,dayOfWeek:5,title:"Recovery Ride",type:"cycling",durationMinutes:50,intensity:"easy",description:"Essential recovery after two hard days. Very easy spinning. Do not push — your body is adapting."},
+  {id:gid(),planId:iv11b,weekNumber:2,dayOfWeek:2,title:"Race Simulation",type:"intervals",durationMinutes:70,intensity:"hard",description:"Simulate a Grand Prix round: 5x8min at race pace with 2min transitions. Full race effort."},
+  {id:gid(),planId:iv11b,weekNumber:2,dayOfWeek:4,title:"Over-Under Intervals",type:"intervals",durationMinutes:65,intensity:"hard",description:"6x(2min above threshold / 2min below threshold). Teaches your body to handle pace changes in races."},
+  {id:gid(),planId:iv11c,weekNumber:1,dayOfWeek:1,title:"24hr Pace Lock",type:"endurance",durationMinutes:70,intensity:"easy",description:"Hold your 24-hour target pace for 70min. Stay disciplined — this should feel very manageable."},
+  {id:gid(),planId:iv11c,weekNumber:1,dayOfWeek:3,title:"Double Stint Sim",type:"endurance",durationMinutes:75,intensity:"moderate",description:"2x30min stints at moderate effort with a 5min break between. Simulate doing back-to-back stints."},
+  {id:gid(),planId:iv11c,weekNumber:1,dayOfWeek:5,title:"Night Riding Prep",type:"cycling",durationMinutes:60,intensity:"easy",description:"Practice riding in dim conditions if possible. Build confidence for night stints at Maryborough."},
+  {id:gid(),planId:iv11c,weekNumber:2,dayOfWeek:2,title:"Team Rotation Full",type:"cycling",durationMinutes:80,intensity:"moderate",description:"Full team rotation practice: 4 riders, 15min stints, quick changeovers. Practice the Maryborough format."},
+  {id:gid(),planId:iv11c,weekNumber:2,dayOfWeek:4,title:"Long Steady State",type:"endurance",durationMinutes:75,intensity:"moderate",description:"Hold moderate effort for 75min. Mental and physical endurance — essential for 24-hour events."},
+  {id:gid(),planId:iv12a,weekNumber:1,dayOfWeek:1,title:"Zone 2 Long Ride",type:"endurance",durationMinutes:75,intensity:"easy",description:"75min Zone 2. Heart rate 130-150bpm, cadence 80-95rpm. Foundation for all race fitness."},
+  {id:gid(),planId:iv12a,weekNumber:1,dayOfWeek:3,title:"Tempo Session",type:"endurance",durationMinutes:70,intensity:"moderate",description:"20min warm-up, 35min at tempo, 15min cool-down. Hold a pace that feels comfortably hard."},
+  {id:gid(),planId:iv12a,weekNumber:1,dayOfWeek:5,title:"Easy Recovery",type:"cycling",durationMinutes:60,intensity:"easy",description:"Easy spinning to recover. Keep cadence high, resistance low. Active recovery day."},
+  {id:gid(),planId:iv12a,weekNumber:2,dayOfWeek:2,title:"Sweetspot Long",type:"intervals",durationMinutes:80,intensity:"moderate",description:"2x25min at sweetspot (88-92% FTP equivalent) with 8min easy between. High-quality base work."},
+  {id:gid(),planId:iv12a,weekNumber:2,dayOfWeek:4,title:"Endurance Builder",type:"endurance",durationMinutes:90,intensity:"easy",description:"90min Zone 2 ride. The longest session of the week. Build your aerobic ceiling."},
+  {id:gid(),planId:iv12b,weekNumber:1,dayOfWeek:1,title:"Race Pace Repeats",type:"intervals",durationMinutes:75,intensity:"hard",description:"15min warm-up, 4x10min at target race power, 4min recovery, 10min cool-down. Race-specific work."},
+  {id:gid(),planId:iv12b,weekNumber:1,dayOfWeek:3,title:"VO2 Max Session",type:"intervals",durationMinutes:65,intensity:"hard",description:"15min warm-up, 5x4min at max sustainable effort, 4min recovery, 10min cool-down."},
+  {id:gid(),planId:iv12b,weekNumber:1,dayOfWeek:5,title:"Active Recovery",type:"cycling",durationMinutes:60,intensity:"easy",description:"Very easy recovery spin. Essential after two hard sessions. Keep effort well below moderate."},
+  {id:gid(),planId:iv12b,weekNumber:2,dayOfWeek:2,title:"Over-Under Blocks",type:"intervals",durationMinutes:80,intensity:"hard",description:"8x(2min at 105% threshold / 2min at 85% threshold). Simulates race surges and recovery."},
+  {id:gid(),planId:iv12b,weekNumber:2,dayOfWeek:4,title:"Sprint Finish Drills",type:"sprint",durationMinutes:70,intensity:"max",description:"After warm-up: 8x20s all-out sprints from race pace. Practice the final surge to the finish line."},
+  {id:gid(),planId:iv12c,weekNumber:1,dayOfWeek:1,title:"24hr Target Pace",type:"endurance",durationMinutes:80,intensity:"easy",description:"Lock in your 24hr pace for 80min. Should feel very sustainable — you need to hold this for hours."},
+  {id:gid(),planId:iv12c,weekNumber:1,dayOfWeek:3,title:"Triple Stint Sim",type:"endurance",durationMinutes:90,intensity:"moderate",description:"3x25min at moderate effort with 3min changeover break. Simulate race-day rotation."},
+  {id:gid(),planId:iv12c,weekNumber:1,dayOfWeek:5,title:"Night Riding Session",type:"cycling",durationMinutes:70,intensity:"easy",description:"Practice with race lighting. Ride at 24hr pace in reduced visibility. Build night confidence."},
+  {id:gid(),planId:iv12c,weekNumber:2,dayOfWeek:2,title:"Team Rotation Race",type:"cycling",durationMinutes:85,intensity:"moderate",description:"Full team race simulation: realistic rotation schedule, changeovers under pressure, nutrition practice."},
+  {id:gid(),planId:iv12c,weekNumber:2,dayOfWeek:4,title:"Long Pacing Ride",type:"endurance",durationMinutes:90,intensity:"moderate",description:"90min at Maryborough race pace. Practice nutrition every 20min. Mental and physical preparation."},
+  {id:gid(),planId:fh7a,weekNumber:1,dayOfWeek:1,title:"Animal Walk Circuit",type:"strength",durationMinutes:20,intensity:"easy",description:"Bear crawls, crab walks, and frog jumps across the room. 3 rounds. Fun core work without feeling like exercise."},
+  {id:gid(),planId:fh7a,weekNumber:1,dayOfWeek:3,title:"Balance Challenges",type:"strength",durationMinutes:20,intensity:"easy",description:"Stand on one leg for 20s each side. Walk heel-to-toe across the room. Try standing with eyes closed (3x10s)."},
+  {id:gid(),planId:fh7a,weekNumber:1,dayOfWeek:5,title:"Core Games",type:"strength",durationMinutes:25,intensity:"easy",description:"Plank high-fives with a partner, wheelbarrow walks, and dead bug races. 3 rounds — keep it fun."},
+  {id:gid(),planId:fh7a,weekNumber:2,dayOfWeek:2,title:"Superhero Holds",type:"strength",durationMinutes:20,intensity:"moderate",description:"Superman holds 3x15s, plank 3x15s, wall sit 3x15s. Hold each like a superhero — strong and still."},
+  {id:gid(),planId:fh7a,weekNumber:2,dayOfWeek:4,title:"Circuit Fun",type:"strength",durationMinutes:25,intensity:"moderate",description:"Star jumps 10, mountain climbers 10, bear crawl 10m, plank 15s. 3 rounds with rest between."},
+  {id:gid(),planId:fh7b,weekNumber:1,dayOfWeek:2,title:"Morning Stretches",type:"general",durationMinutes:15,intensity:"easy",description:"Head to toe: neck rolls, shoulder circles, side bends, toe touches, calf stretches. Hold each 15-20 seconds."},
+  {id:gid(),planId:fh7b,weekNumber:1,dayOfWeek:4,title:"Partner Stretches",type:"general",durationMinutes:20,intensity:"easy",description:"Work with a partner: seated hamstring stretch (push gently), back-to-back stretches, arm pull across."},
+  {id:gid(),planId:fh7b,weekNumber:2,dayOfWeek:1,title:"Yoga for Beginners",type:"general",durationMinutes:20,intensity:"easy",description:"Simple yoga: child’s pose 30s, downward dog 20s, cobra 20s, cat-cow 10 reps. Breathe slowly throughout."},
+  {id:gid(),planId:fh7b,weekNumber:2,dayOfWeek:3,title:"Hip Openers",type:"general",durationMinutes:15,intensity:"easy",description:"Butterfly stretch 30s, pigeon stretch 20s each side, knee hugs 20s each side. Great for HPV riding."},
+  {id:gid(),planId:fh7b,weekNumber:2,dayOfWeek:5,title:"Full Body Cool Down",type:"general",durationMinutes:20,intensity:"easy",description:"Stretch everything: quads, hamstrings, calves, hip flexors, chest, shoulders. 20s each side. Relax and breathe."},
+  {id:gid(),planId:fh7c,weekNumber:1,dayOfWeek:1,title:"Wobble Board",type:"general",durationMinutes:15,intensity:"easy",description:"Stand on one foot for 20s each side. Try on a pillow for extra challenge. 4 rounds. Builds ankle stability."},
+  {id:gid(),planId:fh7c,weekNumber:1,dayOfWeek:3,title:"Balance Beam Walk",type:"general",durationMinutes:20,intensity:"easy",description:"Walk along a line on the floor heel-to-toe. Forward and backward. Try with eyes looking up, not at feet."},
+  {id:gid(),planId:fh7c,weekNumber:1,dayOfWeek:5,title:"Stability Challenges",type:"general",durationMinutes:20,intensity:"easy",description:"Single-leg stand with eyes closed 3x10s. Standing on one leg while catching a ball. 3 sets."},
+  {id:gid(),planId:fh7c,weekNumber:2,dayOfWeek:2,title:"Agility Hops",type:"general",durationMinutes:20,intensity:"moderate",description:"Hop on one foot in a square pattern. 4 hops forward, 4 right, 4 back, 4 left. 3 rounds each foot."},
+  {id:gid(),planId:fh7c,weekNumber:2,dayOfWeek:4,title:"Balance Games",type:"general",durationMinutes:20,intensity:"easy",description:"Partner balance: stand on one foot and gently push each other’s hands. Last one standing wins. Best of 5."},
+  {id:gid(),planId:fh8a,weekNumber:1,dayOfWeek:1,title:"Plank Foundation",type:"strength",durationMinutes:25,intensity:"easy",description:"Front plank 3x20s, side plank 3x15s each side, dead bugs 3x8 each side. Focus on keeping hips level."},
+  {id:gid(),planId:fh8a,weekNumber:1,dayOfWeek:3,title:"Bridge Circuit",type:"strength",durationMinutes:25,intensity:"easy",description:"Glute bridges 3x15, single-leg bridge 3x8 each, hip thrusts 3x12. Squeeze glutes at the top every rep."},
+  {id:gid(),planId:fh8a,weekNumber:1,dayOfWeek:5,title:"Bird Dog Drills",type:"strength",durationMinutes:30,intensity:"moderate",description:"Bird dogs 3x10 each side, dead bugs 3x10, plank shoulder taps 3x8. Core stability is the goal."},
+  {id:gid(),planId:fh8a,weekNumber:2,dayOfWeek:2,title:"Core Combo",type:"strength",durationMinutes:25,intensity:"moderate",description:"Plank 25s, rest 10s, dead bugs 10 each, rest 10s, side plank 15s each. 3 rounds through."},
+  {id:gid(),planId:fh8a,weekNumber:2,dayOfWeek:4,title:"Full Core Session",type:"strength",durationMinutes:30,intensity:"moderate",description:"6 exercises, 2 rounds: plank 20s, bridges 12, bird dogs 8 each, dead bugs 8 each, side plank 15s each, crunches 12."},
+  {id:gid(),planId:fh8b,weekNumber:1,dayOfWeek:2,title:"Sun Salutation Flow",type:"general",durationMinutes:20,intensity:"easy",description:"Gentle sun salutations: mountain pose, forward fold, half lift, plank, cobra, downward dog. 5 rounds slowly."},
+  {id:gid(),planId:fh8b,weekNumber:1,dayOfWeek:4,title:"Hip Mobility",type:"general",durationMinutes:25,intensity:"easy",description:"Hip circles 10 each direction, pigeon stretch 30s each, 90/90 stretch 30s each, butterfly 45s."},
+  {id:gid(),planId:fh8b,weekNumber:2,dayOfWeek:1,title:"Shoulder & Back",type:"general",durationMinutes:20,intensity:"easy",description:"Thread the needle 30s each, chest opener on doorframe 30s, cat-cow 12 reps, thoracic rotations 10 each."},
+  {id:gid(),planId:fh8b,weekNumber:2,dayOfWeek:3,title:"Lower Body Flow",type:"general",durationMinutes:25,intensity:"easy",description:"Hamstring stretch 30s each, quad stretch 30s each, calf stretch 30s each, hip flexor lunge 30s each."},
+  {id:gid(),planId:fh8b,weekNumber:2,dayOfWeek:5,title:"Recovery Yoga",type:"general",durationMinutes:25,intensity:"easy",description:"Child’s pose 45s, puppy pose 30s, supine twist 30s each, happy baby 30s, savasana 60s. Total relaxation."},
+  {id:gid(),planId:fh8c,weekNumber:1,dayOfWeek:1,title:"Squat School",type:"strength",durationMinutes:25,intensity:"easy",description:"Bodyweight squats 3x15, focusing on form: chest up, knees tracking toes, full depth. No rush."},
+  {id:gid(),planId:fh8c,weekNumber:1,dayOfWeek:3,title:"Lunge Basics",type:"strength",durationMinutes:25,intensity:"easy",description:"Forward lunges 3x10 each leg, reverse lunges 3x8 each. Keep torso upright and knee behind toes."},
+  {id:gid(),planId:fh8c,weekNumber:1,dayOfWeek:5,title:"Wall Sits",type:"strength",durationMinutes:30,intensity:"moderate",description:"Wall sit 3x25s, calf raises 3x15, bodyweight squats 2x15. Feel the burn in those quads."},
+  {id:gid(),planId:fh8c,weekNumber:2,dayOfWeek:2,title:"Leg Combo",type:"strength",durationMinutes:30,intensity:"moderate",description:"Squats 15, lunges 10 each, wall sit 20s, calf raises 15. 3 rounds with 60s rest between."},
+  {id:gid(),planId:fh8c,weekNumber:2,dayOfWeek:4,title:"Step-Up Power",type:"strength",durationMinutes:30,intensity:"moderate",description:"Step-ups on a stair 3x10 each leg, split squats 3x8 each, bodyweight squats 3x15."},
+  {id:gid(),planId:fh9a,weekNumber:1,dayOfWeek:1,title:"Core for Recumbent",type:"strength",durationMinutes:30,intensity:"moderate",description:"Recumbent position holds 3x20s (lie back, legs raised), dead bugs 3x12 each, plank 3x25s."},
+  {id:gid(),planId:fh9a,weekNumber:1,dayOfWeek:3,title:"Anti-Rotation Work",type:"strength",durationMinutes:35,intensity:"moderate",description:"Pallof press with towel tension 3x10 each, bird dogs 3x10 each, side plank 3x20s each. Resist rotation."},
+  {id:gid(),planId:fh9a,weekNumber:1,dayOfWeek:5,title:"Hip Stability",type:"strength",durationMinutes:30,intensity:"moderate",description:"Clamshells 3x15 each, fire hydrants 3x12 each, single-leg glute bridge 3x10 each. HPV hip strength."},
+  {id:gid(),planId:fh9a,weekNumber:2,dayOfWeek:2,title:"Core Circuit",type:"strength",durationMinutes:35,intensity:"moderate",description:"6 exercises, 3 rounds: plank 25s, dead bugs 10 each, bridges 15, side plank 20s each, bird dogs 10 each, flutter kicks 15."},
+  {id:gid(),planId:fh9a,weekNumber:2,dayOfWeek:4,title:"Isometric Holds",type:"strength",durationMinutes:30,intensity:"hard",description:"Plank 30s, wall sit 30s, hollow body hold 20s, side plank 25s each, glute bridge hold 30s. 2 rounds. No movement — just hold."},
+  {id:gid(),planId:fh9b,weekNumber:1,dayOfWeek:2,title:"Hip Flexor Release",type:"general",durationMinutes:25,intensity:"easy",description:"Half-kneeling hip flexor stretch 45s each, pigeon stretch 45s each, couch stretch 30s each. Open those hips."},
+  {id:gid(),planId:fh9b,weekNumber:1,dayOfWeek:4,title:"Back Mobility",type:"general",durationMinutes:25,intensity:"easy",description:"Cat-cow 15 reps, thoracic rotations 10 each, child’s pose 45s, prone press-ups 10, thread the needle 30s each."},
+  {id:gid(),planId:fh9b,weekNumber:2,dayOfWeek:1,title:"Full Rider Mobility",type:"general",durationMinutes:30,intensity:"easy",description:"Complete mobility routine targeting HPV riders: hips, lower back, neck, shoulders. 30s each position."},
+  {id:gid(),planId:fh9b,weekNumber:2,dayOfWeek:3,title:"Dynamic Warm-Up Flow",type:"general",durationMinutes:25,intensity:"moderate",description:"Leg swings 10 each, arm circles 10 each, hip circles 10 each, walking lunges 10 each, high knees 20. Active mobility."},
+  {id:gid(),planId:fh9b,weekNumber:2,dayOfWeek:5,title:"Recovery Stretching",type:"general",durationMinutes:25,intensity:"easy",description:"Full body static stretching. Everything from neck to ankles, 30s each. Slow, controlled breathing throughout."},
+  {id:gid(),planId:fh9c,weekNumber:1,dayOfWeek:1,title:"Squat Jump Intro",type:"sprint",durationMinutes:30,intensity:"moderate",description:"Squat jumps 3x6, lunge jumps 3x5 each, tuck jumps 3x4. Full recovery between sets — quality over quantity."},
+  {id:gid(),planId:fh9c,weekNumber:1,dayOfWeek:3,title:"Bounding Basics",type:"sprint",durationMinutes:30,intensity:"moderate",description:"Forward bounds 3x6, lateral bounds 3x5 each, single-leg hops 3x6 each. Land softly, absorb through knees."},
+  {id:gid(),planId:fh9c,weekNumber:2,dayOfWeek:1,title:"Power Circuit",type:"sprint",durationMinutes:35,intensity:"moderate",description:"Squat jumps 6, bounds 6, star jumps 8, mountain climbers 12. 3 rounds with 90s rest."},
+  {id:gid(),planId:fh9c,weekNumber:2,dayOfWeek:3,title:"Explosive Squats",type:"sprint",durationMinutes:30,intensity:"hard",description:"Pause squats (3s at bottom) 3x8, then squat jumps 3x6. The pause forces explosive power from a dead stop."},
+  {id:gid(),planId:fh9c,weekNumber:2,dayOfWeek:5,title:"Sprint Agility",type:"sprint",durationMinutes:30,intensity:"moderate",description:"Shuttle runs in the garden 6x10m, lateral shuffles 4x10m, backward running 4x10m. Quick feet."},
+  {id:gid(),planId:fh10a,weekNumber:1,dayOfWeek:1,title:"Tempo Core Circuit",type:"strength",durationMinutes:40,intensity:"moderate",description:"Plank 30s, dead bugs 12 each, side plank 25s each, glute bridges 15, bird dogs 10 each. 3 rounds with 45s rest."},
+  {id:gid(),planId:fh10a,weekNumber:1,dayOfWeek:3,title:"Isometric Strength",type:"strength",durationMinutes:35,intensity:"hard",description:"Plank 40s, wall sit 40s, hollow body 25s, glute bridge hold 30s, side plank 30s each. 2 rounds. Pure holds."},
+  {id:gid(),planId:fh10a,weekNumber:1,dayOfWeek:5,title:"Deep Stability Work",type:"strength",durationMinutes:40,intensity:"moderate",description:"Single-leg dead bugs 3x10 each, Copenhagen plank 3x12s each, Pallof press 3x10 each, anti-extension 3x10."},
+  {id:gid(),planId:fh10a,weekNumber:2,dayOfWeek:2,title:"Power Core",type:"strength",durationMinutes:40,intensity:"hard",description:"Medicine ball (or pillow) slams 3x10, V-ups 3x10, bicycle crunches 3x20, plank to push-up 3x8. Fast movements."},
+  {id:gid(),planId:fh10a,weekNumber:2,dayOfWeek:4,title:"Full Core Blast",type:"strength",durationMinutes:35,intensity:"moderate",description:"8 exercises, 2 rounds: plank 30s, bridges 15, dead bugs 10 each, side plank 25s each, bird dogs 10 each, flutter kicks 20, hollow hold 20s, reverse crunches 12."},
+  {id:gid(),planId:fh10b,weekNumber:1,dayOfWeek:2,title:"HPV Hip Routine",type:"general",durationMinutes:30,intensity:"easy",description:"Hip flexor stretch 45s each, pigeon 45s each, 90/90 switches 10, frog stretch 45s, seated butterfly 45s."},
+  {id:gid(),planId:fh10b,weekNumber:1,dayOfWeek:4,title:"Back & Shoulder Release",type:"general",durationMinutes:25,intensity:"easy",description:"Thoracic rotations 12 each, thread the needle 30s each, doorway chest stretch 30s, lat stretch 30s each."},
+  {id:gid(),planId:fh10b,weekNumber:2,dayOfWeek:1,title:"Full Rider Flexibility",type:"general",durationMinutes:35,intensity:"easy",description:"Complete HPV rider routine: hips, hamstrings, lower back, neck, shoulders. 45s each position, both sides."},
+  {id:gid(),planId:fh10b,weekNumber:2,dayOfWeek:3,title:"Active Mobility",type:"general",durationMinutes:30,intensity:"moderate",description:"Dynamic stretching: leg swings, hip circles, trunk rotations, arm circles. Then static holds for problem areas."},
+  {id:gid(),planId:fh10b,weekNumber:2,dayOfWeek:5,title:"Recovery Flow",type:"general",durationMinutes:30,intensity:"easy",description:"Yoga-inspired recovery: sun salutations, warrior poses, pigeon, seated twist, supine twist, savasana."},
+  {id:gid(),planId:fh10c,weekNumber:1,dayOfWeek:1,title:"Explosive Leg Day",type:"sprint",durationMinutes:35,intensity:"hard",description:"Squat jumps 4x8, lunge jumps 3x6 each, depth jumps off stair 3x5, broad jumps 3x5. Full recovery."},
+  {id:gid(),planId:fh10c,weekNumber:1,dayOfWeek:3,title:"Single-Leg Power",type:"sprint",durationMinutes:35,intensity:"moderate",description:"Pistol squat progressions 3x5 each (use door frame for balance), single-leg hops 3x6 each, step-up jumps 3x6 each."},
+  {id:gid(),planId:fh10c,weekNumber:2,dayOfWeek:1,title:"Power Circuit",type:"sprint",durationMinutes:40,intensity:"hard",description:"Squat jumps 8, bounds 8, tuck jumps 6, mountain climbers 15, star jumps 10. 4 rounds with 90s rest."},
+  {id:gid(),planId:fh10c,weekNumber:2,dayOfWeek:3,title:"Sprint Prep",type:"sprint",durationMinutes:35,intensity:"moderate",description:"High knees 4x15, butt kicks 4x15, A-skips 4x10 each, bounding 3x8. Dynamic sprint mechanics."},
+  {id:gid(),planId:fh10c,weekNumber:2,dayOfWeek:5,title:"Leg Endurance",type:"strength",durationMinutes:40,intensity:"moderate",description:"Squats 30, lunges 15 each, wall sit 45s, calf raises 25, step-ups 12 each. 3 rounds. Endurance focus."},
+  {id:gid(),planId:fh11a,weekNumber:1,dayOfWeek:1,title:"Competition Core",type:"strength",durationMinutes:40,intensity:"hard",description:"Plank 45s, V-ups 15, side plank 35s each, bicycle crunches 25, hollow body 25s, reverse crunches 15. 3 rounds."},
+  {id:gid(),planId:fh11a,weekNumber:1,dayOfWeek:3,title:"Time Under Tension",type:"strength",durationMinutes:45,intensity:"hard",description:"Slow plank 50s, 5s down/5s up dead bugs 3x8, slow bridges 3x12 (3s up, 3s down), wall sit 50s. 2 rounds."},
+  {id:gid(),planId:fh11a,weekNumber:1,dayOfWeek:5,title:"Core Power",type:"strength",durationMinutes:40,intensity:"moderate",description:"Explosive sit-ups 3x12, plank to push-up 3x10, mountain climbers 3x20, V-ups 3x10. Speed and power."},
+  {id:gid(),planId:fh11a,weekNumber:2,dayOfWeek:2,title:"Recumbent Specific",type:"strength",durationMinutes:45,intensity:"hard",description:"Recumbent holds 3x30s, leg raises 3x15, flutter kicks 3x25, bicycle crunches 3x25, plank 3x40s."},
+  {id:gid(),planId:fh11a,weekNumber:2,dayOfWeek:4,title:"Full Core Challenge",type:"strength",durationMinutes:40,intensity:"moderate",description:"10 exercises, 2 rounds: plank, dead bugs, bridges, side plank, bird dogs, V-ups, flutter kicks, hollow hold, crunches, mountain climbers. 20 reps or 25s each."},
+  {id:gid(),planId:fh11b,weekNumber:1,dayOfWeek:2,title:"Foam Rolling & Release",type:"general",durationMinutes:30,intensity:"easy",description:"Tennis ball or foam roller on quads, IT band, calves, glutes, upper back. 60s each area. Apply gentle pressure."},
+  {id:gid(),planId:fh11b,weekNumber:1,dayOfWeek:4,title:"PNF Stretching",type:"general",durationMinutes:30,intensity:"moderate",description:"Contract-relax method: hamstrings, hip flexors, quads, calves. Hold stretch, push against it 5s, relax deeper. 3 cycles each."},
+  {id:gid(),planId:fh11b,weekNumber:2,dayOfWeek:1,title:"Yoga Flow",type:"general",durationMinutes:35,intensity:"easy",description:"Full yoga session: sun salutations, warrior series, triangle, pigeon, seated forward fold, twist, savasana."},
+  {id:gid(),planId:fh11b,weekNumber:2,dayOfWeek:3,title:"Recovery Protocol",type:"general",durationMinutes:30,intensity:"easy",description:"Foam roll 10min, static stretch 15min (focus on tight areas), deep breathing 5min. Full recovery session."},
+  {id:gid(),planId:fh11b,weekNumber:2,dayOfWeek:5,title:"Active Mobility",type:"general",durationMinutes:35,intensity:"moderate",description:"Dynamic stretching warm-up, then deep static holds for HPV-specific areas: hips, back, neck, shoulders."},
+  {id:gid(),planId:fh11c,weekNumber:1,dayOfWeek:1,title:"Depth Jump Intro",type:"sprint",durationMinutes:35,intensity:"hard",description:"Depth jumps off low step 4x5, squat jumps 4x8, broad jumps 4x5. Land softly, explode up. Full recovery between sets."},
+  {id:gid(),planId:fh11c,weekNumber:1,dayOfWeek:3,title:"Reactive Plyometrics",type:"sprint",durationMinutes:40,intensity:"hard",description:"Hurdle hops (imaginary) 3x6, single-leg bounds 3x6 each, tuck jumps 3x6, lateral hops 3x8 each."},
+  {id:gid(),planId:fh11c,weekNumber:2,dayOfWeek:1,title:"Bounding Circuit",type:"sprint",durationMinutes:40,intensity:"hard",description:"Forward bounds 4x8, lateral bounds 4x6 each, alternate leg bounds 4x8, squat jumps 3x10. Power output focus."},
+  {id:gid(),planId:fh11c,weekNumber:2,dayOfWeek:3,title:"Sprint Power",type:"sprint",durationMinutes:35,intensity:"hard",description:"Hill sprints (or stair sprints) 8x15s, depth jumps 3x5, explosive split squats 3x6 each. Maximum power."},
+  {id:gid(),planId:fh11c,weekNumber:2,dayOfWeek:5,title:"Speed Agility",type:"sprint",durationMinutes:35,intensity:"moderate",description:"Shuttle runs 6x10m, T-drill pattern 4x, lateral shuffles 4x10m, high knee sprints 4x15. Quick feet and coordination."},
+  {id:gid(),planId:fh12a,weekNumber:1,dayOfWeek:1,title:"Full Stability Circuit",type:"strength",durationMinutes:45,intensity:"hard",description:"Plank 50s, Copenhagen plank 20s each, Pallof press 12 each, dead bugs 12 each, single-leg bridge 12 each. 3 rounds."},
+  {id:gid(),planId:fh12a,weekNumber:1,dayOfWeek:3,title:"Anti-Movement Complex",type:"strength",durationMinutes:45,intensity:"hard",description:"Anti-rotation: Pallof 3x12 each. Anti-extension: ab wheel (or towel slide) 3x10. Anti-flexion: superman 3x15. Anti-lateral: suitcase carry 3x20m each."},
+  {id:gid(),planId:fh12a,weekNumber:1,dayOfWeek:5,title:"Power Core Session",type:"strength",durationMinutes:40,intensity:"moderate",description:"Medicine ball throws (or explosive sit-ups) 3x12, V-ups 3x15, mountain climbers 3x25, plank shoulder taps 3x12."},
+  {id:gid(),planId:fh12a,weekNumber:2,dayOfWeek:2,title:"Recumbent Max Core",type:"strength",durationMinutes:50,intensity:"hard",description:"Recumbent position holds 3x30s, leg raises with slow lower 3x12, flutter kicks 3x30, bicycle crunches 3x30, hollow hold 3x25s."},
+  {id:gid(),planId:fh12a,weekNumber:2,dayOfWeek:4,title:"Core Endurance Test",type:"strength",durationMinutes:45,intensity:"moderate",description:"Plank: max hold. Side plank: max each. Wall sit: max hold. Record your times and beat them next week."},
+  {id:gid(),planId:fh12b,weekNumber:1,dayOfWeek:2,title:"Deep Tissue Release",type:"general",durationMinutes:30,intensity:"easy",description:"Foam roll every major muscle: quads, hamstrings, IT band, calves, glutes, upper back, lats. 90s each area."},
+  {id:gid(),planId:fh12b,weekNumber:1,dayOfWeek:4,title:"PNF Protocol",type:"general",durationMinutes:30,intensity:"moderate",description:"Contract-relax for all major groups. 3 cycles of: stretch, push against it 6s at 50% effort, relax deeper. Hamstrings, hips, quads, calves."},
+  {id:gid(),planId:fh12b,weekNumber:2,dayOfWeek:1,title:"Power Yoga",type:"general",durationMinutes:35,intensity:"moderate",description:"Sun salutations A & B, warrior I/II/III, chair pose, crow pose attempts, pigeon, seated twist, savasana."},
+  {id:gid(),planId:fh12b,weekNumber:2,dayOfWeek:3,title:"Recovery Flush",type:"general",durationMinutes:30,intensity:"easy",description:"Light foam rolling, gentle static stretching, deep breathing exercises. Total recovery session."},
+  {id:gid(),planId:fh12b,weekNumber:2,dayOfWeek:5,title:"Competition Flexibility",type:"general",durationMinutes:30,intensity:"easy",description:"Race-day warm-up routine: dynamic stretches, sport-specific mobility, activation exercises. Practice for race prep."},
+  {id:gid(),planId:fh12c,weekNumber:1,dayOfWeek:1,title:"Pistol Squat Work",type:"sprint",durationMinutes:40,intensity:"hard",description:"Pistol squat progressions 4x6 each (use support as needed), Bulgarian split squats 4x10 each, single-leg calf raises 3x15 each."},
+  {id:gid(),planId:fh12c,weekNumber:1,dayOfWeek:3,title:"Plyometric Power",type:"sprint",durationMinutes:40,intensity:"hard",description:"Depth jumps 4x6, squat jumps 4x10, lunge jumps 3x8 each, tuck jumps 3x8, broad jumps 3x6. Full recovery."},
+  {id:gid(),planId:fh12c,weekNumber:2,dayOfWeek:1,title:"Explosive Circuit",type:"sprint",durationMinutes:45,intensity:"hard",description:"Squat jumps 10, bounds 8, single-leg hops 6 each, mountain climbers 15, star jumps 10. 4 rounds."},
+  {id:gid(),planId:fh12c,weekNumber:2,dayOfWeek:3,title:"Sprint Power Max",type:"sprint",durationMinutes:40,intensity:"max",description:"Stair/hill sprints 10x15s, depth jumps 4x5, explosive split squats 4x6 each. Maximum effort, full recovery."},
+  {id:gid(),planId:fh12c,weekNumber:2,dayOfWeek:5,title:"Leg Endurance Circuit",type:"strength",durationMinutes:45,intensity:"moderate",description:"50 squats, 20 lunges each, 60s wall sit, 30 calf raises, 10 squat jumps. 3 rounds with 2min rest."},
+  {id:gid(),planId:fm7a,weekNumber:1,dayOfWeek:1,title:"Easy Spin",type:"cycling",durationMinutes:20,intensity:"easy",description:"Gentle spinning on the bike. Low resistance, comfortable pace. Learn where the controls are."},
+  {id:gid(),planId:fm7a,weekNumber:1,dayOfWeek:3,title:"Spin & Chat",type:"cycling",durationMinutes:20,intensity:"easy",description:"Easy ride at a pace where you can easily talk to a friend the whole time. That’s your target effort."},
+  {id:gid(),planId:fm7a,weekNumber:1,dayOfWeek:5,title:"Cadence Play",type:"cycling",durationMinutes:25,intensity:"easy",description:"Try pedalling at different speeds: slow and heavy, then fast and light. Which feels smoother?"},
+  {id:gid(),planId:fm7a,weekNumber:2,dayOfWeek:2,title:"Steady Spin",type:"cycling",durationMinutes:25,intensity:"moderate",description:"Slightly harder than easy. Hold the same speed for the whole ride. Practice being consistent."},
+  {id:gid(),planId:fm7a,weekNumber:2,dayOfWeek:4,title:"Fun Intervals",type:"cycling",durationMinutes:25,intensity:"moderate",description:"30 seconds faster, 60 seconds easy. Repeat 6 times. Not hard — just varied pace to keep it interesting."},
+  {id:gid(),planId:fm7b,weekNumber:1,dayOfWeek:2,title:"Rowing Intro",type:"endurance",durationMinutes:15,intensity:"easy",description:"Learn the rowing stroke: legs push, body swings, arms pull. Very slow and controlled. 15min is plenty to start."},
+  {id:gid(),planId:fm7b,weekNumber:1,dayOfWeek:4,title:"Smooth Strokes",type:"endurance",durationMinutes:20,intensity:"easy",description:"Row at a gentle pace focusing on smooth, long strokes. Think: push with legs, swing back, pull arms."},
+  {id:gid(),planId:fm7b,weekNumber:2,dayOfWeek:1,title:"Row & Rest",type:"endurance",durationMinutes:20,intensity:"easy",description:"Row for 2min, rest 1min. Repeat 5 times. Focus on good form each time you start again."},
+  {id:gid(),planId:fm7b,weekNumber:2,dayOfWeek:3,title:"Building Duration",type:"endurance",durationMinutes:25,intensity:"easy",description:"Try to row continuously for 10min at easy pace, then rest, then another 10min. Build your rowing stamina."},
+  {id:gid(),planId:fm7b,weekNumber:2,dayOfWeek:5,title:"Technique Check",type:"endurance",durationMinutes:20,intensity:"easy",description:"Slow rowing focusing purely on form. Legs-body-arms on the drive, arms-body-legs on recovery. Get it smooth."},
+  {id:gid(),planId:fm7c,weekNumber:1,dayOfWeek:1,title:"Machine Sampler",type:"endurance",durationMinutes:20,intensity:"easy",description:"5min on each of: bike, rower, elliptical (or whatever’s available). Easy effort on all. Try everything."},
+  {id:gid(),planId:fm7c,weekNumber:1,dayOfWeek:3,title:"Bike & Row Combo",type:"endurance",durationMinutes:25,intensity:"easy",description:"10min easy spinning, 10min easy rowing, 5min light stretching. Cross-training for beginners."},
+  {id:gid(),planId:fm7c,weekNumber:2,dayOfWeek:2,title:"Elliptical Intro",type:"endurance",durationMinutes:20,intensity:"easy",description:"Easy elliptical session. Low resistance. Get used to the motion. Arms on handles for balance."},
+  {id:gid(),planId:fm7c,weekNumber:2,dayOfWeek:4,title:"Fun Mix",type:"endurance",durationMinutes:25,intensity:"moderate",description:"Rotate between 3 machines: 3min each, 3 rounds. Keep effort easy to moderate. Variety is the spice."},
+  {id:gid(),planId:fm7c,weekNumber:2,dayOfWeek:5,title:"Choose Your Own",type:"endurance",durationMinutes:20,intensity:"easy",description:"Pick your favourite machine and do 20min at easy pace. The best exercise is the one you enjoy."},
+  {id:gid(),planId:fm8a,weekNumber:1,dayOfWeek:1,title:"Cadence Focus",type:"cycling",durationMinutes:30,intensity:"easy",description:"Spin bike at 70-80rpm. Low resistance. Practice holding a steady cadence for the full 30 minutes."},
+  {id:gid(),planId:fm8a,weekNumber:1,dayOfWeek:3,title:"Resistance Intro",type:"cycling",durationMinutes:30,intensity:"easy",description:"Try 3 different resistance levels for 8min each. Easy, slightly harder, back to easy. Feel the difference."},
+  {id:gid(),planId:fm8a,weekNumber:1,dayOfWeek:5,title:"Steady Ride",type:"cycling",durationMinutes:35,intensity:"moderate",description:"Hold a moderate effort for 25min with warm-up and cool-down. Practice pacing — don’t start too hard."},
+  {id:gid(),planId:fm8a,weekNumber:2,dayOfWeek:2,title:"Spin Endurance",type:"cycling",durationMinutes:35,intensity:"easy",description:"35min at easy pace. Build your ability to stay on the bike for longer periods. Consistency is key."},
+  {id:gid(),planId:fm8a,weekNumber:2,dayOfWeek:4,title:"Pace Change Practice",type:"cycling",durationMinutes:35,intensity:"moderate",description:"3min easy, 2min moderate, 1min slightly harder. Repeat 5 times. Learn to change gears and effort."},
+  {id:gid(),planId:fm8b,weekNumber:1,dayOfWeek:2,title:"Rowing Technique",type:"endurance",durationMinutes:25,intensity:"easy",description:"Focused rowing at 20-22 strokes per minute. Smooth and controlled. Every stroke should feel the same."},
+  {id:gid(),planId:fm8b,weekNumber:1,dayOfWeek:4,title:"Rowing Build",type:"endurance",durationMinutes:30,intensity:"easy",description:"Easy rowing for 30min. Try to maintain the same split time throughout. Consistency over speed."},
+  {id:gid(),planId:fm8b,weekNumber:2,dayOfWeek:1,title:"Row Intervals",type:"endurance",durationMinutes:30,intensity:"moderate",description:"3min moderate rowing, 2min easy. Repeat 5 times. The moderate bits should feel like work but manageable."},
+  {id:gid(),planId:fm8b,weekNumber:2,dayOfWeek:3,title:"Rowing Endurance",type:"endurance",durationMinutes:35,intensity:"easy",description:"35min continuous rowing at easy pace. Focus on relaxed grip, smooth drive phase, and consistent rhythm."},
+  {id:gid(),planId:fm8b,weekNumber:2,dayOfWeek:5,title:"Power Strokes",type:"endurance",durationMinutes:25,intensity:"moderate",description:"After warm-up: 10 powerful strokes, then 30 easy strokes. Repeat 6 times. Feel the difference in power."},
+  {id:gid(),planId:fm8c,weekNumber:1,dayOfWeek:1,title:"Two Machine Circuit",type:"endurance",durationMinutes:30,intensity:"easy",description:"15min bike, 15min rower. Easy effort on both. Smooth transitions between machines."},
+  {id:gid(),planId:fm8c,weekNumber:1,dayOfWeek:3,title:"Three Way Split",type:"endurance",durationMinutes:30,intensity:"easy",description:"10min each on bike, rower, and elliptical. Easy pace throughout. Full body cross-training."},
+  {id:gid(),planId:fm8c,weekNumber:2,dayOfWeek:2,title:"Circuit Challenge",type:"endurance",durationMinutes:35,intensity:"moderate",description:"5min each on 3 machines, repeated twice. Second round slightly harder than the first. Build gradually."},
+  {id:gid(),planId:fm8c,weekNumber:2,dayOfWeek:4,title:"Cardio Mix",type:"endurance",durationMinutes:35,intensity:"moderate",description:"Alternate 3min bike / 3min rower for 30min. Keep transitions quick. 5min cool-down stretching."},
+  {id:gid(),planId:fm8c,weekNumber:2,dayOfWeek:5,title:"Recovery Spin",type:"cycling",durationMinutes:25,intensity:"easy",description:"Easy 25min on the bike. Very low resistance. Active recovery after a week of training."},
+  {id:gid(),planId:fm9a,weekNumber:1,dayOfWeek:1,title:"Interval Basics",type:"intervals",durationMinutes:40,intensity:"moderate",description:"10min warm-up, 4x3min moderate with 2min easy between, 10min cool-down. Learn the interval format."},
+  {id:gid(),planId:fm9a,weekNumber:1,dayOfWeek:3,title:"Threshold Feel",type:"intervals",durationMinutes:40,intensity:"moderate",description:"10min warm-up, 2x8min at hard-ish effort (you can talk in short sentences), 4min easy between, 10min cool-down."},
+  {id:gid(),planId:fm9a,weekNumber:1,dayOfWeek:5,title:"Tabata Taste",type:"intervals",durationMinutes:35,intensity:"hard",description:"10min warm-up, 1 Tabata set (20s hard / 10s easy x 8 = 4min), 15min cool-down. First taste of high intensity."},
+  {id:gid(),planId:fm9a,weekNumber:2,dayOfWeek:2,title:"Cadence Intervals",type:"intervals",durationMinutes:40,intensity:"moderate",description:"10min warm-up, 6x(1min high cadence 90+rpm / 2min normal). 10min cool-down. Build leg speed."},
+  {id:gid(),planId:fm9a,weekNumber:2,dayOfWeek:4,title:"Sweetspot Session",type:"intervals",durationMinutes:45,intensity:"moderate",description:"10min warm-up, 2x10min at sweetspot (comfortably hard), 5min easy between, 10min cool-down."},
+  {id:gid(),planId:fm9b,weekNumber:1,dayOfWeek:2,title:"Steady Row",type:"endurance",durationMinutes:35,intensity:"moderate",description:"35min at consistent split. Focus on smooth stroke, long drive phase, and controlled recovery."},
+  {id:gid(),planId:fm9b,weekNumber:1,dayOfWeek:4,title:"Row Intervals",type:"endurance",durationMinutes:35,intensity:"moderate",description:"After warm-up: 4x500m at moderate effort with 90s rest. Try to keep all four intervals at the same pace."},
+  {id:gid(),planId:fm9b,weekNumber:2,dayOfWeek:1,title:"Rowing Endurance",type:"endurance",durationMinutes:40,intensity:"easy",description:"40min easy rowing. Build cardiovascular capacity. Keep stroke rate at 20-22spm."},
+  {id:gid(),planId:fm9b,weekNumber:2,dayOfWeek:3,title:"Hard Rows",type:"endurance",durationMinutes:40,intensity:"hard",description:"After warm-up: 3x3min hard rowing with 3min easy. One hard session per week to build fitness."},
+  {id:gid(),planId:fm9b,weekNumber:2,dayOfWeek:5,title:"Recovery Row",type:"endurance",durationMinutes:30,intensity:"easy",description:"Easy rowing to flush the legs. Gentle pressure, long strokes, relaxed grip. Recovery is training too."},
+  {id:gid(),planId:fm9c,weekNumber:1,dayOfWeek:1,title:"Machine Orientation",type:"strength",durationMinutes:35,intensity:"easy",description:"Learn proper form on leg press, leg extension, and leg curl. Light weight, 2x12 on each. Form first."},
+  {id:gid(),planId:fm9c,weekNumber:1,dayOfWeek:3,title:"Leg Circuit Light",type:"strength",durationMinutes:35,intensity:"moderate",description:"Leg press 3x12 (moderate weight), leg extension 3x12, leg curl 3x12. Focus on controlled movements."},
+  {id:gid(),planId:fm9c,weekNumber:2,dayOfWeek:1,title:"Cable Basics",type:"strength",durationMinutes:35,intensity:"moderate",description:"Cable pull-throughs 3x12, cable woodchops 3x10 each side, cable lateral walks 2x10 each. Learn cable exercises."},
+  {id:gid(),planId:fm9c,weekNumber:2,dayOfWeek:3,title:"Full Gym Circuit",type:"strength",durationMinutes:40,intensity:"moderate",description:"Leg press 3x12, leg curls 3x12, cable woodchops 3x10 each, calf raises 3x15. Full lower body session."},
+  {id:gid(),planId:fm9c,weekNumber:2,dayOfWeek:5,title:"Light Recovery Session",type:"strength",durationMinutes:30,intensity:"easy",description:"Very light: leg press 2x15, leg extension 2x15, stretching. Active recovery in the gym."},
+  {id:gid(),planId:fm10a,weekNumber:1,dayOfWeek:1,title:"HIIT Session",type:"intervals",durationMinutes:50,intensity:"hard",description:"10min warm-up, 5x3min hard with 2min easy between, 10min cool-down. Push the hard intervals."},
+  {id:gid(),planId:fm10a,weekNumber:1,dayOfWeek:3,title:"Threshold Blocks",type:"intervals",durationMinutes:50,intensity:"hard",description:"15min warm-up, 2x12min at threshold, 5min easy between, 10min cool-down. Sustained hard effort."},
+  {id:gid(),planId:fm10a,weekNumber:1,dayOfWeek:5,title:"Sweetspot Session",type:"intervals",durationMinutes:55,intensity:"moderate",description:"15min warm-up, 2x15min at sweetspot, 5min easy between, 10min cool-down. Quality endurance work."},
+  {id:gid(),planId:fm10a,weekNumber:2,dayOfWeek:2,title:"Over-Under Intro",type:"intervals",durationMinutes:50,intensity:"hard",description:"15min warm-up, 4x(2min above threshold / 2min below threshold), 15min cool-down. Race pace changes."},
+  {id:gid(),planId:fm10a,weekNumber:2,dayOfWeek:4,title:"Sprint Intervals",type:"sprint",durationMinutes:45,intensity:"hard",description:"10min warm-up, 8x30s all-out with 90s recovery, 15min cool-down. Build peak power on the bike."},
+  {id:gid(),planId:fm10b,weekNumber:1,dayOfWeek:2,title:"Steady State Row",type:"endurance",durationMinutes:40,intensity:"moderate",description:"40min at consistent pace. Aim for a split time you can maintain the whole way. Build rowing endurance."},
+  {id:gid(),planId:fm10b,weekNumber:1,dayOfWeek:4,title:"Row Intervals",type:"endurance",durationMinutes:40,intensity:"hard",description:"After warm-up: 6x500m at hard effort with 90s rest. Push the intervals, recover fully between."},
+  {id:gid(),planId:fm10b,weekNumber:2,dayOfWeek:1,title:"Cross-Trainer Endurance",type:"endurance",durationMinutes:45,intensity:"moderate",description:"15min row, 15min elliptical, 15min row. Continuous effort, different muscle recruitment."},
+  {id:gid(),planId:fm10b,weekNumber:2,dayOfWeek:3,title:"Power Rowing",type:"endurance",durationMinutes:40,intensity:"hard",description:"After warm-up: 4x2min max effort rowing with 2min easy. Then 10min steady state. Power and endurance."},
+  {id:gid(),planId:fm10b,weekNumber:2,dayOfWeek:5,title:"Recovery Session",type:"endurance",durationMinutes:35,intensity:"easy",description:"Easy elliptical or rowing. Low intensity. Let the body recover from the week’s hard sessions."},
+  {id:gid(),planId:fm10c,weekNumber:1,dayOfWeek:1,title:"Leg Press Focus",type:"strength",durationMinutes:40,intensity:"moderate",description:"Leg press 4x12 (moderate weight, good depth), leg extension 3x12, leg curl 3x12. Controlled tempo."},
+  {id:gid(),planId:fm10c,weekNumber:1,dayOfWeek:3,title:"Full Lower Body",type:"strength",durationMinutes:45,intensity:"moderate",description:"Leg press 3x12, leg extension 3x12, leg curl 3x12, calf raises 3x15, cable woodchops 3x10 each."},
+  {id:gid(),planId:fm10c,weekNumber:2,dayOfWeek:2,title:"Strength Build",type:"strength",durationMinutes:45,intensity:"hard",description:"Leg press 4x10 (heavier), leg curls 3x10, leg extension 3x10, seated calf 3x12. Increase load carefully."},
+  {id:gid(),planId:fm10c,weekNumber:2,dayOfWeek:4,title:"Power Endurance",type:"strength",durationMinutes:40,intensity:"moderate",description:"Leg press 20, leg curls 15, leg extension 15, calf raises 20. 3 rounds with 2min rest. High reps, moderate weight."},
+  {id:gid(),planId:fm10c,weekNumber:2,dayOfWeek:5,title:"Cable Core Circuit",type:"strength",durationMinutes:35,intensity:"moderate",description:"Cable pull-throughs 3x15, woodchops 3x12 each, standing cable crunch 3x15, cable lateral walks 3x12 each."},
+  {id:gid(),planId:fm11a,weekNumber:1,dayOfWeek:1,title:"VO2 Intervals",type:"intervals",durationMinutes:55,intensity:"hard",description:"15min warm-up, 5x3min at max sustainable effort, 3min easy between, 10min cool-down."},
+  {id:gid(),planId:fm11a,weekNumber:1,dayOfWeek:3,title:"Threshold Session",type:"intervals",durationMinutes:60,intensity:"hard",description:"15min warm-up, 2x20min at threshold (RPE 7-8), 5min recovery between, 10min cool-down."},
+  {id:gid(),planId:fm11a,weekNumber:1,dayOfWeek:5,title:"Sprint Tabata",type:"sprint",durationMinutes:45,intensity:"max",description:"10min warm-up, 3 Tabata sets (20s all-out / 10s rest x8), 2min between sets, 10min cool-down."},
+  {id:gid(),planId:fm11a,weekNumber:2,dayOfWeek:2,title:"Sweetspot Endurance",type:"intervals",durationMinutes:60,intensity:"moderate",description:"3x15min at sweetspot with 5min easy between. High cadence focus. Build sustainable power."},
+  {id:gid(),planId:fm11a,weekNumber:2,dayOfWeek:4,title:"Over-Under Advanced",type:"intervals",durationMinutes:55,intensity:"hard",description:"6x(2min at 105% threshold / 2min at 85% threshold). Simulates race surges and teaches recovery under load."},
+  {id:gid(),planId:fm11b,weekNumber:1,dayOfWeek:2,title:"Rowing Intervals",type:"endurance",durationMinutes:45,intensity:"hard",description:"Rowing: 6x500m at hard effort with 90s rest. Then 10min easy rowing. Build rowing power and fitness."},
+  {id:gid(),planId:fm11b,weekNumber:1,dayOfWeek:4,title:"Conditioning Circuit",type:"endurance",durationMinutes:50,intensity:"hard",description:"3 rounds: 5min hard row, 5min hard bike. 2min rest between rounds. Full body cardiovascular conditioning."},
+  {id:gid(),planId:fm11b,weekNumber:2,dayOfWeek:1,title:"Endurance Row",type:"endurance",durationMinutes:50,intensity:"moderate",description:"50min steady-state rowing at moderate effort. Build the cardiovascular base for 24-hour events."},
+  {id:gid(),planId:fm11b,weekNumber:2,dayOfWeek:3,title:"Power Row Session",type:"endurance",durationMinutes:45,intensity:"hard",description:"After warm-up: 8x1min max effort / 1min easy rowing. Then 2x2000m at race pace with 3min rest."},
+  {id:gid(),planId:fm11b,weekNumber:2,dayOfWeek:5,title:"Recovery Cross-Train",type:"endurance",durationMinutes:40,intensity:"easy",description:"Easy elliptical or light rowing. Recovery session. Keep the effort genuinely easy."},
+  {id:gid(),planId:fm11c,weekNumber:1,dayOfWeek:1,title:"Heavy Leg Press",type:"strength",durationMinutes:50,intensity:"hard",description:"Leg press: 12/10/8/6/8/10/12 rep pyramid, increasing then decreasing weight. Then 3x15 calf press."},
+  {id:gid(),planId:fm11c,weekNumber:1,dayOfWeek:3,title:"Quad & Hamstring Focus",type:"strength",durationMinutes:45,intensity:"hard",description:"Leg extensions 4x12, leg curls 4x12, hack squat (or leg press narrow stance) 3x10, seated calf raises 3x15."},
+  {id:gid(),planId:fm11c,weekNumber:1,dayOfWeek:5,title:"Cable Power",type:"strength",durationMinutes:40,intensity:"moderate",description:"Cable pull-throughs 3x15, cable woodchops 3x12 each, standing cable crunch 3x15, cable lateral walks 3x12 each."},
+  {id:gid(),planId:fm11c,weekNumber:2,dayOfWeek:2,title:"Strength Max",type:"strength",durationMinutes:50,intensity:"hard",description:"Leg press 5x5 heavy, Smith machine squats 4x6, weighted step-ups 3x8 each. Full 3min rest between sets."},
+  {id:gid(),planId:fm11c,weekNumber:2,dayOfWeek:4,title:"Power Endurance",type:"strength",durationMinutes:45,intensity:"hard",description:"3 rounds: leg press x20, leg curls x15, leg extension x15, calf raise x20. Minimal rest within rounds, 3min between."},
+  {id:gid(),planId:fm12a,weekNumber:1,dayOfWeek:1,title:"VO2 Max Session",type:"intervals",durationMinutes:60,intensity:"hard",description:"15min warm-up, 5x4min at max sustainable effort, 4min recovery, 10min cool-down. Peak aerobic work."},
+  {id:gid(),planId:fm12a,weekNumber:1,dayOfWeek:3,title:"Threshold Blocks",type:"intervals",durationMinutes:65,intensity:"hard",description:"15min warm-up, 2x20min at threshold, 5min recovery between, 10min cool-down. Sustained race-pace effort."},
+  {id:gid(),planId:fm12a,weekNumber:1,dayOfWeek:5,title:"Tabata Sprints",type:"sprint",durationMinutes:45,intensity:"max",description:"10min warm-up, 4 Tabata sets (20s all-out / 10s rest x8), 2min between sets, 10min cool-down."},
+  {id:gid(),planId:fm12a,weekNumber:2,dayOfWeek:2,title:"Sweetspot Long",type:"intervals",durationMinutes:70,intensity:"moderate",description:"3x20min at sweetspot with 5min easy between. High cadence (90+rpm). Building sustainable race power."},
+  {id:gid(),planId:fm12a,weekNumber:2,dayOfWeek:4,title:"Sprint Power Repeats",type:"sprint",durationMinutes:50,intensity:"max",description:"10x15s max sprints from low cadence, seated. 2min full recovery between. Peak power development."},
+  {id:gid(),planId:fm12b,weekNumber:1,dayOfWeek:2,title:"Steady-State Row",type:"endurance",durationMinutes:45,intensity:"moderate",description:"45min rowing at consistent split. Focus on smooth stroke, long drive phase, and steady breathing."},
+  {id:gid(),planId:fm12b,weekNumber:1,dayOfWeek:4,title:"Elliptical Endurance",type:"endurance",durationMinutes:45,intensity:"moderate",description:"45min elliptical at moderate resistance. Cross-training cardio with low joint impact."},
+  {id:gid(),planId:fm12b,weekNumber:2,dayOfWeek:1,title:"Row Intervals",type:"intervals",durationMinutes:40,intensity:"hard",description:"Rowing: 8x500m with 90s rest. Target consistent split times. Build lactate clearance and row power."},
+  {id:gid(),planId:fm12b,weekNumber:2,dayOfWeek:3,title:"Cross-Trainer Mix",type:"endurance",durationMinutes:50,intensity:"moderate",description:"15min row, 15min elliptical, 15min row. Continuous effort, no breaks. Build all-round CV fitness."},
+  {id:gid(),planId:fm12b,weekNumber:2,dayOfWeek:5,title:"Recovery Elliptical",type:"endurance",durationMinutes:35,intensity:"easy",description:"Easy elliptical session. Low resistance, gentle pace. Active recovery day."},
+  {id:gid(),planId:fm12c,weekNumber:1,dayOfWeek:1,title:"Leg Press Pyramid",type:"strength",durationMinutes:50,intensity:"hard",description:"Leg press: 12/10/8/6/4/6/8/10/12 pyramid. Peak set should be near max. Then 3x15 calf press."},
+  {id:gid(),planId:fm12c,weekNumber:1,dayOfWeek:3,title:"Power Circuit",type:"strength",durationMinutes:45,intensity:"hard",description:"Cable pull-throughs 4x12, cable woodchops 3x12 each, explosive leg press 3x10 (light, fast), box jumps 3x8."},
+  {id:gid(),planId:fm12c,weekNumber:1,dayOfWeek:5,title:"Leg Extension Focus",type:"strength",durationMinutes:40,intensity:"hard",description:"Leg extension 5x10 heavy, leg curl 4x10, single-leg press 3x10 each. Quad dominance for HPV power."},
+  {id:gid(),planId:fm12c,weekNumber:2,dayOfWeek:2,title:"Max Strength",type:"strength",durationMinutes:55,intensity:"max",description:"Leg press 5x3 near max, Smith squats 4x5, weighted step-ups 3x6 each. Full 4min rest between heavy sets."},
+  {id:gid(),planId:fm12c,weekNumber:2,dayOfWeek:4,title:"Explosive Power",type:"strength",durationMinutes:45,intensity:"hard",description:"Box jumps 4x8, explosive leg press 4x10, jumping lunges 3x8 each, power clean machine 3x8. Maximum power output."}
+];
+
+const races=[
+  {id:gid(),name:"Vic HPV Round 2 \u2014 Casey Fields",date:"2026-05-02",location:"Casey Fields, Cranbourne East, VIC",distance:80,type:"endurance",notes:"10am\u20134pm. 6-hour endurance race. Round 2 of the 2026 Victorian HPV Grand Prix Series."},
+  {id:gid(),name:"Vic HPV Round 3 \u2014 Sandown Raceway",date:"2026-07-25",location:"Sandown Raceway, Springvale, VIC",distance:100,type:"endurance",notes:"9am\u20134pm. 7-hour endurance race. Round 3 of the 2026 Victorian HPV Grand Prix Series."},
+  {id:gid(),name:"Vic HPV Round 4 \u2014 Casey Fields",date:"2026-10-17",location:"Casey Fields, Cranbourne East, VIC",distance:120,type:"endurance",notes:"9am\u20135pm. 8-hour endurance race. Series finale \u2014 Round 4 of the 2026 Victorian HPV Grand Prix Series."},
+  {id:gid(),name:"Energy Breakthrough \u2014 Maryborough 24hr",date:"2026-11-18",location:"Maryborough, VIC",distance:900,type:"multi_day",notes:"18\u201322 November. The flagship 24-hour HPV endurance race on the 1.58km Maryborough street circuit. Teams of 8 riders."},
+];
+
+// ===== HELPERS =====
+function esc(s){if(!s)return '';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function fmtDur(m){const h=Math.floor(m/60),mi=m%60;return h>0?h+'h '+mi+'m':mi+'m'}
+function sortW(){return[...workouts].sort((a,b)=>new Date(b.date)-new Date(a.date))}
+function sortR(){return[...races].sort((a,b)=>new Date(a.date)-new Date(b.date))}
+function iBadge(i){const c=i==='max'?'badge-destructive':i==='hard'?'badge-primary':i==='moderate'?'badge-secondary':'badge-outline';return'<span class="badge '+c+'">'+esc(i)+'</span>'}
+function dBadge(d){const c=d==='advanced'?'badge-destructive':d==='intermediate'?'badge-primary':'badge-secondary';return'<span class="badge '+c+'">'+esc(d)+'</span>'}
+function tBadge(t){return'<span class="badge badge-outline">'+esc(t.replace(/_/g,' '))+'</span>'}
+function iDot(i){return'intensity-dot intensity-'+(i||'easy')}
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAY_FULL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTH_FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const TC={endurance:'#BFFF00',intervals:'#FF8C33',cycling:'#2EA693',sprint:'#8B5CF6',strength:'#DC2626'};
+const TL={endurance:'Endurance',intervals:'Intervals',cycling:'Cycling',sprint:'Sprint',strength:'Strength'};
+
+// ===== STATS (computed from real user data only) =====
+function computeStats(){
+  const ws=sortW();
+  const tot=ws.length;
+  const dist=Math.round(ws.reduce((s,w)=>s+(w.distance||0),0)*10)/10;
+  const dur=ws.reduce((s,w)=>s+w.duration,0);
+  const pw=ws.filter(w=>w.avgPower!=null);
+  const ap=pw.length?Math.round(pw.reduce((s,w)=>s+w.avgPower,0)/pw.length):0;
+  const hr=ws.filter(w=>w.avgHeartRate!=null);
+  const ah=hr.length?Math.round(hr.reduce((s,w)=>s+w.avgHeartRate,0)/hr.length):0;
+
+  // Weekly volume (last 8 weeks)
+  const now=new Date();
+  const wv=[];
+  for(let i=7;i>=0;i--){
+    const ws2=new Date(now);ws2.setDate(ws2.getDate()-(i*7+ws2.getDay()));ws2.setHours(0,0,0,0);
+    const we=new Date(ws2);we.setDate(we.getDate()+7);
+    const ww=workouts.filter(w=>{const d=new Date(w.date);return d>=ws2&&d<we});
+    wv.push({week:(ws2.getMonth()+1)+'/'+ws2.getDate(),hours:Math.round(ww.reduce((s,w)=>s+w.duration,0)/60*10)/10});
+  }
+
+  // Streak
+  let streak=0;
+  const today=new Date();today.setHours(0,0,0,0);
+  const dates=[...new Set(ws.map(w=>w.date))].sort((a,b)=>new Date(b)-new Date(a));
+  if(dates.length>0){
+    const cd=new Date(today);const mr=new Date(dates[0]);mr.setHours(0,0,0,0);
+    if(Math.floor((today-mr)/(864e5))<=1){
+      for(const ds of dates){const d=new Date(ds);d.setHours(0,0,0,0);
+        if(Math.floor((cd-d)/(864e5))<=1){streak++;cd.setTime(d.getTime())}else break}
+    }
+  }
+
+  // This week's hours
+  const weekStart=new Date(now);weekStart.setDate(weekStart.getDate()-weekStart.getDay());weekStart.setHours(0,0,0,0);
+  const thisWeekHours=Math.round(workouts.filter(w=>{const d=new Date(w.date);return d>=weekStart}).reduce((s,w)=>s+w.duration,0)/60*10)/10;
+
+  const td={};ws.forEach(w=>{td[w.type]=(td[w.type]||0)+1});
+  return{totalWorkouts:tot,totalDistance:dist,totalDuration:dur,avgPower:ap,avgHeartRate:ah,weeklyVolume:wv,streak,thisWeekHours,typeDistribution:td};
+}
+
+// ===== ROUTING =====
+let currentRoute='/';
+const NAV=[
+  {path:'/',label:'Today',icon:'calendarCheck',title:''},
+  {path:'/workouts',label:'Workouts',icon:'dumbbell',title:'Workouts'},
+  {path:'/plans',label:'Plans',icon:'calendar',title:'Training Plans'},
+  {path:'/races',label:'Races',icon:'flag',title:'Race Countdown'},
+];
+
+function navigate(p){window.location.hash=p}
+function getRoute(){return window.location.hash.slice(1)||'/'}
+
+function renderTabBar(){
+  document.getElementById('tab-bar').innerHTML=NAV.map(function(n){return'<button class="tab-btn'+(currentRoute===n.path?' active':'')+'" onclick="navigate(\''+n.path+'\')" data-testid="tab-'+n.label.toLowerCase()+'">'+I[n.icon]+'<span class="tab-btn-label">'+n.label+'</span></button>'}).join('');
+}
+
+// ===== TODAY: checklist state =====
+let checkedToday={};
+
+function getTodayExercises(){
+  const active=trainingPlans.find(function(p){return p.active});
+  if(!active)return{status:'no_plan',exercises:[]};
+  const dow=new Date().getDay(); // 0=Sun,1=Mon,...
+  const exs=planWorkouts.filter(function(pw){return pw.planId===active.id&&pw.dayOfWeek===dow});
+  if(exs.length===0)return{status:'rest_day',exercises:[],planName:active.name};
+  return{status:'has_exercises',exercises:exs,planName:active.name};
+}
+
+// ===== PAGE: TODAY =====
+function renderToday(){
+  var now=new Date();
+  var dateStr=DAY_FULL[now.getDay()]+', '+MONTH_FULL[now.getMonth()]+' '+now.getDate();
+  var s=computeStats();
+  var today=getTodayExercises();
+  var greeting=getGreeting();
+
+  var exerciseHTML='';
+  if(today.status==='no_plan'){
+    exerciseHTML='<div class="empty-state"><div class="empty-state-icon">'+I.calendar+'</div><div class="empty-state-title">No active plan</div><div class="empty-state-desc">Activate a training plan to see today\'s exercises</div><button class="btn btn-secondary" style="margin-top:12px" onclick="navigate(\'/plans\')">Browse Plans</button></div>';
+  } else if(today.status==='rest_day'){
+    exerciseHTML='<div class="empty-state" style="padding:24px 20px"><div class="empty-state-icon">'+I.sun+'</div><div class="empty-state-title">Rest Day</div><div class="empty-state-desc">No scheduled workout today from '+esc(today.planName)+'.<br>Enjoy the recovery!</div></div>';
+  } else {
+    exerciseHTML=today.exercises.map(function(pw){
+      var done=checkedToday[pw.id]||false;
+      return '<div class="checklist-item'+(done?' checked':'')+'" data-testid="checklist-item"><div class="cl-check" onclick="toggleCheck(\''+pw.id+'\')"><div class="cl-box'+(done?' done':'')+'">'+I.checkSmall+'</div></div><div class="cl-info"><div class="cl-title">'+esc(pw.title)+' '+tBadge(pw.type)+'</div><div class="cl-desc">'+esc(pw.description)+'</div><div class="cl-meta">'+I.clock+' '+pw.durationMinutes+'m '+iBadge(pw.intensity)+'</div></div></div>';
+    }).join('');
+  }
+
+  var checkedCount=0;var totalCount=today.exercises.length;
+  today.exercises.forEach(function(pw){if(checkedToday[pw.id])checkedCount++});
+
+  return '<div class="space-y page-enter" data-testid="today-page">'
+    +'<div>'
+      +'<div class="today-date" data-testid="today-date">'+greeting+'</div>'
+      +'<div class="today-sub">'+dateStr
+        +(today.status==='has_exercises'?' &middot; <span class="tabular-nums">'+checkedCount+'/'+totalCount+'</span> done':'')
+      +'</div>'
+    +'</div>'
+
+    +'<div class="card"><div class="card-pad"><div class="section-title" style="margin:0 0 10px">Today\'s Exercises</div><div class="space-y-sm">'+exerciseHTML+'</div></div></div>'
+
+    +'<div class="qs-grid">'
+      +'<div class="card qs-card"><div class="card-pad"><div class="qs-value tabular-nums" data-testid="qs-total">'+(s.totalWorkouts||'0')+'</div><div class="qs-label">Workouts</div></div></div>'
+      +'<div class="card qs-card"><div class="card-pad"><div class="qs-value tabular-nums" data-testid="qs-week">'+(s.thisWeekHours||'0')+'<span class="qs-unit">h</span></div><div class="qs-label">This Week</div></div></div>'
+      +'<div class="card qs-card"><div class="card-pad"><div class="qs-value tabular-nums" data-testid="qs-streak">'+(s.streak||'0')+'</div><div class="qs-label">Streak</div></div></div>'
+    +'</div>'
+
+    +'<button class="btn btn-primary" style="width:100%" onclick="openWorkoutSheet()" data-testid="quick-log-btn">'+I.plus+' Log Workout</button>'
+
+    +'<div class="footer"><a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener">Created with Perplexity Computer</a></div>'
+  +'</div>';
+}
+
+function getGreeting(){
+  var h=new Date().getHours();
+  if(h<12)return 'Good Morning';
+  if(h<17)return 'Good Afternoon';
+  return 'Good Evening';
+}
+
+function toggleCheck(id){
+  checkedToday[id]=!checkedToday[id];
+  render();
+}
+
+// ===== PAGE: WORKOUTS =====
+let workoutFilter='all';
+
+function renderWorkouts(){
+  var ws=sortW();
+  var f=workoutFilter==='all'?ws:ws.filter(function(w){return w.type===workoutFilter});
+  var s=computeStats();
+
+  var statsBar='';
+  if(ws.length>0){
+    statsBar='<div class="kpi-grid" style="margin-bottom:12px">'
+      +'<div class="card"><div class="card-pad" style="padding:10px 12px"><div class="kpi-label">Total Distance</div><div class="kpi-value tabular-nums" style="font-size:20px" data-testid="wo-total-dist">'+(s.totalDistance||'--')+'<span class="kpi-unit">km</span></div></div></div>'
+      +'<div class="card"><div class="card-pad" style="padding:10px 12px"><div class="kpi-label">Avg Power</div><div class="kpi-value tabular-nums" style="font-size:20px" data-testid="wo-avg-power">'+(s.avgPower||'--')+'<span class="kpi-unit">W</span></div></div></div>'
+    +'</div>';
+  }
+
+  var listHTML='';
+  if(ws.length===0){
+    listHTML='<div class="empty-state"><div class="empty-state-icon">'+I.dumbbell+'</div><div class="empty-state-title">No workouts yet</div><div class="empty-state-desc">Log your first workout to start tracking your training</div><button class="btn btn-primary" style="margin-top:12px" onclick="openWorkoutSheet()" data-testid="empty-log-btn">'+I.plus+' Log Workout</button></div>';
+  } else if(f.length===0){
+    listHTML='<div style="text-align:center;padding:40px 0;color:var(--muted-fg)">No workouts match this filter.</div>';
+  } else {
+    listHTML=f.map(function(w){return '<div class="card wo-card" data-testid="workout-card"><div class="card-pad"><div class="wo-top"><div class="wo-left"><div class="wo-title-row"><span class="wo-name">'+esc(w.title)+'</span>'+iBadge(w.intensity)+tBadge(w.type)+'</div><div class="wo-stats"><span>'+new Date(w.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span><span class="tabular-nums">'+fmtDur(w.duration)+'</span>'+(w.distance!=null?'<span class="tabular-nums">'+w.distance+' km</span>':'')+(w.avgPower!=null?'<span class="tabular-nums">'+w.avgPower+' W</span>':'')+(w.avgHeartRate!=null?'<span class="tabular-nums">'+w.avgHeartRate+' bpm</span>':'')+(w.calories!=null?'<span class="tabular-nums">'+w.calories+' kcal</span>':'')+'</div>'+(w.notes?'<div class="wo-notes">'+esc(w.notes)+'</div>':'')+'</div><button class="btn btn-ghost btn-icon" onclick="deleteWorkout(\''+w.id+'\')" data-testid="delete-workout-btn" title="Delete">'+I.trash+'</button></div></div></div>'}).join('');
+  }
+
+  return '<div class="space-y page-enter" data-testid="workouts-page">'
+    +statsBar
+    +'<div class="filter-bar">'+I.filter
+      +'<select class="input" style="width:140px;height:38px;font-size:13px" onchange="workoutFilter=this.value;render()" data-testid="filter-type">'
+        +'<option value="all"'+(workoutFilter==='all'?' selected':'')+'>All Types</option>'
+        +'<option value="cycling"'+(workoutFilter==='cycling'?' selected':'')+'>Cycling</option>'
+        +'<option value="endurance"'+(workoutFilter==='endurance'?' selected':'')+'>Endurance</option>'
+        +'<option value="intervals"'+(workoutFilter==='intervals'?' selected':'')+'>Intervals</option>'
+        +'<option value="sprint"'+(workoutFilter==='sprint'?' selected':'')+'>Sprint</option>'
+        +'<option value="strength"'+(workoutFilter==='strength'?' selected':'')+'>Strength</option>'
+      +'</select>'
+      +'<span class="filter-count">'+f.length+' workout'+(f.length!==1?'s':'')+'</span>'
+    +'</div>'
+    +listHTML
+    +'<div class="footer"><a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener">Created with Perplexity Computer</a></div>'
+  +'</div>';
+}
+
+function openWorkoutSheet(){
+  var today=new Date().toISOString().split('T')[0];
+  showSheet(
+    '<div class="sheet-handle"></div>'
+    +'<div class="sheet-title">Log Workout</div>'
+    +'<form id="wo-form">'
+      +'<div class="form-group"><label class="label">Title *</label><input class="input" name="title" placeholder="e.g. Morning Ride" required data-testid="workout-title-input"></div>'
+      +'<div class="form-row"><div class="form-group"><label class="label">Date *</label><input class="input" name="date" type="date" value="'+today+'" required data-testid="workout-date-input"></div><div class="form-group"><label class="label">Duration (min) *</label><input class="input" name="duration" type="number" min="1" value="60" required data-testid="workout-duration-input"></div></div>'
+      +'<div class="form-row"><div class="form-group"><label class="label">Type *</label><select class="input" name="type" required data-testid="workout-type-select"><option value="cycling">Cycling</option><option value="endurance">Endurance</option><option value="intervals">Intervals</option><option value="sprint">Sprint</option><option value="strength">Strength</option></select></div><div class="form-group"><label class="label">Intensity *</label><select class="input" name="intensity" required data-testid="workout-intensity-select"><option value="easy">Easy</option><option value="moderate">Moderate</option><option value="hard">Hard</option><option value="max">Max</option></select></div></div>'
+      +'<div class="form-row"><div class="form-group"><label class="label">Distance (km)</label><input class="input" name="distance" type="number" step="0.1" min="0" placeholder="--"></div><div class="form-group"><label class="label">Avg Power (W)</label><input class="input" name="avgPower" type="number" min="0" placeholder="--"></div></div>'
+      +'<div class="form-row"><div class="form-group"><label class="label">Avg Heart Rate (bpm)</label><input class="input" name="avgHeartRate" type="number" min="0" placeholder="--"></div><div class="form-group"><label class="label">Calories (kcal)</label><input class="input" name="calories" type="number" min="0" placeholder="--"></div></div>'
+      +'<div class="form-group"><label class="label">Notes</label><textarea class="input" name="notes" rows="2" placeholder="How did it feel?"></textarea></div>'
+      +'<button type="submit" class="btn btn-primary" style="width:100%" data-testid="submit-workout-btn">Save Workout</button>'
+    +'</form>'
+  );
+  document.getElementById('wo-form').addEventListener('submit',function(e){
+    e.preventDefault();var fd=new FormData(e.target);
+    workouts.push({id:gid(),title:fd.get('title'),date:fd.get('date'),type:fd.get('type'),intensity:fd.get('intensity'),
+      duration:parseInt(fd.get('duration')),distance:fd.get('distance')?parseFloat(fd.get('distance')):null,
+      avgPower:fd.get('avgPower')?parseInt(fd.get('avgPower')):null,avgHeartRate:fd.get('avgHeartRate')?parseInt(fd.get('avgHeartRate')):null,
+      calories:fd.get('calories')?parseInt(fd.get('calories')):null,notes:fd.get('notes')||null});
+    closeSheet();render();
+  });
+}
+
+function deleteWorkout(id){var i=workouts.findIndex(function(w){return w.id===id});if(i>=0)workouts.splice(i,1);render()}
+
+// ===== PAGE: PLANS =====
+let plansTab='in_vehicle';
+let expandedPlan=null;
+
+function renderPlans(){
+  var cats=[
+    {v:'in_vehicle',l:'In Vehicle',icon:'bike'},
+    {v:'floor_home',l:'Floor & Home',icon:'home'},
+    {v:'fitness_machine',l:'Machine',icon:'dumbbell'},
+  ];
+  function plansFor(c){return trainingPlans.filter(function(p){return p.category===c&&p.yearLevel===selectedYear})}
+  function pwFor(pid){return planWorkouts.filter(function(pw){return pw.planId===pid}).sort(function(a,b){return a.weekNumber-b.weekNumber||a.dayOfWeek-b.dayOfWeek})}
+  function groupWeek(pws){var m={};pws.forEach(function(pw){(m[pw.weekNumber]=m[pw.weekNumber]||[]).push(pw)});return Object.entries(m).sort(function(a,b){return a[0]-b[0]})}
+
+  var yl=YEAR_LEVELS.find(function(y){return y.id===selectedYear});
+  var safetyHTML='<div class="safety-banner" data-testid="safety-banner">'
+    +'<div class="safety-header">'+I.info+' <strong>'+yl.label+' Guidelines</strong> <span class="safety-ages">(Ages '+yl.ages+')</span></div>'
+    +'<div class="safety-details">'
+      +'<span>'+I.clock+' '+yl.sessionsPerWeek+' sessions/wk, up to '+yl.maxSession+'min</span>'
+      +'<span>Max intensity: '+yl.maxIntensity+'</span>'
+    +'</div>'
+    +'<div class="safety-guideline">'+yl.guideline+'</div>'
+  +'</div>';
+
+  function planCard(p){
+    var exp=expandedPlan===p.id;
+    var pws=exp?pwFor(p.id):[];
+    var wks=exp?groupWeek(pws):[];
+    return '<div class="card plan-card'+(p.active?' active-plan':'')+'" data-testid="plan-card">'
+      +'<div class="plan-header" onclick="togglePlan(\''+p.id+'\')">'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">'
+            +'<span class="card-title" style="font-size:15px">'+esc(p.name)+'</span>'
+            +(p.active?'<span class="badge badge-primary" data-testid="active-badge" style="font-size:10px">'+I.check+' Active</span>':'')
+          +'</div>'
+          +'<div class="card-desc">'+esc(p.description)+'</div>'
+          +'<div class="plan-badges"><span class="badge badge-outline">'+I.calendar+' '+p.durationWeeks+'w</span>'+dBadge(p.difficulty)+tBadge(p.type)+'</div>'
+        +'</div>'
+        +'<div class="plan-actions">'
+          +(!p.active?'<button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;min-height:36px" onclick="event.stopPropagation();activatePlan(\''+p.id+'\')" data-testid="activate-plan-btn">Activate</button>':'')
+          +'<span class="plan-chevron">'+(exp?I.chevUp:I.chevDown)+'</span>'
+        +'</div>'
+      +'</div>'
+      +(exp?'<div class="plan-schedule">'
+        +wks.map(function(wk){return '<div style="margin-bottom:16px"><div class="week-title">Week '+wk[0]+'</div>'
+          +wk[1].map(function(pw){return '<div class="pw-row" data-testid="plan-workout"><div class="pw-day">'+DAYS[pw.dayOfWeek]+'</div><div class="pw-info"><div class="pw-name">'+esc(pw.title)+'<span class="'+iDot(pw.intensity)+'"></span></div><div class="pw-desc">'+esc(pw.description)+'</div><div class="pw-meta"><span class="pw-dur">'+I.clock+' '+pw.durationMinutes+'m</span>'+tBadge(pw.type)+'</div></div></div>'}).join('')
+        +'</div>'}).join('')
+      +'</div>':'')
+    +'</div>';
+  }
+
+  return '<div class="space-y page-enter" data-testid="plans-page">'
+    +'<div class="pill-tabs" data-testid="plan-tabs">'
+      +cats.map(function(c){return '<button class="pill-tab'+(plansTab===c.v?' active':'')+'" onclick="plansTab=\''+c.v+'\';render()" data-testid="tab-'+c.v+'">'+I[c.icon]+'<span>'+c.l+'</span></button>'}).join('')
+    +'</div>'
+    +'<div class="year-tabs" data-testid="year-tabs">'
+      +YEAR_LEVELS.map(function(y){return '<button class="year-pill'+(selectedYear===y.id?' active':'')+'" onclick="selectedYear=\''+y.id+'\';expandedPlan=null;render()" data-testid="year-'+y.id+'">'+y.label+'</button>'}).join('')
+    +'</div>'
+    +safetyHTML
+    +'<div class="space-y">'
+      +plansFor(plansTab).map(function(p){return planCard(p)}).join('')
+      +(plansFor(plansTab).length===0?'<div style="text-align:center;padding:40px 0;color:var(--muted-fg)">No plans in this category.</div>':'')
+    +'</div>'
+    +'<div class="footer"><a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener">Created with Perplexity Computer</a></div>'
+  +'</div>';
+}
+function togglePlan(id){expandedPlan=expandedPlan===id?null:id;render()}
+function activatePlan(id){trainingPlans.forEach(function(p){p.active=false});var p=trainingPlans.find(function(p){return p.id===id});if(p)p.active=true;render()}
+
+// ===== PAGE: RACES =====
+let countdownInterval=null;
+
+function renderRaces(){
+  return '<div class="space-y page-enter" data-testid="races-page">'
+    +(sortR().length===0?'<div style="text-align:center;padding:40px 0;color:var(--muted-fg)">No upcoming races.</div>':'')
+    +sortR().map(function(r){return renderRaceCard(r)}).join('')
+    +'<div class="footer"><a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener">Created with Perplexity Computer</a></div>'
+  +'</div>';
+}
+
+function renderRaceCard(r){
+  var tl=getTimeLeft(r.date);
+  return '<div class="card race-card" data-testid="race-card"><div class="card-pad">'
+    +'<div class="race-top"><div style="flex:1;min-width:0">'
+      +'<div class="race-name">'+I.flag+' '+esc(r.name)+'</div>'
+      +'<div class="race-meta">'
+        +'<span class="race-meta-item">'+I.mapPin+' '+esc(r.location)+'</span>'
+        +'<span class="race-meta-item">'+I.calendar+' '+new Date(r.date).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})+'</span>'
+        +'<span class="race-meta-item">'+I.route+' <span class="tabular-nums">'+r.distance+' km</span></span>'
+        +tBadge(r.type)
+      +'</div>'
+    +'</div>'
+    +'<button class="btn btn-ghost btn-icon" onclick="deleteRace(\''+r.id+'\')" data-testid="delete-race-btn" title="Delete">'+I.trash+'</button></div>'
+    +(tl.total<=0?'<div class="race-day-badge"><span class="badge badge-primary" style="font-size:14px;padding:4px 16px">Race Day!</span></div>'
+      :'<div class="countdown-grid" data-testid="countdown-timer" data-race-id="'+r.id+'" data-race-date="'+r.date+'">'
+        +'<div class="time-unit"><div class="time-unit-box">'+String(tl.days).padStart(2,'0')+'</div><div class="time-unit-label">Days</div></div>'
+        +'<span class="countdown-sep">:</span>'
+        +'<div class="time-unit"><div class="time-unit-box">'+String(tl.hours).padStart(2,'0')+'</div><div class="time-unit-label">Hours</div></div>'
+        +'<span class="countdown-sep">:</span>'
+        +'<div class="time-unit"><div class="time-unit-box">'+String(tl.minutes).padStart(2,'0')+'</div><div class="time-unit-label">Min</div></div>'
+        +'<span class="countdown-sep">:</span>'
+        +'<div class="time-unit"><div class="time-unit-box">'+String(tl.seconds).padStart(2,'0')+'</div><div class="time-unit-label">Sec</div></div>'
+      +'</div>')
+    +(r.notes?'<div class="race-notes">'+esc(r.notes)+'</div>':'')
+  +'</div></div>';
+}
+
+function getTimeLeft(ds){
+  var t=new Date(ds+'T00:00:00').getTime()-Date.now();
+  if(t<=0)return{days:0,hours:0,minutes:0,seconds:0,total:0};
+  return{days:Math.floor(t/864e5),hours:Math.floor((t/36e5)%24),minutes:Math.floor((t/6e4)%60),seconds:Math.floor((t/1e3)%60),total:t};
+}
+
+function updateCountdowns(){
+  document.querySelectorAll('[data-race-date]').forEach(function(el){
+    var tl=getTimeLeft(el.getAttribute('data-race-date'));
+    var b=el.querySelectorAll('.time-unit-box');
+    if(b.length===4){b[0].textContent=String(tl.days).padStart(2,'0');b[1].textContent=String(tl.hours).padStart(2,'0');b[2].textContent=String(tl.minutes).padStart(2,'0');b[3].textContent=String(tl.seconds).padStart(2,'0')}
+    if(tl.total<=0)el.innerHTML='<div class="race-day-badge"><span class="badge badge-primary" style="font-size:14px;padding:4px 16px">Race Day!</span></div>';
+  });
+}
+
+function openRaceSheet(){
+  showSheet(
+    '<div class="sheet-handle"></div>'
+    +'<div class="sheet-title">Add Race</div>'
+    +'<form id="race-form">'
+      +'<div class="form-group"><label class="label">Race Name</label><input class="input" name="name" required data-testid="race-name-input"></div>'
+      +'<div class="form-row"><div class="form-group"><label class="label">Date</label><input class="input" name="date" type="date" required data-testid="race-date-input"></div><div class="form-group"><label class="label">Location</label><input class="input" name="location" required></div></div>'
+      +'<div class="form-row"><div class="form-group"><label class="label">Distance (km)</label><input class="input" name="distance" type="number" step="0.01" min="0" required></div><div class="form-group"><label class="label">Type</label><select class="input" name="type" required data-testid="race-type-select"><option value="sprint">Sprint</option><option value="endurance">Endurance</option><option value="time_trial">Time Trial</option><option value="multi_day">Multi Day</option></select></div></div>'
+      +'<div class="form-group"><label class="label">Notes</label><textarea class="input" name="notes" rows="2"></textarea></div>'
+      +'<button type="submit" class="btn btn-primary" style="width:100%" data-testid="submit-race-btn">Add Race</button>'
+    +'</form>'
+  );
+  document.getElementById('race-form').addEventListener('submit',function(e){
+    e.preventDefault();var fd=new FormData(e.target);
+    races.push({id:gid(),name:fd.get('name'),date:fd.get('date'),location:fd.get('location'),
+      distance:parseFloat(fd.get('distance')),type:fd.get('type'),notes:fd.get('notes')||null});
+    closeSheet();render();
+  });
+}
+
+function deleteRace(id){var i=races.findIndex(function(r){return r.id===id});if(i>=0)races.splice(i,1);render()}
+
+// ===== BOTTOM SHEET =====
+function showSheet(html){
+  var root=document.getElementById('sheet-root');
+  root.innerHTML='<div class="sheet-overlay" id="sheet-bg"></div><div class="sheet" id="sheet-panel">'+html+'</div>';
+  requestAnimationFrame(function(){
+    document.getElementById('sheet-bg').classList.add('visible');
+    document.getElementById('sheet-panel').classList.add('visible');
+  });
+  document.getElementById('sheet-bg').addEventListener('click',closeSheet);
+}
+function closeSheet(){
+  var bg=document.getElementById('sheet-bg'),panel=document.getElementById('sheet-panel');
+  if(bg)bg.classList.remove('visible');
+  if(panel)panel.classList.remove('visible');
+  setTimeout(function(){document.getElementById('sheet-root').innerHTML=''},300);
+}
+
+// ===== FAB =====
+function renderFab(){
+  var existing=document.getElementById('fab-btn');
+  if(existing)existing.remove();
+  if(currentRoute==='/workouts'){
+    var fab=document.createElement('button');fab.id='fab-btn';fab.className='fab';fab.setAttribute('data-testid','log-workout-btn');
+    fab.innerHTML=I.plus;fab.onclick=openWorkoutSheet;document.body.appendChild(fab);
+  } else if(currentRoute==='/races'){
+    var fab=document.createElement('button');fab.id='fab-btn';fab.className='fab';fab.setAttribute('data-testid','add-race-btn');
+    fab.innerHTML=I.plus;fab.onclick=openRaceSheet;document.body.appendChild(fab);
+  }
+}
+
+// ===== RENDER =====
+function render(){
+  currentRoute=getRoute();
+  renderTabBar();
+  renderFab();
+
+  var ht=document.getElementById('header-title');
+  var nav=NAV.find(function(n){return n.path===currentRoute});
+  ht.textContent=nav?nav.title:'';
+
+  var content=document.getElementById('content');
+  if(countdownInterval){clearInterval(countdownInterval);countdownInterval=null}
+
+  switch(currentRoute){
+    case '/':content.innerHTML=renderToday();break;
+    case '/workouts':content.innerHTML=renderWorkouts();break;
+    case '/plans':content.innerHTML=renderPlans();break;
+    case '/races':content.innerHTML=renderRaces();countdownInterval=setInterval(updateCountdowns,1000);break;
+    default:content.innerHTML=renderToday();break;
+  }
+  content.scrollTop=0;
+}
+
+// ===== INIT =====
+window.addEventListener('hashchange',render);
+render();
 </script>
-<script type="module" src="app.js"></script>
 </body>
 </html>
