@@ -1,6 +1,6 @@
 // TurboPrep HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
-import { initRaceDay, loadRaceDayState, getRaceDayActive, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay } from './raceday.js';
+import { initRaceDay, loadRaceDayState, getRaceDayActive, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay, checkRaceDaySchedule } from './raceday.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)
 let renderAdmin = () => {}, renderCoachDashboard = async () => {}, renderAdminTraining = () => {}, loadAdminEmails = async () => {},
@@ -5920,7 +5920,7 @@ function buildModuleCtx() {
     escHtml,
     renderGodAdminPanel, bindGodAdminPanel,
     get globalSettings() { return globalSettings; },
-    activateRaceDay, deactivateRaceDay, openRaceDayOverlay,
+    activateRaceDay, deactivateRaceDay, openRaceDayOverlay, checkRaceDaySchedule,
     // Firebase refs (getters for fresh values)
     get db() { return db; },
     get currentUser() { return currentUser; },
@@ -6140,8 +6140,21 @@ function startApp() {
       try { listenGlobalSettings(); } catch(e) {}
       // Check race day state — if active, take over full screen
       try {
+        await checkRaceDaySchedule();
         const rdActive=await loadRaceDayState();
         if (rdActive) { setTimeout(()=>openRaceDayOverlay(),300); }
+        // Check schedule every 60 seconds
+        setInterval(async()=>{
+          await checkRaceDaySchedule();
+          const stillActive=getRaceDayActive();
+          // If race day just ended, close overlay if open
+          if (!stillActive && document.getElementById('raceday-overlay')) {
+            document.getElementById('raceday-overlay')?.remove();
+            const ma=document.getElementById('main-app');
+            if (ma) ma.style.display='flex';
+            showToast('Race day has ended.','info');
+          }
+        }, 60000);
       } catch(e) {}
       try { await loadAdminEmails(); } catch(e) {}
       try { checkAdmin(user.email); } catch(e) {}

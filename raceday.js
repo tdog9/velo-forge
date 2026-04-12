@@ -56,15 +56,109 @@ export async function loadRaceDayState() {
   } catch(e) { console.warn('loadRaceDayState:',e); }
   return false;
 }
-export async function activateRaceDay() {
-  if (!ctx?.userProfile?.isCoach) return false;
-  const data = { active:true, date:todayKey(), activatedBy:ctx.currentUser.uid,
-    teamId:ctx.userProfile.teamId||null, startPoint:null, startPointSet:false,
-    activatedAt:ctx.serverTimestamp() };
+export async function activateRaceDay(raceId) {
+  const isMaster = ctx.currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+  if (!ctx?.userProfile?.isCoach && !isMaster) return false;
+  const now = Date.now();
+  const data = {
+    active: true,
+    date: todayKey(),
+    activatedBy: ctx.currentUser.uid,
+    activatedAt: ctx.serverTimestamp(),
+    activatedAtMs: now,
+    teamId: ctx.userProfile.teamId||null,
+    startPoint: null,
+    startPointSet: false,
+    raceId: raceId||null,
+    maxDurationMs: 25*60*60*1000 // 25 hour hard limit
+  };
   try {
     await ctx.setDoc(ctx.doc(ctx.db,'race_day',todayKey()),data);
     rdd={...rdd,...data}; return true;
   } catch(e) { console.warn('activateRaceDay:',e); return false; }
+}
+
+// Auto-check: start/end based on race schedule, enforce 25hr limit
+export async function checkRaceDaySchedule() {
+  if (!ctx?.db) return;
+  const today = todayKey();
+  const now = new Date();
+  const nowMs = Date.now();
+  const races = ctx.getActiveRaces ? ctx.getActiveRaces() : [];
+  const todayRace = races.find(r => r.date === today);
+
+  // Parse time from notes e.g. "9am–4pm" or "10am–4pm"
+  function parseRaceTime(notes, date) {
+    if (!notes) return null;
+    const m = notes.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    if (!m) return null;
+    let h = parseInt(m[1]);
+    const min = parseInt(m[2]||'0');
+    const ampm = m[3].toLowerCase();
+    if (ampm==='pm' && h!==12) h+=12;
+    if (ampm==='am' && h===12) h=0;
+    const d = new Date(date+'T00:00:00');
+    d.setHours(h, min, 0, 0);
+    return d;
+  }
+
+  function parseRaceEndTime(notes, date) {
+    if (!notes) return null;
+    // Match end time after dash e.g. "9am–4pm" or "9am-4pm"
+    const m = notes.match(/[–\-]\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    if (!m) return null;
+    let h = parseInt(m[1]);
+    const min = parseInt(m[2]||'0');
+    const ampm = m[3].toLowerCase();
+    if (ampm==='pm' && h!==12) h+=12;
+    if (ampm==='am' && h===12) h=0;
+    const d = new Date(date+'T00:00:00');
+    d.setHours(h, min, 0, 0);
+    return d;
+  }
+
+  try {
+    const snap = await ctx.getDoc(ctx.doc(ctx.db,'race_day',today));
+    const rd = snap.exists() ? snap.data() : null;
+
+    // Auto-start if race starts now (within 5 min window) and not already active
+    if (todayRace && !rd?.active) {
+      const startTime = parseRaceTime(todayRace.notes, today);
+      if (startTime) {
+        const diff = Math.abs(nowMs - startTime.getTime());
+        if (diff < 5*60*1000 && nowMs >= startTime.getTime()) {
+          await activateRaceDay(todayRace.id);
+          console.log('[RaceDay] Auto-activated for', todayRace.name);
+          return;
+        }
+      }
+    }
+
+    // Auto-end if race end time reached OR 25hr limit exceeded
+    if (rd?.active) {
+      let shouldEnd = false;
+
+      // 25hr hard limit
+      if (rd.activatedAtMs && (nowMs - rd.activatedAtMs) > 25*60*60*1000) {
+        shouldEnd = true;
+        console.log('[RaceDay] 25hr limit reached — auto-ending');
+      }
+
+      // Race end time
+      if (!shouldEnd && todayRace) {
+        const endTime = parseRaceEndTime(todayRace.notes, today);
+        if (endTime && nowMs >= endTime.getTime()) {
+          shouldEnd = true;
+          console.log('[RaceDay] Race end time reached — auto-ending');
+        }
+      }
+
+      if (shouldEnd) {
+        await ctx.updateDoc(ctx.doc(ctx.db,'race_day',today), {active:false, autoEnded:true, autoEndedAt:ctx.serverTimestamp()});
+        rdd.active = false;
+      }
+    }
+  } catch(e) { console.warn('checkRaceDaySchedule:', e); }
 }
 export async function deactivateRaceDay() {
   if (!ctx?.userProfile?.isCoach) return false;
@@ -130,6 +224,11 @@ export function getRaceDayData(){ return rdd; }
 export async function openRaceDayOverlay() {
   await Promise.all([loadRoster(),loadSetupFields(),loadTodayStints()]);
   document.getElementById('raceday-overlay')?.remove();
+  // Block back/swipe navigation while in race day
+  window.history.pushState(null,'',window.location.href);
+  const blockNav = ()=>{ window.history.pushState(null,'',window.location.href); };
+  window.addEventListener('popstate', blockNav);
+  window._rdNavBlock = blockNav;
   // Hide entire normal app — race day is full takeover
   const mainApp=document.getElementById('main-app');
   if (mainApp) mainApp.style.display='none';
@@ -182,8 +281,7 @@ function buildOverlayHTML() {
     <div style="width:7px;height:7px;border-radius:50%;background:#ef4444;animation:rdPulse 1.4s ease infinite"></div>
     <span style="font-size:11px;font-weight:700;color:#ef4444">LIVE</span>
   </div>
-  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;cursor:pointer;margin-left:4px">End</button>` : ''}
-  <button id="rd-close-btn" style="width:32px;height:32px;border-radius:50%;background:var(--muted);border:none;color:var(--fg);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
+  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
 </header>
 
 <!-- Scrollable content -->
@@ -217,14 +315,14 @@ function bindOverlay(ov) {
   function closeOverlay() {
     ov.remove();
     document.getElementById('rd-roster-fab')?.remove();
+    if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
     const ma=document.getElementById('main-app');
     if (ma) ma.style.display='flex';
     const af=document.getElementById('ai-fab');
     if (af&&ctx.userProfile) af.style.display='';
   }
 
-  ov.querySelector('#rd-close-btn').addEventListener('click', closeOverlay);
-
+  // Only coaches/admin can end race day — no close for regular users
   ov.querySelector('#rd-end-btn')?.addEventListener('click',async()=>{
     if (!confirm('End race day mode for all users?')) return;
     await deactivateRaceDay();

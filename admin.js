@@ -113,19 +113,30 @@ function renderAdminMaintenance() {
     <div style="margin-bottom:16px">
       <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Race Day Control</div>
       <div style="padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div>
-            <div style="font-size:13px;font-weight:600">Race Day Mode</div>
-            <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Locks all users into race day interface</div>
+            <div style="font-size:13px;font-weight:600">Status</div>
+            <div id="rd-extra-info"></div>
           </div>
-          <div id="rd-status-badge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(239,68,68,.12);color:#ef4444">Checking...</div>
+          <div id="rd-status-badge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(100,100,100,.12);color:var(--muted-fg)">Checking...</div>
         </div>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <button class="btn btn-primary" style="flex:1;font-size:12px;background:linear-gradient(135deg,#22c55e,#16a34a)" id="rd-activate-god">🏁 Activate Race Day</button>
-          <button class="btn btn-secondary" style="flex:1;font-size:12px;color:#ef4444;border-color:rgba(239,68,68,.3)" id="rd-deactivate-god">End Race Day</button>
+        <div style="margin-bottom:8px">
+          <label style="font-size:11px;color:var(--muted-fg);display:block;margin-bottom:4px">Linked Race (optional)</label>
+          <select class="input" id="rd-race-select" style="font-size:12px">
+            <option value="">— No linked race —</option>
+            ${(A.getActiveRaces?A.getActiveRaces():[]).map(r=>`<option value="${A.escHtml(r.id)}">${A.escHtml(r.name)} (${r.date})</option>`).join('')}
+          </select>
         </div>
-        <button class="btn btn-secondary" style="width:100%;font-size:12px" id="rd-test-btn">🧪 Test Race Day Mode</button>
-        <div style="font-size:11px;color:var(--muted-fg);margin-top:6px">Test opens race day interface without activating it for other users.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          <button class="btn btn-primary" style="font-size:12px;background:linear-gradient(135deg,#22c55e,#16a34a);padding:10px" id="rd-activate-god">🏁 Activate</button>
+          <button class="btn btn-secondary" style="font-size:12px;color:#ef4444;border-color:rgba(239,68,68,.3);padding:10px" id="rd-deactivate-god">⬛ End</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          <button class="btn btn-secondary" style="font-size:12px;padding:8px" id="rd-reset-map">🗺 Reset Map</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:8px" id="rd-view-stints">📊 View Stints</button>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;font-size:12px" id="rd-test-btn">🧪 Test Race Day Mode (you only)</button>
+        <div style="font-size:10px;color:var(--muted-fg);margin-top:4px">Race day auto-starts/ends based on race schedule times. Hard limit: 25 hours.</div>
       </div>
     </div>
 
@@ -164,53 +175,90 @@ function renderAdminMaintenance() {
     renderAdminMaintenance();
   });
 
-  // Race day controls
+  // Load race day state and render full controls
   (async () => {
     const badge = el.querySelector('#rd-status-badge');
+    let rdData = null;
     try {
       if (A.db) {
         const today = new Date();
         const dk = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
         const snap = await A.getDoc(A.doc(A.db,'race_day',dk));
-        const isActive = snap.exists() && snap.data().active;
+        rdData = snap.exists() ? snap.data() : null;
+        const isActive = rdData?.active;
         if (badge) {
           badge.textContent = isActive ? '🔴 LIVE' : '⚪ Inactive';
           badge.style.background = isActive ? 'rgba(239,68,68,.15)' : 'rgba(100,100,100,.15)';
           badge.style.color = isActive ? '#ef4444' : 'var(--muted-fg)';
         }
+
+        // Show extra info if active
+        const infoEl = el.querySelector('#rd-extra-info');
+        if (infoEl && rdData) {
+          const activatedMs = rdData.activatedAtMs;
+          const elapsed = activatedMs ? Math.floor((Date.now()-activatedMs)/60000) : 0;
+          const remaining = activatedMs ? Math.max(0, Math.floor((25*60 - elapsed))) : 0;
+          infoEl.innerHTML = isActive
+            ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:6px;line-height:1.6">
+                Active for: <b style="color:var(--fg)">${elapsed} min</b> · 
+                Remaining: <b style="color:${remaining<60?'#ef4444':'var(--fg)'}">${remaining} min</b><br>
+                Start point: <b style="color:var(--fg)">${rdData.startPointSet?'Set ✓':'Not set yet'}</b>
+               </div>`
+            : '';
+        }
       }
     } catch(e) { if (badge) badge.textContent = '—'; }
+
+    // Bind activate with race selector
+    el.querySelector('#rd-activate-god')?.addEventListener('click', async () => {
+      const raceId = el.querySelector('#rd-race-select')?.value || null;
+      try {
+        await A.activateRaceDay(raceId);
+        A.showToast('Race day activated!','success');
+        renderAdminMaintenance();
+      } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+    });
+
+    el.querySelector('#rd-deactivate-god')?.addEventListener('click', async () => {
+      if (!confirm('End race day for all users?')) return;
+      await A.deactivateRaceDay();
+      A.showToast('Race day ended.','info');
+      renderAdminMaintenance();
+    });
+
+    el.querySelector('#rd-reset-map')?.addEventListener('click', async () => {
+      if (!confirm('Reset the start/finish point? The next rider to move will set a new one.')) return;
+      try {
+        const dk = new Date().toISOString().split('T')[0];
+        await A.updateDoc(A.doc(A.db,'race_day',dk),{startPoint:null,startPointSet:false});
+        A.showToast('Map reset — first rider will set new start point.','success');
+        renderAdminMaintenance();
+      } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+    });
+
+    el.querySelector('#rd-test-btn')?.addEventListener('click', () => {
+      A.openRaceDayOverlay ? A.openRaceDayOverlay() : A.showToast('Race day module not loaded','error');
+    });
+
+    el.querySelector('#rd-view-stints')?.addEventListener('click', async () => {
+      try {
+        const dk = new Date().toISOString().split('T')[0];
+        const snap = await A.getDocs(A.collection(A.db,'race_day',dk,'stints'));
+        const stints = snap.docs.map(d=>({uid:d.id,...d.data()}));
+        if (stints.length===0) { A.showToast('No stints yet today.','info'); return; }
+        const lines = stints.map(s=>{
+          const laps=s.laps||[];
+          const fmtMs=ms=>{const sec=Math.floor(ms/1000),m=Math.floor(sec/60),s2=sec%60;return m+':'+String(s2).padStart(2,'0')};
+          const best=laps.length>0?fmtMs(Math.min(...laps.map(l=>l.duration))):'—';
+          return (s.displayName||s.uid)+': '+laps.length+' laps, best '+best;
+        });
+        alert('Today's Stints:
+
+'+lines.join('
+'));
+      } catch(e) { A.showToast('Failed to load stints.','error'); }
+    });
   })();
-
-  el.querySelector('#rd-activate-god')?.addEventListener('click', async () => {
-    try {
-      if (typeof A.activateRaceDay === 'function') {
-        await A.activateRaceDay();
-        A.showToast('Race day activated for all users!','success');
-        renderAdminMaintenance();
-      } else {
-        A.showToast('activateRaceDay not available','error');
-      }
-    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
-  });
-
-  el.querySelector('#rd-deactivate-god')?.addEventListener('click', async () => {
-    try {
-      if (typeof A.deactivateRaceDay === 'function') {
-        await A.deactivateRaceDay();
-        A.showToast('Race day ended.','info');
-        renderAdminMaintenance();
-      }
-    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
-  });
-
-  el.querySelector('#rd-test-btn')?.addEventListener('click', () => {
-    if (typeof A.openRaceDayOverlay === 'function') {
-      A.openRaceDayOverlay();
-    } else {
-      A.showToast('Race day module not loaded','error');
-    }
-  });
 }
 
 // ── System tab (god mode settings) ──────────────────────────────────────────
