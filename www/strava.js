@@ -1,4 +1,4 @@
-// VeloForge Strava Integration Module
+// TurboPrep Strava Integration Module
 import { decodePolyline, escHtml } from './state.js';
 
 let A = {};
@@ -40,7 +40,7 @@ export async function stravaHandleCallback() {
     }
     // Fetch activities
     await stravaFetchActivities();
-    // Sync Strava clubs → VeloForge teams
+    // Sync Strava clubs → TurboPrep teams
     await syncStravaClubs();
     A.renderProfile();
   } catch(e) {
@@ -216,7 +216,7 @@ export function loadStravaTokens() {
   }
 }
 
-// Upload a VeloForge activity to Strava
+// Upload a TurboPrep activity to Strava
 export async function stravaUploadActivity(workout) {
   if (!A.stravaTokens?.access_token) return false;
   // Refresh token if needed
@@ -229,12 +229,12 @@ export async function stravaUploadActivity(workout) {
     const stravaType = typeMap[workout.type] || typeMap[workout.type?.toLowerCase()] || 'Workout';
     const startDate = workout.date ? (workout.date.toDate ? workout.date.toDate() : new Date(workout.date)) : new Date();
     const body = {
-      name: workout.name || 'VeloForge Activity',
+      name: workout.name || 'TurboPrep Activity',
       type: stravaType,
       sport_type: stravaType,
       start_date_local: startDate.toISOString(),
       elapsed_time: (workout.duration || 0) * 60,
-      description: 'Recorded with VeloForge',
+      description: 'Recorded with TurboPrep',
       distance: workout.distance ? workout.distance * 1000 : undefined,
       trainer: workout.type === 'gym' ? 1 : 0
     };
@@ -338,7 +338,7 @@ export async function stravaAutoSync() {
   } catch(e) { console.error('Strava auto-sync error:', e); }
 }
 
-// Sync Strava Clubs → auto-create/join VeloForge teams
+// Sync Strava Clubs → auto-create/join TurboPrep teams
 export async function syncStravaClubs() {
   if (!A.stravaTokens?.access_token || A.demoMode || !A.db || !A.currentUser) return;
   try {
@@ -360,7 +360,7 @@ export async function syncStravaClubs() {
     if (A.userProfile) A.userProfile.stravaClubs = clubSummaries;
     // If user already has a team, don't auto-switch
     if (A.userProfile?.teamId) return;
-    // Try to find or create a VeloForge team linked to each Strava club
+    // Try to find or create a TurboPrep team linked to each Strava club
     for (const club of clubs) {
       const clubId = String(club.id);
       const teamDocId = 'strava-club-' + clubId;

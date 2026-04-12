@@ -1,4 +1,4 @@
-// CGS VeloForge GPS Tracker Module
+// CGS TurboPrep GPS Tracker Module
 // Usage: import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 // Call initTracker(ctx) once after app loads, passing in the app context object.
 

@@ -1,4 +1,4 @@
-// CGS VeloForge Race Log Module
+// CGS TurboPrep Race Log Module
 import { escHtml } from './state.js';
 
 let A = {};

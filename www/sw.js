@@ -1,5 +1,5 @@
-// VeloForge Service Worker v2
-const CACHE_NAME = 'veloforge-v32';
+// TurboPrep Service Worker v2
+const CACHE_NAME = 'turboprep-v32';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -23,7 +23,7 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate: delete ALL old caches (including cgs-veloforge-v1 and any blob SW caches)
+// Activate: delete ALL old caches (including cgs-turboprep-v1 and any blob SW caches)
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
