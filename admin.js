@@ -10,13 +10,15 @@ export function initAdmin(ctx) { A = ctx; }
 export function renderAdmin() {
   if (!A.isAdmin) return;
   const c = A.$('admin-content');
+  const isMaster = A.currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
   const allTabs = [
     { id: 'announcements', label: 'Announcements' },
     { id: 'training', label: 'Training' },
     { id: 'races', label: 'Races' },
     { id: 'users', label: 'Users' },
     { id: 'plans', label: 'Plans' },
-    { id: 'coach', label: 'Coach' }
+    { id: 'coach', label: 'Coach' },
+    ...(isMaster ? [{ id: 'requests', label: '🔔 Requests' }] : [])
   ];
   // Filter tabs to only show features the current admin has access to
   const tabs = allTabs.filter(t => A.currentAdminPerms.includes(t.id));
@@ -61,6 +63,7 @@ export function renderAdmin() {
     case 'users': renderAdminUsersMerged(); break;
     case 'plans': renderAdminPlansMerged(); break;
     case 'coach': renderCoachDashboard(); break;
+    case 'requests': renderAdminRequests(); break;
   }
 }
 
@@ -2022,3 +2025,89 @@ let demoExpandedPlan = null;
 // (Demo links now rendered within renderAdminPlansMerged → renderPlansVideos)
 
 // ============================================
+
+// ── Team Requests (Master Admin only) ────────────────────────────────────────
+async function renderAdminRequests() {
+  const el = A.$('admin-requests');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:24px"><div class="spinner"></div></div>';
+
+  let requests = [];
+  try {
+    const snap = await A.getDocs(A.collection(A.db, 'team_requests'));
+    requests = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    requests.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  } catch(e) { el.innerHTML = '<div style="padding:20px;color:#ef4444">Failed to load requests.</div>'; return; }
+
+  if (requests.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-state-title">No Requests</div><div class="empty-state-desc">No team creation requests yet.</div></div>';
+    return;
+  }
+
+  let html = '';
+  requests.forEach(r => {
+    const isPending = r.status === 'pending' || !r.status;
+    const isApproved = r.status === 'approved';
+    html += `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:700">${A.escHtml(r.clubName||'')}</div>
+            <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${A.escHtml(r.coachName||'')} · ${A.escHtml(r.coachEmail||'')}</div>
+          </div>
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${isApproved?'rgba(34,197,94,.15)':'rgba(249,115,22,.15)'};color:${isApproved?'#22c55e':'#f97316'}">${isApproved?'Approved':'Pending'}</span>
+        </div>
+        ${r.clubDesc ? `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${A.escHtml(r.clubDesc)}</div>` : ''}
+        ${isPending ? `
+          <button class="btn btn-primary" style="width:100%;font-size:13px" data-approve-req="${r._id}" data-club-name="${A.escHtml(r.clubName||'')}" data-club-desc="${A.escHtml(r.clubDesc||'')}" data-coach-uid="${A.escHtml(r.coachUid||'')}" data-coach-email="${A.escHtml(r.coachEmail||'')}">
+            ✓ Approve & Create Team
+          </button>
+        ` : '<div style="font-size:12px;color:#22c55e;text-align:center">✓ Team created and live</div>'}
+      </div>
+    `;
+  });
+  el.innerHTML = html;
+
+  el.querySelectorAll('[data-approve-req]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const reqId = btn.dataset.approveReq;
+      const clubName = btn.dataset.clubName;
+      const clubDesc = btn.dataset.clubDesc;
+      const coachUid = btn.dataset.coachUid;
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+      try {
+        // 1. Generate team code
+        const code = Math.random().toString(36).substring(2,8).toUpperCase();
+        // 2. Create team document
+        const teamRef = await A.addDoc(A.collection(A.db,'teams'), {
+          name: clubName,
+          code,
+          createdBy: coachUid||'',
+          members: coachUid ? [coachUid] : [],
+          approved: true,
+          createdAt: A.serverTimestamp()
+        });
+        // 3. Create/update approved_clubs document
+        await A.addDoc(A.collection(A.db,'approved_clubs'), {
+          name: clubName,
+          description: clubDesc,
+          teamId: teamRef.id,
+          approved: true
+        });
+        // 4. Update coach user profile with teamId
+        if (coachUid) {
+          try { await A.updateDoc(A.doc(A.db,'users',coachUid), { teamId: teamRef.id, teamName: clubName }); } catch(e){}
+        }
+        // 5. Mark request approved
+        await A.updateDoc(A.doc(A.db,'team_requests',reqId), { status:'approved', teamId: teamRef.id, approvedAt: A.serverTimestamp() });
+        A.showToast(clubName + ' approved! Team code: ' + code, 'success');
+        renderAdminRequests();
+      } catch(e) {
+        btn.disabled = false;
+        btn.textContent = '✓ Approve & Create Team';
+        A.showToast('Failed: ' + e.message, 'error');
+      }
+    });
+  });
+}
