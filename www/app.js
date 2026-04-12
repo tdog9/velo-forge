@@ -1,5 +1,6 @@
 // TurboPrep HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
+import { initRaceDay, loadRaceDayState, getRaceDayActive, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay } from './raceday.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)
 let renderAdmin = () => {}, renderCoachDashboard = async () => {}, loadAdminEmails = async () => {},
@@ -367,7 +368,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '5.3.0';
+const APP_VERSION = '4.4.0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -548,6 +549,7 @@ let teamData = null; // {id, name, code, members:[]}
 let teamMembers = []; // [{uid, displayName, yearLevel, fitnessLevel, activePlanId, totalWorkouts, streak, checklistPct}]
 let isAdmin = false;
 const ADMIN_EMAIL = 'hearn.tenny@icloud.com';
+let globalSettings = {}; // Live settings from Firestore global_settings/config — controlled by ADMIN_EMAIL
 let adminAnnouncements = [];
 let adminRaces = null; // null = use hardcoded, array = use Firestore
 let hiddenPlans = new Set();
@@ -628,6 +630,7 @@ function showAuthLogin() {
   hide('login-error');
   hide('ai-fab');
   $('login-btn').disabled = false;
+  loadApprovedClubs();
 }
 function showAuthSignup() {
   hide('auth-login');
@@ -643,19 +646,65 @@ async function loadSignupTeams() {
   const select = $('signup-team');
   if (!select || !db) return;
   try {
-    const teamsSnap = await getDocs(collection(db, 'teams'));
+    const snap = await getDocs(collection(db, 'approved_clubs'));
     select.innerHTML = '<option value="">Select your team...</option>';
-    teamsSnap.docs.forEach(d => {
+    snap.docs.forEach(d => {
       const t = d.data();
+      if (!t.teamId) return;
       const opt = document.createElement('option');
-      opt.value = d.id;
+      opt.value = t.teamId;
       opt.textContent = t.name || d.id;
       select.appendChild(opt);
     });
-    if (teamsSnap.docs.length === 0) {
-      select.innerHTML = '<option value="">No teams created yet</option>';
+    if (snap.docs.length === 0) {
+      select.innerHTML = '<option value="">No teams available yet</option>';
     }
   } catch(e) { console.warn('Failed to load teams for signup:', e); }
+}
+async function loadApprovedClubs() {
+  const sel = $('login-club');
+  if (!sel || !db) return;
+  try {
+    const snap = await getDocs(collection(db, 'approved_clubs'));
+    sel.innerHTML = '<option value="">Select your club...</option>';
+    snap.docs.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = d.data().name || d.id;
+      sel.appendChild(opt);
+    });
+    if (snap.docs.length === 0) {
+      sel.innerHTML = '<option value="">No clubs available yet</option>';
+    }
+  } catch(e) { console.warn('loadApprovedClubs:', e); }
+}
+async function submitTeamRequest(user, displayName, email) {
+  const clubName = $('signup-club-name')?.value?.trim() || '';
+  const clubDesc = $('signup-club-desc')?.value?.trim() || '';
+  if (!clubName) return;
+  try {
+    if (db) {
+      await addDoc(collection(db, 'team_requests'), {
+        coachUid: user.uid,
+        coachName: displayName,
+        coachEmail: email,
+        clubName,
+        clubDesc,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+    }
+  } catch(e) { console.warn('submitTeamRequest:', e); }
+  const subject = encodeURIComponent('TurboPrep Club Request: ' + clubName);
+  const body = encodeURIComponent(
+    'New club request from TurboPrep:\n\n' +
+    'Coach: ' + displayName + '\n' +
+    'Email: ' + email + '\n' +
+    'Club Name: ' + clubName + '\n' +
+    'Description: ' + clubDesc + '\n\n' +
+    'To approve: add document to Firestore approved_clubs/{id} with fields: name, teamId.'
+  );
+  setTimeout(() => { window.open('mailto:hearn.tenny@icloud.com?subject=' + subject + '&body=' + body); }, 800);
 }
 function showMainApp() {
   hide('auth-login');
@@ -689,6 +738,8 @@ document.querySelectorAll('.role-btn').forEach(btn => {
     } else {
       if (studentFields) studentFields.style.display = 'none';
       if (childGroup) childGroup.style.display = 'none';
+      const coachFields = $('signup-coach-fields');
+      if (coachFields) coachFields.style.display = role === 'coach' ? '' : 'none';
     }
   });
 });
@@ -706,11 +757,17 @@ $('login-btn')?.addEventListener('click', async () => {
     return;
   }
   hide('login-error');
+  const selectedClub = $('login-club')?.value || '';
   const btn = $('login-btn');
   btn.disabled = true;
   showLoading('Logging in...');
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    if (selectedClub && db) {
+      try {
+        await updateDoc(doc(db, 'users', cred.user.uid), { clubId: selectedClub });
+      } catch(e) {}
+    }
   } catch(e) {
     hideLoading();
     btn.disabled = false;
@@ -780,6 +837,7 @@ $('signup-btn')?.addEventListener('click', async () => {
       } catch(e) { console.warn('Auto-join team failed:', e); }
     }
     await setDoc(doc(db, 'users', cred.user.uid), userData);
+    if (role === 'coach') await submitTeamRequest(cred.user, name, email);
   } catch(e) {
     hideLoading();
     btn.disabled = false;
@@ -794,8 +852,6 @@ $('logout-btn')?.addEventListener('click', async () => {
     if (checklistUnsubscribe) { checklistUnsubscribe(); checklistUnsubscribe = null; }
     if (profileUnsubscribe) { clearInterval(profileUnsubscribe); profileUnsubscribe = null; }
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
-    stopFastHealthSync();
-    stopNativeHeartRateStream().catch(() => {});
     await signOut(auth);
     currentUser = null;
     userProfile = null;
@@ -862,14 +918,10 @@ try {
 } catch(e) {}
 // --- Feature 10: Haptic feedback helper ---
 function haptic(style) {
-  if (window.nativeHaptic) { window.nativeHaptic(style || 'light'); return; }
   try { if (navigator.vibrate) navigator.vibrate(style === 'light' ? 8 : style === 'medium' ? 15 : 5); } catch(e) {}
 }
 // Toast notification system
 function showToast(message, type = 'info') {
-  if (type === 'success') haptic('success');
-  else if (type === 'error') haptic('error');
-  else haptic('light');
   const container = $('toast-container');
   if (!container) return;
   const toast = document.createElement('div');
@@ -1176,7 +1228,6 @@ if (recordTabBtn) {
   });
 }
 function switchPage(page) {
-  haptic('light');
   // Feature 3: Save scroll position before leaving
   scrollPositions[currentPage] = $('content').scrollTop;
   currentPage = page;
@@ -1191,6 +1242,9 @@ function switchPage(page) {
   const pageEl = $('page-' + page);
   if (pageEl) pageEl.classList.add('active');
   renderCurrentPage();
+  // Show ai-fab only on relevant pages
+  const aiFabPages = ['today','fitness','races'];
+  aiFabPages.includes(page) ? show('ai-fab') : hide('ai-fab');
   // Feature 3: Restore scroll position
   const savedScroll = scrollPositions[page] || 0;
   $('content').scrollTop = savedScroll;
@@ -2055,11 +2109,9 @@ function renderToday() {
   if (isWidgetOn('health')) {
   const healthData = userProfile?.health;
   if (healthData && (healthData.latestHr || healthData.latestSteps || healthData.latestSleep)) {
-    const syncAge = healthData.lastSync ? Math.round((Date.now() - new Date(healthData.lastSync).getTime()) / 60000) : null;
-    const isLive = syncAge !== null && syncAge < 2;
-    html += `<div id="health-card-tap" style="background:var(--card);border:1px solid ${isLive ? 'rgba(34,197,94,.3)' : 'var(--border)'};border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer">
+    html += `<div id="health-card-tap" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">❤️ Health ${isLive ? '<span style="font-size:9px;color:#22c55e;background:rgba(34,197,94,.1);padding:2px 6px;border-radius:4px;margin-left:6px">● LIVE</span>' : ''}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">❤️ Health Sync</div>
         <div style="display:flex;align-items:center;gap:6px">
           ${healthData.lastSync ? '<span style="font-size:10px;color:var(--muted-fg)">' + timeAgo(new Date(healthData.lastSync)) + '</span>' : ''}
           <span style="font-size:12px;color:var(--muted-fg)">›</span>
@@ -2072,19 +2124,18 @@ function renderToday() {
         </div>` : ''}
         ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:rgba(34,197,94,.06);border-radius:10px">
           <div style="font-size:22px;font-weight:800;color:#22c55e">${healthData.latestSteps > 999 ? (healthData.latestSteps / 1000).toFixed(1) + 'k' : healthData.latestSteps}</div>
-          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">👟 steps${healthData.yesterdaySteps ? ' <span style="color:' + (healthData.latestSteps >= healthData.yesterdaySteps ? '#22c55e' : '#ef4444') + '">' + (healthData.latestSteps >= healthData.yesterdaySteps ? '↑' : '↓') + '</span>' : ''}</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">👟 steps</div>
         </div>` : ''}
         ${healthData.latestSleep ? `<div style="text-align:center;padding:10px 4px;background:rgba(124,58,237,.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:#a855f7">${healthData.latestSleep}h</div>
-          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">😴 sleep${healthData.yesterdaySleep ? ' <span style="font-size:9px;color:var(--muted-fg)">y:' + healthData.yesterdaySleep + 'h</span>' : ''}</div>
+          <div style="font-size:22px;font-weight:800;color:#a855f7">${healthData.latestSleep}</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">😴 hours</div>
         </div>` : ''}
         ${healthData.restingHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(59,130,246,.06);border-radius:10px">
           <div style="font-size:22px;font-weight:800;color:#3b82f6">${healthData.restingHr}</div>
           <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">💓 resting</div>
         </div>` : ''}
       </div>
-      ${healthData.yesterdaySteps || healthData.yesterdaySleep ? `<div style="margin-top:8px;padding:6px 8px;background:var(--surface-alt);border-radius:6px;font-size:10px;color:var(--muted-fg)">Yesterday: ${healthData.yesterdaySteps ? (healthData.yesterdaySteps > 999 ? (healthData.yesterdaySteps/1000).toFixed(1) + 'k steps' : healthData.yesterdaySteps + ' steps') : ''}${healthData.yesterdaySteps && healthData.yesterdaySleep ? ' · ' : ''}${healthData.yesterdaySleep ? healthData.yesterdaySleep + 'h sleep' : ''}</div>` : ''}
-      <div style="text-align:center;margin-top:6px;font-size:11px;color:var(--muted-fg)">Tap for details</div>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted-fg)">Tap for details</div>
     </div>`;
   }
   }
@@ -2870,46 +2921,12 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
     const nextEx = exercises[liveExIdx + 1];
     const totalDone = Object.values(progress).reduce((s, v) => s + v, 0);
     const totalS2 = exercises.reduce((s, ex2) => s + (ex2.sets || 1), 0);
-    
-    // Live health data
-    const h = userProfile?.health || {};
-    const hrVal = h.latestHr || 0;
-    const stepsVal = h.latestSteps || 0;
-    const syncAge = h.lastSync ? Math.round((Date.now() - new Date(h.lastSync).getTime()) / 60000) : null;
-    const isLive = syncAge !== null && syncAge < 2;
-    
-    // HR Zone calculation
-    const maxHR = 220 - (parseInt(userProfile?.age) || 15);
-    const hrPct = hrVal > 0 ? Math.round((hrVal / maxHR) * 100) : 0;
-    const hrZone = hrPct < 60 ? 'Recovery' : hrPct < 70 ? 'Fat Burn' : hrPct < 80 ? 'Cardio' : hrPct < 90 ? 'Threshold' : 'Max';
-    const hrColor = hrPct < 60 ? '#3b82f6' : hrPct < 70 ? '#22c55e' : hrPct < 80 ? '#f59e0b' : hrPct < 90 ? '#ef4444' : '#dc2626';
-    
     let html = `<div style="display:flex;align-items:center;padding:12px 16px;padding-top:calc(12px + var(--safe-t));border-bottom:1px solid var(--border);flex-shrink:0">
       <button id="et-exit-live" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">\u2190</button>
       <div style="flex:1;font-size:12px;color:var(--muted-fg)">${liveExIdx + 1} of ${exercises.length}</div>
       <div style="font-size:12px;font-weight:700;color:var(--primary)">${totalDone}/${totalS2} sets</div>
     </div>
     <div style="height:3px;background:var(--muted)"><div style="height:100%;width:${(totalDone/totalS2)*100}%;background:var(--primary);transition:width .3s"></div></div>`;
-    
-    // Live stats bar (always visible during workout)
-    if (hrVal > 0 || stepsVal > 0) {
-      html += `<div style="display:flex;gap:0;border-bottom:1px solid var(--border);background:rgba(0,0,0,.3)">
-        ${hrVal > 0 ? `<div style="flex:1;text-align:center;padding:10px 4px;border-right:1px solid var(--border)">
-          <div style="font-size:24px;font-weight:800;color:${hrColor}">${hrVal}</div>
-          <div style="font-size:9px;color:var(--muted-fg);margin-top:1px">\u2764\ufe0f BPM ${isLive ? '<span style="color:#22c55e">\u25cf</span>' : ''}</div>
-          <div style="font-size:8px;color:${hrColor};font-weight:600;margin-top:2px">${hrZone} ${hrPct}%</div>
-        </div>` : ''}
-        <div style="flex:1;text-align:center;padding:10px 4px;${hrVal > 0 ? 'border-right:1px solid var(--border)' : ''}">
-          <div style="font-size:24px;font-weight:800;color:#22c55e">${stepsVal > 999 ? (stepsVal/1000).toFixed(1) + 'k' : stepsVal}</div>
-          <div style="font-size:9px;color:var(--muted-fg);margin-top:1px">\ud83d\udc5f Steps</div>
-        </div>
-        ${h.latestSleep ? `<div style="flex:1;text-align:center;padding:10px 4px">
-          <div style="font-size:24px;font-weight:800;color:#a855f7">${h.latestSleep}h</div>
-          <div style="font-size:9px;color:var(--muted-fg);margin-top:1px">\ud83d\ude34 Sleep</div>
-        </div>` : ''}
-      </div>`;
-    }
-    
     if (restTimerInterval && restSeconds > 0) {
       html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
         <div style="font-size:14px;font-weight:600;color:#3b82f6;margin-bottom:8px">REST</div>
@@ -3045,9 +3062,6 @@ async function toggleChecklist(key) {
   const newVal = !userChecklist[key];
   userChecklist[key] = newVal;
   renderToday();
-  // Define activePlan in this scope (was missing — caused "can't find variable" error)
-  const activePlanId = userProfile?.activePlanId;
-  const activePlan = findPlan(activePlanId);
   // Check if all workouts for the current plan week are done → celebrate
   if (newVal && activePlan) {
     try {
@@ -4451,26 +4465,6 @@ function renderRaces() {
           </div>
           ${!isPast ? `<div class="countdown-grid" data-race-date="${race.date}"></div>` : ''}
           <div class="race-notes">${race.notes}</div>
-          ${race.footageUrls && race.footageUrls.length > 0 ? `
-            <div style="margin-top:10px">
-              ${race.footageUrls.map(f => `
-                <a href="${escHtml(f.url)}" target="_blank" rel="noopener" class="race-footage-link" style="display:flex;align-items:center;gap:8px;padding:12px;border-radius:8px;background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.15);text-decoration:none;color:var(--fg);font-size:13px;margin-bottom:6px;cursor:pointer;-webkit-tap-highlight-color:transparent">
-                  <svg viewBox="0 0 24 24" fill="var(--primary)" style="width:20px;height:20px;flex-shrink:0"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  <div style="flex:1;min-width:0">
-                    <div style="font-weight:600">${escHtml(f.label)}</div>
-                    <div style="font-size:11px;color:var(--muted-fg)">${f.type === 'stream' ? 'Watch the full race' : f.type === 'results' ? 'View results' : 'Watch footage'}</div>
-                  </div>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--muted-fg)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </a>
-              `).join('')}
-            </div>
-          ` : ''}
-          ${race.streamUrl && (!race.footageUrls || race.footageUrls.length === 0) ? `
-            <a href="${escHtml(race.streamUrl)}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:12px;border-radius:8px;background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.15);text-decoration:none;color:var(--fg);font-size:13px;margin-top:10px;cursor:pointer">
-              <svg viewBox="0 0 24 24" fill="var(--primary)" style="width:20px;height:20px;flex-shrink:0"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              <span style="font-weight:600">Watch Race Stream</span>
-            </a>
-          ` : ''}
         </div>
       </div>
     `;
@@ -4700,19 +4694,24 @@ function renderTeamTab(c) {
   const hasTeam = userProfile?.teamId && teamData;
   if (!hasTeam) {
     html += `
-      <div class="team-empty">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <div class="team-empty-title">Join or Create a Team</div>
-        <div class="team-empty-desc">Compete with your squad on a private leaderboard.</div>
-        <div class="team-btn-group">
-          <button class="btn btn-primary" id="team-create-btn">Create Team</button>
-          <button class="btn btn-secondary" id="team-join-btn">Join Team</button>
-        </div>
+      <div class="page-title" style="margin-bottom:12px">Find a Team</div>
+      <div class="demo-search-wrap" style="margin-bottom:12px">
+        <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="demo-search" type="text" id="team-search-input" placeholder="Search clubs and teams...">
       </div>
+      <div id="team-search-results" style="margin-bottom:16px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        ${userProfile?.isCoach ? '<button class="btn btn-primary" style="flex:1" id="team-create-btn">Request a Team</button>' : ''}
+        <button class="btn btn-secondary" style="flex:1" id="team-join-btn">Join by Code</button>
+      </div>
+      ${!userProfile?.isCoach ? '<div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:4px">Team creation requires a coach account.</div>' : ''}
     `;
     c.innerHTML = html;
-    $('team-create-btn').addEventListener('click', openCreateTeamSheet);
+    if (userProfile?.isCoach) $('team-create-btn')?.addEventListener('click', openCreateTeamSheet);
     $('team-join-btn').addEventListener('click', openJoinTeamSheet);
+    // Load and render approved clubs for search
+    renderTeamSearchResults(c, '');
+    $('team-search-input').addEventListener('input', e => renderTeamSearchResults(c, e.target.value));
     return;
   }
   // Team header
@@ -4744,6 +4743,25 @@ function renderTeamTab(c) {
     </tr>`;
   });
   html += '</tbody></table></div>';
+  // Coach settings panel
+  if (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid) {
+    html += `
+      <div style="margin-top:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Coach Settings</div>
+        <div class="card card-pad" style="margin-bottom:8px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:12px">Team Feature Toggles</div>
+          <div style="display:flex;flex-direction:column;gap:10px" id="coach-feature-toggles">
+            ${renderCoachFeatureToggles()}
+          </div>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-manage-sub-btn">Manage Subteams</button>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">Race Day</div>
+          ${getRaceDayActive() ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:13px;cursor:pointer">🏁 End Race Day Mode</button>` : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e;font-weight:700;font-size:13px;cursor:pointer">🏁 Activate Race Day Mode</button>`}
+        </div>
+      </div>
+    `;
+  }
   // Leave team
   html += '<div style="text-align:center;margin-top:16px"><button class="leave-team-btn" id="leave-team-btn">Leave Team</button></div>';
   c.innerHTML = html;
@@ -4758,6 +4776,31 @@ function renderTeamTab(c) {
   });
   // Bind leave
   $('leave-team-btn').addEventListener('click', leaveTeam);
+  // Bind coach features
+  if (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid) {
+    c.querySelectorAll('.coach-feat-toggle').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const feat = btn.dataset.feat;
+        const current = teamData.features?.[feat] !== false;
+        const newVal = !current;
+        btn.classList.toggle('on', newVal);
+        try {
+          if (db) await updateDoc(doc(db, 'teams', userProfile.teamId), { ['features.' + feat]: newVal });
+          if (!teamData.features) teamData.features = {};
+          teamData.features[feat] = newVal;
+        } catch(e) { console.warn('feature toggle:', e); }
+      });
+    });
+    $('coach-manage-sub-btn')?.addEventListener('click', openManageSubteamsSheet);
+    $('coach-start-rd')?.addEventListener('click', async () => {
+      const ok=await activateRaceDay();
+      if(ok){ showToast('Race day mode activated!','success'); openRaceDayOverlay(); }
+    });
+    $('coach-end-rd')?.addEventListener('click', async () => {
+      await deactivateRaceDay();
+      renderTeam();
+    });
+  }
 }
 // Bind leaderboard sub-tabs
 document.querySelectorAll('.lb-sub-tab').forEach(btn => {
@@ -4914,30 +4957,15 @@ function renderProfile() {
   const syncToken = userProfile?.syncToken || null;
   html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px">
     Connect your wearable to automatically sync workouts, heart rate, steps, and sleep.
+  </div>
+  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
+    <strong style="color:var(--text)">Option 1: Via Strava (easiest)</strong><br>
+    Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
+  </div>
+  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
+    <strong style="color:var(--text)">Option 2: Apple Shortcut (live HR during workouts)</strong><br>
+    Your coach shares a Shortcut link. Tap to add it, paste your token below. It auto-runs when you start an Apple Watch workout and syncs heart rate every 5 seconds. Steps and sleep sync daily at 8am.
   </div>`;
-  if (isNativeApp) {
-    // Native app — direct Apple Health access
-    html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:8px;margin-bottom:8px">
-      <strong style="color:#22c55e">✓ Native Health Access</strong><br>
-      This app reads directly from Apple Health. Heart rate, steps, sleep, and resting HR sync automatically. No shortcuts needed.
-    </div>
-    <button id="native-health-sync-btn" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;cursor:pointer;margin-bottom:6px">❤️ Sync Health Data Now</button>
-    <button id="native-hr-stream-btn" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;cursor:pointer;margin-bottom:6px">🔴 Start Live Heart Rate (5s)</button>
-    <button id="native-fast-sync-btn" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;cursor:pointer;margin-bottom:8px">⚡ Fast Mode (10s steps + HR)</button>
-    <div style="font-size:10px;color:var(--muted-fg);line-height:1.4;margin-bottom:8px">
-      Auto-syncs on app open and every 5 minutes. Fast mode polls every 10 seconds. Live HR streams every 5 seconds during workouts.
-    </div>`;
-  } else {
-    // Web app — Strava + Shortcuts
-    html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-      <strong style="color:var(--text)">Option 1: Via Strava (easiest)</strong><br>
-      Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
-    </div>
-    <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-      <strong style="color:var(--text)">Option 2: Apple Shortcut (live HR during workouts)</strong><br>
-      Your coach shares a Shortcut link. Tap to add it, paste your token below. It auto-runs when you start an Apple Watch workout and syncs heart rate every 5 seconds. Steps and sleep sync daily at 8am.
-    </div>`;
-  }
   if (syncToken) {
     html += `<div style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
       <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px">Your Sync Token</div>
@@ -4986,7 +5014,15 @@ function renderProfile() {
     </div>`;
   }
   html += '</div>';
+  // God admin master control panel
+  if (currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    html += renderGodAdminPanel();
+  }
   el.innerHTML = html;
+  // Bind god admin panel
+  if (currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    bindGodAdminPanel(el);
+  }
   // Bindings
   $('theme-toggle-btn')?.addEventListener('click', toggleTheme);
   $('student-view-toggle')?.addEventListener('click', () => {
@@ -5173,69 +5209,6 @@ function renderProfile() {
       window.open('https://www.icloud.com/shortcuts/b38cfdbdd64f4aecbc495776cfe355ed', '_blank');
     }, 800);
   });
-  // Native health buttons
-  $('native-health-sync-btn')?.addEventListener('click', async () => {
-    const btn = $('native-health-sync-btn');
-    btn.textContent = 'Syncing...';
-    btn.disabled = true;
-    
-    // If native app, ask Swift to sync via webkit message handler
-    if (window.isTurboPrepNative && window.webkit?.messageHandlers?.syncHealth) {
-      window.webkit.messageHandlers.syncHealth.postMessage('sync');
-      showToast('Syncing from Apple Health...', 'success');
-      btn.textContent = '✓ Synced';
-      btn.style.background = '#22c55e';
-      setTimeout(() => { btn.textContent = '❤️ Sync Health Data Now'; btn.disabled = false; btn.style.background = ''; }, 3000);
-      return;
-    }
-    
-    // Fallback: try Capacitor plugin
-    const ok = await nativeHealthSync();
-    if (ok) {
-      showToast('Health data synced from Apple Health!', 'success');
-      btn.textContent = '✓ Synced';
-      btn.style.background = '#22c55e';
-      renderCurrentPage();
-    } else {
-      showToast('Health syncs automatically every 30 seconds in the native app.', 'success');
-      btn.textContent = '❤️ Sync Health Data Now';
-    }
-    setTimeout(() => { btn.textContent = '❤️ Sync Health Data Now'; btn.disabled = false; btn.style.background = ''; }, 4000);
-  });
-  let hrStreaming = false;
-  $('native-hr-stream-btn')?.addEventListener('click', async () => {
-    const btn = $('native-hr-stream-btn');
-    if (!hrStreaming) {
-      await startNativeHeartRateStream();
-      hrStreaming = true;
-      btn.textContent = '⏹ Stop Live Heart Rate';
-      btn.style.background = 'linear-gradient(135deg,#7c3aed,#a855f7)';
-      showToast('Live heart rate streaming started!', 'success');
-    } else {
-      await stopNativeHeartRateStream();
-      hrStreaming = false;
-      btn.textContent = '🔴 Start Live Heart Rate (5s)';
-      btn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
-      showToast('Heart rate streaming stopped.', 'success');
-    }
-  });
-  let fastSyncing = false;
-  $('native-fast-sync-btn')?.addEventListener('click', () => {
-    const btn = $('native-fast-sync-btn');
-    if (!fastSyncing) {
-      startFastHealthSync();
-      fastSyncing = true;
-      btn.textContent = '⏹ Stop Fast Mode';
-      btn.style.background = 'linear-gradient(135deg,#7c3aed,#a855f7)';
-      showToast('Fast sync started — HR + steps every 10 seconds.', 'success');
-    } else {
-      stopFastHealthSync();
-      fastSyncing = false;
-      btn.textContent = '⚡ Fast Mode (10s steps + HR)';
-      btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
-      showToast('Fast sync stopped.', 'success');
-    }
-  });
   $('profile-redo-tutorial')?.addEventListener('click', () => {
     closeProfile();
     try { localStorage.removeItem('vf_tutorial_seen'); } catch(e) {}
@@ -5268,16 +5241,52 @@ async function updateProfileField(field, value) {
   renderProfile();
 }
 function openCreateTeamSheet() {
+  if (!userProfile?.isCoach) {
+    showToast('Only coaches can request team creation.', 'warn');
+    return;
+  }
   $('sheet-content').innerHTML = `
-    <div class="sheet-title">Create Team</div>
+    <div class="sheet-title">Request a Team</div>
+    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px;line-height:1.5">Team creation requires approval from TurboPrep. Submit your request below — you'll be notified once approved and your team will appear in the club directory.</p>
     <div class="form-group">
-      <label class="label" for="team-name-input">Team Name</label>
-      <input class="input" type="text" id="team-name-input" placeholder="e.g. Lightning Bolts" maxlength="30">
+      <label class="label" for="team-req-name">Club / Team Name</label>
+      <input class="input" type="text" id="team-req-name" placeholder="e.g. Caulfield Grammar HPV" maxlength="60" value="${escHtml(userProfile?.clubName || '')}">
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="team-create-save">Create Team</button>
+    <div class="form-group">
+      <label class="label" for="team-req-desc">Short Description</label>
+      <input class="input" type="text" id="team-req-desc" placeholder="e.g. Year 8-12 HPV racing program" maxlength="120">
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="team-req-save">Submit Request</button>
   `;
   openSheet();
-  $('team-create-save').addEventListener('click', createTeam);
+  $('team-req-save').addEventListener('click', async () => {
+    const clubName = $('team-req-name').value.trim();
+    const clubDesc = $('team-req-desc').value.trim();
+    if (!clubName) { showToast('Please enter a club name.', 'warn'); return; }
+    closeSheet();
+    try {
+      if (db) {
+        await addDoc(collection(db, 'team_requests'), {
+          coachUid: currentUser.uid,
+          coachName: userProfile.displayName,
+          coachEmail: currentUser.email,
+          clubName, clubDesc,
+          status: 'pending',
+          createdAt: serverTimestamp()
+        });
+      }
+    } catch(e) { console.warn('team request:', e); }
+    const subject = encodeURIComponent('TurboPrep Club Request: ' + clubName);
+    const body = encodeURIComponent(
+      'New club request:\n\nCoach: ' + (userProfile.displayName || '') +
+      '\nEmail: ' + (currentUser.email || '') +
+      '\nClub: ' + clubName +
+      '\nDescription: ' + clubDesc +
+      '\n\nTo approve: add to Firestore approved_clubs/{id} with fields: name, teamId.'
+    );
+    window.open('mailto:hearn.tenny@icloud.com?subject=' + subject + '&body=' + body);
+    showToast('Request submitted! Check your email app to send the request.', 'success');
+  });
 }
 function openJoinTeamSheet() {
   $('sheet-content').innerHTML = `
@@ -5392,6 +5401,124 @@ async function joinTeam() {
     }
   }
 }
+// --- Team Search ---
+let approvedClubsCache = null;
+async function getApprovedClubs() {
+  if (approvedClubsCache) return approvedClubsCache;
+  if (!db) return [];
+  try {
+    const snap = await getDocs(collection(db, 'approved_clubs'));
+    approvedClubsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return approvedClubsCache;
+  } catch(e) { return []; }
+}
+async function renderTeamSearchResults(container, query) {
+  const el = container.querySelector('#team-search-results');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:16px"><div class="spinner"></div></div>';
+  const clubs = await getApprovedClubs();
+  const q = query.toLowerCase().trim();
+  const filtered = q ? clubs.filter(c => (c.name || '').toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q)) : clubs;
+  if (filtered.length === 0) {
+    el.innerHTML = q
+      ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:16px">No clubs found.</div>'
+      : '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:16px">No approved clubs yet.</div>';
+    return;
+  }
+  el.innerHTML = filtered.map(club => `
+    <div class="card card-pad" style="margin-bottom:8px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:var(--fg)">${escHtml(club.name || '')}</div>
+        ${club.description ? `<div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${escHtml(club.description)}</div>` : ''}
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:3px">${club.memberCount ? club.memberCount + ' members' : ''}</div>
+      </div>
+      <button class="btn btn-primary" style="flex-shrink:0;font-size:12px;padding:8px 14px;min-height:36px" data-club-team="${escHtml(club.teamId || '')}">Join</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-club-team]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const teamId = btn.dataset.clubTeam;
+      if (!teamId) { showToast('This club has no team yet.', 'warn'); return; }
+      if (demoMode) { showToast('Teams require an account. Exit demo mode.', 'warn'); return; }
+      btn.disabled = true;
+      showLoading('Joining team...');
+      try {
+        const teamDoc = await getDoc(doc(db, 'teams', teamId));
+        if (!teamDoc.exists()) { hideLoading(); showToast('Team not found.', 'error'); return; }
+        await updateDoc(doc(db, 'teams', teamId), { members: arrayUnion(currentUser.uid) });
+        await updateDoc(doc(db, 'users', currentUser.uid), { teamId, teamName: teamDoc.data().name });
+        userProfile.teamId = teamId;
+        userProfile.teamName = teamDoc.data().name;
+        await loadTeamData();
+        hideLoading();
+        showToast('Joined ' + teamDoc.data().name + '!', 'success');
+        lbSubTab = 'team';
+        renderTeam();
+      } catch(e) {
+        hideLoading();
+        showError('Failed to join team', 'team', e, { action: 'join' });
+      }
+    });
+  });
+}
+
+// --- Coach Feature Toggles ---
+const COACH_FEATURES = [
+  { id: 'ai_coach', label: 'AI Coach' },
+  { id: 'leaderboard', label: 'Leaderboard' },
+  { id: 'race_log', label: 'Race Log' },
+  { id: 'plans', label: 'Training Plans' },
+  { id: 'demos', label: 'Exercise Demos' },
+  { id: 'health', label: 'Health Tab' },
+  { id: 'strava', label: 'Strava Sync' },
+];
+function renderCoachFeatureToggles() {
+  return COACH_FEATURES.map(f => {
+    const enabled = teamData?.features?.[f.id] !== false;
+    return `<div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;color:var(--fg)">${f.label}</span>
+      <button class="admin-toggle coach-feat-toggle ${enabled ? 'on' : ''}" data-feat="${f.id}" aria-label="Toggle ${f.label}"></button>
+    </div>`;
+  }).join('');
+}
+
+// --- Manage Subteams ---
+function openManageSubteamsSheet() {
+  const subteams = teamData?.subteams || [];
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">Manage Subteams</div>
+    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px">Create subteams within your club and assign members to them.</p>
+    <div id="subteams-list" style="margin-bottom:14px">
+      ${subteams.length === 0
+        ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:12px">No subteams yet.</div>'
+        : subteams.map((s, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="flex:1;font-size:14px;font-weight:600">${escHtml(s.name)}</span>
+            <span style="font-size:11px;color:var(--muted-fg)">${(s.members || []).length} members</span>
+          </div>`).join('')
+      }
+    </div>
+    <div class="form-group">
+      <label class="label" for="new-subteam-name">New Subteam Name</label>
+      <input class="input" type="text" id="new-subteam-name" placeholder="e.g. Year 9 Squad" maxlength="40">
+    </div>
+    <button class="btn btn-primary" style="width:100%" id="subteam-create-btn">Create Subteam</button>
+  `;
+  openSheet();
+  $('subteam-create-btn').addEventListener('click', async () => {
+    const name = $('new-subteam-name').value.trim();
+    if (!name) { showToast('Enter a subteam name.', 'warn'); return; }
+    const newSub = { id: 'sub_' + Date.now(), name, members: [], createdAt: new Date().toISOString() };
+    const updated = [...(teamData.subteams || []), newSub];
+    try {
+      await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updated });
+      teamData.subteams = updated;
+      closeSheet();
+      showToast('Subteam "' + name + '" created.', 'success');
+      renderTeam();
+    } catch(e) { showToast('Failed to create subteam.', 'error'); }
+  });
+}
+
 async function leaveTeam() {
   if (!currentUser || !userProfile?.teamId) return;
   const teamName = teamData?.name || 'this team';
@@ -5623,6 +5750,8 @@ function buildModuleCtx() {
   return {
     // DOM + UI helpers
     $, show, hide, showToast, showError, logError, showLoading, hideLoading, haptic, openSheet, closeSheet,
+    escHtml,
+    renderGodAdminPanel, bindGodAdminPanel,
     // Firebase refs (getters for fresh values)
     get db() { return db; },
     get currentUser() { return currentUser; },
@@ -5660,15 +5789,144 @@ function buildModuleCtx() {
     ADMIN_EMAIL, ALL_ADMIN_FEATURES,
     STRAVA_CLIENT_ID, STRAVA_REDIRECT_URI,
     // Function refs
+    get currentPage() { return currentPage; },
+    get fitnessSubTab() { return fitnessSubTab; },
+    extractAllExercises,
+    RACES,
     findPlan, getActiveRaces, getVisiblePlans, getPlanDisplayData, getEmbedUrl,
     getMapTileUrl, renderToday, renderFitness, renderPlans, renderProfile,
     stravaUploadActivity, autoUpdateChallengeScore, showModal, saveCustomPlansLocal,
     sendAiMessage, calcStreak,
   };
 }
+// ── God Admin — Global Settings ─────────────────────────────────────────────
+// hearn.tenny@icloud.com controls global_settings/config in Firestore.
+// Any change there propagates to ALL users in real time.
+function listenGlobalSettings() {
+  if (!db) return;
+  try {
+    onSnapshot(doc(db, 'global_settings', 'config'), snap => {
+      if (!snap.exists()) return;
+      globalSettings = snap.data();
+      applyGlobalSettings(globalSettings);
+    });
+  } catch(e) { console.warn('listenGlobalSettings:', e); }
+}
+
+function applyGlobalSettings(s) {
+  // Primary colour override
+  if (s.primaryColor) {
+    document.documentElement.style.setProperty('--primary', s.primaryColor);
+    // Update primary-fg contrast
+    document.documentElement.style.setProperty('--primary-fg', s.primaryColorFg || '#0d0e12');
+  }
+  // App name override
+  if (s.appName) {
+    document.querySelector('.header-brand') && (document.querySelector('.header-brand').textContent = s.appName);
+  }
+  // Maintenance mode — only affects non-master users
+  const isMaster = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const mo = document.getElementById('maintenance-overlay');
+  if (s.maintenanceMode && !isMaster) {
+    if (mo) { mo.style.display = 'flex'; document.getElementById('maintenance-msg').textContent = s.maintenanceMessage || 'TurboPrep is temporarily unavailable. Check back shortly.'; }
+  } else {
+    if (mo) mo.style.display = 'none';
+  }
+  // Global feature flags — hide/show tabs for everyone
+  if (s.features) {
+    const tabMap = { leaderboard: '[data-page="team"]', races: '[data-page="races"]', fitness: '[data-page="fitness"]', admin: '#admin-tab' };
+    Object.entries(s.features).forEach(([key, enabled]) => {
+      const sel = tabMap[key];
+      if (sel) {
+        document.querySelectorAll(sel).forEach(el => { el.style.display = enabled ? '' : 'none'; });
+      }
+      // Fitness sub-tabs
+      if (key === 'plans') { document.querySelector('.fitness-sub-tab[data-fitness-sub="plans"]')?.style && (document.querySelector('.fitness-sub-tab[data-fitness-sub="plans"]').style.display = enabled ? '' : 'none'); }
+      if (key === 'health') { document.querySelector('.fitness-sub-tab[data-fitness-sub="health"]')?.style && (document.querySelector('.fitness-sub-tab[data-fitness-sub="health"]').style.display = enabled ? '' : 'none'); }
+      if (key === 'demos') { document.querySelector('.fitness-sub-tab[data-fitness-sub="demos"]')?.style && (document.querySelector('.fitness-sub-tab[data-fitness-sub="demos"]').style.display = enabled ? '' : 'none'); }
+      if (key === 'ai_coach') { document.getElementById('ai-fab')?.style && (document.getElementById('ai-fab').style.display = enabled ? '' : 'none'); }
+    });
+  }
+  // Global announcement banner (shown at top of Today page)
+  window._globalAnnouncement = s.globalAnnouncement || null;
+  window._globalAnnouncementStyle = s.announcementStyle || 'info';
+  if (currentPage === 'today') renderToday();
+}
+
+// God admin panel section — only rendered for ADMIN_EMAIL
+function renderGodAdminPanel() {
+  const isMaster = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  if (!isMaster) return '';
+  const s = globalSettings;
+  return `
+    <div style="margin-top:20px;padding:16px;background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:14px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:12px">⚡ Master Control</div>
+      <div class="form-group">
+        <label class="label">Primary Colour</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="color" id="gc-color" value="${s.primaryColor||'#f97316'}" style="width:44px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:none;padding:2px">
+          <input class="input" type="text" id="gc-color-hex" value="${s.primaryColor||'#f97316'}" placeholder="#f97316" maxlength="7" style="flex:1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="label">App Name</label>
+        <input class="input" type="text" id="gc-appname" value="${s.appName||'TURBOPREP'}" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label class="label">Global Announcement</label>
+        <input class="input" type="text" id="gc-announce" value="${s.globalAnnouncement||''}" placeholder="Leave blank to hide" maxlength="200">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:600">Maintenance Mode</span>
+        <button class="admin-toggle ${s.maintenanceMode?'on':''}" id="gc-maintenance"></button>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Feature Flags (All Users)</div>
+      ${['leaderboard','races','plans','health','demos','ai_coach'].map(f=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:13px;color:var(--fg)">${f.replace('_',' ').replace(/\w/g,l=>l.toUpperCase())}</span>
+          <button class="admin-toggle gc-feat-toggle ${(s.features?.[f]!==false)?'on':''}" data-feat="${f}"></button>
+        </div>`).join('')}
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" id="gc-save">Save Global Settings</button>
+    </div>
+  `;
+}
+
+function bindGodAdminPanel(el) {
+  if (!el) return;
+  // Colour pickers sync
+  const colorInput = el.querySelector('#gc-color'), hexInput = el.querySelector('#gc-color-hex');
+  colorInput?.addEventListener('input', ()=>{ if(hexInput) hexInput.value=colorInput.value; });
+  hexInput?.addEventListener('input', ()=>{ if(/^#[0-9a-f]{6}$/i.test(hexInput.value)&&colorInput) colorInput.value=hexInput.value; });
+  // Feature toggles
+  el.querySelectorAll('.gc-feat-toggle').forEach(btn=>{
+    btn.addEventListener('click',()=>btn.classList.toggle('on'));
+  });
+  el.querySelector('#gc-maintenance')?.addEventListener('click', e=>e.currentTarget.classList.toggle('on'));
+  // Save
+  el.querySelector('#gc-save')?.addEventListener('click', async ()=>{
+    if (!db) return;
+    const color = el.querySelector('#gc-color-hex')?.value || '#f97316';
+    const featFlags = {};
+    el.querySelectorAll('.gc-feat-toggle').forEach(b=>{ featFlags[b.dataset.feat]=b.classList.contains('on'); });
+    const data = {
+      primaryColor: color,
+      appName: el.querySelector('#gc-appname')?.value?.trim()||'TURBOPREP',
+      globalAnnouncement: el.querySelector('#gc-announce')?.value?.trim()||null,
+      maintenanceMode: el.querySelector('#gc-maintenance')?.classList.contains('on')||false,
+      features: featFlags,
+      updatedAt: serverTimestamp(),
+      updatedBy: currentUser?.email,
+    };
+    try {
+      await setDoc(doc(db,'global_settings','config'), data);
+      showToast('Global settings saved — all users updated.','success');
+    } catch(e) { showToast('Failed to save: '+e.message,'error'); }
+  });
+}
+
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '5.3.0';
+  const APP_VERSION = '4.4.0';
   console.log('[TurboPrep] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
@@ -5708,7 +5966,14 @@ function startApp() {
         userProfile = { displayName: user.displayName || 'User', email: user.email || '', yearLevel: 'Y7', fitnessLevel: 'basic', activePlanId: null };
       }
       try { setupListeners(user.uid); } catch(e) { console.warn('Listeners:', e); }
-      try { initAdmin(buildModuleCtx()); initStrava(buildModuleCtx()); initRaceLog(buildModuleCtx()); initTimer(buildModuleCtx()); initAiFeatures(buildModuleCtx()); } catch(e) { console.warn('Module init:', e); }
+      try { initAdmin(buildModuleCtx()); initStrava(buildModuleCtx()); initRaceLog(buildModuleCtx()); initTimer(buildModuleCtx()); initAiFeatures(buildModuleCtx()); initRaceDay(buildModuleCtx()); } catch(e) { console.warn('Module init:', e); }
+      // Start global settings listener
+      try { listenGlobalSettings(); } catch(e) {}
+      // Check race day state — if active, take over full screen
+      try {
+        const rdActive=await loadRaceDayState();
+        if (rdActive) { setTimeout(()=>openRaceDayOverlay(),300); }
+      } catch(e) {}
       try { await loadAdminEmails(); } catch(e) {}
       try { checkAdmin(user.email); } catch(e) {}
       // PHASE 2: Show the app NOW — don't wait for all data
@@ -5904,225 +6169,7 @@ function checkForNewAnnouncements(announcements) {
 }
 // Listen for announcements in real-time (triggers notification for new ones)
 // --- Training Session Notifications ---
-// --- Native HealthKit Bridge ---
-const isCapacitor = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform?.();
-const isNativeApp = typeof window.isTurboPrepNative !== 'undefined' || isCapacitor;
-let HealthPlugin = null;
-let healthSyncInterval = null;
-
-// Detect plugin with retry (Capacitor only)
-function getHealthPlugin() {
-  if (HealthPlugin) return HealthPlugin;
-  if (!isCapacitor) return null;
-  try { HealthPlugin = window.Capacitor?.Plugins?.TurboPrepHealth || null; } catch (e) { HealthPlugin = null; }
-  return HealthPlugin;
-}
-
-// Listen for native health data injected by Swift WKWebView
-window.addEventListener('nativeHealthData', async (e) => {
-  const d = e.detail;
-  if (!db || !currentUser) return;
-  try {
-    const update = { 'health.lastSync': d.timestamp || new Date().toISOString() };
-    if (d.heartRate > 0) update['health.latestHr'] = d.heartRate;
-    if (d.steps > 0) update['health.latestSteps'] = d.steps;
-    if (d.sleep > 0) update['health.latestSleep'] = d.sleep;
-    if (d.restingHR > 0) update['health.restingHr'] = d.restingHR;
-    if (d.yesterdaySteps > 0) update['health.yesterdaySteps'] = d.yesterdaySteps;
-    if (d.yesterdaySleep > 0) update['health.yesterdaySleep'] = d.yesterdaySleep;
-    if (d.hrTimestamp) update['health.hrTimestamp'] = d.hrTimestamp;
-    
-    await updateDoc(doc(db, 'users', currentUser.uid), update);
-    if (!userProfile) userProfile = {};
-    if (!userProfile.health) userProfile.health = {};
-    if (d.heartRate > 0) userProfile.health.latestHr = d.heartRate;
-    if (d.steps > 0) userProfile.health.latestSteps = d.steps;
-    if (d.sleep > 0) userProfile.health.latestSleep = d.sleep;
-    if (d.restingHR > 0) userProfile.health.restingHr = d.restingHR;
-    if (d.yesterdaySteps > 0) userProfile.health.yesterdaySteps = d.yesterdaySteps;
-    if (d.yesterdaySleep > 0) userProfile.health.yesterdaySleep = d.yesterdaySleep;
-    userProfile.health.lastSync = d.timestamp || new Date().toISOString();
-    if (currentPage === 'today') renderCurrentPage();
-  } catch (err) { console.warn('Native health sync error:', err); }
-});
-
-async function nativeHealthSync() {
-  const hp = getHealthPlugin();
-  if (!hp || !db || !currentUser) return false;
-  try {
-    const avail = await hp.isAvailable();
-    if (!avail.available) return false;
-    await hp.requestPermission();
-
-    const [hr, steps, sleep, rhr] = await Promise.all([
-      hp.getHeartRate().catch(() => ({ bpm: 0 })),
-      hp.getSteps().catch(() => ({ count: 0 })),
-      hp.getSleep().catch(() => ({ duration: 0 })),
-      hp.getRestingHeartRate().catch(() => ({ bpm: 0 }))
-    ]);
-
-    // Also get yesterday's data
-    const [ySteps, ySleep] = await Promise.all([
-      hp.getYesterdaySteps?.().catch(() => ({ count: 0 })) || Promise.resolve({ count: 0 }),
-      hp.getYesterdaySleep?.().catch(() => ({ duration: 0 })) || Promise.resolve({ duration: 0 })
-    ]);
-
-    const now = new Date().toISOString();
-    const update = { 'health.lastSync': now };
-    if (hr.bpm > 0) update['health.latestHr'] = hr.bpm;
-    if (steps.count > 0) update['health.latestSteps'] = steps.count;
-    if (sleep.duration > 0) update['health.latestSleep'] = sleep.duration;
-    if (rhr.bpm > 0) update['health.restingHr'] = rhr.bpm;
-    if (hr.timestamp) update['health.hrTimestamp'] = hr.timestamp;
-    if (ySteps.count > 0) update['health.yesterdaySteps'] = ySteps.count;
-    if (ySleep.duration > 0) update['health.yesterdaySleep'] = ySleep.duration;
-
-    await updateDoc(doc(db, 'users', currentUser.uid), update);
-    if (!userProfile) userProfile = {};
-    if (!userProfile.health) userProfile.health = {};
-    if (hr.bpm > 0) userProfile.health.latestHr = hr.bpm;
-    if (steps.count > 0) userProfile.health.latestSteps = steps.count;
-    if (sleep.duration > 0) userProfile.health.latestSleep = sleep.duration;
-    if (rhr.bpm > 0) userProfile.health.restingHr = rhr.bpm;
-    if (ySteps.count > 0) userProfile.health.yesterdaySteps = ySteps.count;
-    if (ySleep.duration > 0) userProfile.health.yesterdaySleep = ySleep.duration;
-    userProfile.health.lastSync = now;
-    return true;
-  } catch (e) {
-    console.warn('Native health sync error:', e);
-    return false;
-  }
-}
-
-// Fast sync — polls every 10 seconds for real-time heart rate
-function startFastHealthSync() {
-  stopFastHealthSync();
-  healthSyncInterval = setInterval(async () => {
-    const hp = getHealthPlugin();
-    if (!hp || !db || !currentUser) return;
-    try {
-      const hr = await hp.getHeartRate().catch(() => ({ bpm: 0 }));
-      if (hr.bpm > 0 && hr.bpm !== userProfile?.health?.latestHr) {
-        await updateDoc(doc(db, 'users', currentUser.uid), {
-          'health.latestHr': hr.bpm,
-          'health.hrTimestamp': hr.timestamp || new Date().toISOString(),
-          'health.lastSync': new Date().toISOString()
-        });
-        if (userProfile.health) userProfile.health.latestHr = hr.bpm;
-        if (currentPage === 'today') renderCurrentPage();
-      }
-    } catch (e) {}
-  }, 10000); // Every 10 seconds
-}
-
-function stopFastHealthSync() {
-  if (healthSyncInterval) { clearInterval(healthSyncInterval); healthSyncInterval = null; }
-}
-
-async function startNativeHeartRateStream() {
-  const hp = getHealthPlugin();
-  if (!hp) return;
-  try {
-    await hp.startHeartRateStream();
-    hp.addListener('heartRateUpdate', async (data) => {
-      if (data.bpm > 0 && db && currentUser) {
-        await updateDoc(doc(db, 'users', currentUser.uid), {
-          'health.latestHr': data.bpm,
-          'health.lastSync': new Date().toISOString()
-        });
-        if (userProfile.health) userProfile.health.latestHr = data.bpm;
-        if (currentPage === 'today') renderCurrentPage();
-      }
-    });
-  } catch (e) { console.warn('HR stream error:', e); }
-}
-
-async function stopNativeHeartRateStream() {
-  const hp = getHealthPlugin();
-  if (!hp) return;
-  try { await hp.stopHeartRateStream(); } catch (e) {}
-}
-
-// Auto-sync on app events (native only)
-if (isCapacitor) {
-  // Sync on load after login completes
-  const waitForAuth = setInterval(() => {
-    if (currentUser && db) {
-      clearInterval(waitForAuth);
-      nativeHealthSync().then(ok => {
-        if (ok && currentPage === 'today') renderCurrentPage();
-      });
-      // Start background sync every 5 minutes
-      setInterval(() => {
-        if (currentUser && db) nativeHealthSync();
-      }, 300000);
-    }
-  }, 1000);
-
-  // Sync when app comes to foreground
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && currentUser && db) {
-      nativeHealthSync().then(ok => {
-        if (ok && currentPage === 'today') renderCurrentPage();
-      });
-    }
-  });
-
-  // Sync when Capacitor app resumes from background
-  document.addEventListener('resume', () => {
-    if (currentUser && db) {
-      nativeHealthSync().then(ok => {
-        if (ok && currentPage === 'today') renderCurrentPage();
-      });
-    }
-  });
-}
-
 // --- Health Tab (Fitness page) ---
-
-// Listen for Apple Watch data via WatchConnectivity
-if (isNativeApp) {
-  window.addEventListener('watchHealthUpdate', async (e) => {
-    const d = e.detail;
-    if (!db || !currentUser) return;
-    const update = { 'health.lastSync': new Date().toISOString() };
-    if (d.heartRate > 0) update['health.latestHr'] = d.heartRate;
-    if (d.steps > 0) update['health.latestSteps'] = d.steps;
-    if (d.sleep > 0) update['health.latestSleep'] = d.sleep;
-    if (d.restingHR > 0) update['health.restingHr'] = d.restingHR;
-    try {
-      await updateDoc(doc(db, 'users', currentUser.uid), update);
-      if (!userProfile) userProfile = {};
-      if (!userProfile.health) userProfile.health = {};
-      if (d.heartRate > 0) userProfile.health.latestHr = d.heartRate;
-      if (d.steps > 0) userProfile.health.latestSteps = d.steps;
-      if (d.sleep > 0) userProfile.health.latestSleep = d.sleep;
-      if (d.restingHR > 0) userProfile.health.restingHr = d.restingHR;
-      userProfile.health.lastSync = new Date().toISOString();
-      if (currentPage === 'today') renderCurrentPage();
-    } catch (err) { console.warn('Watch sync error:', err); }
-  });
-
-  window.addEventListener('watchWorkoutComplete', async (e) => {
-    const d = e.detail;
-    if (!db || !currentUser) return;
-    try {
-      await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
-        name: 'Apple Watch Workout',
-        type: 'hpv',
-        duration: Math.round((d.duration || 0) / 60),
-        calories: d.calories || 0,
-        heartRate: d.avgHR || 0,
-        source: 'apple_watch',
-        notes: 'Recorded on Apple Watch',
-        date: serverTimestamp(),
-        createdAt: serverTimestamp()
-      });
-      showToast('Watch workout saved!', 'success');
-      renderCurrentPage();
-    } catch (err) { console.warn('Watch workout save error:', err); }
-  });
-}
 function renderHealthTab() {
   const c = $('health-content');
   if (!c) return;
@@ -6135,42 +6182,25 @@ function renderHealthTab() {
   if (h.lastSync) html += '<span style="font-size:11px;color:var(--muted-fg)">Synced ' + timeAgo(new Date(h.lastSync)) + '</span>';
   html += '</div>';
 
-  // Stat cards — Today
-  html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Today</div>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">';
-  html += `<div style="text-align:center;padding:14px 8px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.1);border-radius:12px;overflow:hidden">
-    <div style="font-size:28px;font-weight:800;color:#ef4444">${h.latestHr || '--'}</div>
+  // Stat cards
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">';
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:#ef4444">${h.latestHr || '--'}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">❤️ Heart Rate</div>
   </div>`;
-  html += `<div style="text-align:center;padding:14px 8px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.1);border-radius:12px;overflow:hidden">
-    <div style="font-size:28px;font-weight:800;color:#3b82f6">${h.restingHr || '--'}</div>
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:#3b82f6">${h.restingHr || '--'}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">💓 Resting HR</div>
   </div>`;
-  html += `<div style="text-align:center;padding:14px 8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.1);border-radius:12px;overflow:hidden">
-    <div style="font-size:28px;font-weight:800;color:#22c55e">${h.latestSteps ? (h.latestSteps > 999 ? (h.latestSteps/1000).toFixed(1) + 'k' : h.latestSteps) : '--'}</div>
-    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">👟 Steps${h.yesterdaySteps ? ' <span style="color:' + (h.latestSteps >= h.yesterdaySteps ? '#22c55e' : '#ef4444') + '">' + (h.latestSteps >= h.yesterdaySteps ? '↑' : '↓') + '</span>' : ''}</div>
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:#22c55e">${h.latestSteps ? (h.latestSteps > 999 ? (h.latestSteps/1000).toFixed(1) + 'k' : h.latestSteps) : '--'}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">👟 Steps</div>
   </div>`;
-  html += `<div style="text-align:center;padding:14px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);border-radius:12px;overflow:hidden">
-    <div style="font-size:28px;font-weight:800;color:#a855f7">${h.latestSleep ? h.latestSleep + 'h' : '--'}</div>
-    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">😴 Sleep${h.yesterdaySleep ? ' <span style="color:' + (h.latestSleep >= h.yesterdaySleep ? '#22c55e' : '#ef4444') + '">' + (h.latestSleep >= h.yesterdaySleep ? '↑' : '↓') + '</span>' : ''}</div>
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:#a855f7">${h.latestSleep ? h.latestSleep + 'h' : '--'}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">😴 Sleep</div>
   </div>`;
   html += '</div>';
-
-  // Yesterday row
-  if (h.yesterdaySteps || h.yesterdaySleep) {
-    html += '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Yesterday</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">';
-    html += `<div style="text-align:center;padding:10px 8px;background:var(--surface-alt);border-radius:10px;overflow:hidden">
-      <div style="font-size:20px;font-weight:800;color:var(--muted-fg)">${h.yesterdaySteps ? (h.yesterdaySteps > 999 ? (h.yesterdaySteps/1000).toFixed(1) + 'k' : h.yesterdaySteps) : '--'}</div>
-      <div style="font-size:10px;color:var(--muted-fg);margin-top:3px">👟 Steps</div>
-    </div>`;
-    html += `<div style="text-align:center;padding:10px 8px;background:var(--surface-alt);border-radius:10px;overflow:hidden">
-      <div style="font-size:20px;font-weight:800;color:var(--muted-fg)">${h.yesterdaySleep ? h.yesterdaySleep + 'h' : '--'}</div>
-      <div style="font-size:10px;color:var(--muted-fg);margin-top:3px">😴 Sleep</div>
-    </div>`;
-    html += '</div>';
-  }
-
 
   // Heart Rate chart — from workout data
   const hrWorkouts = userWorkouts.filter(w => w.heartRate && w.heartRate > 0).slice(0, 14).reverse();
