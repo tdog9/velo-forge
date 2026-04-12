@@ -77,6 +77,7 @@ input,select,textarea{font:inherit;color:inherit;-webkit-tap-highlight-color:tra
 .content{
   flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
   padding:16px 16px calc(16px + var(--tab-h));
+  -webkit-transform:translateZ(0);
 }
 
 /* Scroll-to-top button */
@@ -96,11 +97,16 @@ input,select,textarea{font:inherit;color:inherit;-webkit-tap-highlight-color:tra
 
 /* Sticky fitness sub-tab bar */
 .fitness-sub-bar-sticky{
-  position:sticky;top:0;z-index:20;
-  margin:0 0 12px 0;
-  padding:8px 0 0 0;
+  position:-webkit-sticky;
+  position:sticky;
+  top:0;
+  z-index:20;
+  padding:8px 0;
   background:var(--bg);
-  box-shadow:0 2px 8px rgba(0,0,0,.12);
+  box-shadow:0 1px 0 rgba(255,255,255,.07);
+  -webkit-transform:translate3d(0,0,0);
+  transform:translate3d(0,0,0);
+  will-change:transform;
 }
 .fitness-sub-bar-sticky .fitness-sub-bar{margin:0}
 

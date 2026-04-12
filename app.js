@@ -5791,6 +5791,7 @@ function buildModuleCtx() {
     escHtml,
     renderGodAdminPanel, bindGodAdminPanel,
     get globalSettings() { return globalSettings; },
+    activateRaceDay, deactivateRaceDay, openRaceDayOverlay,
     // Firebase refs (getters for fresh values)
     get db() { return db; },
     get currentUser() { return currentUser; },
@@ -6232,9 +6233,9 @@ function checkAdmin(email) {
   const studentView = localStorage.getItem('vf_student_view') === 'true';
   if (adminTab) adminTab.style.display = (isMaster && !studentView) ? '' : 'none';
 
-  // Coach tab — coaches only (not master, not students)
+  // Coach tab — coaches AND master get it
   const coachTab = document.getElementById('coach-tab');
-  if (coachTab) coachTab.style.display = (userProfile?.isCoach && !isMaster && !studentView) ? '' : 'none';
+  if (coachTab) coachTab.style.display = ((userProfile?.isCoach || isMaster) && !studentView) ? '' : 'none';
 }
 async function loadAdminData() {
   if (!isAdmin || !db) return;

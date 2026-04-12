@@ -18,6 +18,7 @@ export function renderAdmin() {
     { id: 'plans', label: '📋 Plans' },
     { id: 'users', label: '👥 Users' },
     { id: 'requests', label: '🔔 Requests' },
+    { id: 'maintenance', label: '🔧 Maintenance' },
     { id: 'system', label: '⚙️ System' },
   ];
 
@@ -65,8 +66,151 @@ export function renderAdmin() {
     case 'plans': renderAdminPlansMerged(); break;
     case 'users': renderAdminUsersMerged(); break;
     case 'requests': renderAdminRequests(); break;
+    case 'maintenance': renderAdminMaintenance(); break;
     case 'system': renderAdminSystem(); break;
   }
+}
+
+// ── Maintenance tab ──────────────────────────────────────────────────────────
+function renderAdminMaintenance() {
+  const el = A.$('admin-maintenance');
+  if (!el) return;
+  const s = A.globalSettings || {};
+
+  // Load error log from localStorage
+  let errorLog = [];
+  try { errorLog = JSON.parse(localStorage.getItem('vf_error_log') || '[]'); } catch(e) {}
+
+  el.innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Maintenance Mode</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+        <div>
+          <div style="font-size:13px;font-weight:600">Maintenance Mode</div>
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Blocks all users except hearn.tenny@icloud.com</div>
+        </div>
+        <button class="admin-toggle ${s.maintenanceMode?'on':''}" id="maint-toggle"></button>
+      </div>
+      <div style="margin-bottom:6px">
+        <label style="font-size:12px;font-weight:600;color:var(--muted-fg);display:block;margin-bottom:4px">Maintenance Message</label>
+        <input class="input" type="text" id="maint-msg" value="${A.escHtml(s.maintenanceMessage||'')}" placeholder="TurboPrep is temporarily unavailable. Check back shortly." maxlength="200">
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" id="maint-save">Save & Apply</button>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Cache & Version</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" style="flex:1;font-size:12px" id="maint-nuke">🧹 Clear All Caches</button>
+        <button class="btn btn-secondary" style="flex:1;font-size:12px" id="maint-reload">🔄 Force Reload</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-top:8px;padding:8px 12px;background:var(--card);border-radius:8px">
+        App version: ${A.globalSettings?.appVersion || '—'}<br>
+        Users connected today: ${A.allUsersCache?.length || '—'}
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Race Day Control</div>
+      <div style="padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div>
+            <div style="font-size:13px;font-weight:600">Race Day Mode</div>
+            <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Locks all users into race day interface</div>
+          </div>
+          <div id="rd-status-badge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(239,68,68,.12);color:#ef4444">Checking...</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="btn btn-primary" style="flex:1;font-size:12px;background:linear-gradient(135deg,#22c55e,#16a34a)" id="rd-activate-god">🏁 Activate Race Day</button>
+          <button class="btn btn-secondary" style="flex:1;font-size:12px;color:#ef4444;border-color:rgba(239,68,68,.3)" id="rd-deactivate-god">End Race Day</button>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;font-size:12px" id="rd-test-btn">🧪 Test Race Day Mode</button>
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:6px">Test opens race day interface without activating it for other users.</div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Recent Error Log (${errorLog.length})</div>
+      ${errorLog.length === 0
+        ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:16px">No errors logged.</div>'
+        : errorLog.slice(-20).reverse().map(e => `
+          <div style="padding:8px 10px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:8px;margin-bottom:6px;font-size:11px;font-family:var(--font-mono)">
+            <div style="color:#ef4444;font-weight:600;margin-bottom:2px">${A.escHtml(e.message||'Unknown')}</div>
+            <div style="color:var(--muted-fg)">${A.escHtml(e.source||'')} · ${A.escHtml(e.timestamp||'')}</div>
+          </div>`).join('')
+      }
+      ${errorLog.length > 0 ? '<button class="btn btn-secondary" style="width:100%;margin-top:8px;font-size:12px" id="maint-clear-log">Clear Error Log</button>' : ''}
+    </div>
+  `;
+
+  el.querySelector('#maint-toggle')?.addEventListener('click', e => e.currentTarget.classList.toggle('on'));
+  el.querySelector('#maint-save')?.addEventListener('click', async () => {
+    const on = el.querySelector('#maint-toggle')?.classList.contains('on') || false;
+    const msg = el.querySelector('#maint-msg')?.value?.trim() || '';
+    try {
+      await A.setDoc(A.doc(A.db,'global_settings','config'), {
+        ...(A.globalSettings||{}), maintenanceMode: on, maintenanceMessage: msg, updatedAt: A.serverTimestamp()
+      });
+      A.showToast(on ? 'Maintenance ON — all users blocked.' : 'Maintenance OFF — app live.', on ? 'warn' : 'success');
+    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+  });
+  el.querySelector('#maint-nuke')?.addEventListener('click', () => {
+    if (confirm('Clear all caches for this browser?')) window.open(window.location.pathname + '?nuke=true');
+  });
+  el.querySelector('#maint-reload')?.addEventListener('click', () => window.location.reload(true));
+  el.querySelector('#maint-clear-log')?.addEventListener('click', () => {
+    localStorage.removeItem('vf_error_log');
+    A.showToast('Error log cleared.','success');
+    renderAdminMaintenance();
+  });
+
+  // Race day controls
+  (async () => {
+    const badge = el.querySelector('#rd-status-badge');
+    try {
+      if (A.db) {
+        const today = new Date();
+        const dk = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+        const snap = await A.getDoc(A.doc(A.db,'race_day',dk));
+        const isActive = snap.exists() && snap.data().active;
+        if (badge) {
+          badge.textContent = isActive ? '🔴 LIVE' : '⚪ Inactive';
+          badge.style.background = isActive ? 'rgba(239,68,68,.15)' : 'rgba(100,100,100,.15)';
+          badge.style.color = isActive ? '#ef4444' : 'var(--muted-fg)';
+        }
+      }
+    } catch(e) { if (badge) badge.textContent = '—'; }
+  })();
+
+  el.querySelector('#rd-activate-god')?.addEventListener('click', async () => {
+    try {
+      if (typeof A.activateRaceDay === 'function') {
+        await A.activateRaceDay();
+        A.showToast('Race day activated for all users!','success');
+        renderAdminMaintenance();
+      } else {
+        A.showToast('activateRaceDay not available','error');
+      }
+    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+  });
+
+  el.querySelector('#rd-deactivate-god')?.addEventListener('click', async () => {
+    try {
+      if (typeof A.deactivateRaceDay === 'function') {
+        await A.deactivateRaceDay();
+        A.showToast('Race day ended.','info');
+        renderAdminMaintenance();
+      }
+    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+  });
+
+  el.querySelector('#rd-test-btn')?.addEventListener('click', () => {
+    if (typeof A.openRaceDayOverlay === 'function') {
+      A.openRaceDayOverlay();
+    } else {
+      A.showToast('Race day module not loaded','error');
+    }
+  });
 }
 
 // ── System tab (god mode settings) ──────────────────────────────────────────
