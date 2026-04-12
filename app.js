@@ -1253,7 +1253,7 @@ function renderCurrentPage() {
   switch(currentPage) {
     case 'today': renderToday(); loadWeather(); break;
     case 'fitness': renderFitness(); break;
-    case 'races': renderRaces(); renderRaceLog(); break;
+    case 'races': renderRaces(); renderRaceLog(); renderRaceDayHistory(); break;
     case 'team': renderTeam(); break;
     case 'admin': if (isAdmin) renderAdmin(); break;
     case 'coach': renderCoachPage(); break;
@@ -4439,6 +4439,135 @@ function renderPlanCard(plan, isActive) {
     </div>
   `;
 }
+// ── Race Day History — shows synced lap data from past race days ─────────────
+async function renderRaceDayHistory() {
+  // Find or create container after racelog-content
+  let el = $('raceday-history-content');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'raceday-history-content';
+    el.style.marginTop = '24px';
+    const racelogEl = $('racelog-content');
+    if (racelogEl) racelogEl.parentNode.insertBefore(el, racelogEl.nextSibling);
+    else return;
+  }
+  if (!db || !currentUser) return;
+
+  try {
+    // Load last 10 race days
+    const snap = await getDocs(collection(db, 'race_day'));
+    const days = snap.docs
+      .map(d => ({ date: d.id, ...d.data() }))
+      .filter(d => d.startPointSet)
+      .sort((a,b) => b.date.localeCompare(a.date))
+      .slice(0, 10);
+
+    if (days.length === 0) { el.innerHTML = ''; return; }
+
+    let html = '<div class="page-title" style="margin-top:8px">Race Day Results</div><div class="space-y">';
+
+    for (const day of days) {
+      // Load stints for this day
+      let stints = [];
+      try {
+        const stintSnap = await getDocs(collection(db, 'race_day', day.date, 'stints'));
+        stints = stintSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
+      } catch(e) {}
+
+      if (stints.length === 0) continue;
+
+      const totalLaps = stints.reduce((s,x) => s+(x.laps?.length||0), 0);
+      const allLaps = stints.flatMap(s => s.laps||[]);
+      const bestLap = allLaps.length > 0 ? Math.min(...allLaps.map(l=>l.duration)) : null;
+      const myStint = stints.find(s => s.uid === currentUser.uid);
+
+      const fmtMs = ms => { const s=Math.floor(ms/1000),m=Math.floor(s/60),sec=s%60; return m+':'+String(sec).padStart(2,'0'); };
+      const fmtTime = ms => { const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; return h>0?h+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'):String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'); };
+
+      html += `<div class="card">
+        <div class="card-pad">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div>
+              <div style="font-size:15px;font-weight:700">🏁 Race Day — ${day.date}</div>
+              <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${stints.length} drivers · ${totalLaps} total laps</div>
+            </div>
+            ${bestLap ? `<div style="text-align:right"><div style="font-size:11px;color:var(--muted-fg)">Best Lap</div><div style="font-size:18px;font-weight:800;color:#22c55e;font-family:var(--font-mono)">${fmtMs(bestLap)}</div></div>` : ''}
+          </div>`;
+
+      // My stint summary
+      if (myStint) {
+        const myBest = myStint.laps?.length > 0 ? Math.min(...myStint.laps.map(l=>l.duration)) : null;
+        const myAvg = myStint.laps?.length > 0 ? myStint.laps.reduce((s,l)=>s+l.duration,0)/myStint.laps.length : null;
+        html += `<div style="background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.15);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:6px">Your Stint</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px;text-align:center">
+            <div><div style="font-size:16px;font-weight:800">${myStint.laps?.length||0}</div><div style="color:var(--muted-fg)">Laps</div></div>
+            <div><div style="font-size:16px;font-weight:800;color:#22c55e;font-family:var(--font-mono)">${myBest?fmtMs(myBest):'—'}</div><div style="color:var(--muted-fg)">Best</div></div>
+            <div><div style="font-size:16px;font-weight:800;font-family:var(--font-mono)">${myStint.duration?fmtTime(myStint.duration):'—'}</div><div style="color:var(--muted-fg)">Time</div></div>
+          </div>
+          ${myStint.laps?.length > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">${myStint.laps.map((l,i)=>`<span style="font-size:11px;font-family:var(--font-mono);margin-right:8px;color:${l.duration===myBest?'#22c55e':'var(--muted-fg)'}">L${i+1} ${fmtMs(l.duration)}</span>`).join('')}</div>` : ''}
+        </div>`;
+      }
+
+      // All drivers table
+      const sorted = [...stints].sort((a,b)=>(b.laps?.length||0)-(a.laps?.length||0));
+      html += `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:4px 0;color:var(--muted-fg);font-weight:600">Driver</th>
+          <th style="text-align:right;padding:4px 0;color:var(--muted-fg);font-weight:600">Laps</th>
+          <th style="text-align:right;padding:4px 0;color:var(--muted-fg);font-weight:600">Best</th>
+          <th style="text-align:right;padding:4px 0;color:var(--muted-fg);font-weight:600">Avg</th>
+        </tr></thead><tbody>`;
+      sorted.forEach(s => {
+        const laps = s.laps||[];
+        const best = laps.length>0 ? fmtMs(Math.min(...laps.map(l=>l.duration))) : '—';
+        const avg = laps.length>0 ? fmtMs(laps.reduce((t,l)=>t+l.duration,0)/laps.length) : '—';
+        const isMe = s.uid === currentUser.uid;
+        html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);${isMe?'background:rgba(249,115,22,.04)':''}">
+          <td style="padding:6px 0;font-weight:${isMe?'700':'400'}">${escHtml(s.displayName||'Driver')}${isMe?' ★':''}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${laps.length}</td>
+          <td style="text-align:right;font-family:var(--font-mono);color:#22c55e">${best}</td>
+          <td style="text-align:right;font-family:var(--font-mono)">${avg}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>
+
+          <button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:12px" data-rd-email="${day.date}">📧 Email Team Report</button>
+        </div>
+      </div>`;
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+
+    // Bind email buttons
+    el.querySelectorAll('[data-rd-email]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const date = btn.dataset.rdEmail;
+        const day = days.find(d => d.date === date);
+        if (!day) return;
+        let stints2 = [];
+        try {
+          const s2 = await getDocs(collection(db, 'race_day', date, 'stints'));
+          stints2 = s2.docs.map(d => ({ uid: d.id, ...d.data() }));
+        } catch(e) {}
+        const fmtMs2 = ms => { const s=Math.floor(ms/1000),m=Math.floor(s/60),sec=s%60; return m+':'+String(sec).padStart(2,'0'); };
+        const fmtTime2 = ms => { const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; return h>0?h+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'):String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'); };
+        const lines = stints2.map(s => {
+          const laps = s.laps||[];
+          const best = laps.length>0 ? fmtMs2(Math.min(...laps.map(l=>l.duration))) : '--';
+          const avg = laps.length>0 ? fmtMs2(laps.reduce((t,l)=>t+l.duration,0)/laps.length) : '--';
+          return (s.displayName||s.uid)+' | Laps: '+laps.length+' | Best: '+best+' | Avg: '+avg+' | Time: '+fmtTime2(s.duration||0);
+        }).join('\n');
+        const subj = encodeURIComponent('TurboPrep Race Day Results — '+date);
+        const body = encodeURIComponent('TURBOPREP RACE DAY TEAM REPORT\nDate: '+date+'\nDrivers: '+stints2.length+'\nTotal Laps: '+stints2.reduce((s,x)=>s+(x.laps?.length||0),0)+'\n\nRESULTS\n-------\n'+lines+'\n\n--- Sent from TurboPrep ---');
+        window.open('mailto:?subject='+subj+'&body='+body);
+      });
+    });
+
+  } catch(e) { console.warn('renderRaceDayHistory:', e); }
+}
+
 function renderRaces() {
   const c = $('races-content');
   let html = '<div class="page-title">Upcoming Races</div><div class="space-y">';
