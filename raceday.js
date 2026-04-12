@@ -145,58 +145,113 @@ export async function openRaceDayOverlay() {
 }
 
 function buildOverlayHTML() {
-  const isCoach=ctx.userProfile?.isCoach;
+  const isCoach = ctx.userProfile?.isCoach || ctx.currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+  const teamName = ctx.teamData?.name || ctx.userProfile?.teamName || 'Your Team';
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+
+  // Find today's race if any
+  let raceName = '';
+  try {
+    const todayISO = today.toISOString().split('T')[0];
+    const races = ctx.getActiveRaces ? ctx.getActiveRaces() : [];
+    const todayRace = races.find(r => r.date === todayISO);
+    if (todayRace) raceName = todayRace.name;
+  } catch(e) {}
+
   return `
-<div style="background:var(--bg);border-bottom:1px solid var(--border);padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:10px;flex-shrink:0">
-  <div style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:rdPulse 1.2s ease infinite;flex-shrink:0"></div>
-  <span style="font-size:15px;font-weight:700;color:var(--fg);flex:1">🏁 Race Day Mode</span>
-  ${isCoach?`<button id="rd-end-btn" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;cursor:pointer">End Race Day</button>`:''}
-  <button id="rd-close-btn" style="width:32px;height:32px;border-radius:50%;background:var(--muted);border:none;color:var(--fg);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
-</div>
 <style>
   @keyframes rdPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
-  .rd-tab{flex:1;padding:10px 4px;border:none;background:none;font-size:13px;font-weight:600;color:var(--muted-fg);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;-webkit-tap-highlight-color:transparent}
-  .rd-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+  .rd-tab-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;min-width:64px;min-height:44px;border:none;background:none;cursor:pointer;color:var(--muted-fg);transition:color .15s;-webkit-tap-highlight-color:transparent;position:relative}
+  .rd-tab-btn.active{color:var(--primary)}
+  .rd-tab-btn.active::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--primary)}
+  .rd-tab-btn svg{width:22px;height:22px}
+  .rd-tab-lbl{font-size:10px;font-weight:600;letter-spacing:.02em}
   .rd-drag-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;touch-action:none}
   .rd-drag-item.drag-over{border-color:var(--primary);border-top:2px solid var(--primary)}
 </style>
-<div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;padding:0 8px;align-items:center">
-  <button class="rd-tab active" data-rdtab="roster" style="flex:2">Roster</button>
-  <button data-rdtab="stint" style="flex:0 0 auto;padding:6px 12px;border:none;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent">
-    <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;margin:-10px 0;box-shadow:0 4px 14px rgba(34,197,94,.4)">
-      <svg viewBox="0 0 24 24" fill="white" style="width:22px;height:22px"><polygon points="6 3 20 12 6 21"/></svg>
-    </div>
+
+<!-- Header matching app style -->
+<header style="height:56px;min-height:calc(56px + env(safe-area-inset-top,0px));padding:0 16px;padding-top:env(safe-area-inset-top,0px);display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;z-index:30">
+  <div style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(249,115,22,.3)">T</div>
+  <div style="flex:1;min-width:0">
+    <div style="font-size:13px;font-weight:800;letter-spacing:.08em;color:var(--primary)">TURBOPREP</div>
+    <div style="font-size:10px;color:var(--muted-fg);margin-top:-1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${raceName ? '🏁 '+esc(raceName)+' · ' : ''}${esc(teamName)}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+    <div style="width:7px;height:7px;border-radius:50%;background:#ef4444;animation:rdPulse 1.4s ease infinite"></div>
+    <span style="font-size:11px;font-weight:700;color:#ef4444">LIVE</span>
+  </div>
+  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;cursor:pointer;margin-left:4px">End</button>` : ''}
+  <button id="rd-close-btn" style="width:32px;height:32px;border-radius:50%;background:var(--muted);border:none;color:var(--fg);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
+</header>
+
+<!-- Scrollable content -->
+<div id="rd-content" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px calc(16px + var(--tab-h,72px));"></div>
+
+<!-- Coach FAB — add to roster -->
+${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--tab-h,72px) + 12px);right:16px;z-index:160;width:48px;height:48px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(249,115,22,.4);-webkit-tap-highlight-color:transparent">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>` : ''}
+
+<!-- Bottom tab bar matching app style -->
+<nav style="position:fixed;bottom:0;left:0;right:0;z-index:155;background:rgba(10,11,15,0.96);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;justify-content:space-around;padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));">
+  <button class="rd-tab-btn active" data-rdtab="roster">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <span class="rd-tab-lbl">Roster</span>
   </button>
-  <button class="rd-tab" data-rdtab="setup" style="flex:2">Setup</button>
-</div>
-<div id="rd-content" style="flex:1;overflow-y:auto;padding:16px;-webkit-overflow-scrolling:touch"></div>`;
+  <button class="rd-tab-btn" data-rdtab="stint" style="position:relative">
+    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;margin:-14px auto 0;box-shadow:0 4px 14px rgba(34,197,94,.4)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="white" stroke="none"/></svg>
+    </div>
+    <span class="rd-tab-lbl" style="margin-top:4px">Stint</span>
+  </button>
+  <button class="rd-tab-btn" data-rdtab="setup">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M12 17v4"/></svg>
+    <span class="rd-tab-lbl">Setup</span>
+  </button>
+</nav>`;
 }
 
 function bindOverlay(ov) {
-  ov.querySelector('#rd-close-btn').addEventListener('click',()=>{
+  function closeOverlay() {
     ov.remove();
+    document.getElementById('rd-roster-fab')?.remove();
     const ma=document.getElementById('main-app');
     if (ma) ma.style.display='flex';
     const af=document.getElementById('ai-fab');
     if (af&&ctx.userProfile) af.style.display='';
-  });
+  }
+
+  ov.querySelector('#rd-close-btn').addEventListener('click', closeOverlay);
+
   ov.querySelector('#rd-end-btn')?.addEventListener('click',async()=>{
     if (!confirm('End race day mode for all users?')) return;
     await deactivateRaceDay();
-    ov.remove();
-    const ma=document.getElementById('main-app');
-    if (ma) ma.style.display='flex';
-    const af=document.getElementById('ai-fab');
-    if (af&&ctx.userProfile) af.style.display='';
+    closeOverlay();
     ctx.showToast('Race day ended.','info');
     updateRaceDayTabBar(false);
   });
+
+  // Tab switching — bottom nav tabs
   ov.querySelectorAll('[data-rdtab]').forEach(btn=>{
     btn.addEventListener('click',()=>{
-      ov.querySelectorAll('.rd-tab').forEach(b=>b.classList.remove('active'));
-      if (btn.classList.contains('rd-tab')) btn.classList.add('active');
+      ov.querySelectorAll('.rd-tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
       showRdTab(ov,btn.dataset.rdtab);
     });
+  });
+
+  // Coach FAB — add to roster
+  ov.querySelector('#rd-roster-fab')?.addEventListener('click',()=>{
+    // Switch to roster tab and open add driver
+    ov.querySelectorAll('.rd-tab-btn').forEach(b=>b.classList.remove('active'));
+    const rosterBtn = ov.querySelector('[data-rdtab="roster"]');
+    if (rosterBtn) rosterBtn.classList.add('active');
+    const c = ov.querySelector('#rd-content');
+    renderRoster(c);
+    // Auto-open add driver sheet
+    setTimeout(()=>openAddDriver(c), 100);
   });
 }
 function showRdTab(ov,tab) {
