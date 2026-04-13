@@ -1370,7 +1370,7 @@ contentEl.addEventListener('scroll', () => {
 let ptrStartY = 0, ptrActive = false, ptrTriggered = false;
 const ptrEl = document.createElement('div');
 ptrEl.className = 'ptr-indicator';
-ptrEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+ptrEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
 contentEl.insertBefore(ptrEl, contentEl.firstChild);
 contentEl.addEventListener('touchstart', (e) => {
   if (currentPage === 'today' && contentEl.scrollTop <= 0) {
@@ -2735,7 +2735,7 @@ function renderChecklistItem(workout, key, isChecked) {
         <div class="cl-title">${workout.name} <span class="intensity-dot ${intensityClass}"></span>${progressText}</div>
         ${shortDesc ? '<div class="cl-desc">' + escHtml(shortDesc) + '</div>' : ''}
         <div class="cl-meta">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           ${workout.duration} min${workout.scaled ? ' <span style="font-size:9px;color:var(--primary)">(of ' + workout.originalDuration + ')</span>' : ''} · Week ${workout.week}
           <button class="cl-timer-btn" data-timer-name="${escHtml(workout.name)}" data-timer-dur="${workout.duration || 30}" data-timer-exercises='${workout.exercises ? JSON.stringify(workout.exercises).replace(/'/g,"&#39;") : "[]"}'>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -4222,14 +4222,14 @@ function renderPlans() {
     html += `
       <div class="safety-banner" style="margin-top:10px">
         <div class="safety-header">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <strong>${safety.title}</strong>
           <span class="safety-ages">${safety.ages}</span>
         </div>
         <div class="safety-details">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${safety.frequency}</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg> ${safety.duration}</span>
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> ${safety.maxIntensity}</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${safety.frequency}</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M12 20v-6M6 20V10M18 20V4"/></svg> ${safety.duration}</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> ${safety.maxIntensity}</span>
         </div>
         <div class="safety-guideline">${safety.guideline}</div>
       </div>
@@ -4348,7 +4348,7 @@ function bindPlanSearchAndCards(c) {
         const isOpen = detail.classList.toggle('show');
         btn.classList.toggle('open', isOpen);
         btn.textContent = '';
-        btn.innerHTML = (isOpen ? 'Hide details' : 'Full details') + ' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+        btn.innerHTML = (isOpen ? 'Hide details' : 'Full details') + ' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>';
       }
     });
   });
@@ -4400,10 +4400,10 @@ function renderPlanCard(plan, isActive) {
             <div class="pw-name"><span class="intensity-dot ${intensityClass}"></span> ${w.name||origW.name||'Workout'}</div>
             <div class="pw-desc">${(w.description||'').length > 100 ? (w.description||'').substring(0, 100) + '...' : (w.description||'')}</div>
             <div class="pw-meta">
-              <span class="pw-dur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${w.duration} min</span>
+              <span class="pw-dur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${w.duration} min</span>
             </div>
             <button class="exercise-expand-btn" data-expand-ex="${exerciseKey}">
-              Full details <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              Full details <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div class="exercise-detail" id="ex-detail-${exerciseKey}">
               <p><strong>Full Description:</strong></p>
@@ -4429,12 +4429,12 @@ function renderPlanCard(plan, isActive) {
             ${isActive ? '<span class="badge badge-primary">Active</span>' : ''}
           </div>
           <button class="plan-explain-btn" data-explain-plan="${plan.id}" onclick="event.stopPropagation()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
             Explain Plan
           </button>
         </div>
         <div class="plan-actions">
-          <svg class="plan-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <svg class="plan-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
       </div>
       <div class="plan-schedule" style="display:none">
@@ -4601,9 +4601,9 @@ function renderRaces() {
                 ${race.name}
               </div>
               <div class="race-meta">
-                <span class="race-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${race.location}</span>
-                <span class="race-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg> ${race.distance} km</span>
-                <span class="race-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${formatRaceDate(race.date)}</span>
+                <span class="race-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${race.location}</span>
+                <span class="race-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M12 20v-6M6 20V10M18 20V4"/></svg> ${race.distance} km</span>
+                <span class="race-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${formatRaceDate(race.date)}</span>
               </div>
             </div>
             ${isPast ? '<span class="badge badge-complete">Race Complete</span>' : ''}
@@ -5052,7 +5052,7 @@ function renderProfile() {
     <div class="profile-row"><span class="profile-row-label">Total Workouts</span><span class="profile-row-value">${userWorkouts.length}</span></div>
     <div class="profile-row"><span class="profile-row-label">Member Since</span><span class="profile-row-value">${userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('en-AU',{month:'short',year:'numeric'}) : '—'}</span></div>
     <button class="export-btn" id="profile-export-btn" style="width:100%">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Export Training Report
     </button>
   </div>`;

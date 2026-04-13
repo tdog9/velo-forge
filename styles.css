@@ -967,13 +967,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .tier-tabs::-webkit-scrollbar,.year-tabs::-webkit-scrollbar{display:none}
 .tier-desc{font-size:13px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm)}
 .category-desc{font-size:13px;color:var(--muted-fg);margin-bottom:10px;line-height:1.5}
-.plan-header{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.plan-header{display:flex;flex-direction:row;align-items:flex-start;gap:10px;cursor:pointer}
 .plan-badges{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
-.plan-actions{display:flex;gap:8px;margin-top:10px}
+.plan-actions{display:flex;gap:8px;margin-top:0;align-items:center;flex-shrink:0}
 .plan-activate-btn{flex:1;padding:10px;border-radius:var(--radius-sm);background:var(--primary);color:var(--primary-fg);font-size:13px;font-weight:700;border:none;cursor:pointer}
 .plan-cancel-btn{padding:10px 14px;border-radius:var(--radius-sm);background:var(--surface);color:var(--destructive);border:1px solid rgba(239,68,68,.2);font-size:13px;font-weight:600;cursor:pointer}
 .plan-rec-btn{padding:8px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);color:#a855f7;cursor:pointer}
-.plan-chevron{color:var(--muted-fg);transition:transform .2s}
+.plan-chevron{color:var(--muted-fg);transition:transform .2s;width:18px;height:18px;flex-shrink:0}
 .plan-schedule{margin-top:12px}
 .week-title{font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 6px}
 .pw-row{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
@@ -1162,3 +1162,6 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .cal-nav-title{font-size:15px;font-weight:700}
 .cal-opt{padding:6px 10px;border-radius:6px;background:var(--surface);border:1px solid var(--border);font-size:12px;cursor:pointer;color:var(--fg)}
 .cal-workout-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+
+/* Prevent unsized SVGs expanding to full width */
+svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
