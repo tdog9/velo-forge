@@ -665,10 +665,10 @@ select.input{
 .race-meta-item svg{width:12px;height:12px;flex-shrink:0}
 .race-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:8px}
 .race-notes{font-size:13px;color:var(--muted-fg);line-height:1.4;margin-top:8px}
-.countdown-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
-.countdown-cell{background:var(--surface);border-radius:8px;padding:8px 4px;text-align:center}
-.countdown-val{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--fg)}
-.countdown-lbl{font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em}
+.countdown-grid{display:flex;align-items:center;justify-content:flex-start;gap:4px;margin:10px 0}
+
+
+
 .badge-complete{display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(34,197,94,.12);color:#22c55e;white-space:nowrap}
 
 /* ===== Leaderboard ===== */
@@ -998,7 +998,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .cl-desc{font-size:13px;color:var(--muted-fg);margin-top:4px;line-height:1.4}
 .cl-info{font-size:12px;color:var(--muted-fg)}
 .cl-info-tap{font-size:12px;color:var(--primary);cursor:pointer;font-weight:600}
-.cl-timer-btn{font-size:11px;padding:4px 10px;border-radius:6px;background:var(--primary-dim);border:1px solid rgba(249,115,22,.2);color:var(--primary);font-weight:600;cursor:pointer;margin-top:4px}
+.cl-timer-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:4px 10px;border-radius:6px;background:var(--primary-dim);border:1px solid rgba(249,115,22,.2);color:var(--primary);font-weight:600;cursor:pointer;margin-top:4px}
 
 /* ===== Workout Log ===== */
 .wo-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px}
@@ -1046,7 +1046,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .demo-ex-badge{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600;background:var(--surface);color:var(--muted-fg)}
 .demo-ex-body{padding:0 14px 14px;border-top:1px solid var(--border)}
 .demo-ex-video{width:100%;aspect-ratio:16/9;border-radius:var(--radius-sm);object-fit:cover;background:var(--muted);display:block;margin:10px 0 8px}
-.demo-ex-no-video{padding:16px;text-align:center;font-size:12px;color:var(--muted-fg)}
+.demo-ex-no-video{padding:16px 12px;text-align:center;font-size:12px;color:var(--muted-fg);display:flex;flex-direction:column;align-items:center;gap:4px}
 .demo-ex-desc{font-size:13px;color:var(--muted-fg);line-height:1.5}
 .demo-collapse-all{font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;font-weight:600;padding:4px 0}
 
@@ -1140,10 +1140,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .et-reset-btn{background:none;color:var(--muted-fg)}
 .rr-rpe-btn{padding:6px 4px;border-radius:6px;border:1px solid var(--border);background:var(--card);font-size:12px;font-weight:600;cursor:pointer;min-width:28px;text-align:center}
 .rr-rpe-btn.selected{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
-.time-unit-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 4px;text-align:center;min-width:44px}
-.time-unit{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.time-unit-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;text-align:center;min-width:52px;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.time-unit{display:flex;flex-direction:column;align-items:center;gap:3px}
 .time-unit-label{font-size:9px;color:var(--muted-fg);text-transform:uppercase}
-.countdown-sep{font-size:20px;font-weight:700;color:var(--muted-fg);align-self:flex-start;padding-top:4px}
+.countdown-sep{font-size:18px;font-weight:300;color:var(--border);align-self:flex-start;padding-top:6px;line-height:1}
 .welcome-step{display:flex;align-items:center;gap:10px;width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;text-align:left}
 .diag-log-item{font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);color:var(--muted-fg);font-family:var(--font-mono)}
 .intensity-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
@@ -1165,3 +1165,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* Prevent unsized SVGs expanding to full width */
 svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
+.race-card svg:not([style]){max-width:24px!important}
+.demo-ex-card svg:not([style]){max-width:20px!important}
+.race-footage-section svg:not([style]){max-width:20px!important}
+
+/* ===== Race footage links ===== */
+.race-footage-section{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.race-footage-link{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;color:var(--fg);transition:border-color .15s}
+.race-footage-link:hover{border-color:var(--primary)}
+.race-footage-link svg{width:20px;height:20px;flex-shrink:0;color:var(--primary)}
+.race-footage-label{font-size:13px;font-weight:600;line-height:1.3}
+.race-footage-label small{display:block;font-size:11px;color:var(--muted-fg);font-weight:400}

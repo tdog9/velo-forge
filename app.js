@@ -1661,7 +1661,7 @@ function renderDemonstration() {
             ${ex.description ? '<div class="demo-ex-desc">' + escHtml(ex.description) + '</div>' : ''}
             ${!embedUrl ? `
               <div class="demo-ex-no-video">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--muted-fg);margin-bottom:4px"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                 No video added yet
               </div>
             ` : ''}
@@ -2738,7 +2738,7 @@ function renderChecklistItem(workout, key, isChecked) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           ${workout.duration} min${workout.scaled ? ' <span style="font-size:9px;color:var(--primary)">(of ' + workout.originalDuration + ')</span>' : ''} · Week ${workout.week}
           <button class="cl-timer-btn" data-timer-name="${escHtml(workout.name)}" data-timer-dur="${workout.duration || 30}" data-timer-exercises='${workout.exercises ? JSON.stringify(workout.exercises).replace(/'/g,"&#39;") : "[]"}'>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             Timer
           </button>
         </div>
@@ -4597,7 +4597,7 @@ function renderRaces() {
           <div class="race-top">
             <div style="flex:1;min-width:0">
               <div class="race-name">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
                 ${race.name}
               </div>
               <div class="race-meta">
