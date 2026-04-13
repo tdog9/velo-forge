@@ -45,6 +45,8 @@
 <link rel="stylesheet" href="layout-fix.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="preconnect" href="https://firestore.googleapis.com">
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com">
 </head>
 <body>
 <div class="toast-container" id="toast-container"></div>
@@ -149,7 +151,7 @@
 </div>
 
 <!-- MAIN APP -->
-<div id="main-app" class="hidden" style="display:none;flex-direction:column;height:100vh;height:100dvh;width:100%;overflow:hidden">
+<div id="main-app" role="main" class="hidden" style="display:none;flex-direction:column;height:100vh;height:100dvh;width:100%;overflow:hidden">
   <header class="header">
     <div class="header-logo">T</div>
     <div class="header-brand">TURBOPREP</div>
@@ -201,10 +203,10 @@
     <div id="page-coach" class="page"><div id="coach-content"></div></div>
     <div id="page-team" class="page">
       <div class="fitness-sub-bar-sticky">
-        <div class="fitness-sub-bar" style="display:flex;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)">
-          <button class="lb-sub-tab active" data-lb-sub="global" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;transition:all .15s">Global</button>
-          <button class="lb-sub-tab" data-lb-sub="team" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Your Team</button>
-          <button class="lb-sub-tab" data-lb-sub="leagues" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Leagues</button>
+        <div class="fitness-sub-bar">
+          <button class="lb-sub-tab active" data-lb-sub="global">Global</button>
+          <button class="lb-sub-tab" data-lb-sub="team">Your Team</button>
+          <button class="lb-sub-tab" data-lb-sub="leagues">Leagues</button>
         </div>
       </div>
       <div id="lb-global-content"></div>
@@ -214,11 +216,11 @@
   </div>
 
   <nav class="tab-bar">
-    <button class="tab-btn active" data-page="today">
+    <button class="tab-btn active" data-page="today" aria-label="Today">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       <span class="tab-btn-label">Today</span>
     </button>
-    <button class="tab-btn" data-page="fitness">
+    <button class="tab-btn" data-page="fitness" aria-label="Fitness">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg>
       <span class="tab-btn-label">Fitness</span>
     </button>
@@ -228,11 +230,11 @@
       </div>
       <span class="tab-btn-label">Record</span>
     </button>
-    <button class="tab-btn" data-page="races">
+    <button class="tab-btn" data-page="races" aria-label="Races">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
       <span class="tab-btn-label">Races</span>
     </button>
-    <button class="tab-btn" data-page="team">
+    <button class="tab-btn" data-page="team" aria-label="Leaderboard">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M6 13l-2 4h16l-2-4"/><path d="M7 13V8a5 5 0 0 1 10 0v5"/><circle cx="12" cy="3" r="1"/></svg>
       <span class="tab-btn-label">Leaderboard</span>
     </button>

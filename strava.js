@@ -40,8 +40,6 @@ export async function stravaHandleCallback() {
     }
     // Fetch activities
     await stravaFetchActivities();
-    // Sync Strava clubs → TurboPrep teams
-    await syncStravaClubs();
     A.renderProfile();
   } catch(e) {
     console.error('Strava auth error:', e);
@@ -204,7 +202,7 @@ export async function stravaDisconnect() {
   A.stravaTokens = null;
   A.stravaActivities = [];
   if (A.currentUser && A.db && !A.demoMode) {
-    try { await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: null, stravaClubs: null }); } catch(e) {}
+    try { await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaTokens: null }); } catch(e) {}
   }
   A.renderProfile();
 }
@@ -333,85 +331,10 @@ export async function stravaAutoSync() {
     if (imported > 0) {
       A.showToast(imported + ' activit' + (imported > 1 ? 'ies' : 'y') + ' synced from Strava!', 'success');
     }
-    // Also sync Strava clubs → teams (runs quietly in background)
-    syncStravaClubs();
   } catch(e) { console.error('Strava auto-sync error:', e); }
 }
 
-// Sync Strava Clubs → auto-create/join TurboPrep teams
-export async function syncStravaClubs() {
-  if (!A.stravaTokens?.access_token || A.demoMode || !A.db || !A.currentUser) return;
-  try {
-    // Refresh token if needed
-    if (A.stravaTokens.expires_at && Date.now() / 1000 > A.stravaTokens.expires_at) {
-      const refreshed = await stravaRefreshToken();
-      if (!refreshed) return;
-    }
-    // Fetch athlete's clubs
-    const resp = await fetch('https://www.strava.com/api/v3/athlete/clubs?per_page=10', {
-      headers: { 'Authorization': 'Bearer ' + A.stravaTokens.access_token }
-    });
-    if (!resp.ok) return;
-    const clubs = await resp.json();
-    if (!clubs || clubs.length === 0) return;
-    // Save clubs to user profile (always, so they show in Profile)
-    const clubSummaries = clubs.map(c => ({ id: c.id, name: c.name, memberCount: c.member_count, sportType: c.sport_type }));
-    await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { stravaClubs: clubSummaries });
-    if (A.userProfile) A.userProfile.stravaClubs = clubSummaries;
-    // If user already has a team, don't auto-switch
-    if (A.userProfile?.teamId) return;
-    // Try to find or create a TurboPrep team linked to each Strava club
-    for (const club of clubs) {
-      const clubId = String(club.id);
-      const teamDocId = 'strava-club-' + clubId;
-      try {
-        const teamRef = A.doc(A.db, 'teams', teamDocId);
-        const teamSnap = await A.getDoc(teamRef);
-        if (teamSnap.exists()) {
-          // Team exists — join it
-          const teamData = teamSnap.data();
-          if (!(teamData.members || []).includes(A.currentUser.uid)) {
-            await A.updateDoc(teamRef, { members: A.arrayUnion(A.currentUser.uid) });
-          }
-          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamDocId, teamName: teamData.name });
-          A.userProfile.teamId = teamDocId;
-          A.userProfile.teamName = teamData.name;
-          A.showToast('Joined team "' + teamData.name + '" from Strava!', 'success');
-          return;
-        } else {
-          // Create team with predictable ID
-          const teamCode = generateClubTeamCode();
-          await A.setDoc(teamRef, {
-            name: club.name,
-            code: teamCode,
-            stravaClubId: clubId,
-            stravaClubName: club.name,
-            createdBy: A.currentUser.uid,
-            createdAt: A.serverTimestamp(),
-            members: [A.currentUser.uid]
-          });
-          await A.updateDoc(A.doc(A.db, 'users', A.currentUser.uid), { teamId: teamDocId, teamName: club.name });
-          A.userProfile.teamId = teamDocId;
-          A.userProfile.teamName = club.name;
-          A.showToast('Team "' + club.name + '" created from Strava club!', 'success');
-          return;
-        }
-      } catch(e) { console.error('Strava club sync error:', e); }
-    }
-  } catch(e) { console.error('Strava clubs fetch error:', e); }
-}
-function generateClubTeamCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-  return code;
-}
-// Re-sync route maps for all existing Strava activities
-export async function stravaResyncRoutes() {
-  if (!A.stravaTokens?.access_token) {
-    A.showToast('Strava not connected.', 'warn');
-    return;
-  }
+
   A.showToast('Re-syncing routes...', 'info');
   try {
     // Refresh token if needed

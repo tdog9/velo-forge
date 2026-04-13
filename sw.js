@@ -1,18 +1,20 @@
 // TurboPrep Service Worker v2
-const CACHE_NAME = 'turboprep-v32';
+const CACHE_NAME = 'turboprep-v33';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/styles.css',
+  '/layout-fix.css',
   '/app.js',
   '/plans.js',
   '/state.js',
   '/tracker.js',
   '/admin.js',
   '/strava.js',
-  '/racelog.js',
+  '/raceLog.js',
   '/timer.js',
-  '/aifeatures.js'
+  '/aifeatures.js',
+  '/raceday.js'
 ];
 
 // Install: cache core assets, force activate immediately

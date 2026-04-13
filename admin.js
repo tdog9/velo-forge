@@ -1,3 +1,5 @@
+const _adminUserCard = true;
+function escHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 // TurboPrep Admin Panel Module
 // All state accessed via A (app context set by initAdmin)
 import { escHtml, capitalize, getXpLevel, timeAgo } from './state.js';
@@ -72,7 +74,7 @@ function renderAdminMaintenance() {
 
   // Load error log from localStorage
   let errorLog = [];
-  try { errorLog = JSON.parse(localStorage.getItem('vf_error_log') || '[]'); } catch(e) {}
+  try { errorLog = JSON.parse(localStorage.getItem('tp_error_log') || '[]'); } catch(e) {}
 
   el.innerHTML = `
     <div style="margin-bottom:16px">
@@ -163,7 +165,7 @@ function renderAdminMaintenance() {
   });
   el.querySelector('#maint-reload')?.addEventListener('click', () => window.location.reload(true));
   el.querySelector('#maint-clear-log')?.addEventListener('click', () => {
-    localStorage.removeItem('vf_error_log');
+    localStorage.removeItem('tp_error_log');
     A.showToast('Error log cleared.','success');
     renderAdminMaintenance();
   });
@@ -1024,7 +1026,7 @@ export function renderAdminTraining() {
       try {
         await A.setDoc(A.doc(A.db, 'config', 'trainingSessions'), { sessions: updated });
         A.trainingSessions = updated;
-        try { localStorage.setItem('vf_training_sessions', JSON.stringify(updated)); } catch(e) {}
+        try { localStorage.setItem('tp_training_sessions', JSON.stringify(updated)); } catch(e) {}
         A.showToast(sessions.length > 1 ? sessions.length + ' sessions scheduled!' : 'Session scheduled!', 'success');
         renderAdminTraining();
       } catch(e) {
@@ -1049,7 +1051,7 @@ export function renderAdminTraining() {
       try {
         await A.setDoc(A.doc(A.db, 'config', 'trainingSessions'), { sessions: updated });
         A.trainingSessions = updated;
-        try { localStorage.setItem('vf_training_sessions', JSON.stringify(updated)); } catch(e) {}
+        try { localStorage.setItem('tp_training_sessions', JSON.stringify(updated)); } catch(e) {}
         A.showToast('Session deleted.', 'success');
         renderAdminTraining();
       } catch(e) { A.showToast('Failed to delete.', 'error'); }
@@ -1182,7 +1184,7 @@ function renderRaceFootageSection(parentEl) {
       <div class="footage-admin-item">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <strong style="font-size:13px;color:var(--fg);flex:1">${escHtml(race.name)}</strong>
-          ${isPast ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(249,115,22,0.15);color:#BFFF00;font-weight:600">DONE</span>' : '<span style="font-size:10px;color:var(--muted-fg)">' + race.date + '</span>'}
+          ${isPast ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(249,115,22,0.15);color:#f97316;font-weight:600">DONE</span>' : '<span style="font-size:10px;color:var(--muted-fg)">' + race.date + '</span>'}
         </div>
         <div style="font-size:11px;color:var(--muted-fg);margin-bottom:6px">${existing.length} link${existing.length !== 1 ? 's' : ''} attached</div>
         <div style="display:flex;gap:6px">
@@ -1273,7 +1275,7 @@ export function renderAdminRaceLogVideos(parentEl) {
       html += `
         <div class="video-admin-row">
           <div style="width:40px;height:30px;border-radius:4px;background:rgba(249,115,22,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;color:#BFFF00"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;color:#f97316"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
           </div>
           <div class="video-info">
             <strong style="color:var(--fg)">${escHtml(v.title)}</strong>
@@ -1744,7 +1746,7 @@ function renderPlansManage(el) {
       html += `
         <div class="admin-item">
           <div class="admin-item-info" style="cursor:pointer" data-edit-plan="${p.id}">
-            <div class="admin-item-title" style="${isHidden ? 'opacity:0.4' : ''}">${escHtml(pd.name)} ${hasOverride ? '<span style="color:#BFFF00;font-size:10px">(edited)</span>' : ''}</div>
+            <div class="admin-item-title" style="${isHidden ? 'opacity:0.4' : ''}">${escHtml(pd.name)} ${hasOverride ? '<span style="color:#f97316;font-size:10px">(edited)</span>' : ''}</div>
             <div class="admin-item-meta">${p.yearLevel} · ${capitalize(p.tier)} · ${p.workouts.length} workouts · ${pd.durationWeeks}wk · ${pd.sessionsPerWeek}x/wk</div>
           </div>
           <span class="admin-badge ${isHidden ? 'admin-badge-hidden' : 'admin-badge-active'}">${isHidden ? 'Hidden' : 'Visible'}</span>
@@ -1882,7 +1884,7 @@ function renderPlansWorkouts(el) {
           const hasOverride = !!ov;
           html += `
             <div class="admin-exercise-card" data-exercise-key="${key}" data-plan-id="${plan.id}" data-workout-idx="${wi}">
-              <div class="admin-exercise-name">${escHtml(name)} ${hasOverride ? '<span style="color:#BFFF00;font-size:10px">(edited)</span>' : ''}</div>
+              <div class="admin-exercise-name">${escHtml(name)} ${hasOverride ? '<span style="color:#f97316;font-size:10px">(edited)</span>' : ''}</div>
               <div class="admin-exercise-meta">${w.day} · ${w.duration}min · ${capitalize(w.intensity)}</div>
               <button class="admin-edit-btn" data-edit-exercise="${key}">Edit</button>
               ${hasOverride ? '<button class="admin-del-btn" data-reset-exercise="' + key + '" style="margin-left:6px">Reset</button>' : ''}
@@ -1958,7 +1960,7 @@ function renderPlansVideos(el) {
       html += `
         <div class="admin-item" style="flex-wrap:wrap;gap:6px">
           <div class="admin-item-info" style="flex:1;min-width:140px">
-            <div class="admin-item-title" style="font-size:13px">${escHtml(ex.name)} ${currentUrl ? '<span style="color:#BFFF00;font-size:10px">has video</span>' : ''}</div>
+            <div class="admin-item-title" style="font-size:13px">${escHtml(ex.name)} ${currentUrl ? '<span style="color:#f97316;font-size:10px">has video</span>' : ''}</div>
           </div>
           <div style="display:flex;gap:4px;flex:2;min-width:200px">
             <input class="input" type="url" value="${escHtml(currentUrl)}" placeholder="YouTube URL" data-vid-key="${ex.key}" style="flex:1;height:36px;font-size:12px;padding:0 10px">

@@ -84,7 +84,7 @@ export async function checkRaceDaySchedule() {
   const today = todayKey();
   const now = new Date();
   const nowMs = Date.now();
-  const races = ctx.getActiveRaces ? ctx.getActiveRaces() : [];
+  const races = (ctx.getActiveRaces ? ctx.getActiveRaces() : []) || [];
   const todayRace = races.find(r => r.date === today);
 
   // Parse time from notes e.g. "9am–4pm" or "10am–4pm"
@@ -273,7 +273,7 @@ function buildOverlayHTML() {
   let raceName = '';
   try {
     const todayISO = today.toISOString().split('T')[0];
-    const races = ctx.getActiveRaces ? ctx.getActiveRaces() : [];
+    const races = (ctx.getActiveRaces ? ctx.getActiveRaces() : []) || [];
     const todayRace = races.find(r => r.date === todayISO);
     if (todayRace) raceName = todayRace.name;
   } catch(e) {}
@@ -391,7 +391,7 @@ function renderRoster(c) {
   if (rosterData.length===0) {
     html+=`<div style="text-align:center;padding:32px 20px;color:var(--muted-fg);font-size:13px">No drivers added yet.${mgr?'<br>Tap + Add Driver to begin.':''}</div>`;
   } else {
-    html+=`<div id="rd-roster-list">`;
+    html+=`<div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-bottom:8px">Hold and drag to reorder drivers</div><div id="rd-roster-list">`;
     rosterData.forEach((d,i)=>{
       const mins=Math.round((d.duration||3600)/60);
       html+=`<div class="rd-drag-item" data-idx="${i}" draggable="true">
@@ -652,7 +652,8 @@ function onPos(pos) {
     const timeSinceLast=lastLapTime ? now-lastLapTime : now-stintStartTime;
     if (dist<LAP_THRESHOLD_M && timeSinceLast>20000) {
       const dur=lastLapTime ? now-lastLapTime : now-stintStartTime;
-      stintLaps.push({time:now,duration:dur,lat,lng});
+      hapticFeedback('heavy');
+    stintLaps.push({time:now,duration:dur,lat,lng});
       lastLapTime=now;
       ctx.showToast('🏁 Lap '+stintLaps.length+' — '+fmtMs(dur),'success');
       updateActive();

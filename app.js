@@ -14,8 +14,8 @@ let renderAdmin = () => {}, renderCoachDashboard = async () => {}, renderAdminTr
 let stravaStartAuth = () => {}, stravaHandleCallback = async () => {},
     stravaFetchActivities = async () => {}, renderStravaActivities = () => {},
     stravaDisconnect = async () => {}, loadStravaTokens = () => {},
-    stravaUploadActivity = async () => false, stravaAutoSync = async () => {},
-    stravaResyncRoutes = async () => {},
+    stravaUploadActivity = async () => false,
+    
     initStrava = () => {};
 let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     openRaceLogForm = () => {}, getFootageForRace = () => [],
@@ -58,7 +58,7 @@ if (adminRes.status === 'fulfilled') {
 if (stravaRes.status === 'fulfilled') {
   ({ initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities,
      renderStravaActivities, stravaDisconnect, loadStravaTokens,
-     stravaUploadActivity, stravaAutoSync, stravaResyncRoutes } = stravaRes.value);
+     stravaUploadActivity } = stravaRes.value);
 } else { console.warn('strava.js load failed:', stravaRes.reason); }
 if (racelogRes.status === 'fulfilled') {
   ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
@@ -123,9 +123,14 @@ let currentTheme = 'dark';
 let calViewMonth = new Date().getMonth();
 let calViewYear = new Date().getFullYear();
 let teamFeedCache = [];
-try { currentTheme = localStorage.getItem('vf_theme') || 'dark'; } catch(e) {}
+try { currentTheme = localStorage.getItem('tp_theme') || 'dark'; } catch(e) {}
 if (currentTheme === 'light') document.documentElement.classList.add('light-theme');
 // Map tile helper — switches dark/light based on theme
+function debounce(fn, ms=300) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
 function getMapTileUrl() {
   return currentTheme === 'light'
     ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
@@ -133,7 +138,7 @@ function getMapTileUrl() {
 }
 // Strava integration
 const STRAVA_CLIENT_ID = '213628'; // Set your Strava API client ID here
-const STRAVA_REDIRECT_URI = 'https://turboprep.netlify.app';
+const STRAVA_REDIRECT_URI = 'https://turboprep.app';
 let stravaTokens = null; // { access_token, refresh_token, expires_at, athlete }
 let stravaActivities = []; // cached recent activities
 let userWorkouts = [];
@@ -173,7 +178,7 @@ function calcXp() {
     if (cur > 0 && cur % 7 === 0) freezesEarned++; // Earn a freeze every 7 days
   });
   // Store streak freeze balance for display
-  try { localStorage.setItem('vf_streak_freezes', String(Math.max(0, freezesEarned - freezesUsed))); } catch(e) {}
+  try { localStorage.setItem('tp_streak_freezes', String(Math.max(0, freezesEarned - freezesUsed))); } catch(e) {}
   if (best >= 7) xp += 25;
   if (best >= 14) xp += 50;
   if (best >= 30) xp += 100;
@@ -227,10 +232,10 @@ function showLevelUpAnimation(level) {
 // Personal Goals
 let userGoals = []; // [{id, type, target, current, label, createdAt}]
 function loadGoals() {
-  try { userGoals = JSON.parse(localStorage.getItem('vf_goals') || '[]'); } catch(e) { userGoals = []; }
+  try { userGoals = JSON.parse(localStorage.getItem('tp_goals') || '[]'); } catch(e) { userGoals = []; }
 }
 function saveGoals() {
-  try { localStorage.setItem('vf_goals', JSON.stringify(userGoals)); } catch(e) {}
+  try { localStorage.setItem('tp_goals', JSON.stringify(userGoals)); } catch(e) {}
 }
 const BADGES = [
   { id: 'first_workout', icon: '🎯', name: 'First Step', desc: 'Log your first workout' },
@@ -475,12 +480,12 @@ function showWelcomeSetup() {
   });
   $('ws-done')?.addEventListener('click', () => {
     overlay.remove();
-    try { localStorage.setItem('vf_onboarded', '1'); } catch(e) {}
+    try { localStorage.setItem('tp_onboarded', '1'); } catch(e) {}
     renderToday();
   });
   overlay.querySelector('.modal-backdrop')?.addEventListener('click', () => {
     overlay.remove();
-    try { localStorage.setItem('vf_onboarded', '1'); } catch(e) {}
+    try { localStorage.setItem('tp_onboarded', '1'); } catch(e) {}
   });
 }
 function openRaceResultForm(raceName, raceDate) {
@@ -907,11 +912,11 @@ $('user-menu-overlay')?.addEventListener('click', closeUserMenu);
 const scrollPositions = {};
 // --- Feature 6: Remember last active tab on reload ---
 try {
-  const saved = localStorage.getItem('vf_lastTab');
+  const saved = localStorage.getItem('tp_lastTab');
   if (saved && ['today','fitness','races','team','admin'].includes(saved)) {
     currentPage = saved;
   }
-  const savedFitSub = localStorage.getItem('vf_fitnessSub');
+  const savedFitSub = localStorage.getItem('tp_fitnessSub');
   if (savedFitSub && ['workouts','plans','health','demos'].includes(savedFitSub)) {
     fitnessSubTab = savedFitSub;
   }
@@ -1067,7 +1072,7 @@ function openErrorDiagnostics(entry, showLog) {
       workout: 'Firestore: users/{uid}/workouts',
       plan: 'Firestore: users/{uid} → activePlanId',
       team: 'Firestore: teams/{teamId} + users/{uid} → teamId',
-      strava: 'Firestore: users/{uid} → stravaTokens + stravaClubs',
+      strava: 'Firestore: users/{uid} → stravaTokens',
       tracker: 'Firestore: users/{uid}/workouts + localStorage vf_routes',
       ai: 'Netlify Function: /.netlify/functions/ai-coach → ANTHROPIC_API_KEY env var',
       global: 'JavaScript runtime error — check browser console for full stack trace',
@@ -1232,7 +1237,7 @@ function switchPage(page) {
   scrollPositions[currentPage] = $('content').scrollTop;
   currentPage = page;
   // Feature 6: Persist to localStorage
-  try { localStorage.setItem('vf_lastTab', page); } catch(e) {}
+  try { localStorage.setItem('tp_lastTab', page); } catch(e) {}
   // Update tab bar
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === page));
   // Update pages
@@ -1250,10 +1255,12 @@ function switchPage(page) {
   $('content').scrollTop = savedScroll;
 }
 function renderCurrentPage() {
+  const pageTitles = {today:'Today — TurboPrep',fitness:'Fitness — TurboPrep',races:'Races — TurboPrep',team:'Leaderboard — TurboPrep',admin:'Admin — TurboPrep',coach:'Coach — TurboPrep'};
+  document.title = pageTitles[page] || 'TurboPrep';
   switch(currentPage) {
     case 'today': renderToday(); loadWeather(); break;
     case 'fitness': renderFitness(); break;
-    case 'races': renderRaces(); renderRaceLog(); renderRaceDayHistory(); break;
+    case 'races': renderRaces(); renderRaceLog(); renderRaceDayHistory().catch(e => console.warn('raceday history:', e)); break;
     case 'team': renderTeam(); break;
     case 'admin': if (isAdmin) renderAdmin(); break;
     case 'coach': renderCoachPage(); break;
@@ -1297,7 +1304,7 @@ document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
   btn.addEventListener('click', () => {
     haptic('light');
     fitnessSubTab = btn.dataset.fitnessSub;
-    try { localStorage.setItem('vf_fitnessSub', fitnessSubTab); } catch(e) {}
+    try { localStorage.setItem('tp_fitnessSub', fitnessSubTab); } catch(e) {}
     renderFitness();
     $('content').scrollTop = 0;
   });
@@ -1326,13 +1333,13 @@ fitnessPage.addEventListener('touchend', () => {
   if (swipeDeltaX < -60 && curIdx < fitSubOrder.length - 1) {
     haptic('light');
     fitnessSubTab = fitSubOrder[curIdx + 1];
-    try { localStorage.setItem('vf_fitnessSub', fitnessSubTab); } catch(e) {}
+    try { localStorage.setItem('tp_fitnessSub', fitnessSubTab); } catch(e) {}
     renderFitness();
     $('content').scrollTop = 0;
   } else if (swipeDeltaX > 60 && curIdx > 0) {
     haptic('light');
     fitnessSubTab = fitSubOrder[curIdx - 1];
-    try { localStorage.setItem('vf_fitnessSub', fitnessSubTab); } catch(e) {}
+    try { localStorage.setItem('tp_fitnessSub', fitnessSubTab); } catch(e) {}
     renderFitness();
     $('content').scrollTop = 0;
   }
@@ -1774,7 +1781,7 @@ function renderWorkoutCalendar(now) {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     if (d) workoutDates.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
   });
-  const calOpen = localStorage.getItem('vf_cal_open') !== 'false';
+  const calOpen = localStorage.getItem('tp_cal_open') !== 'false';
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title" id="cal-toggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">Workout Calendar<span style="font-size:16px;transition:transform .2s;transform:rotate(' + (calOpen ? '0' : '-90') + 'deg)">▾</span></div>';
   html += '<div id="cal-body" style="' + (calOpen ? '' : 'display:none') + '">';
   html += '<div class="cal-nav"><button class="cal-nav-btn" data-cal-dir="-1">‹</button>';
@@ -1916,7 +1923,7 @@ function renderTeamChallenge() {
   });
   if (teams.length === 0) return '';
   const maxScore = Math.max(1, ...teams.map(t => t.score));
-  const colors = ['#BFFF00', '#7c3aed', '#f97316', '#3b82f6', '#ec4899'];
+  const colors = ['#f97316', '#7c3aed', '#f97316', '#3b82f6', '#ec4899'];
   let html = '<div class="challenge-card">';
   html += '<div class="challenge-title">🏆 ' + escHtml(activeChallenge.title || 'Team Challenge') + '</div>';
   html += '<div class="challenge-meta">' + (daysLeft > 0 ? daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' remaining' : 'Challenge ended!') + ' · Mins + XP</div>';
@@ -1985,7 +1992,7 @@ function renderTeamFeed() {
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Team Activity</div>';
   teamFeedCache.slice(0, 8).forEach((item, idx) => {
     const initials = (item.name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
-    const reactKey = 'vf_react_' + (item.uid || idx) + '_' + (item.dateKey || idx);
+    const reactKey = 'tp_react_' + (item.uid || idx) + '_' + (item.dateKey || idx);
     let myReaction = '';
     try { myReaction = localStorage.getItem(reactKey) || ''; } catch(e) {}
     html += `<div class="feed-item">
@@ -2007,6 +2014,8 @@ function renderTeamFeed() {
 }
 function renderToday() {
   const c = $('today-content');
+  if (!c) return;
+  try {
   const now = new Date();
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -2044,7 +2053,7 @@ function renderToday() {
   // Widget pin state
   const defaultWidgets = { weather: true, health: true, engagement: true, training: true, challenge: true, weekly: true, quickActions: true };
   let pinnedWidgets = defaultWidgets;
-  try { pinnedWidgets = { ...defaultWidgets, ...JSON.parse(localStorage.getItem('vf_widgets') || '{}') }; } catch(e) {}
+  try { pinnedWidgets = { ...defaultWidgets, ...JSON.parse(localStorage.getItem('tp_widgets') || '{}') }; } catch(e) {}
   const isWidgetOn = (id) => pinnedWidgets[id] !== false;
   // === BUILD HTML — simplified layout ===
   let html = '';
@@ -2060,7 +2069,7 @@ function renderToday() {
   html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
   // Engagement indicators row
   if (isWidgetOn('engagement')) {
-  const freezeCount = parseInt(localStorage.getItem('vf_streak_freezes') || '0');
+  const freezeCount = parseInt(localStorage.getItem('tp_streak_freezes') || '0');
   const engTodayStr = now.toISOString().split('T')[0];
   const hasTrainedToday = userWorkouts.some(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === engTodayStr; });
   const indicators = [];
@@ -2073,7 +2082,7 @@ function renderToday() {
   // Weather card — render cached inline, fetch fresh in background
   if (isWidgetOn('weather')) {
   let cachedWeather = null;
-  try { cachedWeather = JSON.parse(localStorage.getItem('vf_weather') || 'null'); } catch(e) {}
+  try { cachedWeather = JSON.parse(localStorage.getItem('tp_weather') || 'null'); } catch(e) {}
   if (cachedWeather && cachedWeather.temp !== undefined) {
     const _w = cachedWeather;
     const _iconUrl = `https://openweathermap.org/img/wn/${_w.icon}@2x.png`;
@@ -2147,7 +2156,7 @@ function renderToday() {
   });
   // Weekly summary card (shows on Monday, or first open of the week)
   const weekDay = now.getDay(); // 0=Sun
-  const lastSummaryWeek = localStorage.getItem('vf_summary_week');
+  const lastSummaryWeek = localStorage.getItem('tp_summary_week');
   const summaryWeekStart = new Date(now); summaryWeekStart.setDate(now.getDate() - now.getDay() + 1); summaryWeekStart.setHours(0,0,0,0);
   const thisWeekKey = summaryWeekStart.toISOString().split('T')[0];
   if (totalWorkouts > 0 && lastSummaryWeek !== thisWeekKey) {
@@ -2185,7 +2194,7 @@ function renderToday() {
     const progressPct = totalPlanWorkouts > 0 ? Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100) : 0;
     html += `<div class="plan-progress"><div class="plan-progress-text"><span>${escHtml(pdData.name)}</span><span>${completedPlanWorkouts}/${totalPlanWorkouts} · ${progressPct}%</span></div><div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div></div>`;
     // Duration selector
-    const selectedDur = parseInt(localStorage.getItem('vf_session_duration') || '0');
+    const selectedDur = parseInt(localStorage.getItem('tp_session_duration') || '0');
     html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch">
       <span style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-right:2px">Time:</span>
       ${[0,10,15,20,25,30].map(d => `<button class="dur-pick" data-dur="${d}" style="padding:5px 8px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid ${selectedDur === d ? 'var(--primary)' : 'var(--border)'};background:${selectedDur === d ? 'rgba(249,115,22,.15)' : 'var(--surface)'};color:${selectedDur === d ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer;white-space:nowrap">${d === 0 ? 'Full' : d + 'min'}</button>`).join('')}
@@ -2198,7 +2207,7 @@ function renderToday() {
       todayWorkouts.forEach((origW, i) => {
         const globalIdx = activePlan.workouts.indexOf(origW);
         const w = getWorkoutData(activePlanId, globalIdx, origW) || {...origW};
-        if (!w) return;
+        if (!w || !w.name) return;
         w.week = origW.week; w.day = origW.day;
         // Apply selected duration cap
         if (selectedDur > 0 && w.duration > selectedDur) {
@@ -2263,7 +2272,7 @@ function renderToday() {
   const lastActivityDate = lastActivity?.date ? (lastActivity.date.toDate ? lastActivity.date.toDate() : new Date(lastActivity.date)) : null;
   const isToday = lastActivityDate && lastActivityDate.toDateString() === now.toDateString();
   let storedRoutes = {};
-  try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
+  try { storedRoutes = JSON.parse(localStorage.getItem('tp_routes') || '{}'); } catch(e) {}
   const lastRouteId = lastActivity?.routeId || (lastActivity?.stravaId ? 'strava-' + lastActivity.stravaId : lastActivity?._id);
   const lastRoute = lastRouteId ? storedRoutes[lastRouteId] : null;
   const hasLastRoute = lastRoute && lastRoute.length > 1;
@@ -2328,7 +2337,7 @@ function renderToday() {
   const roundupHour = now.getHours();
   const roundupDateStr = now.toISOString().split('T')[0];
   const todayWos = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === roundupDateStr; });
-  const roundupDismissed = localStorage.getItem('vf_roundup_' + roundupDateStr);
+  const roundupDismissed = localStorage.getItem('tp_roundup_' + roundupDateStr);
   if (roundupHour >= 17 && todayWos.length > 0 && !roundupDismissed) {
     const rMins = todayWos.reduce((s, w) => s + (w.duration || 0), 0);
     const rDist = todayWos.reduce((s, w) => s + (w.distance || 0), 0);
@@ -2378,7 +2387,7 @@ function renderToday() {
     </div>`;
   }
   // ── SECTION 5: Expandable extras ──
-  const extrasOpen = localStorage.getItem('vf_extras_open') === 'true';
+  const extrasOpen = localStorage.getItem('tp_extras_open') === 'true';
   html += `<div style="margin-top:14px"><div id="extras-toggle" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none;color:var(--muted-fg);font-size:13px;font-weight:600">Stats & Goals <span style="font-size:14px;transition:transform .2s;transform:rotate(${extrasOpen ? '0' : '-90'}deg)">▾</span></div>
   <div id="extras-body" style="${extrasOpen ? '' : 'display:none'}">`;
   // Stats row
@@ -2412,7 +2421,7 @@ function renderToday() {
     btn.addEventListener('click', () => {
       haptic('light');
       const dur = btn.dataset.dur;
-      localStorage.setItem('vf_session_duration', dur);
+      localStorage.setItem('tp_session_duration', dur);
       renderCurrentPage();
     });
   });
@@ -2426,7 +2435,7 @@ function renderToday() {
       const isOpen = body.style.display !== 'none';
       body.style.display = isOpen ? 'none' : '';
       if (chevron) chevron.style.transform = 'rotate(' + (isOpen ? '-90' : '0') + 'deg)';
-      localStorage.setItem('vf_extras_open', isOpen ? 'false' : 'true');
+      localStorage.setItem('tp_extras_open', isOpen ? 'false' : 'true');
     });
   }
   // Bind calendar collapse toggle
@@ -2439,7 +2448,7 @@ function renderToday() {
       const isOpen = body.style.display !== 'none';
       body.style.display = isOpen ? 'none' : '';
       if (chevron) chevron.style.transform = 'rotate(' + (isOpen ? '-90' : '0') + 'deg)';
-      localStorage.setItem('vf_cal_open', isOpen ? 'false' : 'true');
+      localStorage.setItem('tp_cal_open', isOpen ? 'false' : 'true');
     });
   }
   // Bind calendar navigation
@@ -2591,7 +2600,7 @@ function renderToday() {
   // Dismiss weekly summary
   $('dismiss-weekly')?.addEventListener('click', () => {
     const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay() + 1); ws.setHours(0,0,0,0);
-    localStorage.setItem('vf_summary_week', ws.toISOString().split('T')[0]);
+    localStorage.setItem('tp_summary_week', ws.toISOString().split('T')[0]);
     $('dismiss-weekly')?.closest('div[style]')?.remove();
   });
   // Widget customization
@@ -2607,7 +2616,7 @@ function renderToday() {
       { id: 'quickActions', icon: '⚡', label: 'Quick Actions', desc: 'Log and Record GPS buttons' }
     ];
     let stored = {};
-    try { stored = JSON.parse(localStorage.getItem('vf_widgets') || '{}'); } catch(e) {}
+    try { stored = JSON.parse(localStorage.getItem('tp_widgets') || '{}'); } catch(e) {}
     const isOn = (id) => stored[id] !== false;
     let sheetHtml = '<div class="sheet-title">Customize Today Page</div>';
     sheetHtml += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">Toggle widgets on or off. Your layout is saved automatically.</div>';
@@ -2632,7 +2641,7 @@ function renderToday() {
         const current = stored[id] !== false;
         stored[id] = !current;
         toggle.classList.toggle('on', !current);
-        try { localStorage.setItem('vf_widgets', JSON.stringify(stored)); } catch(e) {}
+        try { localStorage.setItem('tp_widgets', JSON.stringify(stored)); } catch(e) {}
       });
     });
     $('widgets-done')?.addEventListener('click', () => { closeSheet(); renderToday(); loadWeather(); });
@@ -2641,7 +2650,7 @@ function renderToday() {
   $('today-strava-connect')?.addEventListener('click', () => { stravaStartAuth(); });
   // Dismiss daily roundup
   $('dismiss-roundup')?.addEventListener('click', () => {
-    localStorage.setItem('vf_roundup_' + new Date().toISOString().split('T')[0], '1');
+    localStorage.setItem('tp_roundup_' + new Date().toISOString().split('T')[0], '1');
     $('dismiss-roundup')?.closest('div[style*="background:linear-gradient"]')?.remove();
   });
   // Health card → open detailed dashboard
@@ -2688,7 +2697,7 @@ function renderToday() {
             const m = L.map(todayMapEl.id, { zoomControl:false, attributionControl:false, dragging:false, touchZoom:false, scrollWheelZoom:false, doubleClickZoom:false });
             L.tileLayer(getMapTileUrl(), { maxZoom:18 }).addTo(m);
             const ll = route.map(p => [p[0],p[1]]);
-            const pl = L.polyline(ll, { color:'#BFFF00', weight:3, opacity:0.9 }).addTo(m);
+            const pl = L.polyline(ll, { color:'#f97316', weight:3, opacity:0.9 }).addTo(m);
             L.circleMarker(ll[0], { radius:5, fillColor:'#22c55e', fillOpacity:1, color:'#fff', weight:2 }).addTo(m);
             L.circleMarker(ll[ll.length-1], { radius:5, fillColor:'#ef4444', fillOpacity:1, color:'#fff', weight:2 }).addTo(m);
             m.fitBounds(pl.getBounds(), { padding:[10,10] });
@@ -2699,16 +2708,17 @@ function renderToday() {
   }
 }
 function renderChecklistItem(workout, key, isChecked) {
-  const intensityClass = 'intensity-' + workout.intensity;
+  if (!workout) return '';
+  const intensityClass = 'intensity-' + (workout.intensity||'moderate');
   const shortDesc = workout.description && workout.description.length > 120 ? workout.description.substring(0, 120).trim() + '...' : (workout.description || '');
   const hasExercises = workout.exercises && workout.exercises.length > 0;
   const exerciseData = hasExercises ? JSON.stringify(workout.exercises).replace(/'/g,"&#39;").replace(/"/g,"&quot;") : '';
   // Load set progress for all plan types
   let setsDone = 0, setsTotal = 0;
   try {
-    const prog = JSON.parse(localStorage.getItem('vf_sets_' + key) || '{}');
+    const prog = JSON.parse(localStorage.getItem('tp_sets_' + key) || '{}');
     setsDone = Object.values(prog).reduce((s, v) => s + v, 0);
-    setsTotal = parseInt(localStorage.getItem('vf_sets_total_' + key)) || 0;
+    setsTotal = parseInt(localStorage.getItem('tp_sets_total_' + key)) || 0;
   } catch(e) {}
   if (hasExercises && setsTotal === 0) {
     setsTotal = workout.exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
@@ -2824,10 +2834,10 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
   let exercises = [];
   try { exercises = JSON.parse(exercisesJson || '[]'); } catch(e) {}
   let progress = {};
-  try { progress = JSON.parse(localStorage.getItem('vf_sets_' + key) || '{}'); } catch(e) {}
+  try { progress = JSON.parse(localStorage.getItem('tp_sets_' + key) || '{}'); } catch(e) {}
   if (exercises.length === 0) exercises = parseExercisesFromDesc(desc, name, duration);
   const totalSets = exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
-  try { localStorage.setItem('vf_sets_total_' + key, String(totalSets)); } catch(e) {}
+  try { localStorage.setItem('tp_sets_total_' + key, String(totalSets)); } catch(e) {}
   let restTimerInterval = null;
   let restSeconds = 0;
   let liveMode = false;
@@ -2960,7 +2970,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
     ov.querySelector('#live-done-set')?.addEventListener('click', () => {
       haptic('medium');
       progress[liveExIdx] = (progress[liveExIdx] || 0) + 1;
-      try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
+      try { localStorage.setItem('tp_sets_' + key, JSON.stringify(progress)); } catch(e) {}
       const newDone = progress[liveExIdx] || 0;
       const target = exercises[liveExIdx]?.sets || 1;
       if (newDone >= target) {
@@ -3012,7 +3022,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
           if (progress[exIdx] < target) startRestTimer(45);
           else if (progress[exIdx] >= target) startRestTimer(60);
         }
-        try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
+        try { localStorage.setItem('tp_sets_' + key, JSON.stringify(progress)); } catch(e) {}
         renderTracker();
       });
     });
@@ -3022,13 +3032,13 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
     ov.querySelectorAll('.et-reset-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         progress[parseInt(btn.dataset.ex)] = 0;
-        try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
+        try { localStorage.setItem('tp_sets_' + key, JSON.stringify(progress)); } catch(e) {}
         renderTracker();
       });
     });
     ov.querySelector('#et-reset-all')?.addEventListener('click', () => {
       progress = {};
-      try { localStorage.setItem('vf_sets_' + key, JSON.stringify(progress)); } catch(e) {}
+      try { localStorage.setItem('tp_sets_' + key, JSON.stringify(progress)); } catch(e) {}
       haptic('light');
       renderTracker();
     });
@@ -3070,7 +3080,7 @@ async function toggleChecklist(key) {
       const now = new Date();
       const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
       // Find current week number based on plan start
-      const planStartKey = 'vf_plan_start_' + activePlanId;
+      const planStartKey = 'tp_plan_start_' + activePlanId;
       let planStart = localStorage.getItem(planStartKey);
       if (!planStart) { planStart = now.toISOString(); localStorage.setItem(planStartKey, planStart); }
       const weeksSinceStart = Math.floor((now - new Date(planStart)) / (7 * 86400000)) + 1;
@@ -3111,7 +3121,7 @@ function showCelebration(message) {
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;inset:0;z-index:500;pointer-events:none;overflow:hidden';
   document.body.appendChild(container);
-  const colors = ['#BFFF00','#22c55e','#f59e0b','#3b82f6','#a855f7','#ef4444','#fff'];
+  const colors = ['#f97316','#22c55e','#f59e0b','#3b82f6','#a855f7','#ef4444','#fff'];
   for (let i = 0; i < 60; i++) {
     const p = document.createElement('div');
     const size = 4 + Math.random() * 6;
@@ -3178,8 +3188,8 @@ h1{font-size:24px;margin-bottom:4px}h2{font-size:16px;margin:24px 0 8px;color:#5
 .stat{background:#f5f5f5;padding:12px;border-radius:8px;text-align:center}.stat-val{font-size:22px;font-weight:700}.stat-lbl{font-size:11px;color:#888;text-transform:uppercase}
 table{width:100%;border-collapse:collapse;margin:8px 0}th,td{padding:6px 8px;text-align:left;border-bottom:1px solid #eee;font-size:12px}
 th{font-weight:600;color:#555;font-size:11px;text-transform:uppercase}.bar-row{display:flex;align-items:flex-end;gap:6px;height:60px;margin:12px 0}
-.bar-col{flex:1;text-align:center}.bar{background:#BFFF00;border-radius:3px 3px 0 0;min-height:2px;margin:0 auto;width:80%}.bar-lbl{font-size:9px;color:#888;margin-top:3px}
-.print-btn{margin-top:24px;padding:10px 24px;background:#BFFF00;border:none;font-weight:600;border-radius:6px;cursor:pointer;font-size:13px}
+.bar-col{flex:1;text-align:center}.bar{background:#f97316;border-radius:3px 3px 0 0;min-height:2px;margin:0 auto;width:80%}.bar-lbl{font-size:9px;color:#888;margin-top:3px}
+.print-btn{margin-top:24px;padding:10px 24px;background:#f97316;border:none;font-weight:600;border-radius:6px;cursor:pointer;font-size:13px}
 @media print{.print-btn{display:none}}
 </style></head><body>
 <h1>TurboPrep Training Report</h1>
@@ -3549,7 +3559,7 @@ async function saveAiPlan(shareWithTeam) {
 }
 // Save custom plans to localStorage
 function saveCustomPlansLocal() {
-  try { localStorage.setItem('vf_customPlans', JSON.stringify(customPlans)); } catch(e) {}
+  try { localStorage.setItem('tp_customPlans', JSON.stringify(customPlans)); } catch(e) {}
 }
 // Delete a custom plan by index
 async function deleteCustomPlan(idx) {
@@ -3569,7 +3579,7 @@ async function deleteCustomPlan(idx) {
 async function loadCustomPlans() {
   // 1. Always load from localStorage first
   try {
-    const stored = localStorage.getItem('vf_customPlans');
+    const stored = localStorage.getItem('tp_customPlans');
     if (stored) {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -3711,16 +3721,17 @@ async function loadTrainingSessions() {
     if (snap.exists()) {
       trainingSessions = snap.data().sessions || [];
       // Cache locally for notifications
-      try { localStorage.setItem('vf_training_sessions', JSON.stringify(trainingSessions)); } catch(e) {}
+      try { localStorage.setItem('tp_training_sessions', JSON.stringify(trainingSessions)); } catch(e) {}
     }
   } catch(e) { console.error('Load training sessions error:', e); }
+  } catch(e) { console.warn('[renderToday]', e); c.innerHTML = '<div class="empty-state"><div class="empty-state-title">Could not load today</div><div class="empty-state-desc">Tap to retry</div></div>'; c.onclick = () => { c.onclick=null; renderToday(); }; }
 }
 function renderWorkouts() {
   const c = $('workouts-content');
   let html = '<div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Log Manually</button></div>';
   // Load stored routes for mini maps
   let storedRoutes = {};
-  try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
+  try { storedRoutes = JSON.parse(localStorage.getItem('tp_routes') || '{}'); } catch(e) {}
   if (userWorkouts.length === 0) {
     html += `<div class="empty-state">
       <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;color:var(--muted-fg)"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg></div>
@@ -3755,7 +3766,7 @@ function renderWorkouts() {
     html += '</div>';
     html += '<div class="space-y" id="wo-list">';
     let storedPhotos = {};
-    try { storedPhotos = JSON.parse(localStorage.getItem('vf_photos') || '{}'); } catch(e) {}
+    try { storedPhotos = JSON.parse(localStorage.getItem('tp_photos') || '{}'); } catch(e) {}
     userWorkouts.forEach((w, idx) => {
       const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
       const dateStr = date.toLocaleDateString('en-AU', {day:'numeric',month:'short'});
@@ -3815,7 +3826,7 @@ function renderWorkouts() {
           });
           L.tileLayer(getMapTileUrl(), { maxZoom: 18 }).addTo(miniMap);
           const latlngs = route.map(p => [p[0], p[1]]);
-          const polyline = L.polyline(latlngs, { color: '#BFFF00', weight: 3, opacity: 0.9 }).addTo(miniMap);
+          const polyline = L.polyline(latlngs, { color: '#f97316', weight: 3, opacity: 0.9 }).addTo(miniMap);
           L.circleMarker(latlngs[0], { radius: 5, fillColor: '#22c55e', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
           L.circleMarker(latlngs[latlngs.length - 1], { radius: 5, fillColor: '#ef4444', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
           miniMap.fitBounds(polyline.getBounds(), { padding: [10, 10] });
@@ -4027,11 +4038,11 @@ async function saveWorkout(rpe, photoData, workoutType) {
   // Store photo in localStorage if provided
   if (photoData) {
     try {
-      const photos = JSON.parse(localStorage.getItem('vf_photos') || '{}');
+      const photos = JSON.parse(localStorage.getItem('tp_photos') || '{}');
       photos[workoutId] = photoData;
       const keys = Object.keys(photos);
       while (keys.length > 30) { delete photos[keys.shift()]; } // keep max 30
-      localStorage.setItem('vf_photos', JSON.stringify(photos));
+      localStorage.setItem('tp_photos', JSON.stringify(photos));
     } catch(e) {}
   }
   if (demoMode) {
@@ -4044,9 +4055,9 @@ async function saveWorkout(rpe, photoData, workoutType) {
   if (!navigator.onLine) {
     const queued = { name, type, duration, distance, heartRate, notes, rpe: rpeVal, date: dateObj.toISOString(), photoId: photoData ? workoutId : null, queuedAt: new Date().toISOString() };
     try {
-      const queue = JSON.parse(localStorage.getItem('vf_offline_queue') || '[]');
+      const queue = JSON.parse(localStorage.getItem('tp_offline_queue') || '[]');
       queue.push(queued);
-      localStorage.setItem('vf_offline_queue', JSON.stringify(queue));
+      localStorage.setItem('tp_offline_queue', JSON.stringify(queue));
     } catch(e) {}
     hideLoading();
     showToast('Saved offline — will sync when connected.', 'info');
@@ -4080,9 +4091,9 @@ async function saveWorkout(rpe, photoData, workoutType) {
     // Network error — queue offline
     const queued = { name, type, duration, distance, heartRate, notes, rpe: rpeVal, date: dateObj.toISOString(), photoId: photoData ? workoutId : null, queuedAt: new Date().toISOString() };
     try {
-      const queue = JSON.parse(localStorage.getItem('vf_offline_queue') || '[]');
+      const queue = JSON.parse(localStorage.getItem('tp_offline_queue') || '[]');
       queue.push(queued);
-      localStorage.setItem('vf_offline_queue', JSON.stringify(queue));
+      localStorage.setItem('tp_offline_queue', JSON.stringify(queue));
     } catch(ex) {}
     showToast('Saved offline — will sync when connected.', 'info');
     userWorkouts.unshift({ _id: workoutId, ...queued, date: dateObj, createdAt: new Date() });
@@ -4377,15 +4388,16 @@ function renderPlanCard(plan, isActive) {
     scheduleHtml += `<div class="week-title">Week ${wk}</div>`;
     weeks[wk].forEach((origW, wIdx) => {
       const globalIdx = plan.workouts.indexOf(origW);
-      const w = getWorkoutData(plan.id, globalIdx, origW);
-      const intensityClass = 'intensity-' + w.intensity;
+      const w = getWorkoutData(plan.id, globalIdx, origW) || {...origW};
+      if (!w) return;
+      const intensityClass = 'intensity-' + (w.intensity||'moderate');
       const exerciseKey = plan.id + '_' + globalIdx;
       scheduleHtml += `
         <div class="pw-row">
           <div class="pw-day">${origW.day}</div>
           <div class="pw-info">
-            <div class="pw-name"><span class="intensity-dot ${intensityClass}"></span> ${w.name}</div>
-            <div class="pw-desc">${w.description.length > 100 ? w.description.substring(0, 100) + '...' : w.description}</div>
+            <div class="pw-name"><span class="intensity-dot ${intensityClass}"></span> ${w.name||origW.name||'Workout'}</div>
+            <div class="pw-desc">${(w.description||'').length > 100 ? (w.description||'').substring(0, 100) + '...' : (w.description||'')}</div>
             <div class="pw-meta">
               <span class="pw-dur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${w.duration} min</span>
             </div>
@@ -4394,9 +4406,9 @@ function renderPlanCard(plan, isActive) {
             </button>
             <div class="exercise-detail" id="ex-detail-${exerciseKey}">
               <p><strong>Full Description:</strong></p>
-              <p>${w.description}</p>
-              <p style="margin-top:6px"><strong>Duration:</strong> ${w.duration} minutes · <strong>Intensity:</strong> ${capitalize(w.intensity)}</p>
-              <p><strong>What to focus on:</strong> ${w.intensity === 'easy' ? 'Keep effort conversational. Focus on form and consistency.' : w.intensity === 'moderate' ? 'Comfortably hard — you can talk in short phrases. Maintain steady cadence.' : 'Near your limit — speaking is difficult. Push hard but keep form clean.'}</p>
+              <p>${w.description||''}</p>
+              <p style="margin-top:6px"><strong>Duration:</strong> ${w.duration||0} minutes · <strong>Intensity:</strong> ${capitalize(w.intensity||'moderate')}</p>
+              <p><strong>What to focus on:</strong> ${(w.intensity||'moderate') === 'easy' ? 'Keep effort conversational. Focus on form and consistency.' : w.intensity === 'moderate' ? 'Comfortably hard — you can talk in short phrases. Maintain steady cadence.' : 'Near your limit — speaking is difficult. Push hard but keep form clean.'}</p>
             </div>
           </div>
         </div>
@@ -4570,6 +4582,7 @@ async function renderRaceDayHistory() {
 }
 
 function renderRaces() {
+  try {
   const c = $('races-content');
   let html = '<div class="page-title">Upcoming Races</div><div class="space-y">';
   const racesData = getActiveRaces();
@@ -4600,11 +4613,15 @@ function renderRaces() {
       </div>
     `;
   });
+  if (racesData.length === 0) {
+    html += '<div class="empty-state" style="padding:40px"><div class="empty-state-title">No Races Scheduled</div><div class="empty-state-desc">Race calendar will be updated by your coach.</div></div>';
+  }
   html += '</div>';
   c.innerHTML = html;
   updateCountdowns();
   if (raceTimerInterval) clearInterval(raceTimerInterval);
   raceTimerInterval = setInterval(updateCountdowns, 1000);
+  } catch(e) { console.warn("[renderRaces]", e); }
 }
 function updateCountdowns() {
   document.querySelectorAll('.countdown-grid[data-race-date]').forEach(el => {
@@ -4959,7 +4976,7 @@ document.querySelectorAll('.lb-sub-tab').forEach(btn => {
 function toggleTheme() {
   currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
   document.documentElement.classList.toggle('light-theme', currentTheme === 'light');
-  try { localStorage.setItem('vf_theme', currentTheme); } catch(e) {}
+  try { localStorage.setItem('tp_theme', currentTheme); } catch(e) {}
   renderProfile(); // Re-render to update toggle state
 }
 // --- Profile Page ---
@@ -5016,7 +5033,7 @@ function renderProfile() {
   html += '</div>';
   // Admin Demo Mode (only visible to admins)
   if (isAdmin) {
-    const studentView = localStorage.getItem('vf_student_view') === 'true';
+    const studentView = localStorage.getItem('tp_student_view') === 'true';
     html += '<div class="profile-section"><div class="profile-section-title">Admin</div>';
     html += `<div class="profile-row">
       <div>
@@ -5029,41 +5046,6 @@ function renderProfile() {
     </div>`;
     html += '</div>';
   }
-  // Strava
-  html += '<div class="profile-section"><div class="profile-section-title">Strava Integration</div>';
-  if (isStravaConnected) {
-    const athlete = stravaTokens.athlete || {};
-    html += `<div class="strava-status">
-      <div class="strava-status-dot connected"></div>
-      Connected as <strong>${escHtml(athlete.firstname || '')} ${escHtml(athlete.lastname || '')}</strong>
-    </div>`;
-    html += `<div class="strava-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <span style="font-size:13px;font-weight:600">Recent Activities</span>
-        <button class="strava-import-btn" id="strava-sync-btn">Sync Now</button>
-      </div>
-      <div id="strava-activities-list"></div>
-    </div>`;
-    html += `<button class="strava-disconnect" id="strava-disconnect-btn">Disconnect Strava</button>`;
-    html += `<button class="strava-disconnect" id="strava-resync-routes" style="margin-top:6px;background:var(--bg);color:var(--fg);border:1px solid var(--border)">🗺️ Re-sync Route Maps</button>`;
-    html += `<div style="font-size:11px;color:var(--muted-fg);margin-top:4px">Re-downloads GPS routes for all Strava activities. Use if maps are missing.</div>`;
-
-  } else {
-    html += `<div class="strava-status">
-      <div class="strava-status-dot disconnected"></div>
-      Not connected
-    </div>`;
-    if (!STRAVA_CLIENT_ID) {
-      html += '<div style="font-size:12px;color:var(--muted-fg);margin-top:6px">Strava integration requires setup. Add your Strava Client ID in the app config.</div>';
-    } else {
-      html += `<button class="strava-connect" id="strava-connect-btn">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-        Connect with Strava
-      </button>`;
-    }
-    html += '<div style="font-size:11px;color:var(--muted-fg);margin-top:8px">Import your rides and activities automatically. Your Strava data stays in your account.</div>';
-  }
-  html += '</div>';
   // Stats
   html += `<div class="profile-section"><div class="profile-section-title">Your Stats</div>
     <div class="profile-row"><span class="profile-row-label">Total Workouts</span><span class="profile-row-value">${userWorkouts.length}</span></div>
@@ -5147,9 +5129,9 @@ function renderProfile() {
   // Bindings
   $('theme-toggle-btn')?.addEventListener('click', toggleTheme);
   $('student-view-toggle')?.addEventListener('click', () => {
-    const current = localStorage.getItem('vf_student_view') === 'true';
+    const current = localStorage.getItem('tp_student_view') === 'true';
     const newVal = !current;
-    localStorage.setItem('vf_student_view', String(newVal));
+    localStorage.setItem('tp_student_view', String(newVal));
     // Update admin tab visibility
     const adminTab = document.getElementById('admin-tab');
     if (adminTab) adminTab.style.display = newVal ? 'none' : '';
@@ -5183,14 +5165,12 @@ function renderProfile() {
       {value:'intense',label:'Intense — Competitive'}
     ], userProfile?.fitnessLevel || 'basic', (val) => updateProfileField('fitnessLevel', val));
   });
-  $('strava-connect-btn')?.addEventListener('click', stravaStartAuth);
-  $('strava-disconnect-btn')?.addEventListener('click', stravaDisconnect);
+
+
   $('strava-sync-btn')?.addEventListener('click', () => {
     stravaFetchActivities().then(() => renderStravaActivities());
   });
-  $('strava-resync-routes')?.addEventListener('click', () => {
-    stravaResyncRoutes();
-  });
+
 
   // Fetch clubs button (if clubs not yet loaded)
 
@@ -5224,12 +5204,12 @@ function renderProfile() {
     btn.textContent = 'Testing...';
     btn.disabled = true;
     try {
-      const resp = await fetch('https://turboprep.netlify.app/.netlify/functions/health-sync', {
+      const resp = await fetch('https://turboprep.app/.netlify/functions/health-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token: token,
-          secret: 'vf-health-8k3mP9xR2nQ7',
+          secret: 'tp-health-8k3mP9xR2nQ7',
           type: 'heart_rate',
           data: { bpm: 72, timestamp: new Date().toISOString() }
         })
@@ -5274,7 +5254,7 @@ function renderProfile() {
   });
   $('profile-redo-tutorial')?.addEventListener('click', () => {
     closeProfile();
-    try { localStorage.removeItem('vf_tutorial_seen'); } catch(e) {}
+    try { localStorage.removeItem('tp_tutorial_seen'); } catch(e) {}
     setTimeout(() => showTutorial(), 300);
   });
   $('profile-open-coach')?.addEventListener('click', () => {
@@ -5466,6 +5446,7 @@ async function joinTeam() {
 }
 // --- Leagues ---
 async function renderLeaguesTab(el) {
+  try {
   const isMasterOrCoach = userProfile?.isCoach || currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
   el.innerHTML = '<div style="text-align:center;padding:24px"><div class="spinner"></div></div>';
   let leagues = [];
@@ -5531,6 +5512,7 @@ async function renderLeaguesTab(el) {
 
   el.querySelector('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
   el.querySelector('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
+  } catch(e) { console.warn("[renderLeaguesTab]", e); }
 }
 
 function openLeagueRequestSheet() {
@@ -5738,7 +5720,7 @@ async function loadTeamData() {
       return;
     }
     const td = teamSnap.data();
-    teamData = { id: teamSnap.id, name: td.name, code: td.code, members: td.members || [], stravaClubId: td.stravaClubId || null };
+    teamData = { id: teamSnap.id, name: td.name, code: td.code, members: td.members || [] };
     // Load each member's data
     const today = new Date();
     const dateKey = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
@@ -5922,6 +5904,7 @@ function buildModuleCtx() {
     renderGodAdminPanel, bindGodAdminPanel,
     get globalSettings() { return globalSettings; },
     activateRaceDay, deactivateRaceDay, openRaceDayOverlay, checkRaceDaySchedule,
+    getActiveRaces,
     // Firebase refs (getters for fresh values)
     get db() { return db; },
     get currentUser() { return currentUser; },
@@ -5998,7 +5981,7 @@ function applyGlobalSettings(s) {
   const isMaster = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
   const mo = document.getElementById('maintenance-overlay');
   if (s.maintenanceMode && !isMaster) {
-    if (mo) { mo.style.cssText = 'display:flex;position:fixed;inset:0;z-index:9000;background:var(--bg);align-items:center;justify-content:center;padding:24px;flex-direction:column'; document.getElementById('maintenance-msg').textContent = s.maintenanceMessage || 'TurboPrep is temporarily unavailable. Check back shortly.'; }
+    if (mo) { mo.style.display = 'flex'; document.getElementById('maintenance-msg').textContent = s.maintenanceMessage || 'TurboPrep is temporarily unavailable. Check back shortly.'; }
   } else {
     if (mo) mo.style.display = 'none';
   }
@@ -6097,25 +6080,21 @@ function bindGodAdminPanel(el) {
 function startApp() {
   // App version — bump this on every deploy
   const APP_VERSION = '4.4.0';
-  console.log('[TurboPrep] v' + APP_VERSION + ' loading...');
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.has('reset_admin')) {
-    localStorage.removeItem('vf_student_view');
+    localStorage.removeItem('tp_student_view');
     window.history.replaceState({}, '', window.location.pathname);
-    console.log('[TurboPrep] Student view reset');
   }
   // Force clear all caches via URL param: ?clear_cache=true
   if (urlParams.has('clear_cache')) {
     window.history.replaceState({}, '', window.location.pathname);
     if ('caches' in window) {
       caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
-        console.log('[TurboPrep] All caches cleared');
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistrations().then(regs => {
             regs.forEach(r => r.unregister());
-            console.log('[TurboPrep] Service workers unregistered');
             window.location.reload();
           });
         } else {
@@ -6167,7 +6146,7 @@ function startApp() {
       hideLoading();
       if (window.location.search.includes('code=')) { try { stravaHandleCallback(); } catch(e) {} }
       try {
-        const savedTab = localStorage.getItem('vf_lastTab');
+        const savedTab = localStorage.getItem('tp_lastTab');
         if (savedTab && ['today','fitness','races','team','admin'].includes(savedTab)) currentPage = savedTab;
       } catch(e) {}
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === currentPage));
@@ -6203,19 +6182,19 @@ function startApp() {
         loadExerciseOverrides(), loadPlanOverrides(), loadExerciseDemoVideos(),
         loadCustomPlans(), loadTeamFeed(), loadTeamChallenge(), loadTrainingSessions()
       ]);
-      // Re-render team tab now that teamData is loaded
+      // Re-render after data loads if on team/today page
       if (currentPage === 'team') renderTeam();
+      if (currentPage === 'today') renderToday();
       // PHASE 4: Non-async finishers
       try { setupAnnouncementListener(); } catch(e) {}
       try { loadStravaTokens(); } catch(e) {}
-      try { stravaAutoSync(); } catch(e) {}
       try { loadGoals(); } catch(e) {}
       // Re-render current page with full data
       renderCurrentPage();
       // If on team page, re-render after team data loads so hasTeam is correct
       if (currentPage === 'team') renderTeam();
       // Show welcome/onboarding for new users with API connection options
-      if (!localStorage.getItem('vf_onboarded')) {
+      if (!localStorage.getItem('tp_onboarded')) {
         setTimeout(() => showWelcomeSetup(), 800);
       }
       // Check training reminders
@@ -6281,26 +6260,29 @@ function renderCoachPage() {
   }
 }
 
-function renderCoachStudents(el) {
+async function renderCoachStudents(el) {
   if (!el) return;
-  // Reuse existing coach dashboard logic from admin module
-  if (typeof renderCoachDashboard === 'function') {
-    // Temporarily point to coach-sub-content
-    const orig = $('admin-coach');
-    const fake = document.createElement('div');
-    fake.id = 'admin-coach';
-    el.appendChild(fake);
-    renderCoachDashboard().then ? renderCoachDashboard() : null;
-  } else {
-    el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted-fg)">Student data loading...</div>';
+  el.innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';
+  try {
+    if (typeof renderCoachDashboard === 'function') {
+      // Create a temp container with correct id
+      el.innerHTML = '<div id="admin-coach"></div>';
+      await renderCoachDashboard();
+    } else {
+      el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-state-title">Loading...</div></div>';
+    }
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-state-title">Error loading students</div><div class="empty-state-desc">' + e.message + '</div></div>';
   }
 }
 
 function renderCoachTraining(el) {
-  // Inject training session manager
+  if (!el) return;
   el.innerHTML = '<div id="admin-training"></div>';
-  if (typeof renderAdminTraining === 'function') renderAdminTraining();
-  else el.innerHTML = '<div style="padding:20px;color:var(--muted-fg)">Training module loading...</div>';
+  try {
+    if (typeof renderAdminTraining === 'function') renderAdminTraining();
+    else el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-state-title">Training scheduler loading...</div></div>';
+  } catch(e) { console.warn('renderCoachTraining:', e); }
 }
 
 function renderCoachTeam(el) {
@@ -6376,7 +6358,7 @@ function checkAdmin(email) {
   isAdmin = isMaster;
   currentAdminPerms = isMaster ? ALL_ADMIN_FEATURES.map(f => f.id) : [];
 
-  const studentView = localStorage.getItem('vf_student_view') === 'true';
+  const studentView = localStorage.getItem('tp_student_view') === 'true';
   // Admin tab — master only
   const adminTab = document.getElementById('admin-tab');
   if (adminTab) adminTab.style.display = (isMaster && !studentView) ? '' : 'none';
@@ -6417,7 +6399,7 @@ async function loadAnnouncements() {
   }
 }
 let lastSeenAnnId = '';
-try { lastSeenAnnId = localStorage.getItem('vf_lastSeenAnn') || ''; } catch(e) {}
+try { lastSeenAnnId = localStorage.getItem('tp_lastSeenAnn') || ''; } catch(e) {}
 async function requestNotificationPermission() {
   if (!('Notification' in window)) return false;
   if (Notification.permission === 'granted') return true;
@@ -6473,7 +6455,7 @@ function checkForNewAnnouncements(announcements) {
     const a = activeAnns[0];
     showAnnouncementNotification(a.title, a.message);
     lastSeenAnnId = latestId;
-    try { localStorage.setItem('vf_lastSeenAnn', latestId); } catch(e) {}
+    try { localStorage.setItem('tp_lastSeenAnn', latestId); } catch(e) {}
   }
 }
 // Listen for announcements in real-time (triggers notification for new ones)
@@ -6762,7 +6744,7 @@ const WEATHER_KEY = 'c286357e02b8753b54b5b7bf3e4ee1ce';
 async function loadWeather() {
   // Check if fresh data needed (15 min TTL)
   try {
-    const cached = JSON.parse(localStorage.getItem('vf_weather') || '{}');
+    const cached = JSON.parse(localStorage.getItem('tp_weather') || '{}');
     if (cached.ts && Date.now() - cached.ts < 15 * 60 * 1000) return; // Cache is fresh, already rendered inline
   } catch(e) {}
   // Get location
@@ -6786,7 +6768,7 @@ async function loadWeather() {
       city: data.name || '',
       ts: Date.now()
     };
-    try { localStorage.setItem('vf_weather', JSON.stringify(w)); } catch(e) {}
+    try { localStorage.setItem('tp_weather', JSON.stringify(w)); } catch(e) {}
     // Soft-update the card if it exists on screen
     const el = $('weather-card');
     if (el) renderWeatherCard(el, w);
@@ -6881,15 +6863,15 @@ function addSessionToCalendar(session) {
 function checkTrainingReminder() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const today = new Date().toISOString().split('T')[0];
-  const lastReminder = localStorage.getItem('vf_reminder_date');
+  const lastReminder = localStorage.getItem('tp_reminder_date');
   if (lastReminder === today) return;
   // Check upcoming training sessions
   try {
-    const sessions = JSON.parse(localStorage.getItem('vf_training_sessions') || '[]');
+    const sessions = JSON.parse(localStorage.getItem('tp_training_sessions') || '[]');
     const now = new Date();
     const todaySessions = sessions.filter(s => s.date === today && new Date(s.date + 'T' + (s.time || '16:00')) > new Date(now.getTime() - 3600000));
     if (todaySessions.length > 0) {
-      localStorage.setItem('vf_reminder_date', today);
+      localStorage.setItem('tp_reminder_date', today);
       const s = todaySessions[0];
       const msg = s.title + (s.location ? ' at ' + s.location : '') + (s.time ? ' — ' + s.time : '');
       try {
@@ -6918,7 +6900,6 @@ function setupAnnouncementListener() {
       if (currentPage === 'today') renderToday();
     });
   } catch(e) {
-    console.log('Announcement listener setup failed:', e);
   }
 }
 // Request notification permission after first user interaction
@@ -7011,7 +6992,7 @@ function checkRaceResultPrompt() {
     return daysSince >= 0 && daysSince <= 7;
   });
   if (recentPast.length === 0) return;
-  const prompted = localStorage.getItem('vf_race_prompted') || '';
+  const prompted = localStorage.getItem('tp_race_prompted') || '';
   const unprompted = recentPast.find(r => !prompted.includes(r.date));
   if (!unprompted) return;
   setTimeout(() => {
@@ -7029,7 +7010,7 @@ function checkRaceResultPrompt() {
     });
     container.appendChild(toast);
     setTimeout(() => { if (toast.parentNode) toast.remove(); }, 8000);
-    localStorage.setItem('vf_race_prompted', prompted + ',' + unprompted.date);
+    localStorage.setItem('tp_race_prompted', prompted + ',' + unprompted.date);
   }, 3000);
 }
 const TUTORIAL_STEPS = [
@@ -7191,14 +7172,14 @@ function renderTutorialStep() {
 function closeTutorial() {
   if (tutorialOverlay) { tutorialOverlay.remove(); tutorialOverlay = null; }
   // Mark as seen
-  try { localStorage.setItem('vf_tutorial_seen', 'true'); } catch(e) {}
+  try { localStorage.setItem('tp_tutorial_seen', 'true'); } catch(e) {}
   if (!demoMode && db && currentUser) {
     try { updateDoc(doc(db, 'users', currentUser.uid), { tutorialSeen: true }).catch(() => {}); } catch(e) {}
   }
 }
 function shouldShowTutorial() {
   // Check localStorage first (fast)
-  try { if (localStorage.getItem('vf_tutorial_seen') === 'true') return false; } catch(e) {}
+  try { if (localStorage.getItem('tp_tutorial_seen') === 'true') return false; } catch(e) {}
   // Check Firestore profile
   if (userProfile?.tutorialSeen) return false;
   return true;
@@ -7207,7 +7188,7 @@ function shouldShowTutorial() {
 async function flushOfflineQueue() {
   if (!db || !currentUser || demoMode) return;
   let queue = [];
-  try { queue = JSON.parse(localStorage.getItem('vf_offline_queue') || '[]'); } catch(e) { return; }
+  try { queue = JSON.parse(localStorage.getItem('tp_offline_queue') || '[]'); } catch(e) { return; }
   if (queue.length === 0) return;
   let synced = 0;
   const remaining = [];
@@ -7225,7 +7206,7 @@ async function flushOfflineQueue() {
       remaining.push(w);
     }
   }
-  try { localStorage.setItem('vf_offline_queue', JSON.stringify(remaining)); } catch(e) {}
+  try { localStorage.setItem('tp_offline_queue', JSON.stringify(remaining)); } catch(e) {}
   if (synced > 0) showToast(synced + ' offline workout' + (synced > 1 ? 's' : '') + ' synced!', 'success');
 }
 window.addEventListener('online', () => { setTimeout(flushOfflineQueue, 2000); });
@@ -7245,7 +7226,6 @@ if ('serviceWorker' in navigator) {
       if (newWorker) {
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'activated') {
-            console.log('[TurboPrep] New service worker activated — refreshing');
             window.location.reload();
           }
         });
@@ -7253,3 +7233,13 @@ if ('serviceWorker' in navigator) {
     });
   }).catch(err => console.warn('SW registration failed:', err));
 }
+
+// Desktop keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    // Close sheet if open
+    if (document.querySelector('.sheet.visible')) closeSheet();
+    // Close profile if open
+    if ($('profile-overlay')?.style.display !== 'none') closeProfile?.();
+  }
+});
