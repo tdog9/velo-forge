@@ -1256,7 +1256,7 @@ function switchPage(page) {
 }
 function renderCurrentPage() {
   const pageTitles = {today:'Today — TurboPrep',fitness:'Fitness — TurboPrep',races:'Races & Calendar — TurboPrep',team:'Leaderboard & Teams — TurboPrep',admin:'Admin — TurboPrep',coach:'Coach — TurboPrep'};
-  document.title = pageTitles[page] || 'TurboPrep';
+  document.title = pageTitles[currentPage] || 'TurboPrep';
   switch(currentPage) {
     case 'today': renderToday(); loadWeather(); break;
     case 'fitness': renderFitness(); break;
@@ -2015,10 +2015,7 @@ function renderTeamFeed() {
 function renderToday() {
   const c = $('today-content');
   if (!c) return;
-  // Show skeleton on first load
-  if (!c.innerHTML.trim()) {
-    c.innerHTML = '<div style="padding:16px"><div class="skeleton skeleton-title" style="width:60%;margin-bottom:20px"></div><div class="skeleton skeleton-text" style="width:100%"></div><div class="skeleton skeleton-text" style="width:80%"></div><div class="skeleton skeleton-text" style="width:90%"></div></div>';
-  }
+
   const now = new Date();
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
