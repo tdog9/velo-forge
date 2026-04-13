@@ -5529,7 +5529,7 @@ async function renderLeaguesTab(el) {
     });
   });
 
-  el.$('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
+  el.querySelector('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
   el.querySelector('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
 }
 
@@ -6159,6 +6159,10 @@ function startApp() {
       } catch(e) {}
       try { await loadAdminEmails(); } catch(e) {}
       try { checkAdmin(user.email); } catch(e) {}
+      // Ensure master account has isCoach flag
+      if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && !userProfile?.isCoach && db) {
+        try { await updateDoc(doc(db,'users',user.uid),{isCoach:true}); if(userProfile) userProfile.isCoach=true; } catch(e){}
+      }
       // PHASE 2: Show the app NOW — don't wait for all data
       hideLoading();
       if (window.location.search.includes('code=')) { try { stravaHandleCallback(); } catch(e) {} }
@@ -6241,7 +6245,8 @@ let coachPageTab = 'students';
 function renderCoachPage() {
   const c = $('coach-content');
   if (!c) return;
-  if (!userProfile?.isCoach) { c.innerHTML = '<div class="empty-state"><div class="empty-state-title">Coach Access Only</div></div>'; return; }
+  const isMasterUser = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  if (!userProfile?.isCoach && !isMasterUser) { c.innerHTML = '<div class="empty-state" style="padding:40px 20px"><div class="empty-state-title">Coach Access Only</div><div class="empty-state-desc">This tab is for coach accounts. If you are a coach, contact TurboPrep to enable coach access.</div></div>'; return; }
 
   const tabs = [
     { id: 'students', label: 'Students' },

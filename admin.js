@@ -24,19 +24,12 @@ export function renderAdmin() {
 
   if (!tabs.some(t => t.id === A.adminActiveTab)) A.adminActiveTab = tabs[0].id;
 
-  // Quick maintenance bar
-  const existingBar = c.querySelector('#admin-maintenance-bar');
-  let maintHtml = '';
-  if (!existingBar) {
-    const mo = A.globalSettings?.maintenanceMode;
-    maintHtml = `<div id="admin-maintenance-bar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);display:flex;align-items:center;gap:10px">
-      <span style="font-size:13px;font-weight:600;flex:1;color:var(--fg)">🔧 Maintenance Mode</span>
-      <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?'#ef4444':'var(--muted)'};color:${mo?'#fff':'var(--muted-fg)'}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
-    </div>`;
-  }
-
+  const mo = A.globalSettings?.maintenanceMode;
   let html = '<div class="page-title" style="margin-bottom:8px">Admin</div>';
-  html += maintHtml;
+  html += `<div id="admin-maintenance-bar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);display:flex;align-items:center;gap:10px">
+    <span style="font-size:13px;font-weight:600;flex:1;color:var(--fg)">🔧 Maintenance</span>
+    <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?'#ef4444':'var(--muted)'};color:${mo?'#fff':'var(--muted-fg)'}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
+  </div>`;
   html += '<div class="admin-tabs" style="overflow-x:auto;padding-bottom:2px">';
   tabs.forEach(t => {
     html += `<button class="admin-tab${A.adminActiveTab===t.id?' active':''}" data-admin-tab="${t.id}" style="white-space:nowrap">${t.label}</button>`;
