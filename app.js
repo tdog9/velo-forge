@@ -1224,14 +1224,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('touchcancel', clearTooltip, { passive: true });
   btn.addEventListener('touchmove', clearTooltip, { passive: true });
 });
-// Record tab — opens activity tracker (outside forEach)
-const recordTabBtn = $('record-tab-btn');
-if (recordTabBtn) {
-  recordTabBtn.addEventListener('click', () => {
-    haptic('medium');
-    openActivityTracker();
-  });
-}
+// Record tab — bound after modules init (see Phase 4)
+
 function switchPage(page) {
   // Feature 3: Save scroll position before leaving
   scrollPositions[currentPage] = $('content').scrollTop;
@@ -4130,9 +4124,9 @@ function renderPlans() {
     plansInitialized = true;
   }
   const categories = [
-    { id: 'invehicle', label: 'In Vehicle', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"/></svg>' },
-    { id: 'floor', label: 'Floor & Home', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' },
-    { id: 'machine', label: 'Fitness Machine', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M12 17v4"/></svg>' },
+    { id: 'invehicle', label: 'In Vehicle', icon: '' },
+    { id: 'floor', label: 'Floor & Home', icon: '' },
+    { id: 'machine', label: 'Fitness Machine', icon: '' },
   ];
   const years = ['Y7','Y8','Y9','Y10','Y11','Y12'];
   const tiers = ['basic','average','intense'];
@@ -4192,7 +4186,7 @@ function renderPlans() {
   // Category tabs
   html += '<div class="pill-tabs">';
   categories.forEach(cat => {
-    html += `<button class="pill-tab${plansCategory===cat.id?' active':''}" data-cat="${cat.id}">${cat.icon} ${cat.label}</button>`;
+    html += `<button class="pill-tab${plansCategory===cat.id?' active':''}" data-cat="${cat.id}">${cat.label}</button>`;
   });
   html += '</div>';
   // Category description
@@ -6209,6 +6203,14 @@ function startApp() {
       if (currentPage === 'today') renderToday();
       // PHASE 4: Non-async finishers
       try { setupAnnouncementListener(); } catch(e) {}
+      // Bind record tab after tracker module is ready
+      const recordTabBtn = $('record-tab-btn');
+      if (recordTabBtn) {
+        recordTabBtn.addEventListener('click', () => {
+          haptic('medium');
+          try { openActivityTracker(); } catch(e) { console.warn('tracker:', e); }
+        });
+      }
       try { loadStravaTokens(); } catch(e) {}
       try { loadGoals(); } catch(e) {}
       // Re-render current page with full data
