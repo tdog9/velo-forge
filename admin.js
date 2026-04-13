@@ -13,13 +13,13 @@ export function renderAdmin() {
 
   // God mode tabs — hearn.tenny only
   const tabs = [
-    { id: 'announcements', label: '📢 Announce' },
-    { id: 'races', label: '🏁 Races' },
-    { id: 'plans', label: '📋 Plans' },
-    { id: 'users', label: '👥 Users' },
-    { id: 'requests', label: '🔔 Requests' },
-    { id: 'maintenance', label: '🔧 Maintenance' },
-    { id: 'system', label: '⚙️ System' },
+    { id: 'announcements', label: 'Announce' },
+    { id: 'races', label: 'Races' },
+    { id: 'plans', label: 'Plans' },
+    { id: 'users', label: 'Users' },
+    { id: 'requests', label: 'Requests' },
+    { id: 'maintenance', label: 'Maintenance' },
+    { id: 'system', label: 'System' },
   ];
 
   if (!tabs.some(t => t.id === A.adminActiveTab)) A.adminActiveTab = tabs[0].id;

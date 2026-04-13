@@ -5984,7 +5984,7 @@ function applyGlobalSettings(s) {
   }
   // App name override
   if (s.appName) {
-    document.querySelector('.header-brand') && (document.querySelector('.header-brand').textContent = s.appName);
+    /* header-brand replaced by hw-turbo/hw-prep */
   }
   // Maintenance mode — only affects non-master users
   const isMaster = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
