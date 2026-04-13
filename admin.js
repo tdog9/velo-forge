@@ -402,11 +402,11 @@ export async function renderCoachDashboard() {
 
     // Bulk message section
     html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Send Message to Students</div>
+      <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:8px">Send Message to Students</div>
       <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
         <button class="bulk-target-btn active" data-bulk-target="all" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--primary);background:var(--primary);color:var(--primary-fg);cursor:pointer;font-weight:600">All</button>
-        ${['Y7','Y8','Y9','Y10','Y11','Y12'].map(y => `<button class="bulk-target-btn" data-bulk-target="${y}" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">${y}</button>`).join('')}
-        <button class="bulk-target-btn" data-bulk-target="inactive" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">Inactive Only</button>
+        ${['Y7','Y8','Y9','Y10','Y11','Y12'].map(y => `<button class="bulk-target-btn" data-bulk-target="${y}" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer">${y}</button>`).join('')}
+        <button class="bulk-target-btn" data-bulk-target="inactive" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer">Inactive Only</button>
       </div>
       <textarea id="bulk-msg-text" class="input" placeholder="Type your message to students..." style="width:100%;min-height:60px;resize:vertical;font-size:13px;margin-bottom:8px"></textarea>
       <button class="btn btn-primary" id="bulk-msg-send" style="font-size:12px;padding:8px 16px">Post as Announcement</button>
@@ -439,7 +439,7 @@ export async function renderCoachDashboard() {
           <span>Last active: ${lastStr}</span>
         </div>
         <div style="display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
-          <button class="btn shoutout-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(191,255,0,.08);border:1px solid rgba(191,255,0,.2);color:var(--primary);border-radius:6px;cursor:pointer">👏 Shoutout</button>
+          <button class="btn shoutout-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);color:var(--primary);border-radius:6px;cursor:pointer">👏 Shoutout</button>
           <button class="btn nudge-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:#f59e0b;border-radius:6px;cursor:pointer">💬 Nudge</button>
         </div>
       </div>`;
@@ -562,7 +562,7 @@ export async function renderCoachDashboard() {
     el.querySelectorAll('.bulk-target-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         el.querySelectorAll('.bulk-target-btn').forEach(b => {
-          b.style.background = 'var(--surface-alt)';
+          b.style.background = 'var(--surface)';
           b.style.color = 'var(--muted-fg)';
           b.style.borderColor = 'var(--border)';
         });
@@ -614,13 +614,13 @@ export async function renderCoachDashboard() {
   // --- Challenge Manager (below student list) ---
   const challengeEl = document.createElement('div');
   challengeEl.style.cssText = 'margin-top:16px;border-top:1px solid var(--border);padding-top:16px';
-  let chHtml = '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:10px">🏆 Team Challenge Manager</div>';
+  let chHtml = '<div style="font-size:15px;font-weight:700;color:var(--fg);margin-bottom:10px">🏆 Team Challenge Manager</div>';
 
   if (A.activeChallenge) {
     const cEnd = new Date(A.activeChallenge.endDate);
     const cDaysLeft = Math.max(0, Math.ceil((cEnd - new Date()) / 86400000));
     chHtml += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">${escHtml(A.activeChallenge.title || 'Active Challenge')}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:4px">${escHtml(A.activeChallenge.title || 'Active Challenge')}</div>
       <div style="font-size:11px;color:var(--muted-fg);margin-bottom:8px">${cDaysLeft > 0 ? cDaysLeft + ' days remaining' : 'Ended'} · Repeat: ${A.activeChallenge.repeat ? 'On' : 'Off'}</div>`;
     // Editable team scores
     const rawT = A.activeChallenge.teams || {};
@@ -634,7 +634,7 @@ export async function renderCoachDashboard() {
     });
     chHtml += `<div style="display:flex;gap:6px;margin-top:8px">
       <button id="ch-save-scores" class="btn btn-primary" style="flex:1;font-size:12px;padding:8px">Save Changes</button>
-      <button id="ch-reset-scores" class="btn" style="font-size:12px;padding:8px;background:var(--surface-alt);color:var(--muted-fg)">Reset Scores</button>
+      <button id="ch-reset-scores" class="btn" style="font-size:12px;padding:8px;background:var(--surface);color:var(--muted-fg)">Reset Scores</button>
       <button id="ch-end-challenge" class="btn" style="font-size:12px;padding:8px;background:rgba(239,68,68,.1);color:#ef4444">End</button>
     </div></div>`;
   } else {
@@ -643,7 +643,7 @@ export async function renderCoachDashboard() {
 
   // Create new challenge form
   chHtml += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px">
-    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">${A.activeChallenge ? 'Start New Challenge' : 'Create Challenge'}</div>
+    <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:8px">${A.activeChallenge ? 'Start New Challenge' : 'Create Challenge'}</div>
     <input class="input" id="ch-new-title" type="text" placeholder="Challenge title" value="Monthly Challenge" style="margin-bottom:6px;width:100%;font-size:12px">
     <div style="display:flex;gap:6px;margin-bottom:6px">
       <select class="input" id="ch-new-duration" style="flex:1;font-size:12px;padding:6px"><option value="7">1 Week</option><option value="14">2 Weeks</option><option value="30" selected>1 Month</option><option value="60">2 Months</option></select>
@@ -748,9 +748,9 @@ export async function renderCoachDashboard() {
   const cleanupEl = document.createElement('div');
   cleanupEl.style.cssText = 'margin-top:16px;border-top:1px solid var(--border);padding-top:16px';
   cleanupEl.innerHTML = `
-    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px">🧹 Cleanup Tools</div>
+    <div style="font-size:15px;font-weight:700;color:var(--fg);margin-bottom:8px">🧹 Cleanup Tools</div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">Remove Duplicate Strava Activities</div>
+      <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:4px">Remove Duplicate Strava Activities</div>
       <div style="font-size:11px;color:var(--muted-fg);margin-bottom:8px">Scans all students for duplicate workouts (same day + similar duration). Shows duplicates for review before deleting.</div>
       <button id="cleanup-scan-btn" class="btn btn-secondary" style="font-size:12px;padding:8px 16px">Scan for Duplicates</button>
       <div id="cleanup-results" style="margin-top:8px"></div>
@@ -800,7 +800,7 @@ export async function renderCoachDashboard() {
       results.innerHTML = '<div style="color:#22c55e;font-size:12px;font-weight:600">✓ No duplicates found!</div>';
       return;
     }
-    let rHtml = '<div style="font-size:12px;color:var(--text);margin-bottom:6px;font-weight:600">' + totalDupes + ' duplicate' + (totalDupes > 1 ? 's' : '') + ' found:</div>';
+    let rHtml = '<div style="font-size:12px;color:var(--fg);margin-bottom:6px;font-weight:600">' + totalDupes + ' duplicate' + (totalDupes > 1 ? 's' : '') + ' found:</div>';
     dupeList.forEach((d, i) => {
       rHtml += '<div style="font-size:11px;color:var(--muted-fg);margin-bottom:2px">' + escHtml(d.userName) + ': "' + escHtml(d.dupeName) + '" on ' + d.dayKey + '</div>';
     });
@@ -916,7 +916,7 @@ export function renderAdminTraining() {
   let html = '';
   // Create session form
   html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
-    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px">Schedule a Session</div>
+    <div style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:10px">Schedule a Session</div>
     <input class="input" id="ts-title" type="text" placeholder="Session title (e.g. After School Training)" value="" style="margin-bottom:6px;width:100%;font-size:13px">
     <div style="display:flex;gap:6px;margin-bottom:6px">
       <input class="input" id="ts-date" type="date" value="${todayStr}" style="flex:1;font-size:13px">
@@ -946,20 +946,20 @@ export function renderAdminTraining() {
 
   // Upcoming sessions
   if (upcoming.length > 0) {
-    html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">Upcoming Sessions (' + upcoming.length + ')</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:8px">Upcoming Sessions (' + upcoming.length + ')</div>';
     upcoming.forEach((s, i) => {
       const sDate = new Date(s.date + 'T' + (s.time || '16:00') + ':00');
       const dayLabel = sDate.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
       html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
         <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:4px">
-          <div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(s.title || 'Training')}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(s.title || 'Training')}</div>
           <div style="font-size:11px;font-weight:600;color:var(--primary)">${dayLabel}</div>
         </div>
         <div style="font-size:12px;color:var(--muted-fg);margin-bottom:2px">${s.time || ''}${s.endTime ? ' - ' + s.endTime : ''}${s.location ? ' · ' + escHtml(s.location) : ''}</div>
         ${s.notes ? '<div style="font-size:11px;color:var(--muted-fg);line-height:1.4;margin-bottom:6px">' + escHtml(s.notes) + '</div>' : ''}
         <div style="display:flex;gap:6px">
           <button class="btn ts-notify-btn" data-ts-id="${s.id}" style="flex:1;padding:6px;font-size:11px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:#a855f7;border-radius:6px">📢 Notify All</button>
-          <button class="btn ts-edit-btn" data-ts-id="${s.id}" style="padding:6px 10px;font-size:11px;background:var(--surface-alt);border:1px solid var(--border);color:var(--text);border-radius:6px">Edit</button>
+          <button class="btn ts-edit-btn" data-ts-id="${s.id}" style="padding:6px 10px;font-size:11px;background:var(--surface);border:1px solid var(--border);color:var(--fg);border-radius:6px">Edit</button>
           <button class="btn ts-delete-btn" data-ts-id="${s.id}" style="padding:6px 10px;font-size:11px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#ef4444;border-radius:6px">Delete</button>
         </div>
       </div>`;
@@ -1173,7 +1173,7 @@ function renderRaceFootageSection(parentEl) {
   const races = A.getActiveRaces();
   let html = '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">';
   html += '<div class="label" style="margin-bottom:8px">Race Footage & Stream Links</div>';
-  html += '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Add livestream and footage links for each race. These appear in the Race Log for all users.</div>';
+  html += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">Add livestream and footage links for each race. These appear in the Race Log for all users.</div>';
   
   races.forEach(race => {
     const existing = A.raceFootage[race.id] || race.footageUrls || [];
@@ -1181,10 +1181,10 @@ function renderRaceFootageSection(parentEl) {
     html += `
       <div class="footage-admin-item">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <strong style="font-size:13px;color:var(--text);flex:1">${escHtml(race.name)}</strong>
-          ${isPast ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(191,255,0,0.15);color:#BFFF00;font-weight:600">DONE</span>' : '<span style="font-size:10px;color:var(--text-muted)">' + race.date + '</span>'}
+          <strong style="font-size:13px;color:var(--fg);flex:1">${escHtml(race.name)}</strong>
+          ${isPast ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(249,115,22,0.15);color:#BFFF00;font-weight:600">DONE</span>' : '<span style="font-size:10px;color:var(--muted-fg)">' + race.date + '</span>'}
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">${existing.length} link${existing.length !== 1 ? 's' : ''} attached</div>
+        <div style="font-size:11px;color:var(--muted-fg);margin-bottom:6px">${existing.length} link${existing.length !== 1 ? 's' : ''} attached</div>
         <div style="display:flex;gap:6px">
           <input class="input" type="url" placeholder="Paste stream/footage URL" style="flex:1;font-size:12px" data-footage-url="${race.id}">
           <input class="input" type="text" placeholder="Label" style="width:80px;font-size:12px" data-footage-label="${race.id}">
@@ -1192,7 +1192,7 @@ function renderRaceFootageSection(parentEl) {
         </div>
         ${existing.length > 0 ? '<div style="margin-top:6px">' + existing.map((f, fi) => `
           <div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px">
-            <span style="flex:1;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.label || f.url)}</span>
+            <span style="flex:1;color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.label || f.url)}</span>
             <button class="admin-del-btn" data-footage-del="${race.id}:${fi}" style="font-size:11px">×</button>
           </div>
         `).join('') + '</div>' : ''}
@@ -1248,7 +1248,7 @@ export function renderAdminRaceLogVideos(parentEl) {
   const races = A.getActiveRaces();
   let html = '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">';
   html += '<div class="label" style="margin-bottom:8px">Race Log Videos</div>';
-  html += '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Add video links (YouTube, Vimeo, etc.) that appear in the Race Log for all users. Great for race highlights, team footage, and onboard camera.</div>';
+  html += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">Add video links (YouTube, Vimeo, etc.) that appear in the Race Log for all users. Great for race highlights, team footage, and onboard camera.</div>';
   
   // Add video form
   html += `
@@ -1272,11 +1272,11 @@ export function renderAdminRaceLogVideos(parentEl) {
       const raceName = v.raceId ? (races.find(r => r.id === v.raceId)?.name || '') : '';
       html += `
         <div class="video-admin-row">
-          <div style="width:40px;height:30px;border-radius:4px;background:rgba(191,255,0,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <div style="width:40px;height:30px;border-radius:4px;background:rgba(249,115,22,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
             <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;color:#BFFF00"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
           </div>
           <div class="video-info">
-            <strong style="color:var(--text)">${escHtml(v.title)}</strong>
+            <strong style="color:var(--fg)">${escHtml(v.title)}</strong>
             ${raceName ? '<br><span style="font-size:11px">' + escHtml(raceName) + '</span>' : ''}
           </div>
           <button class="admin-del-btn" data-video-del="${i}" style="font-size:11px">×</button>
@@ -1285,7 +1285,7 @@ export function renderAdminRaceLogVideos(parentEl) {
     });
     html += '</div>';
   } else {
-    html += '<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:12px;border:1px dashed var(--border);border-radius:8px">No videos added yet</div>';
+    html += '<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:12px;border:1px dashed var(--border);border-radius:8px">No videos added yet</div>';
   }
   
   html += '</div>';

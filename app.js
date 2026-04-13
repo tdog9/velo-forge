@@ -303,7 +303,7 @@ function renderBadges() {
     const has = earned.includes(b.id);
     html += `<div style="display:flex;flex-direction:column;align-items:center;width:60px;opacity:${has ? 1 : 0.25}" title="${b.desc}">
       <span style="font-size:24px">${b.icon}</span>
-      <span style="font-size:9px;color:${has ? 'var(--text)' : 'var(--muted-fg)'};text-align:center;margin-top:2px;line-height:1.1">${b.name}</span>
+      <span style="font-size:9px;color:${has ? 'var(--fg)' : 'var(--muted-fg)'};text-align:center;margin-top:2px;line-height:1.1">${b.name}</span>
     </div>`;
   });
   html += '</div>';
@@ -403,22 +403,22 @@ function showWelcomeSetup() {
       <div class="modal-title" style="text-align:center;margin-bottom:4px">Welcome, ${escHtml(name)}!</div>
       <div style="text-align:center;font-size:13px;color:var(--muted-fg);margin-bottom:16px">Connect your accounts to get the most out of TurboPrep</div>
       <div id="welcome-steps" style="display:flex;flex-direction:column;gap:8px">
-        <button class="btn welcome-step" id="ws-strava" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
+        <button class="btn welcome-step" id="ws-strava" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
           <span style="font-size:20px;width:28px;text-align:center">⬡</span>
           <div style="flex:1"><div style="font-weight:700">Connect Strava</div><div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Import Apple Watch, Garmin, Fitbit workouts</div></div>
           <span style="color:var(--muted-fg)">&rsaquo;</span>
         </button>
-        <button class="btn welcome-step" id="ws-notifs" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
+        <button class="btn welcome-step" id="ws-notifs" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
           <span style="font-size:20px;width:28px;text-align:center">🔔</span>
           <div style="flex:1"><div style="font-weight:700">Enable Notifications</div><div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Training reminders and coach messages</div></div>
           <span style="color:var(--muted-fg)">&rsaquo;</span>
         </button>
-        <button class="btn welcome-step" id="ws-plan" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
+        <button class="btn welcome-step" id="ws-plan" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
           <span style="font-size:20px;width:28px;text-align:center">📋</span>
           <div style="flex:1"><div style="font-weight:700">Pick a Training Plan</div><div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Matched to your year level and fitness tier</div></div>
           <span style="color:var(--muted-fg)">&rsaquo;</span>
         </button>
-        <button class="btn welcome-step" id="ws-homescreen" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
+        <button class="btn welcome-step" id="ws-homescreen" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
           <span style="font-size:20px;width:28px;text-align:center">📱</span>
           <div style="flex:1"><div style="font-weight:700">Add to Home Screen</div><div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Works like a native app</div></div>
           <span style="color:var(--muted-fg)">&rsaquo;</span>
@@ -487,7 +487,7 @@ function openRaceResultForm(raceName, raceDate) {
   const content = `
     <div class="form-group" style="margin-bottom:10px">
       <label class="label">Race</label>
-      <div style="font-weight:700;color:var(--text)">${escHtml(raceName)}</div>
+      <div style="font-weight:700;color:var(--fg)">${escHtml(raceName)}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div class="form-group"><label class="label">Position</label><input class="input" id="rr-position" type="number" min="1" placeholder="#"></div>
@@ -499,7 +499,7 @@ function openRaceResultForm(raceName, raceDate) {
     </div>
     <div class="form-group" style="margin-bottom:10px"><label class="label">How did it go?</label><textarea class="input" id="rr-reflection" rows="3" placeholder="What went well? What would you change?"></textarea></div>
     <div class="form-group"><label class="label">Rate your effort (RPE)</label>
-      <div style="display:flex;gap:4px;margin-top:4px" id="rr-rpe-row">${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="rr-rpe-btn" data-rpe="${n}" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);font-size:11px;cursor:pointer">${n}</button>`).join('')}</div>
+      <div style="display:flex;gap:4px;margin-top:4px" id="rr-rpe-row">${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="rr-rpe-btn" data-rpe="${n}" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);font-size:11px;cursor:pointer">${n}</button>`).join('')}</div>
     </div>`;
   const ov = showModal('Log Race Result', content, async (overlay) => {
     const result = {
@@ -525,7 +525,7 @@ function openRaceResultForm(raceName, raceDate) {
   let selectedRpe = null;
   ov.querySelectorAll('.rr-rpe-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      ov.querySelectorAll('.rr-rpe-btn').forEach(b => { b.style.background = 'var(--surface-alt)'; b.style.color = 'var(--muted-fg)'; });
+      ov.querySelectorAll('.rr-rpe-btn').forEach(b => { b.style.background = 'var(--surface)'; b.style.color = 'var(--muted-fg)'; });
       btn.style.background = 'var(--primary)'; btn.style.color = 'var(--primary-fg)';
     });
   });
@@ -1024,7 +1024,7 @@ function openErrorDiagnostics(entry, showLog) {
     html += `<div style="display:flex;gap:10px;padding:12px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.04));border:1.5px solid rgba(34,197,94,.25);border-radius:12px;margin-bottom:10px">
       <span style="font-size:24px;flex-shrink:0">${primary.icon}</span>
       <div><div style="font-size:14px;font-weight:700;color:#22c55e;margin-bottom:3px">Try this first</div>
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px">${primary.title}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:2px">${primary.title}</div>
       <div style="font-size:12px;color:var(--muted-fg);line-height:1.5">${primary.fix}</div></div>
     </div>`;
   }
@@ -1034,7 +1034,7 @@ function openErrorDiagnostics(entry, showLog) {
     fixes.slice(1).forEach(f => {
       html += `<div style="display:flex;gap:10px;padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
         <span style="font-size:16px;flex-shrink:0">${f.icon}</span>
-        <div><div style="font-size:12px;font-weight:600;color:var(--text)">${f.title}</div>
+        <div><div style="font-size:12px;font-weight:600;color:var(--fg)">${f.title}</div>
         <div style="font-size:11px;color:var(--muted-fg);line-height:1.4">${f.fix}</div></div>
       </div>`;
     });
@@ -1047,7 +1047,7 @@ function openErrorDiagnostics(entry, showLog) {
     if (adminFixes.length > 0) {
       adminFixes.forEach(f => {
         html += `<div style="padding:8px;background:rgba(239,68,68,.05);border-radius:6px;margin-bottom:6px">
-          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">${f.title}</div>
+          <div style="font-size:12px;font-weight:600;color:var(--fg);margin-bottom:2px">${f.title}</div>
           <div style="font-size:11px;color:var(--muted-fg);line-height:1.4">${f.fix}</div>
         </div>`;
       });
@@ -1137,7 +1137,7 @@ Context: ${JSON.stringify(entry.context || {})}`;
         body: JSON.stringify({ message: diagPrompt, context: 'ERROR_DIAGNOSIS. ' + (isAdmin ? 'User is admin. Include Firestore paths, env var names, and Netlify deploy steps. Be technical.' : 'Respond in 3-4 sentences. Be specific and practical. Use simple language a student would understand.') })
       });
       const data = await resp.json();
-      resultEl.innerHTML = `<div style="padding:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:13px;color:var(--text);line-height:1.5">
+      resultEl.innerHTML = `<div style="padding:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:13px;color:var(--fg);line-height:1.5">
         <div style="font-size:12px;font-weight:600;color:#a855f7;margin-bottom:4px">AI Diagnosis${isAdmin ? ' (Admin)' : ''}</div>
         ${_esc(data.reply || 'Could not diagnose. Try the suggestions above.')}
       </div>`;
@@ -2085,7 +2085,7 @@ function renderToday() {
         <img src="${_iconUrl}" style="width:52px;height:52px;margin:-8px" alt="${escHtml(_w.desc)}">
         <div style="flex:1">
           <div style="display:flex;align-items:baseline;gap:6px">
-            <span style="font-size:32px;font-weight:800;color:var(--text);line-height:1">${_w.temp}°</span>
+            <span style="font-size:32px;font-weight:800;color:var(--fg);line-height:1">${_w.temp}°</span>
             <span style="font-size:13px;color:var(--muted-fg);text-transform:capitalize">${escHtml(_w.desc)}</span>
           </div>
           <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">Feels ${_w.feels}°${_w.city ? ' · ' + escHtml(_w.city) : ''}</div>
@@ -2095,7 +2095,7 @@ function renderToday() {
         <span style="font-size:11px;color:var(--muted-fg)">💨 ${_w.wind} km/h</span>
         <span style="font-size:11px;color:var(--muted-fg)">💧 ${_w.humidity}%</span>
       </div>
-      <div style="font-size:12px;font-weight:600;color:var(--text)">${_advice}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--fg)">${_advice}</div>
     </div></div>`;
   } else {
     html += `<div id="weather-card" style="margin-bottom:10px">
@@ -2112,7 +2112,7 @@ function renderToday() {
   if (healthData && (healthData.latestHr || healthData.latestSteps || healthData.latestSleep)) {
     html += `<div id="health-card-tap" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">❤️ Health Sync</div>
+        <div style="font-size:13px;font-weight:700;color:var(--fg)">❤️ Health Sync</div>
         <div style="display:flex;align-items:center;gap:6px">
           ${healthData.lastSync ? '<span style="font-size:10px;color:var(--muted-fg)">' + timeAgo(new Date(healthData.lastSync)) + '</span>' : ''}
           <span style="font-size:12px;color:var(--muted-fg)">›</span>
@@ -2161,12 +2161,12 @@ function renderToday() {
       const goalText = lwWorkouts.length < 3 ? 'Push for 3 sessions this week!' : lwWorkouts.length < 5 ? 'Great week — aim for ' + (lwWorkouts.length + 1) + ' this week!' : 'Incredible consistency — keep it up!';
       html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-size:13px;font-weight:700;color:var(--text)">📊 Last Week</div>
+          <div style="font-size:13px;font-weight:700;color:var(--fg)">📊 Last Week</div>
           <button id="dismiss-weekly" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px">✕</button>
         </div>
         <div style="display:flex;gap:12px;margin-bottom:8px">
           <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${lwWorkouts.length}</div><div style="font-size:10px;color:var(--muted-fg)">sessions</div></div>
-          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--text)">${lwMins}</div><div style="font-size:10px;color:var(--muted-fg)">mins</div></div>
+          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--fg)">${lwMins}</div><div style="font-size:10px;color:var(--muted-fg)">mins</div></div>
           <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:#f59e0b">+${lwXp}</div><div style="font-size:10px;color:var(--muted-fg)">XP</div></div>
         </div>
         <div style="font-size:12px;color:var(--muted-fg);line-height:1.4">${goalText}</div>
@@ -2188,7 +2188,7 @@ function renderToday() {
     const selectedDur = parseInt(localStorage.getItem('vf_session_duration') || '0');
     html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch">
       <span style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-right:2px">Time:</span>
-      ${[0,10,15,20,25,30].map(d => `<button class="dur-pick" data-dur="${d}" style="padding:5px 8px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid ${selectedDur === d ? 'var(--primary)' : 'var(--border)'};background:${selectedDur === d ? 'rgba(249,115,22,.15)' : 'var(--surface-alt)'};color:${selectedDur === d ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer;white-space:nowrap">${d === 0 ? 'Full' : d + 'min'}</button>`).join('')}
+      ${[0,10,15,20,25,30].map(d => `<button class="dur-pick" data-dur="${d}" style="padding:5px 8px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid ${selectedDur === d ? 'var(--primary)' : 'var(--border)'};background:${selectedDur === d ? 'rgba(249,115,22,.15)' : 'var(--surface)'};color:${selectedDur === d ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer;white-space:nowrap">${d === 0 ? 'Full' : d + 'min'}</button>`).join('')}
     </div>`;
     const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
     const todayDay = now.getDay();
@@ -2223,7 +2223,7 @@ function renderToday() {
       const tier = userProfile?.fitnessLevel || 'basic';
       html += `<div style="background:linear-gradient(135deg,rgba(249,115,22,.06),rgba(34,197,94,.04));border:1.5px solid rgba(249,115,22,.2);border-radius:12px;padding:16px;text-align:center">
         <div style="font-size:28px;margin-bottom:6px">🚀</div>
-        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">Welcome to TurboPrep!</div>
+        <div style="font-size:15px;font-weight:700;color:var(--fg);margin-bottom:4px">Welcome to TurboPrep!</div>
         <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px;line-height:1.4">Let's get you a training plan. We've matched one to your year level (${year}) and fitness tier (${capitalize(tier)}).</div>
         <button class="btn btn-primary" id="onboard-pick-plan" style="width:100%;padding:12px;font-size:14px;font-weight:700;border-radius:10px">🏋️ Pick My Plan</button>
         <div style="font-size:11px;color:var(--muted-fg);margin-top:8px">Or go to Fitness → Plans to browse all 54 options</div>
@@ -2244,18 +2244,18 @@ function renderToday() {
       html += `<div style="background:linear-gradient(135deg,rgba(249,115,22,.05),rgba(34,197,94,.03));border:1px solid rgba(249,115,22,.15);border-radius:12px;padding:12px 14px;margin-top:8px">
         <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📋 Today's Roundup</div>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
-          ${todaysWorkouts.length > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--text)">${todaysWorkouts.length}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">workout${todaysWorkouts.length > 1 ? 's' : ''}</span></div>` : ''}
-          ${todayMins > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--text)">${todayMins}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">mins</span></div>` : ''}
+          ${todaysWorkouts.length > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--fg)">${todaysWorkouts.length}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">workout${todaysWorkouts.length > 1 ? 's' : ''}</span></div>` : ''}
+          ${todayMins > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--fg)">${todayMins}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">mins</span></div>` : ''}
           ${todayXp > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--primary)">+${todayXp}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">XP</span></div>` : ''}
           ${healthD?.latestSteps ? `<div><span style="font-size:18px;font-weight:800;color:#22c55e">${healthD.latestSteps > 999 ? (healthD.latestSteps / 1000).toFixed(1) + 'k' : healthD.latestSteps}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">steps</span></div>` : ''}
         </div>
-        ${msgs ? '<div style="font-size:12px;font-weight:600;color:var(--text);margin-top:6px">' + msgs + '</div>' : ''}
+        ${msgs ? '<div style="font-size:12px;font-weight:600;color:var(--fg);margin-top:6px">' + msgs + '</div>' : ''}
       </div>`;
     }
   }
   // ── SECTION 3: Quick actions ──
   html += `<div style="display:flex;gap:8px;margin-top:10px">
-    <button class="btn" id="today-quick-log" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Log</button>
+    <button class="btn" id="today-quick-log" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Log</button>
     <button class="btn" id="today-quick-record" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>Record GPS</button>
   </div>`;
   // ── SECTION 4: Smart contextual cards ──
@@ -2307,14 +2307,14 @@ function renderToday() {
         <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(249,115,22,.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-            <div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(nextSession.title)}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(nextSession.title)}</div>
             <div style="font-size:11px;font-weight:700;color:${isSessionToday ? 'var(--primary)' : 'var(--muted-fg)'}">${timeLabel}</div>
           </div>
           <div style="font-size:12px;color:var(--muted-fg)">${nextSession.time || ''}${nextSession.endTime ? ' - ' + nextSession.endTime : ''}${nextSession.location ? ' · ' + escHtml(nextSession.location) : ''}</div>
           ${nextSession.notes ? '<div style="font-size:11px;color:var(--muted-fg);margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
         </div>
       </div>
-      <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:var(--surface-alt);border:1px solid var(--border);border-radius:8px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
+      <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
     </div>`;
   }
   // Team challenge (only if active)
@@ -2343,7 +2343,7 @@ function renderToday() {
     else encouragement = 'Another day in the books. Consistency is what separates good from great.';
     html += `<div style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(249,115,22,.04));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:14px;font-weight:700;color:var(--text)">📋 Today's Roundup</div>
+        <div style="font-size:14px;font-weight:700;color:var(--fg)">📋 Today's Roundup</div>
         <button id="dismiss-roundup" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px">✕</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(${rDist > 0 ? 4 : 3},1fr);gap:6px;margin-bottom:10px">
@@ -2352,11 +2352,11 @@ function renderToday() {
           <div style="font-size:9px;color:var(--muted-fg)">sessions</div>
         </div>
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--text)">${rMins}</div>
+          <div style="font-size:20px;font-weight:800;color:var(--fg)">${rMins}</div>
           <div style="font-size:9px;color:var(--muted-fg)">mins</div>
         </div>
         ${rDist > 0 ? `<div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--text)">${rDist.toFixed(1)}</div>
+          <div style="font-size:20px;font-weight:800;color:var(--fg)">${rDist.toFixed(1)}</div>
           <div style="font-size:9px;color:var(--muted-fg)">km</div>
         </div>` : ''}
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
@@ -2366,7 +2366,7 @@ function renderToday() {
       </div>
       ${rAvgRpe ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Effort: ${rAvgRpe}/10 · Types: ${rTypes}</div>` : ''}
       ${healthD?.latestHr ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Peak HR: ${healthD.latestHr} bpm${healthD.latestSteps ? ' · Steps: ' + healthD.latestSteps.toLocaleString() : ''}</div>` : ''}
-      <div style="font-size:12px;color:var(--text);line-height:1.4;margin-top:6px;padding-top:6px;border-top:1px solid rgba(124,58,237,.1)">${encouragement}</div>
+      <div style="font-size:12px;color:var(--fg);line-height:1.4;margin-top:6px;padding-top:6px;border-top:1px solid rgba(124,58,237,.1)">${encouragement}</div>
     </div>`;
   }
   // Strava connect (new users only)
@@ -2387,7 +2387,7 @@ function renderToday() {
   html += renderGoals();
   const earned = getEarnedBadges();
   if (earned.length > 0 || userWorkouts.length > 0) {
-    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">Badges · ${earned.length}/${BADGES.length}</div>`;
+    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px">Badges · ${earned.length}/${BADGES.length}</div>`;
     html += renderBadges();
     html += '</div>';
   }
@@ -2400,7 +2400,7 @@ function renderToday() {
       weeks.push({ count, label: wStart2.getDate() + '/' + (wStart2.getMonth()+1), isCurrent: i === 0 });
     }
     const maxCount = Math.max(...weeks.map(w => w.count), 1);
-    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">Weekly Activity</div>
+    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px">Weekly Activity</div>
     <div class="chart-row">${weeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? 'var(--primary)' : 'var(--muted)'}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
   }
   html += renderWorkoutCalendar(now);
@@ -2493,7 +2493,7 @@ function renderToday() {
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;display:flex;align-items:center;justify-content:center;padding:20px';
       overlay.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:320px">
-        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px">Set a Goal</div>
+        <div style="font-size:15px;font-weight:700;color:var(--fg);margin-bottom:12px">Set a Goal</div>
         <select id="goal-type-sel" class="input" style="margin-bottom:8px;width:100%">
           <option value="workouts">Total Workouts</option>
           <option value="streak">Day Streak</option>
@@ -2502,7 +2502,7 @@ function renderToday() {
         <input id="goal-target-inp" class="input" type="number" placeholder="Target number" style="margin-bottom:8px;width:100%">
         <input id="goal-label-inp" class="input" type="text" placeholder="Label (e.g. &quot;20 workouts this term&quot;)" style="margin-bottom:12px;width:100%">
         <div style="display:flex;gap:8px">
-          <button id="goal-cancel" class="btn" style="flex:1;background:var(--surface-alt);color:var(--muted-fg)">Cancel</button>
+          <button id="goal-cancel" class="btn" style="flex:1;background:var(--bg);color:var(--muted-fg)">Cancel</button>
           <button id="goal-save" class="btn btn-primary" style="flex:1">Save Goal</button>
         </div>
       </div>`;
@@ -2615,7 +2615,7 @@ function renderToday() {
       sheetHtml += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:20px;width:28px;text-align:center">${w.icon}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--text)">${w.label}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--fg)">${w.label}</div>
           <div style="font-size:11px;color:var(--muted-fg)">${w.desc}</div>
         </div>
         <div class="theme-toggle${isOn(w.id) ? ' on' : ''}" data-widget-id="${w.id}" style="cursor:pointer">
@@ -2862,7 +2862,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
     const allDone = doneS >= totalS;
     if (liveMode) { renderLiveMode(); return; }
     let html = `<div style="display:flex;align-items:center;padding:12px 16px;padding-top:calc(12px + var(--safe-t));border-bottom:1px solid var(--border);flex-shrink:0">
-      <button id="et-back" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">\u2190</button>
+      <button id="et-back" style="background:none;border:none;color:var(--fg);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">\u2190</button>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(name)}</div>
         <div style="font-size:11px;color:var(--muted-fg)">${doneS}/${totalS} sets \u00b7 ${pct}%</div>
@@ -2873,7 +2873,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
     if (restTimerInterval && restSeconds > 0) {
       html += `<div style="padding:12px 16px;background:rgba(59,130,246,.08);border-bottom:1px solid rgba(59,130,246,.15);text-align:center">
         <div style="font-size:11px;font-weight:600;color:#3b82f6;margin-bottom:4px">REST</div>
-        <div id="rest-timer-display" style="font-size:32px;font-weight:800;color:var(--text)">${restSeconds}s</div>
+        <div id="rest-timer-display" style="font-size:32px;font-weight:800;color:var(--fg)">${restSeconds}s</div>
         <div style="height:3px;background:rgba(59,130,246,.15);border-radius:99px;margin-top:6px"><div id="rest-timer-bar" style="height:100%;width:${(restSeconds/60)*100}%;background:#3b82f6;border-radius:99px;transition:width 1s linear"></div></div>
         <button id="skip-rest" style="margin-top:6px;font-size:11px;color:var(--muted-fg);background:none;border:none;cursor:pointer">Skip \u2192</button>
       </div>`;
@@ -2888,7 +2888,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
       html += `<div class="card" style="margin-bottom:8px;${exDone ? 'opacity:.5' : ''}">
         <div style="padding:12px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${ex.notes ? '4' : '6'}px">
-            <div style="font-weight:700;font-size:14px;color:var(--text);flex:1;min-width:0">${exDone ? '<span style="color:var(--primary)">\u2713</span> ' : ''}${escHtml(ex.name)}</div>
+            <div style="font-weight:700;font-size:14px;color:var(--fg);flex:1;min-width:0">${exDone ? '<span style="color:var(--primary)">\u2713</span> ' : ''}${escHtml(ex.name)}</div>
             <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-left:8px">${repInfo}${resistInfo}</div>
           </div>
           ${ex.notes ? '<div style="font-size:12px;color:var(--muted-fg);line-height:1.4;margin-bottom:6px">' + escHtml(ex.notes) + '</div>' : ''}
@@ -2924,7 +2924,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
     const totalDone = Object.values(progress).reduce((s, v) => s + v, 0);
     const totalS2 = exercises.reduce((s, ex2) => s + (ex2.sets || 1), 0);
     let html = `<div style="display:flex;align-items:center;padding:12px 16px;padding-top:calc(12px + var(--safe-t));border-bottom:1px solid var(--border);flex-shrink:0">
-      <button id="et-exit-live" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">\u2190</button>
+      <button id="et-exit-live" style="background:none;border:none;color:var(--fg);font-size:20px;cursor:pointer;padding:4px 8px 4px 0">\u2190</button>
       <div style="flex:1;font-size:12px;color:var(--muted-fg)">${liveExIdx + 1} of ${exercises.length}</div>
       <div style="font-size:12px;font-weight:700;color:var(--primary)">${totalDone}/${totalS2} sets</div>
     </div>
@@ -2932,18 +2932,18 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
     if (restTimerInterval && restSeconds > 0) {
       html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
         <div style="font-size:14px;font-weight:600;color:#3b82f6;margin-bottom:8px">REST</div>
-        <div id="rest-timer-display" style="font-size:72px;font-weight:800;color:var(--text)">${restSeconds}s</div>
+        <div id="rest-timer-display" style="font-size:72px;font-weight:800;color:var(--fg)">${restSeconds}s</div>
         <div style="width:200px;height:4px;background:rgba(59,130,246,.15);border-radius:99px;margin:16px 0"><div id="rest-timer-bar" style="height:100%;width:${(restSeconds/60)*100}%;background:#3b82f6;border-radius:99px;transition:width 1s linear"></div></div>
         ${nextEx ? '<div style="font-size:13px;color:var(--muted-fg)">Next: ' + escHtml(nextEx.name) + '</div>' : ''}
-        <button id="skip-rest" style="margin-top:16px;padding:10px 24px;font-size:13px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer">Skip Rest \u2192</button>
+        <button id="skip-rest" style="margin-top:16px;padding:10px 24px;font-size:13px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer">Skip Rest \u2192</button>
       </div>`;
     } else {
       html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
         <div style="font-size:48px;margin-bottom:12px">${exDone ? '\u2705' : '\ud83c\udfcb\ufe0f'}</div>
-        <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px">${escHtml(ex.name)}</div>
+        <div style="font-size:24px;font-weight:800;color:var(--fg);margin-bottom:6px">${escHtml(ex.name)}</div>
         <div style="font-size:16px;color:var(--muted-fg);margin-bottom:4px">${repInfo}${ex.resistance ? ' \u00b7 ' + ex.resistance : ''}</div>
         ${ex.notes ? '<div style="font-size:13px;color:var(--muted-fg);line-height:1.5;margin-bottom:12px;max-width:300px">' + escHtml(ex.notes) + '</div>' : ''}
-        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px">Set ${Math.min(setsCompleted + 1, setsTarget)} of ${setsTarget}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:16px">Set ${Math.min(setsCompleted + 1, setsTarget)} of ${setsTarget}</div>
         <div style="display:flex;gap:6px;margin-bottom:20px">`;
       for (let s = 0; s < setsTarget; s++) {
         const done = s < setsCompleted;
@@ -3717,7 +3717,7 @@ async function loadTrainingSessions() {
 }
 function renderWorkouts() {
   const c = $('workouts-content');
-  let html = '<div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Log Manually</button></div>';
+  let html = '<div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Log Manually</button></div>';
   // Load stored routes for mini maps
   let storedRoutes = {};
   try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
@@ -3739,7 +3739,7 @@ function renderWorkouts() {
     types.forEach(t => {
       const count = userWorkouts.filter(w => (w.type || 'ride').toLowerCase() === t).length;
       if (count > 0) {
-        html += `<button class="wo-filter-btn" data-wofilter="${t}" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">${typeIcons[t]} ${capitalize(t)} (${count})</button>`;
+        html += `<button class="wo-filter-btn" data-wofilter="${t}" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">${typeIcons[t]} ${capitalize(t)} (${count})</button>`;
       }
     });
     // Check for tracked vs manual
@@ -3747,10 +3747,10 @@ function renderWorkouts() {
     const stravaCount = userWorkouts.filter(w => w.source === 'strava').length;
     const manualCount = userWorkouts.length - trackedCount - stravaCount;
     if (trackedCount > 0) {
-      html += `<button class="wo-filter-btn" data-wofilter="tracked" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">📍 GPS (${trackedCount})</button>`;
+      html += `<button class="wo-filter-btn" data-wofilter="tracked" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">📍 GPS (${trackedCount})</button>`;
     }
     if (stravaCount > 0) {
-      html += `<button class="wo-filter-btn" data-wofilter="strava" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);cursor:pointer">⬡ Strava (${stravaCount})</button>`;
+      html += `<button class="wo-filter-btn" data-wofilter="strava" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">⬡ Strava (${stravaCount})</button>`;
     }
     html += '</div>';
     html += '<div class="space-y" id="wo-list">';
@@ -3827,7 +3827,7 @@ function renderWorkouts() {
   c.querySelectorAll('.wo-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       c.querySelectorAll('.wo-filter-btn').forEach(b => {
-        b.style.background = 'var(--surface-alt)'; b.style.color = 'var(--muted-fg)'; b.style.borderColor = 'var(--border)';
+        b.style.background = 'var(--surface)'; b.style.color = 'var(--muted-fg)'; b.style.borderColor = 'var(--border)';
       });
       btn.style.background = 'var(--primary)'; btn.style.color = 'var(--primary-fg)'; btn.style.borderColor = 'var(--primary)';
       const filter = btn.dataset.wofilter;
@@ -4127,7 +4127,7 @@ function renderPlans() {
   let html = '<div class="page-title">Training Plans</div>';
   // My AI Plans (inline at top — replaces separate sub-tab)
   if (customPlans.length > 0) {
-    html += `<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">My AI Plans · ${customPlans.length}</div>`;
+    html += `<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px">My AI Plans · ${customPlans.length}</div>`;
     customPlans.forEach((plan, idx) => {
       const isActive = plan.id === (userProfile?.activePlanId);
       html += `<div style="position:relative;margin-bottom:6px">`;
@@ -5045,7 +5045,7 @@ function renderProfile() {
       <div id="strava-activities-list"></div>
     </div>`;
     html += `<button class="strava-disconnect" id="strava-disconnect-btn">Disconnect Strava</button>`;
-    html += `<button class="strava-disconnect" id="strava-resync-routes" style="margin-top:6px;background:var(--surface-alt);color:var(--text);border:1px solid var(--border)">🗺️ Re-sync Route Maps</button>`;
+    html += `<button class="strava-disconnect" id="strava-resync-routes" style="margin-top:6px;background:var(--bg);color:var(--fg);border:1px solid var(--border)">🗺️ Re-sync Route Maps</button>`;
     html += `<div style="font-size:11px;color:var(--muted-fg);margin-top:4px">Re-downloads GPS routes for all Strava activities. Use if maps are missing.</div>`;
 
   } else {
@@ -5079,28 +5079,28 @@ function renderProfile() {
   html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px">
     Connect your wearable to automatically sync workouts, heart rate, steps, and sleep.
   </div>
-  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--text)">Option 1: Via Strava (easiest)</strong><br>
+  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px">
+    <strong style="color:var(--fg)">Option 1: Via Strava (easiest)</strong><br>
     Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
   </div>
-  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--text)">Option 2: Apple Shortcut (live HR during workouts)</strong><br>
+  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px">
+    <strong style="color:var(--fg)">Option 2: Apple Shortcut (live HR during workouts)</strong><br>
     Your coach shares a Shortcut link. Tap to add it, paste your token below. It auto-runs when you start an Apple Watch workout and syncs heart rate every 5 seconds. Steps and sleep sync daily at 8am.
   </div>`;
   if (syncToken) {
     html += `<div style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
-      <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px">Your Sync Token</div>
+      <div style="font-size:11px;font-weight:600;color:var(--fg);margin-bottom:4px">Your Sync Token</div>
       <div style="font-size:11px;font-family:monospace;color:var(--primary);word-break:break-all;margin-bottom:4px">${escHtml(syncToken)}</div>
       <div style="font-size:10px;color:var(--muted-fg);margin-bottom:6px">Paste this into your Apple Shortcut when prompted.</div>
       <div style="display:flex;gap:6px;margin-bottom:6px">
-        <button id="copy-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer">Copy Token</button>
+        <button id="copy-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--fg);cursor:pointer">Copy Token</button>
         <button id="test-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--primary);background:rgba(249,115,22,.1);color:var(--primary);cursor:pointer">Test Sync</button>
       </div>
       <button id="install-shortcut-workout" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#ef4444,#f87171);color:#fff;cursor:pointer;margin-bottom:6px">❤️ Install Workout Shortcut (live HR)</button>
       <button id="install-shortcut-daily" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;cursor:pointer">😴 Install Daily Sync (steps + sleep)</button>
     </div>`;
   } else {
-    html += `<button id="generate-sync-token" style="width:100%;padding:10px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--surface-alt);color:var(--text);cursor:pointer;margin-bottom:8px">Generate Sync Token</button>`;
+    html += `<button id="generate-sync-token" style="width:100%;padding:10px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);cursor:pointer;margin-bottom:8px">Generate Sync Token</button>`;
   }
   // Show latest health data if available
   const health = userProfile?.health;
@@ -5113,7 +5113,7 @@ function renderProfile() {
     if (health.vo2max) healthItems.push('🫁 VO2 ' + health.vo2max);
     if (healthItems.length > 0) {
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">';
-      healthItems.forEach(item => { html += '<span style="font-size:11px;padding:3px 8px;border-radius:6px;background:var(--surface-alt);color:var(--text)">' + item + '</span>'; });
+      healthItems.forEach(item => { html += '<span style="font-size:11px;padding:3px 8px;border-radius:6px;background:var(--bg);color:var(--fg)">' + item + '</span>'; });
       html += '</div>';
       if (health.lastSync) html += '<div style="font-size:10px;color:var(--muted-fg);margin-top:2px">Last sync: ' + timeAgo(new Date(health.lastSync)) + '</div>';
     }
@@ -5690,7 +5690,7 @@ function openManageSubteamsSheet() {
 async function leaveTeam() {
   if (!currentUser || !userProfile?.teamId) return;
   const teamName = teamData?.name || 'this team';
-  showModal('Leave Team', '<div style="font-size:14px;color:var(--text)">Are you sure you want to leave <strong>' + escHtml(teamName) + '</strong>? You can rejoin later with the team code.</div>', async () => {
+  showModal('Leave Team', '<div style="font-size:14px;color:var(--fg)">Are you sure you want to leave <strong>' + escHtml(teamName) + '</strong>? You can rejoin later with the team code.</div>', async () => {
     if (demoMode) {
       teamData = null;
       teamMembers = [];
@@ -6518,11 +6518,11 @@ function renderHealthTab() {
     const hrMin = Math.min(...hrWorkouts.map(w => w.heartRate));
     html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">❤️ Heart Rate History</div>
+        <div style="font-size:13px;font-weight:700;color:var(--fg)">❤️ Heart Rate History</div>
         <div style="font-size:11px;color:var(--muted-fg)">Last ${hrWorkouts.length} workouts</div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-        <span style="font-size:11px;color:var(--muted-fg)">Avg: <strong style="color:var(--text)">${Math.round(hrWorkouts.reduce((s,w)=>s+w.heartRate,0)/hrWorkouts.length)}</strong></span>
+        <span style="font-size:11px;color:var(--muted-fg)">Avg: <strong style="color:var(--fg)">${Math.round(hrWorkouts.reduce((s,w)=>s+w.heartRate,0)/hrWorkouts.length)}</strong></span>
         <span style="font-size:11px;color:var(--muted-fg)">Low: <strong style="color:#22c55e">${hrMin}</strong></span>
         <span style="font-size:11px;color:var(--muted-fg)">High: <strong style="color:#ef4444">${hrMax}</strong></span>
       </div>
@@ -6561,7 +6561,7 @@ function renderHealthTab() {
   const maxMins = Math.max(1, ...days14.map(d => d.mins));
   html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:700;color:var(--text)">📊 Training Volume</div>
+      <div style="font-size:13px;font-weight:700;color:var(--fg)">📊 Training Volume</div>
       <div style="font-size:11px;color:var(--muted-fg)">Last 14 days</div>
     </div>
     <div style="display:flex;align-items:end;gap:2px;height:70px">`;
@@ -6586,21 +6586,21 @@ function renderHealthTab() {
   const twDist = thisWeek.reduce((s, d) => s + d.dist, 0);
   const minsDiff = twMins - lwMins;
   html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📈 Week Comparison</div>
+    <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:10px">📈 Week Comparison</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
       <div style="text-align:center">
         <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Sessions</div>
-        <div style="font-size:20px;font-weight:800;color:var(--text)">${twCount}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--fg)">${twCount}</div>
         <div style="font-size:10px;color:${twCount >= lwCount ? '#22c55e' : '#ef4444'}">${twCount >= lwCount ? '↑' : '↓'} vs ${lwCount}</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Minutes</div>
-        <div style="font-size:20px;font-weight:800;color:var(--text)">${twMins}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--fg)">${twMins}</div>
         <div style="font-size:10px;color:${minsDiff >= 0 ? '#22c55e' : '#ef4444'}">${minsDiff >= 0 ? '+' : ''}${minsDiff} min</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Distance</div>
-        <div style="font-size:20px;font-weight:800;color:var(--text)">${twDist > 0 ? twDist.toFixed(1) : '--'}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--fg)">${twDist > 0 ? twDist.toFixed(1) : '--'}</div>
         <div style="font-size:10px;color:var(--muted-fg)">${twDist > 0 ? 'km' : ''}</div>
       </div>
     </div>
@@ -6611,7 +6611,7 @@ function renderHealthTab() {
   if (rpeWorkouts.length >= 3) {
     html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">💪 Effort Trend (RPE)</div>
+        <div style="font-size:13px;font-weight:700;color:var(--fg)">💪 Effort Trend (RPE)</div>
         <div style="font-size:11px;color:var(--muted-fg)">Last ${rpeWorkouts.length}</div>
       </div>
       <div style="display:flex;align-items:end;gap:3px;height:60px">`;
@@ -6632,11 +6632,11 @@ function renderHealthTab() {
   if (!h.latestHr && !h.latestSteps && !h.latestSleep) {
     html += `<div style="text-align:center;padding:24px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px">
       <div style="font-size:32px;margin-bottom:8px">❤️</div>
-      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">No Health Data Yet</div>
+      <div style="font-size:15px;font-weight:700;color:var(--fg);margin-bottom:6px">No Health Data Yet</div>
       <div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:12px">Connect your wearable to see heart rate, steps, and sleep data here with charts and trends.</div>
-      <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;text-align:left;padding:10px;background:var(--surface-alt);border-radius:8px;margin-bottom:8px">
-        <strong style="color:var(--text)">Option 1:</strong> Connect Strava in Profile — auto-imports workouts with heart rate<br><br>
-        <strong style="color:var(--text)">Option 2:</strong> Apple Shortcut — ask your coach for the setup link. Syncs heart rate, steps, and sleep automatically.
+      <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;text-align:left;padding:10px;background:var(--bg);border-radius:8px;margin-bottom:8px">
+        <strong style="color:var(--fg)">Option 1:</strong> Connect Strava in Profile — auto-imports workouts with heart rate<br><br>
+        <strong style="color:var(--fg)">Option 2:</strong> Apple Shortcut — ask your coach for the setup link. Syncs heart rate, steps, and sleep automatically.
       </div>
       <button class="btn btn-primary" id="health-go-profile" style="padding:10px 20px;font-size:13px">Go to Profile → Health Sync</button>
     </div>`;
@@ -6648,21 +6648,21 @@ function renderHealthTab() {
   const allSpeeds = userWorkouts.map(w => w.avgSpeed || 0).filter(s => s > 0);
   if (allDurations.length > 0 || allDistances.length > 0) {
     html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">🏆 Personal Bests</div>
+      <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:10px">🏆 Personal Bests</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${allDurations.length > 0 ? `<div style="padding:8px;background:var(--surface-alt);border-radius:8px;text-align:center">
+        ${allDurations.length > 0 ? `<div style="padding:8px;background:var(--bg);border-radius:8px;text-align:center">
           <div style="font-size:18px;font-weight:800;color:var(--primary)">${Math.max(...allDurations)}</div>
           <div style="font-size:10px;color:var(--muted-fg)">Longest session (min)</div>
         </div>` : ''}
-        ${allDistances.length > 0 ? `<div style="padding:8px;background:var(--surface-alt);border-radius:8px;text-align:center">
+        ${allDistances.length > 0 ? `<div style="padding:8px;background:var(--bg);border-radius:8px;text-align:center">
           <div style="font-size:18px;font-weight:800;color:var(--primary)">${Math.max(...allDistances).toFixed(1)}</div>
           <div style="font-size:10px;color:var(--muted-fg)">Longest ride (km)</div>
         </div>` : ''}
-        ${allSpeeds.length > 0 ? `<div style="padding:8px;background:var(--surface-alt);border-radius:8px;text-align:center">
+        ${allSpeeds.length > 0 ? `<div style="padding:8px;background:var(--bg);border-radius:8px;text-align:center">
           <div style="font-size:18px;font-weight:800;color:var(--primary)">${Math.max(...allSpeeds).toFixed(1)}</div>
           <div style="font-size:10px;color:var(--muted-fg)">Top speed (km/h)</div>
         </div>` : ''}
-        ${userWorkouts.length > 0 ? `<div style="padding:8px;background:var(--surface-alt);border-radius:8px;text-align:center">
+        ${userWorkouts.length > 0 ? `<div style="padding:8px;background:var(--bg);border-radius:8px;text-align:center">
           <div style="font-size:18px;font-weight:800;color:var(--primary)">${userWorkouts.length}</div>
           <div style="font-size:10px;color:var(--muted-fg)">Total workouts</div>
         </div>` : ''}
@@ -6710,9 +6710,9 @@ function openHealthDashboard() {
   html += '</div>';
   // Workout heart rate history
   if (workoutsWithHr.length > 0) {
-    html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">Workout Heart Rate</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:8px">Workout Heart Rate</div>';
     html += `<div style="display:flex;gap:12px;margin-bottom:10px">
-      ${avgHr ? `<div style="font-size:12px;color:var(--muted-fg)">Avg: <strong style="color:var(--text)">${avgHr}</strong> bpm</div>` : ''}
+      ${avgHr ? `<div style="font-size:12px;color:var(--muted-fg)">Avg: <strong style="color:var(--fg)">${avgHr}</strong> bpm</div>` : ''}
       ${maxHr ? `<div style="font-size:12px;color:var(--muted-fg)">Peak: <strong style="color:#ef4444">${maxHr}</strong> bpm</div>` : ''}
     </div>`;
     // Simple bar chart of recent HR
@@ -6731,27 +6731,27 @@ function openHealthDashboard() {
     html += '</div>';
   }
   // Training totals
-  html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">Training Totals</div>';
+  html += '<div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:8px">Training Totals</div>';
   html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
-    <div style="text-align:center;padding:10px 4px;background:var(--surface-alt);border-radius:10px">
-      <div style="font-size:18px;font-weight:800;color:var(--text)">${userWorkouts.length}</div>
+    <div style="text-align:center;padding:10px 4px;background:var(--bg);border-radius:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--fg)">${userWorkouts.length}</div>
       <div style="font-size:10px;color:var(--muted-fg)">workouts</div>
     </div>
-    <div style="text-align:center;padding:10px 4px;background:var(--surface-alt);border-radius:10px">
-      <div style="font-size:18px;font-weight:800;color:var(--text)">${totalMins > 60 ? (totalMins / 60).toFixed(1) + 'h' : totalMins + 'm'}</div>
+    <div style="text-align:center;padding:10px 4px;background:var(--bg);border-radius:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--fg)">${totalMins > 60 ? (totalMins / 60).toFixed(1) + 'h' : totalMins + 'm'}</div>
       <div style="font-size:10px;color:var(--muted-fg)">total time</div>
     </div>
-    <div style="text-align:center;padding:10px 4px;background:var(--surface-alt);border-radius:10px">
-      <div style="font-size:18px;font-weight:800;color:var(--text)">${totalDist > 0 ? totalDist.toFixed(1) + 'km' : '--'}</div>
+    <div style="text-align:center;padding:10px 4px;background:var(--bg);border-radius:10px">
+      <div style="font-size:18px;font-weight:800;color:var(--fg)">${totalDist > 0 ? totalDist.toFixed(1) + 'km' : '--'}</div>
       <div style="font-size:10px;color:var(--muted-fg)">distance</div>
     </div>
   </div>`;
   // Sync info
-  html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">How to Sync</div>';
+  html += '<div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:6px">How to Sync</div>';
   html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px">
-    <strong style="color:var(--text)">Strava:</strong> Profile → Connect Strava<br>
-    <strong style="color:var(--text)">Apple Watch:</strong> Coach shares a Shortcut link. Tap to add → paste your sync token → heart rate syncs automatically during workouts.<br>
-    <strong style="color:var(--text)">Token:</strong> ${userProfile?.syncToken ? '<span style="font-family:monospace;color:var(--primary)">' + escHtml(userProfile.syncToken.substring(0, 12)) + '...</span>' : 'Generate in Profile → Health Sync'}
+    <strong style="color:var(--fg)">Strava:</strong> Profile → Connect Strava<br>
+    <strong style="color:var(--fg)">Apple Watch:</strong> Coach shares a Shortcut link. Tap to add → paste your sync token → heart rate syncs automatically during workouts.<br>
+    <strong style="color:var(--fg)">Token:</strong> ${userProfile?.syncToken ? '<span style="font-family:monospace;color:var(--primary)">' + escHtml(userProfile.syncToken.substring(0, 12)) + '...</span>' : 'Generate in Profile → Health Sync'}
   </div>`;
   if (h.lastSync) html += `<div style="font-size:10px;color:var(--muted-fg)">Last sync: ${timeAgo(new Date(h.lastSync))}</div>`;
   $('sheet-content').innerHTML = html;
@@ -6806,7 +6806,7 @@ function renderWeatherCard(el, w) {
       <img src="${iconUrl}" style="width:52px;height:52px;margin:-8px" alt="${escHtml(w.desc)}">
       <div style="flex:1">
         <div style="display:flex;align-items:baseline;gap:6px">
-          <span style="font-size:32px;font-weight:800;color:var(--text);line-height:1">${w.temp}°</span>
+          <span style="font-size:32px;font-weight:800;color:var(--fg);line-height:1">${w.temp}°</span>
           <span style="font-size:13px;color:var(--muted-fg);text-transform:capitalize">${escHtml(w.desc)}</span>
         </div>
         <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">Feels ${w.feels}°${w.city ? ' · ' + escHtml(w.city) : ''}</div>
@@ -6816,7 +6816,7 @@ function renderWeatherCard(el, w) {
       <span style="font-size:11px;color:var(--muted-fg)">💨 ${w.wind} km/h</span>
       <span style="font-size:11px;color:var(--muted-fg)">💧 ${w.humidity}%</span>
     </div>
-    <div style="font-size:12px;font-weight:600;color:var(--text)">${advice}</div>
+    <div style="font-size:12px;font-weight:600;color:var(--fg)">${advice}</div>
   </div>`;
 }
 function addSessionToCalendar(session) {
@@ -6831,13 +6831,13 @@ function addSessionToCalendar(session) {
   // Show calendar picker
   const content = `<div style="padding:4px 0">
     <div style="font-size:14px;font-weight:700;margin-bottom:12px">Add to Calendar</div>
-    <button class="btn cal-opt" data-cal="google" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer">
+    <button class="btn cal-opt" data-cal="google" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer">
       <span style="font-size:18px">📅</span> Google Calendar
     </button>
-    <button class="btn cal-opt" data-cal="apple" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer">
+    <button class="btn cal-opt" data-cal="apple" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer">
       <span style="font-size:18px">🍎</span> Apple Calendar (.ics)
     </button>
-    <button class="btn cal-opt" data-cal="outlook" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;gap:10px;cursor:pointer">
+    <button class="btn cal-opt" data-cal="outlook" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer">
       <span style="font-size:18px">📧</span> Outlook Calendar
     </button>
   </div>`;
