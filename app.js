@@ -5703,22 +5703,31 @@ async function leaveTeam() {
     }
   });
 }
-async function loadTeamData() {
+async function loadTeamData(forceRefresh=false) {
   if (!currentUser || !userProfile?.teamId) {
-    teamData = null;
-    teamMembers = [];
-    return;
+    teamData = null; teamMembers = []; return;
   }
   if (demoMode) return;
   if (!db) return;
+
+  // Cache team members for 5 minutes — saves N reads per page load
+  const cacheKey = 'tp_team_' + userProfile.teamId;
+  const cacheTs  = 'tp_team_ts_' + userProfile.teamId;
+  if (!forceRefresh) {
+    try {
+      const ts = parseInt(localStorage.getItem(cacheTs)||'0');
+      if (Date.now()-ts < 5*60*1000) {
+        const cached = JSON.parse(localStorage.getItem(cacheKey)||'null');
+        if (cached) { teamData=cached.teamData; teamMembers=cached.members; return; }
+      }
+    } catch(e) {}
+  }
+
   try {
     const teamSnap = await getDoc(doc(db, 'teams', userProfile.teamId));
     if (!teamSnap.exists()) {
-      userProfile.teamId = null;
-      userProfile.teamName = null;
-      teamData = null;
-      teamMembers = [];
-      return;
+      userProfile.teamId = null; userProfile.teamName = null;
+      teamData = null; teamMembers = []; return;
     }
     const td = teamSnap.data();
     teamData = { id: teamSnap.id, name: td.name, code: td.code, members: td.members || [] };
@@ -5777,6 +5786,11 @@ async function loadTeamData() {
       }
     }
     teamMembers = members;
+    // Save to cache
+    try {
+      localStorage.setItem('tp_team_'+userProfile.teamId, JSON.stringify({teamData,members}));
+      localStorage.setItem('tp_team_ts_'+userProfile.teamId, Date.now().toString());
+    } catch(e) {}
   } catch(e) {
     console.error('Load team error:', e);
     teamData = null;
@@ -6175,14 +6189,21 @@ function startApp() {
       showMainApp();
       const initial = (userProfile?.displayName || user.displayName || user.email || 'U').charAt(0).toUpperCase();
       try { $('user-avatar-btn').textContent = initial; } catch(e) {}
-      // PHASE 3: Load remaining data in parallel (app is already visible)
+      // PHASE 3a: Critical data first (needed for current page)
       await Promise.allSettled([
-        loadVideoOverrides(), isAdmin ? loadAdminData() : Promise.resolve(),
-        loadAnnouncements(), loadFirestoreRaces(), loadHiddenPlans(),
-        loadTeamData(), loadUserRaceLogs(), loadRaceFootage(), loadRaceLogVideos(),
-        loadExerciseOverrides(), loadPlanOverrides(), loadExerciseDemoVideos(),
-        loadCustomPlans(), loadTeamFeed(), loadTeamChallenge(), loadTrainingSessions()
+        loadAnnouncements(), loadTeamData(), loadUserRaceLogs(),
+        isAdmin ? loadAdminData() : Promise.resolve()
       ]);
+      renderCurrentPage();
+      // PHASE 3b: Non-critical — defer 500ms so page renders first
+      setTimeout(() => {
+        Promise.allSettled([
+          loadVideoOverrides(), loadFirestoreRaces(), loadHiddenPlans(),
+          loadRaceFootage(), loadRaceLogVideos(), loadExerciseOverrides(),
+          loadPlanOverrides(), loadExerciseDemoVideos(), loadCustomPlans(),
+          loadTeamFeed(), loadTeamChallenge(), loadTrainingSessions()
+        ]).then(() => renderCurrentPage());
+      }, 500);
       // Re-render after data loads if on team/today page
       if (currentPage === 'team') renderTeam();
       if (currentPage === 'today') renderToday();
@@ -6374,6 +6395,7 @@ async function loadAdminData() {
     // Load announcements
     const annSnap = await getDoc(doc(db, 'config', 'announcements'));
     adminAnnouncements = annSnap.exists() ? (annSnap.data().items || []) : [];
+    try { localStorage.setItem('tp_announcements', JSON.stringify(adminAnnouncements)); } catch(e) {}
     // Load races from Firestore
     const raceSnap = await getDoc(doc(db, 'config', 'races'));
     adminRaces = raceSnap.exists() ? (raceSnap.data().races || null) : null;
@@ -6392,6 +6414,11 @@ async function loadAdminData() {
 }
 async function loadAnnouncements() {
   if (!db) return;
+  // Use cached announcements on load, refresh in background
+  try {
+    const cached = JSON.parse(localStorage.getItem('tp_announcements')||'null');
+    if (cached) { adminAnnouncements = cached; renderCurrentPage(); }
+  } catch(e) {}
   try {
     const annSnap = await getDoc(doc(db, 'config', 'announcements'));
     adminAnnouncements = annSnap.exists() ? (annSnap.data().items || []) : [];
