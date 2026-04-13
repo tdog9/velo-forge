@@ -1255,7 +1255,7 @@ function switchPage(page) {
   $('content').scrollTop = savedScroll;
 }
 function renderCurrentPage() {
-  const pageTitles = {today:'Today — TurboPrep',fitness:'Fitness — TurboPrep',races:'Races — TurboPrep',team:'Leaderboard — TurboPrep',admin:'Admin — TurboPrep',coach:'Coach — TurboPrep'};
+  const pageTitles = {today:'Today — TurboPrep',fitness:'Fitness — TurboPrep',races:'Races & Calendar — TurboPrep',team:'Leaderboard & Teams — TurboPrep',admin:'Admin — TurboPrep',coach:'Coach — TurboPrep'};
   document.title = pageTitles[page] || 'TurboPrep';
   switch(currentPage) {
     case 'today': renderToday(); loadWeather(); break;
@@ -2015,7 +2015,10 @@ function renderTeamFeed() {
 function renderToday() {
   const c = $('today-content');
   if (!c) return;
-  try {
+  // Show skeleton on first load
+  if (!c.innerHTML.trim()) {
+    c.innerHTML = '<div style="padding:16px"><div class="skeleton skeleton-title" style="width:60%;margin-bottom:20px"></div><div class="skeleton skeleton-text" style="width:100%"></div><div class="skeleton skeleton-text" style="width:80%"></div><div class="skeleton skeleton-text" style="width:90%"></div></div>';
+  }
   const now = new Date();
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -3724,7 +3727,7 @@ async function loadTrainingSessions() {
       try { localStorage.setItem('tp_training_sessions', JSON.stringify(trainingSessions)); } catch(e) {}
     }
   } catch(e) { console.error('Load training sessions error:', e); }
-  } catch(e) { console.warn('[renderToday]', e); c.innerHTML = '<div class="empty-state"><div class="empty-state-title">Could not load today</div><div class="empty-state-desc">Tap to retry</div></div>'; c.onclick = () => { c.onclick=null; renderToday(); }; }
+
 }
 function renderWorkouts() {
   const c = $('workouts-content');
@@ -4101,6 +4104,7 @@ async function saveWorkout(rpe, photoData, workoutType) {
 }
 // Bottom Sheet
 function openSheet() {
+  try { window.webkit?.messageHandlers?.haptics?.postMessage('light'); } catch(e) {}
   const overlay = $('sheet-overlay');
   const sheet = $('sheet');
   overlay.style.display = '';
@@ -4627,7 +4631,7 @@ function updateCountdowns() {
   document.querySelectorAll('.countdown-grid[data-race-date]').forEach(el => {
     const raceDate = new Date(el.dataset.raceDate + 'T09:00:00+10:00');
     const now = new Date();
-    const diff = raceDate - now;
+    const diff = Math.max(0, raceDate - now);
     if (diff <= 0) {
       el.innerHTML = '<span class="badge badge-complete">Race Started!</span>';
       return;
@@ -4873,7 +4877,7 @@ function renderTeamTab(c) {
     $('team-join-btn').addEventListener('click', openJoinTeamSheet);
     $('team-request-btn')?.addEventListener('click', openCreateTeamSheet);
     renderTeamSearchResults(c, '');
-    $('team-search-input').addEventListener('input', e => renderTeamSearchResults(c, e.target.value));
+    $('team-search-input').addEventListener('input', debounce(e => renderTeamSearchResults(c, e.target.value), 250));
     return;
   }
   // Team header
@@ -7243,3 +7247,15 @@ document.addEventListener('keydown', e => {
     if ($('profile-overlay')?.style.display !== 'none') closeProfile?.();
   }
 });
+
+function setButtonLoading(btn, loading, text='') {
+  if (!btn) return;
+  if (loading) {
+    btn._origText = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 auto"></div>';
+  } else {
+    btn.disabled = false;
+    btn.textContent = text || btn._origText || 'Done';
+  }
+}

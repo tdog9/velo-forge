@@ -335,6 +335,7 @@ export async function stravaAutoSync() {
 }
 
 
+export async function stravaResyncRoutes() {
   A.showToast('Re-syncing routes...', 'info');
   try {
     // Refresh token if needed

@@ -1,5 +1,3 @@
-const _adminUserCard = true;
-function escHtml(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 // TurboPrep Admin Panel Module
 // All state accessed via A (app context set by initAdmin)
 import { escHtml, capitalize, getXpLevel, timeAgo } from './state.js';
@@ -247,10 +245,7 @@ function renderAdminMaintenance() {
           const best=laps.length>0?fmtMs(Math.min(...laps.map(l=>l.duration))):'—';
           return (s.displayName||s.uid)+': '+laps.length+' laps, best '+best;
         });
-        alert('Today's Stints:
-
-'+lines.join('
-'));
+        alert("Today's Stints:\n" + lines.join('\n'));
       } catch(e) { A.showToast('Failed to load stints.','error'); }
     });
   })();
