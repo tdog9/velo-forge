@@ -718,6 +718,13 @@ function showMainApp() {
   mainApp.classList.remove('hidden');
   mainApp.style.display = 'flex';
   show('ai-fab');
+  // Set avatar initial
+  const avatarBtn = $('user-avatar-btn');
+  if (avatarBtn && userProfile?.displayName) {
+    avatarBtn.textContent = userProfile.displayName.charAt(0).toUpperCase();
+  } else if (avatarBtn && currentUser?.email) {
+    avatarBtn.textContent = currentUser.email.charAt(0).toUpperCase();
+  }
   renderCurrentPage();
 }
 // Auth event listeners
@@ -3770,7 +3777,9 @@ function renderWorkouts() {
       const isStrava = w.source === 'strava';
       const routeId = w.routeId || (w.stravaId ? 'strava-' + w.stravaId : w._id);
       const hasRoute = routeId && storedRoutes[routeId] && storedRoutes[routeId].length > 1;
-      const sourceIcon = isStrava ? '⬡ ' : isTracked ? '📍 ' : '';
+      const typeLabels = {hpv:'HPV',ride:'Ride',run:'Run',walk:'Walk',treadmill:'Treadmill',gym:'Gym',cycle:'Cycle'};
+      const typeColors = {hpv:'#f97316',ride:'#3b82f6',run:'#22c55e',walk:'#a855f7',treadmill:'#06b6d4',gym:'#f59e0b',cycle:'#3b82f6'};
+      const sourceIcon = '';
       const photoId = w.photoId || w._id;
       const hasPhoto = storedPhotos[photoId];
       html += `<div class="card wo-card" data-wo-type="${wType}" data-wo-source="${w.source || 'manual'}" data-wo-idx="${idx}">
@@ -3779,7 +3788,7 @@ function renderWorkouts() {
             <div class="wo-left" style="flex:1;min-width:0">
               <div class="wo-title-row">
                 <span class="wo-name">${escHtml(w.name || 'Workout')}</span>
-                <span class="activity-badge ${wType}${isStrava ? ' strava' : ''}">${sourceIcon}${capitalize(wType)}</span>
+                <span class="activity-badge" style="background:${(typeColors[wType]||'#6b7280')+'22'};color:${typeColors[wType]||'#6b7280'}">${typeLabels[wType]||capitalize(wType)}</span>
               </div>
               <div class="activity-stats-row">
                 ${w.duration ? `<span><strong>${w.duration}</strong> min</span>` : ''}
@@ -5646,9 +5655,13 @@ function openManageSubteamsSheet() {
       <label class="label" for="new-subteam-name">New Subteam Name</label>
       <input class="input" type="text" id="new-subteam-name" placeholder="e.g. Year 9 Squad" maxlength="40">
     </div>
-    <button class="btn btn-primary" style="width:100%" id="subteam-create-btn">Create Subteam</button>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-secondary" style="flex:1" id="subteam-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="subteam-create-btn">Create Subteam</button>
+    </div>
   `;
   openSheet();
+  $('subteam-cancel-btn').addEventListener('click', closeSheet);
   $('subteam-create-btn').addEventListener('click', async () => {
     const name = $('new-subteam-name').value.trim();
     if (!name) { showToast('Enter a subteam name.', 'warn'); return; }
@@ -6259,10 +6272,9 @@ function renderCoachPage() {
   ];
 
   let html = '<div class="page-title" style="margin-bottom:12px">Coach</div>';
-  html += '<div class="fitness-sub-bar-sticky"><div class="fitness-sub-bar" style="display:flex;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)">';
+  html += '<div class="fitness-sub-bar-sticky"><div class="fitness-sub-bar">';
   tabs.forEach(t => {
-    const active = coachPageTab === t.id;
-    html += `<button class="fitness-sub-tab${active?' active':''}" data-coach-sub="${t.id}" style="flex:1;padding:9px 2px;font-size:12px;font-weight:600;background:${active?'var(--primary)':'var(--secondary)'};color:${active?'var(--primary-fg)':'var(--secondary-fg)'};border:none;cursor:pointer;transition:all .15s">${t.label}</button>`;
+    html += `<button class="fitness-sub-tab${coachPageTab===t.id?' active':''}" data-coach-sub="${t.id}">${t.label}</button>`;
   });
   html += '</div></div>';
   html += `<div id="coach-sub-content"></div>`;
@@ -6325,6 +6337,19 @@ function renderCoachTeam(el) {
     <div class="team-hero-members">${teamMembers.length} member${teamMembers.length!==1?'s':''}</div>
   </div>`;
 
+  // Members list
+  if (teamMembers.length > 0) {
+    html += `<div class="card card-pad" style="margin-bottom:10px"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Members (${teamMembers.length})</div><div style="display:flex;flex-direction:column;gap:0">`;
+    teamMembers.forEach(m => {
+      const tc = {basic:'#3b82f6',average:'#22c55e',intense:'#f97316'}[m.fitnessLevel]||'#3b82f6';
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${escHtml((m.displayName||'?').charAt(0).toUpperCase())}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.displayName||'Unknown')}</div>
+        <div style="font-size:11px;color:var(--muted-fg)">${m.yearLevel||'—'} · <span style="color:${tc}">${m.fitnessLevel||'basic'}</span></div></div>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
   // Feature toggles
   html += `<div class="card card-pad" style="margin-bottom:10px">
     <div style="font-size:13px;font-weight:600;margin-bottom:12px">Feature Toggles</div>
@@ -6332,7 +6357,10 @@ function renderCoachTeam(el) {
   </div>`;
 
   // Subteams
-  html += `<button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-sub-manage">Manage Subteams</button>`;
+  html += `<div style="display:flex;gap:8px;margin-bottom:8px">
+    <button class="btn btn-secondary" style="flex:1" id="coach-sub-manage">Manage Subteams</button>
+    <button class="btn" style="flex:1;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" id="coach-delete-team-btn">Delete Team</button>
+  </div>`;
 
   el.innerHTML = html;
   el.querySelectorAll('.coach-feat-toggle').forEach(btn => {
@@ -6348,6 +6376,19 @@ function renderCoachTeam(el) {
     });
   });
   el.querySelector('#coach-sub-manage')?.addEventListener('click', openManageSubteamsSheet);
+  el.querySelector('#coach-delete-team-btn')?.addEventListener('click', () => {
+    showModal('Delete Team', '<div style="font-size:14px;color:var(--fg);line-height:1.6">Are you sure you want to <strong>permanently delete</strong> this team? All members will lose access. This cannot be undone.</div>', async () => {
+      try {
+        if (db && userProfile?.teamId) {
+          await deleteDoc(doc(db,'teams',userProfile.teamId));
+          await updateDoc(doc(db,'users',currentUser.uid),{teamId:null,teamName:null,isCoach:false});
+        }
+        teamData=null; teamMembers=[]; userProfile.teamId=null; userProfile.teamName=null; userProfile.isCoach=false;
+        try { localStorage.removeItem('tp_team_'+userProfile?.teamId); } catch(e) {}
+        showToast('Team deleted.','info'); renderTeam(); renderCoachPage();
+      } catch(e) { showToast('Failed to delete team.','error'); }
+    });
+  });
 }
 
 function renderCoachRaceDay(el) {
@@ -6355,7 +6396,7 @@ function renderCoachRaceDay(el) {
   const isActive = getRaceDayActive();
   el.innerHTML = `
     <div style="text-align:center;padding:20px 16px">
-      <div style="font-size:48px;margin-bottom:12px">🏁</div>
+      <div style="width:56px;height:56px;border-radius:16px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;color:var(--primary)"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>
       <div style="font-size:18px;font-weight:700;margin-bottom:8px">${isActive ? 'Race Day is LIVE' : 'Race Day Mode'}</div>
       <div style="font-size:13px;color:var(--muted-fg);margin-bottom:20px;line-height:1.5">${isActive ? 'All team members are in race day mode. Tap below to end.' : 'Activating race day mode locks all users into the race day interface for the day.'}</div>
       ${isActive

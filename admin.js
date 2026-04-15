@@ -308,7 +308,10 @@ export async function renderCoachDashboard() {
         { name: 'Pat H.', year: 'Y11', tier: 'basic', workouts: 12, lastActive: new Date(Date.now() - 86400000 * 12), streak: 0, avgRpe: 6.0 },
       ];
     } else if (A.db) {
-      const usersSnap = await A.getDocs(A.collection(A.db, 'users'));
+      // Only load team members, not all users
+    const memberUids = A.teamData?.members || [];
+    if (!memberUids.length) { el.innerHTML = '<div class="admin-empty" style="padding:20px">No team members yet.</div>'; return; }
+    const usersSnap = { docs: (await Promise.all(memberUids.map(uid => A.getDoc(A.doc(A.db,'users',uid)).catch(()=>null)))).filter(d=>d?.exists()).map(d=>({id:d.id,data:()=>d.data()})) };
       for (const d of usersSnap.docs) {
         const u = d.data();
         let wCount = 0, lastDate = null, rpeSum = 0, rpeCount = 0;
@@ -762,7 +765,10 @@ export async function renderCoachDashboard() {
     let totalDupes = 0;
     let dupeList = [];
     try {
-      const usersSnap = await A.getDocs(A.collection(A.db, 'users'));
+      // Only load team members, not all users
+    const memberUids = A.teamData?.members || [];
+    if (!memberUids.length) { el.innerHTML = '<div class="admin-empty" style="padding:20px">No team members yet.</div>'; return; }
+    const usersSnap = { docs: (await Promise.all(memberUids.map(uid => A.getDoc(A.doc(A.db,'users',uid)).catch(()=>null)))).filter(d=>d?.exists()).map(d=>({id:d.id,data:()=>d.data()})) };
       for (const userDoc of usersSnap.docs) {
         const uid = userDoc.id;
         const userName = userDoc.data().displayName || 'Unknown';
@@ -1445,7 +1451,10 @@ async function renderUsersAll(el) {
   el.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div><div style="margin-top:8px;color:var(--muted-fg);font-size:13px">Loading users...</div></div>';
 
   try {
-    const usersSnap = await A.getDocs(A.collection(A.db, 'users'));
+    // Only load team members, not all users
+    const memberUids = A.teamData?.members || [];
+    if (!memberUids.length) { el.innerHTML = '<div class="admin-empty" style="padding:20px">No team members yet.</div>'; return; }
+    const usersSnap = { docs: (await Promise.all(memberUids.map(uid => A.getDoc(A.doc(A.db,'users',uid)).catch(()=>null)))).filter(d=>d?.exists()).map(d=>({id:d.id,data:()=>d.data()})) };
     A.allUsersCache = [];
     for (const d of usersSnap.docs) {
       const u = d.data();
@@ -1462,7 +1471,11 @@ async function renderUsersAll(el) {
     return;
   }
 
-  let html = `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${A.allUsersCache.length} registered user${A.allUsersCache.length !== 1 ? 's' : ''}</div>`;
+  let userSearch = '';
+  let html = `<div style="margin-bottom:10px">
+    <input class="input" id="admin-user-search" type="text" placeholder="Search by name or email..." style="width:100%;margin-bottom:8px" value="">
+    <div style="font-size:12px;color:var(--muted-fg)">${A.allUsersCache.length} users</div>
+  </div>`;
 
   if (A.allUsersCache.length === 0) {
     html += '<div class="admin-empty">No users yet.</div>';
@@ -1471,7 +1484,7 @@ async function renderUsersAll(el) {
       const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
       const tc = tierColors[u.fitnessLevel] || '#3b82f6';
       html += `
-        <div class="card" style="margin-bottom:8px">
+        <div class="card admin-user-card-row" data-name="${escHtml(u.displayName||'')}" data-email="${escHtml(u.email||'')}" style="margin-bottom:8px">
           <div class="card-pad" style="padding:12px 14px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
               <div style="font-size:15px;font-weight:600;color:var(--fg);flex:1">${escHtml(u.displayName || 'Unknown')}</div>

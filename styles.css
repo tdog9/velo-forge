@@ -1215,3 +1215,46 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .tier-pill.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
 
 #admin-content{max-width:100%;}
+
+/* ===== Activity type badges ===== */
+.activity-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap}
+
+.admin-user-card-row{transition:opacity .1s}
+
+/* ===== Admin panel components ===== */
+.admin-edit-btn{padding:6px 12px;border-radius:6px;background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap}
+.admin-del-btn{padding:6px 10px;border-radius:6px;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2);cursor:pointer;font-size:12px;font-weight:600}
+.admin-user-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px}
+.admin-user-stat{font-size:12px;color:var(--muted-fg)}
+.admin-user-stat strong{color:var(--fg)}
+.admin-perm-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(249,115,22,.15);color:var(--primary)}
+.admin-tier-select,.admin-year-select{font-size:12px;padding:6px 8px;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--fg);cursor:pointer}
+.admin-empty{text-align:center;padding:24px;font-size:13px;color:var(--muted-fg)}
+
+/* ===== Permissions ===== */
+.perm-admin-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px}
+.perm-admin-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.perm-admin-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.perm-feature-toggle{padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer}
+.perm-feature-toggle.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.perm-check{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.perm-check.on{background:var(--primary);border-color:var(--primary)}
+
+/* ===== Race footage admin ===== */
+.footage-admin-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+
+/* ===== Bulk messaging ===== */
+.bulk-target-btn{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer}
+.bulk-target-btn.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+
+/* ===== Training session ===== */
+.ts-notify-btn{padding:6px 12px;border-radius:6px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer}
+
+/* ===== Plan activate section ===== */
+.plan-activate{padding:0 14px 14px}
+
+/* ===== Challenge ===== */
+.ch-team-score{font-size:13px;font-weight:600;color:var(--primary)}
+
+/* ===== Activity badge ===== */
+.activity-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap}
