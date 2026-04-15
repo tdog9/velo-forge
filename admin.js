@@ -32,7 +32,7 @@ export function renderAdmin() {
   </div>`;
   html += '<div class="admin-tabs" style="overflow-x:auto;padding-bottom:2px">';
   tabs.forEach(t => {
-    html += `<button class="admin-tab${A.adminActiveTab===t.id?' active':''}" data-admin-tab="${t.id}" style="white-space:nowrap">${t.label}</button>`;
+    html += `<button class="admin-tab${A.adminActiveTab===t.id?' active':''}" data-admin-tab="${t.id}">${t.label}</button>`;
   });
   html += '</div>';
   tabs.forEach(t => {
@@ -249,6 +249,39 @@ function renderAdminMaintenance() {
       } catch(e) { A.showToast('Failed to load stints.','error'); }
     });
   })();
+}
+
+// ── Health Reports viewer (admin Maintenance tab) ────────────────────────────
+export function renderHealthReports(el) {
+  if (!el) return;
+  const reports = (() => { try { return JSON.parse(localStorage.getItem('tp_hc_reports')||'[]'); } catch(e){ return []; } })();
+  let html = `<div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:10px">Health Check Reports</div>`;
+  if (reports.length === 0) {
+    html += '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:16px">No health checks run yet.<br>Checks run every 5th load or daily.</div>';
+  } else {
+    reports.slice(0,10).forEach(r => {
+      const dt = new Date(r.timestamp).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'});
+      const ok = r.findingCount === 0;
+      html += `<div style="background:var(--card);border:1px solid ${ok?'var(--border)':'rgba(239,68,68,.2)'};border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:11px;font-weight:700;color:${ok?'#22c55e':'#ef4444'}">${ok?'✓ PASSED':'✗ '+r.findingCount+' ISSUE'+(r.findingCount!==1?'S':'')}</span>
+          <span style="font-size:11px;color:var(--muted-fg);flex:1">${dt}</span>
+          <span style="font-size:10px;color:var(--muted-fg)">${r.passed}/${r.total} checks</span>
+        </div>
+        ${r.findings && r.findings.length > 0 ? r.findings.map(f=>`<div style="font-size:11px;color:${f.severity==='error'?'#ef4444':'#f59e0b'};padding:1px 0">• ${escHtml(f.name)}${f.detail?': '+escHtml(f.detail):''}</div>`).join('') : ''}
+      </div>`;
+    });
+  }
+  if (window._hcLastMailto) {
+    html += `<a href="${escHtml(window._hcLastMailto)}" style="display:block;padding:10px;background:var(--primary);color:var(--primary-fg);border-radius:var(--radius-sm);text-align:center;font-size:13px;font-weight:700;text-decoration:none;margin-top:8px">📧 Send Latest Report</a>`;
+  }
+  html += `<button onclick="localStorage.removeItem('tp_hc_reports');this.closest('[id]').innerHTML='<div style=\"text-align:center;padding:12px;font-size:12px;color:var(--muted-fg)\">Cleared</div>'" style="width:100%;margin-top:8px;padding:8px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);color:var(--muted-fg);font-size:12px;cursor:pointer">Clear Reports</button>`;
+  el.innerHTML = html;
+  // Health reports
+  const _hrEl = document.createElement('div');
+  _hrEl.style.cssText = 'margin-top:16px';
+  renderHealthReports(_hrEl);
+  el.appendChild(_hrEl);
 }
 
 // ── System tab (god mode settings) ──────────────────────────────────────────

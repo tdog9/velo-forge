@@ -2,6 +2,8 @@
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { initRaceDay, loadRaceDayState, getRaceDayActive, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay, checkRaceDaySchedule } from './raceday.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
+import { maybeRunHealthCheck, initHealthErrorCollector } from './healthcheck.js';
+initHealthErrorCollector();
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)
 let renderAdmin = () => {}, renderCoachDashboard = async () => {}, renderAdminTraining = () => {}, loadAdminEmails = async () => {},
     loadExerciseOverrides = async () => {}, savePlanOverrides = async () => {},
@@ -1270,10 +1272,7 @@ function renderCurrentPage() {
 function renderFitness() {
   // Update sub-tab styling
   document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
-    const isActive = btn.dataset.fitnessSub === fitnessSubTab;
-    btn.style.background = isActive ? 'var(--primary)' : 'var(--secondary)';
-    btn.style.color = isActive ? 'var(--primary-fg)' : 'var(--secondary-fg)';
-    btn.classList.toggle('active', isActive);
+    btn.classList.toggle('active', btn.dataset.fitnessSub === fitnessSubTab);
   });
   // Show/hide content areas
   const wc = $('workouts-content');
@@ -1353,7 +1352,7 @@ contentEl.addEventListener('scroll', () => {
   const shouldShow = contentEl.scrollTop > 400;
   if (shouldShow !== scrollTopVisible) {
     scrollTopVisible = shouldShow;
-    scrollTopBtn.classList.toggle('visible', shouldShow);
+    if (scrollTopBtn) scrollTopBtn.classList.toggle('visible', shouldShow);
   }
 }, { passive: true });
 scrollTopBtn.addEventListener('click', () => {
@@ -1656,7 +1655,7 @@ function renderDemonstration() {
           <div class="demo-ex-body" id="demos-body-${i}">
             ${embedUrl ? `
               <div class="demo-ex-video">
-                <iframe src="${escHtml(embedUrl)}" allowfullscreen loading="lazy"></iframe>
+                <iframe src="${escHtml(embedUrl)}" allowfullscreen loading="lazy" title="Exercise demonstration"></iframe>
               </div>
             ` : ''}
             ${ex.description ? '<div class="demo-ex-desc">' + escHtml(ex.description) + '</div>' : ''}
@@ -2695,15 +2694,17 @@ function renderToday() {
       if (route && route.length > 1) {
         setTimeout(() => {
           try {
-            const m = L.map(todayMapEl.id, { zoomControl:false, attributionControl:false, dragging:false, touchZoom:false, scrollWheelZoom:false, doubleClickZoom:false });
+            if (todayMapEl._leaflet_id) return;
+            const m = L.map(todayMapEl, { zoomControl:false, attributionControl:false, dragging:false, touchZoom:false, scrollWheelZoom:false, doubleClickZoom:false });
             L.tileLayer(getMapTileUrl(), { maxZoom:18 }).addTo(m);
             const ll = route.map(p => [p[0],p[1]]);
             const pl = L.polyline(ll, { color:'#f97316', weight:3, opacity:0.9 }).addTo(m);
             L.circleMarker(ll[0], { radius:5, fillColor:'#22c55e', fillOpacity:1, color:'#fff', weight:2 }).addTo(m);
             L.circleMarker(ll[ll.length-1], { radius:5, fillColor:'#ef4444', fillOpacity:1, color:'#fff', weight:2 }).addTo(m);
-            m.fitBounds(pl.getBounds(), { padding:[10,10] });
+            m.fitBounds(pl.getBounds(), { padding:[8,8] });
+            m.invalidateSize();
           } catch(e) {}
-        }, 100);
+        }, 200);
       }
     }
   }
@@ -3815,26 +3816,37 @@ function renderWorkouts() {
     html += '</div>';
   }
   c.innerHTML = html;
-  // Render mini maps for tracked activities
+  // Render mini maps — wait for container to have real dimensions
   if (typeof L !== 'undefined') {
-    c.querySelectorAll('.activity-map-thumb').forEach(el => {
+    const renderMiniMap = (el) => {
       const routeId = el.dataset.routeId;
       const route = storedRoutes[routeId];
       if (!route || route.length < 2) return;
-      setTimeout(() => {
-        try {
-          const miniMap = L.map(el.id, {
-            zoomControl: false, attributionControl: false, dragging: false,
-            touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false
-          });
-          L.tileLayer(getMapTileUrl(), { maxZoom: 18 }).addTo(miniMap);
-          const latlngs = route.map(p => [p[0], p[1]]);
-          const polyline = L.polyline(latlngs, { color: '#f97316', weight: 3, opacity: 0.9 }).addTo(miniMap);
-          L.circleMarker(latlngs[0], { radius: 5, fillColor: '#22c55e', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
-          L.circleMarker(latlngs[latlngs.length - 1], { radius: 5, fillColor: '#ef4444', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(miniMap);
-          miniMap.fitBounds(polyline.getBounds(), { padding: [10, 10] });
-        } catch(e) { console.warn('Mini map error:', e); }
-      }, 100);
+      if (el._leaflet_id) return; // already initialised
+      if (el.offsetHeight < 10) return; // not rendered yet
+      try {
+        const miniMap = L.map(el, {
+          zoomControl:false, attributionControl:false, dragging:false,
+          touchZoom:false, scrollWheelZoom:false, doubleClickZoom:false
+        });
+        L.tileLayer(getMapTileUrl(), { maxZoom:18 }).addTo(miniMap);
+        const latlngs = route.map(p => [p[0], p[1]]);
+        const poly = L.polyline(latlngs, { color:'#f97316', weight:3, opacity:0.9 }).addTo(miniMap);
+        L.circleMarker(latlngs[0], { radius:5, fillColor:'#22c55e', fillOpacity:1, color:'#fff', weight:2 }).addTo(miniMap);
+        L.circleMarker(latlngs[latlngs.length-1], { radius:5, fillColor:'#ef4444', fillOpacity:1, color:'#fff', weight:2 }).addTo(miniMap);
+        miniMap.fitBounds(poly.getBounds(), { padding:[8,8] });
+        miniMap.invalidateSize();
+      } catch(e) { console.warn('Mini map:', e); }
+    };
+    c.querySelectorAll('.activity-map-thumb').forEach(el => {
+      // Try immediately, then after layout, then via IntersectionObserver
+      setTimeout(() => renderMiniMap(el), 150);
+      if ('IntersectionObserver' in window) {
+        const obs = new IntersectionObserver(entries => {
+          entries.forEach(entry => { if (entry.isIntersecting) { renderMiniMap(el); obs.disconnect(); } });
+        }, { threshold: 0.1 });
+        obs.observe(el);
+      }
     });
   }
   // Filter buttons
@@ -4996,9 +5008,16 @@ function openProfile() {
 function closeProfile() {
   $('profile-overlay').style.display = 'none';
 }
-function renderProfile() {
+async function renderProfile() {
   const el = $('profile-body');
   const name = userProfile?.displayName || currentUser?.displayName || 'Unknown';
+  // Load leagues created by this user
+  if (!window.userLeagues && db && currentUser) {
+    try {
+      const snap = await getDocs(query(collection(db,'leagues'), where('createdBy','==',currentUser.uid)));
+      window.userLeagues = snap.docs.map(d=>({id:d.id,...d.data()}));
+    } catch(e) { window.userLeagues = []; }
+  }
   const email = currentUser?.email || '';
   const year = userProfile?.yearLevel || '—';
   const tier = capitalize(userProfile?.fitnessLevel || 'basic');
@@ -5050,7 +5069,33 @@ function renderProfile() {
     </div>`;
     html += '</div>';
   }
+  // League Admin — only if user created a league
+  if (window.userLeagues && window.userLeagues.length > 0) {
+    const myLeagues = window.userLeagues.filter(lg => lg.createdBy === currentUser?.uid || lg.adminUid === currentUser?.uid);
+    if (myLeagues.length > 0) {
+      html += '<div class="profile-section"><div class="profile-section-title">My Leagues</div>';
+      myLeagues.forEach(lg => {
+        const mc = (lg.members || []).length;
+        const approved = lg.approved;
+        const statusLabel = approved ? 'Live' : 'Pending';
+        const statusColor = approved ? '#22c55e' : '#f59e0b';
+        html += '<div class="profile-row" style="flex-direction:column;align-items:flex-start;gap:6px">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;width:100%">';
+        html += '<span class="profile-row-label" style="font-size:14px;font-weight:600;color:var(--fg)">' + escHtml(lg.name||'My League') + '</span>';
+        html += '<span style="font-size:11px;font-weight:700;color:' + statusColor + ';background:' + statusColor + '22;padding:2px 8px;border-radius:10px">' + statusLabel + '</span>';
+        html += '</div>';
+        html += '<div style="font-size:12px;color:var(--muted-fg)">' + mc + ' member' + (mc!==1?'s':'') + '</div>';
+        html += '<div style="display:flex;gap:6px;width:100%;margin-top:2px">';
+        html += '<button class="btn btn-secondary" style="flex:1;font-size:12px;padding:7px 0" data-league-manage="' + escHtml(lg.id) + '">Manage</button>';
+        html += '<button class="btn" style="flex:1;font-size:12px;padding:7px 0;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" data-league-delete="' + escHtml(lg.id) + '">Delete</button>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+    }
+  }
+
   // Stats
+
   html += `<div class="profile-section"><div class="profile-section-title">Your Stats</div>
     <div class="profile-row"><span class="profile-row-label">Total Workouts</span><span class="profile-row-value">${userWorkouts.length}</span></div>
     <div class="profile-row"><span class="profile-row-label">Member Since</span><span class="profile-row-value">${userProfile?.createdAt ? new Date(userProfile.createdAt).toLocaleDateString('en-AU',{month:'short',year:'numeric'}) : '—'}</span></div>
@@ -5179,6 +5224,59 @@ function renderProfile() {
   // Fetch clubs button (if clubs not yet loaded)
 
   $('profile-export-btn')?.addEventListener('click', exportTrainingReport);
+  // League admin buttons
+  el.querySelectorAll('[data-league-manage]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lgId = btn.dataset.leagueManage;
+      const lg = (window.userLeagues||[]).find(l=>l.id===lgId);
+      if (!lg) return;
+      $('sheet-content').innerHTML = `
+        <div class="sheet-title">Manage League</div>
+        <div style="margin-bottom:12px">
+          <div style="font-size:15px;font-weight:700;margin-bottom:4px">${escHtml(lg.name||'')}</div>
+          <div style="font-size:12px;color:var(--muted-fg)">${(lg.members||[]).length} members · ${lg.approved?'Live':'Pending approval'}</div>
+        </div>
+        <div class="form-group">
+          <label class="label">League Name</label>
+          <input class="input" id="lg-edit-name" value="${escHtml(lg.name||'')}" maxlength="60">
+        </div>
+        <div class="form-group">
+          <label class="label">Description</label>
+          <input class="input" id="lg-edit-desc" value="${escHtml(lg.description||'')}" maxlength="120">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-secondary" style="flex:1" id="lg-edit-cancel">Cancel</button>
+          <button class="btn btn-primary" style="flex:1" id="lg-edit-save" data-lgid="${escHtml(lgId)}">Save</button>
+        </div>
+      `;
+      openSheet();
+      $('lg-edit-cancel')?.addEventListener('click', closeSheet);
+      $('lg-edit-save')?.addEventListener('click', async () => {
+        const newName = $('lg-edit-name')?.value.trim();
+        const newDesc = $('lg-edit-desc')?.value.trim();
+        if (!newName) { showToast('Name required','warn'); return; }
+        try {
+          await updateDoc(doc(db,'leagues',lgId),{name:newName,description:newDesc});
+          showToast('League updated','success');
+          window.userLeagues = null; // clear cache
+          closeSheet(); renderProfile();
+        } catch(e) { showToast('Failed: '+e.message,'error'); }
+      });
+    });
+  });
+  el.querySelectorAll('[data-league-delete]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lgId = btn.dataset.leagueDelete;
+      showModal('Delete League','<div style="font-size:14px">Are you sure? This will permanently delete the league and remove all members.</div>', async () => {
+        try {
+          await deleteDoc(doc(db,'leagues',lgId));
+          showToast('League deleted','info');
+          window.userLeagues = null;
+          renderProfile();
+        } catch(e) { showToast('Failed: '+e.message,'error'); }
+      });
+    });
+  });
   // Tutorial & Help bindings
   // Health sync token
   $('generate-sync-token')?.addEventListener('click', async () => {
@@ -5965,6 +6063,8 @@ function buildModuleCtx() {
     STRAVA_CLIENT_ID, STRAVA_REDIRECT_URI,
     // Function refs
     get currentPage() { return currentPage; },
+  forceHealthCheck: (ctx) => { try { forceHealthCheck(ctx); } catch(e){} },
+  getLastHealthReport,
     get fitnessSubTab() { return fitnessSubTab; },
     extractAllExercises,
     RACES,
@@ -6216,6 +6316,19 @@ function startApp() {
       if (currentPage === 'today') renderToday();
       // PHASE 4: Non-async finishers
       try { setupAnnouncementListener(); } catch(e) {}
+      // Health check — runs every 5th load and daily
+      setTimeout(() => runHealthCheck({
+        db, doc, setDoc, getDocs, collection,
+        teamData: window._teamData
+      }), 5000);
+      // Run health check if due (every 5th load or daily)
+      try {
+        maybeRunHealthCheck({
+          db, currentUser, userProfile, isAdmin, showToast,
+          addDoc, collection, serverTimestamp,
+          get isAdmin() { return isAdmin; }
+        });
+      } catch(e) {}
       // Bind record tab after tracker module is ready
       const recordTabBtn = $('record-tab-btn');
       if (recordTabBtn) {

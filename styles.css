@@ -32,8 +32,8 @@
   --surface-raised:#1e2128;
 
   /* Typography */
-  --font-sans:'Cabinet Grotesk','Satoshi',system-ui,sans-serif;
-  --font-body:'Satoshi','Cabinet Grotesk',system-ui,sans-serif;
+  --font-sans:'Outfit',system-ui,sans-serif;
+  --font-body:'Outfit',system-ui,sans-serif;
   --font-mono:'SF Mono','Menlo',monospace;
 
   /* Radius */
@@ -65,6 +65,17 @@
   --chart-cycling:#2EA693;
   --chart-sprint:#8B5CF6;
   --chart-strength:#DC2626;
+}
+.content{
+  flex:1;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  padding:calc(var(--header-h) + var(--safe-t) + 16px) 16px calc(16px + var(--tab-h));
+  -webkit-transform:translateZ(0);
+  transform:translateZ(0);
+  position:relative;
+  scroll-behavior:smooth;
 }
 @supports (height:100dvh){:root{--app-h:100dvh}}
 
@@ -124,12 +135,12 @@ input,select,textarea{
 /* iOS standalone */
 @media all and (display-mode:standalone){
   body{-webkit-user-select:none;user-select:none}
-  .content{overscroll-behavior-y:contain}
+  
   input,textarea,select{-webkit-user-select:text;user-select:text}
 }
 @supports (-webkit-touch-callout:none){
   body{-webkit-touch-callout:none}
-  .content{-webkit-overflow-scrolling:touch}
+  
   html,body{overscroll-behavior-y:none}
   input:focus,textarea:focus,select:focus{transform:translateZ(0)}
 }
@@ -147,17 +158,9 @@ input,select,textarea{
 }
 
 /* ===== Header ===== */
-.header{
-  height:calc(var(--header-h) + var(--safe-t));
-  min-height:calc(var(--header-h) + var(--safe-t));
-  padding:var(--safe-t) 16px 0;
-  display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:10px;
-  background:var(--bg);
-  border-bottom:1px solid var(--border);
-  flex-shrink:0;z-index:30;
-}
+
 .header-left{display:flex;align-items:center;gap:10px}
-.header-right{display:flex;align-items:center;gap:8px}
+.header-right{display:flex;align-items:center;gap:8px;position:relative}
 .header-wordmark{display:flex;align-items:baseline;gap:0;line-height:1}
 .hw-turbo{font-size:17px;font-weight:900;letter-spacing:.06em;font-family:var(--font-sans);color:var(--primary)}
 .hw-prep{font-size:17px;font-weight:900;letter-spacing:.06em;font-family:var(--font-sans);color:rgba(249,115,22,.5)}
@@ -178,17 +181,7 @@ input,select,textarea{
 .header-title{margin-left:auto;font-size:13px;color:var(--muted-fg);font-weight:500}
 
 /* ===== Content Area ===== */
-.content{
-  flex:1;
-  overflow-y:auto;overflow-x:hidden;
-  -webkit-overflow-scrolling:touch;
-  padding:16px 16px calc(16px + var(--tab-h));
-  /* GPU layer for smooth scroll — also makes sticky work */
-  -webkit-transform:translateZ(0);
-  transform:translateZ(0);
-  /* Sticky context */
-  position:relative;
-}
+
 
 /* ===== Sticky Sub-bars ===== */
 /* Works by being sticky within .content which is the scroll container */
@@ -207,10 +200,10 @@ input,select,textarea{
   /* Subtle separator */
   box-shadow:0 4px 12px var(--bg);
 }
-.fitness-sub-bar-sticky .fitness-sub-bar{margin:0}
-.demo-filter-sticky .demo-search-wrap{margin-bottom:6px}
-.demo-filter-sticky .demo-cat-pills{margin-bottom:6px}
-.demo-filter-sticky .demo-cat-count{margin-bottom:2px}
+.fitness-sub-bar-sticky 
+.demo-filter-sticky 
+.demo-filter-sticky 
+.demo-filter-sticky 
 
 /* ===== Unified Sub-tab Bar ===== */
 .fitness-sub-bar{
@@ -236,39 +229,16 @@ input,select,textarea{
   box-shadow:0 1px 4px rgba(249,115,22,.3);
 }
 /* lb-sub-tab (leaderboard) same style */
-.lb-sub-tab{
-  flex:1;padding:7px 4px;
-  font-size:12px;font-weight:600;
-  border:none;border-radius:6px;
-  background:none;color:var(--muted-fg);
-  cursor:pointer;transition:all .15s;
-  -webkit-tap-highlight-color:transparent;
-}
+
 .lb-sub-tab.active{
   background:var(--primary);
   color:var(--primary-fg);
 }
 
 /* ===== Bottom Tab Bar ===== */
-.tab-bar{
-  position:fixed;bottom:0;left:0;right:0;
-  z-index:40;
-  background:rgba(10,11,15,.96);
-  -webkit-backdrop-filter:blur(24px) saturate(180%);
-  backdrop-filter:blur(24px) saturate(180%);
-  border-top:1px solid var(--border);
-  display:flex;align-items:flex-start;justify-content:space-around;
-  padding:6px 0 var(--safe-b);
-  flex-shrink:0;
-}
-.light-theme .tab-bar{background:rgba(244,243,239,.96)}
-.tab-btn{
-  display:flex;flex-direction:column;align-items:center;gap:2px;
-  padding:4px 0;flex:1;min-height:44px;
-  color:var(--muted-fg);transition:color .15s;
-  position:relative;
-  -webkit-tap-highlight-color:transparent;
-}
+
+.light-theme 
+
 .tab-btn.active{color:var(--primary)}
 .tab-btn.active::after{
   content:'';position:absolute;bottom:-2px;left:50%;
@@ -282,15 +252,7 @@ input,select,textarea{
 .tab-btn-label{font-size:10px;font-weight:600;letter-spacing:.02em}
 
 /* ===== Scroll-to-top ===== */
-.scroll-top-btn{
-  position:fixed;bottom:calc(var(--tab-h) + 12px);right:16px;z-index:35;
-  width:40px;height:40px;border-radius:50%;
-  background:var(--primary);color:var(--primary-fg);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:var(--shadow-md);
-  opacity:0;transform:scale(.7) translateY(10px);
-  transition:opacity .2s,transform .2s;pointer-events:none;
-}
+
 .scroll-top-btn.visible{opacity:1;transform:scale(1) translateY(0);pointer-events:auto}
 .scroll-top-btn:active{transform:scale(.9)}
 .scroll-top-btn svg{width:20px;height:20px}
@@ -774,9 +736,9 @@ select.input{
 /* Tablet 600px+ */
 @media (min-width:600px){
   :root{--content-max:580px}
-  .content{padding:20px 24px calc(20px + var(--tab-h));max-width:var(--content-max);margin:0 auto}
-  .header{padding:var(--safe-t) 24px 0;padding-bottom:10px;max-width:var(--content-max);margin:0 auto;width:100%;left:0;right:0;}
-  .tab-bar{max-width:var(--content-max);left:50%;right:auto;transform:translateX(-50%);width:100%;border-radius:12px 12px 0 0}
+  
+  
+  
   .sheet{max-width:480px;left:50%;right:auto;transform:translateX(-50%);border-radius:16px 16px 0 0}
   .sheet.visible{transform:translateX(-50%) translateY(0)}
   .ai-fab{left:calc(50% - 270px)}
@@ -818,7 +780,7 @@ select.input{
 
 /* Landscape phone */
 @media (max-height:500px) and (orientation:landscape){
-  .content{padding-top:8px}
+  
   .header{height:calc(44px + var(--safe-t));min-height:calc(44px + var(--safe-t));--header-h:44px}
   .tab-bar{height:calc(48px + var(--safe-b))}
   :root{--tab-h:calc(48px + var(--safe-b))}
@@ -832,7 +794,7 @@ select.input{
 /* Print */
 @media print{
   .tab-bar,.header,.ai-fab,.scroll-top-btn,.sheet-overlay,.record-tab-circle{display:none !important}
-  .content{padding:0;max-width:100%;overflow:visible}
+  
   body{position:static;overflow:visible;background:#fff;color:#000}
   .card{border:1px solid #ddd;break-inside:avoid}
 }
@@ -874,8 +836,8 @@ select.input{
 /* User menu */
 .user-avatar{width:34px;height:34px;border-radius:50%;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;border:none}
 .user-menu-btn{position:relative}
-.user-menu-overlay{position:fixed;inset:0;z-index:90}
-.user-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:91;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);min-width:200px;overflow:hidden}
+.user-menu-overlay{position:fixed;inset:0;z-index:90;background:transparent}
+.user-menu{position:fixed;top:calc(var(--header-h) + var(--safe-t) - 4px);right:12px;z-index:91;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.4);min-width:200px;overflow:hidden}
 .user-menu-info{padding:12px 14px;border-bottom:1px solid var(--border)}
 .user-menu-name{font-size:14px;font-weight:600}
 .user-menu-divider{height:1px;background:var(--border);margin:4px 0}
@@ -934,7 +896,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* ===== Page transitions ===== */
 @keyframes pageEnter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.page.active .content{animation:pageEnter .2s ease}
+.page.active 
 
 /* ===== Coach feature toggles ===== */
 .coach-feat-toggle{width:46px;height:26px;border-radius:13px;background:var(--muted);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;border:none}
@@ -1050,7 +1012,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .demo-ex-meta{font-size:11px;color:var(--muted-fg);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
 .demo-ex-badge{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600;background:var(--surface);color:var(--muted-fg)}
 .demo-ex-body{padding:0 14px 14px;border-top:1px solid var(--border)}
-.demo-ex-video{width:100%;aspect-ratio:16/9;border-radius:var(--radius-sm);object-fit:cover;background:var(--muted);display:block;margin:10px 0 8px}
+.demo-ex-video{width:100%;aspect-ratio:16/9;border-radius:var(--radius-sm);background:var(--surface);display:block;margin:10px 0 8px;overflow:hidden;position:relative}
+.demo-ex-video iframe{position:absolute;inset:0;width:100%;height:100%;border:none;border-radius:var(--radius-sm)}
 .demo-ex-no-video{padding:16px 12px;text-align:center;font-size:12px;color:var(--muted-fg);display:flex;flex-direction:column;align-items:center;gap:4px}
 .demo-ex-desc{font-size:13px;color:var(--muted-fg);line-height:1.5}
 .demo-collapse-all{font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;font-weight:600;padding:4px 0}
@@ -1092,7 +1055,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .section-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
 
 /* ===== Modal ===== */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-backdrop{position:fixed;inset:0;background:transparent}
 .modal-card{background:var(--card);border-radius:var(--radius-lg);padding:20px;max-width:340px;width:100%;box-shadow:var(--shadow-lg)}
 .modal-title{font-size:18px;font-weight:700;margin-bottom:8px}
 .modal-body{font-size:14px;color:var(--muted-fg);line-height:1.5;margin-bottom:16px}
@@ -1113,7 +1076,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 /* ===== Misc missing ===== */
 .badge-outline{background:transparent;border:1px solid var(--border);color:var(--muted-fg);padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
 .leave-team-btn{font-size:12px;color:var(--destructive);background:none;border:none;cursor:pointer;padding:4px 0;font-weight:600}
-.activity-map-thumb{width:100%;height:100px;border-radius:var(--radius-sm);background:var(--muted);overflow:hidden;margin-top:8px}
+.activity-map-thumb{width:100%;height:140px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);overflow:hidden;margin-top:8px;position:relative}
 .activity-stats-row{display:flex;gap:12px;margin-top:8px;font-size:12px;color:var(--muted-fg)}
 .add-to-cal-btn{font-size:12px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);color:var(--fg);cursor:pointer;font-weight:600}
 .print-btn{font-size:12px;color:var(--muted-fg);background:none;border:none;cursor:pointer;padding:2px 4px}
@@ -1183,7 +1146,7 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .race-footage-label small{display:block;font-size:11px;color:var(--muted-fg);font-weight:400}
 
 /* ===== Activity Tracker Overlay ===== */
-.tracker-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--safe-t)}
+.tracker-overlay{position:fixed;inset:0;z-index:210;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--safe-t)}
 .tracker-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
 .tracker-header-title{font-size:16px;font-weight:700;font-family:var(--font-sans)}
 .tracker-close{width:36px;height:36px;border-radius:50%;background:var(--muted);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--fg);flex-shrink:0;border:none;cursor:pointer}
@@ -1258,3 +1221,11 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 
 /* ===== Activity badge ===== */
 .activity-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap}
+
+.fitness-sub-bar-sticky{position:sticky;top:calc(var(--header-h) + var(--safe-t));z-index:20;background:var(--bg);padding:8px 0 6px;margin:-8px 0 0;}
+
+.modal-btn.primary{background:var(--primary);color:var(--primary-fg)}
+.modal-btn.secondary{background:var(--surface);color:var(--fg);border:1px solid var(--border)}
+.modal-btn:active{opacity:.85}
+
+.admin-tab-btn.active{background:var(--primary)!important;color:var(--primary-fg)!important;border-color:var(--primary)!important}
