@@ -6317,7 +6317,8 @@ function startApp() {
       // PHASE 4: Non-async finishers
       try { setupAnnouncementListener(); } catch(e) {}
       // Health check — runs every 5th load and daily
-      setTimeout(() => runHealthCheck({
+      // runHealthCheck called via maybeRunHealthCheck
+      setTimeout(() => maybeRunHealthCheck({
         db, doc, setDoc, getDocs, collection,
         teamData: window._teamData
       }), 5000);
