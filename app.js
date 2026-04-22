@@ -2194,10 +2194,15 @@ function renderToday() {
     const progressPct = totalPlanWorkouts > 0 ? Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100) : 0;
     html += `<div class="plan-progress"><div class="plan-progress-text"><span>${escHtml(pdData.name)}</span><span>${completedPlanWorkouts}/${totalPlanWorkouts} · ${progressPct}%</span></div><div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div></div>`;
     // Duration selector
-    const selectedDur = parseInt(localStorage.getItem('tp_session_duration') || '0');
-    html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:10px;overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <span style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-right:2px">Time:</span>
-      ${[0,10,15,20,25,30].map(d => `<button class="dur-pick" data-dur="${d}" style="padding:5px 8px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid ${selectedDur === d ? 'var(--primary)' : 'var(--border)'};background:${selectedDur === d ? 'rgba(249,115,22,.15)' : 'var(--surface)'};color:${selectedDur === d ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer;white-space:nowrap">${d === 0 ? 'Full' : d + 'min'}</button>`).join('')}
+    const selectedDur = parseInt(localStorage.getItem('tp_session_duration') || '15');
+    html += `<div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        <span style="font-size:11px;font-weight:600;color:var(--muted-fg)">Session length</span>
+        <span style="font-size:10px;color:var(--primary);background:rgba(249,115,22,.1);padding:1px 7px;border-radius:10px;font-weight:600">Recommended: 15 min</span>
+      </div>
+      <div style="display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px">
+        ${[5,10,15,20,25,30].map(d => `<button class="dur-pick${selectedDur===d?' active':''}" data-dur="${d}" style="padding:5px 10px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid ${selectedDur===d?'var(--primary)':'var(--border)'};background:${selectedDur===d?'rgba(249,115,22,.15)':'var(--surface)'};color:${selectedDur===d?'var(--primary)':'var(--muted-fg)'};cursor:pointer;white-space:nowrap;flex-shrink:0${d===15?';box-shadow:0 0 0 1px rgba(249,115,22,.2)':''}">${d}${d===15?'<span style="font-size:8px;display:block;color:var(--primary);font-weight:600;line-height:1">rec.</span>':'<span style="font-size:8px;display:block;opacity:0;line-height:1">.</span>'}</button>`).join('')}
+      </div>
     </div>`;
     const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
     const todayDay = now.getDay();
