@@ -609,7 +609,25 @@ select.input{
 .strava-import-btn.imported{background:var(--muted);color:var(--muted-fg);border-color:var(--border);cursor:default}
 
 /* ===== AI Coach ===== */
-.ai-fab{position:fixed;bottom:calc(var(--tab-h) + 12px);left:calc(12px + var(--safe-l));z-index:36;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(124,58,237,.4);border:none;cursor:pointer}
+.ai-fab{
+  position:fixed;
+  right:16px;
+  bottom:calc(72px + env(safe-area-inset-bottom, 0px));
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#8b5cf6,#a855f7);
+  color:#fff;
+  border:none;
+  cursor:pointer;
+  box-shadow:0 4px 12px rgba(139,92,246,.4);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:35;
+}
+.ai-fab svg{width:24px;height:24px}
+.ai-fab:active{transform:scale(.92)}
 .ai-fab:active{transform:scale(.93)}
 .ai-fab svg{width:18px;height:18px}
 .ai-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--safe-t)}
@@ -945,12 +963,7 @@ select.input{
   max-width:280px;
   overflow:hidden;
 }
-@media(min-width:600px){
-  .user-menu{
-    right:calc(50vw - var(--content-max)/2 + 16px);
-    right:max(16px, calc(50vw - 290px));
-  }
-}
+
 .user-menu-info{padding:12px 14px;border-bottom:1px solid var(--border)}
 .user-menu-name{font-size:14px;font-weight:600}
 .user-menu-divider{height:1px;background:var(--border);margin:4px 0}
