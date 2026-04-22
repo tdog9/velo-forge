@@ -910,7 +910,7 @@ export function renderAdminAnnouncements() {
   el.querySelectorAll('.admin-toggle').forEach(btn => {
     btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.annIdx);
-      A.adminAnnouncements[idx].active = !A.adminAnnouncements[idx].active;
+      (A.adminAnnouncements||{})[idx].active = !(A.adminAnnouncements||{})[idx].active;
       await saveAnnouncements();
       renderAdminAnnouncements();
     });
@@ -1783,7 +1783,7 @@ function renderPlansManage(el) {
     plans.forEach(p => {
       const isHidden = A.hiddenPlans.has(p.id);
       const pd = A.getPlanDisplayData(p);
-      const hasOverride = !!A.planOverrides[p.id];
+      const hasOverride = !!(A.planOverrides||{})[p.id];
       html += `
         <div class="admin-item">
           <div class="admin-item-info" style="cursor:pointer" data-edit-plan="${p.id}">
@@ -1824,7 +1824,7 @@ function renderPlansManage(el) {
 }
 
 function openPlanEditSheet(plan) {
-  const ov = A.planOverrides[plan.id] || {};
+  const ov = (A.planOverrides||{})[plan.id] || {};
   const name = ov.name || plan.name;
   const desc = ov.description || plan.description;
   const weeks = ov.durationWeeks || plan.durationWeeks;
@@ -1853,7 +1853,7 @@ function openPlanEditSheet(plan) {
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-primary" style="flex:1" id="plan-edit-save">Save Changes</button>
-      ${A.planOverrides[plan.id] ? '<button class="btn btn-secondary" id="plan-edit-reset">Reset to Default</button>' : ''}
+      ${(A.planOverrides||{})[plan.id] ? '<button class="btn btn-secondary" id="plan-edit-reset">Reset to Default</button>' : ''}
     </div>
   `;
   A.openSheet();
@@ -1871,9 +1871,9 @@ function openPlanEditSheet(plan) {
     if (newSessions !== plan.sessionsPerWeek) ov.sessionsPerWeek = newSessions;
 
     if (Object.keys(ov).length > 0) {
-      A.planOverrides[plan.id] = ov;
+      (A.planOverrides||{})[plan.id] = ov;
     } else {
-      delete A.planOverrides[plan.id];
+      delete (A.planOverrides||{})[plan.id];
     }
     await savePlanOverrides();
     A.closeSheet();
@@ -1886,7 +1886,7 @@ function openPlanEditSheet(plan) {
   if (resetBtn) {
     resetBtn.addEventListener('click', async () => {
       if (!confirm('Reset this plan to its original content?')) return;
-      delete A.planOverrides[plan.id];
+      delete (A.planOverrides||{})[plan.id];
       await savePlanOverrides();
       A.closeSheet();
       renderAdminPlansMerged();
@@ -1920,7 +1920,7 @@ function renderPlansWorkouts(el) {
         html += '<div style="font-size:12px;font-weight:700;color:var(--fg);margin:8px 0 4px">Week ' + wk + '</div>';
         weeks[wk].forEach(({ workout: w, index: wi }) => {
           const key = plan.id + '_' + wi;
-          const ov = A.exerciseOverrides[key];
+          const ov = (A.exerciseOverrides||{})[key];
           const name = (ov && ov.name) || w.name;
           const hasOverride = !!ov;
           html += `
@@ -1954,7 +1954,7 @@ function renderPlansWorkouts(el) {
       if (!plan) return;
       const w = plan.workouts[wi];
       if (!w) return;
-      const ov = A.exerciseOverrides[key] || {};
+      const ov = (A.exerciseOverrides||{})[key] || {};
       openExerciseEditSheet(key, w, ov);
     });
   });
@@ -1963,7 +1963,7 @@ function renderPlansWorkouts(el) {
     btn.addEventListener('click', async () => {
       const key = btn.dataset.resetExercise;
       if (!confirm('Reset this workout to its original content?')) return;
-      delete A.exerciseOverrides[key];
+      delete (A.exerciseOverrides||{})[key];
       await saveExerciseOverrides();
       renderAdminPlansMerged();
     });
@@ -2177,7 +2177,7 @@ export async function saveExerciseDemoVideos() {
 
 export function getWorkoutData(planId, weekIdx, workout) {
   const key = planId + '_' + weekIdx;
-  const override = A.exerciseOverrides[key];
+  const override = A.exerciseOverrides && (A.exerciseOverrides||{})[key];
   if (override) {
     return {
       name: override.name || workout.name,
@@ -2242,9 +2242,9 @@ function openExerciseEditSheet(key, originalWorkout, currentOverride) {
     if (newInt !== originalWorkout.intensity) ov.intensity = newInt;
     
     if (Object.keys(ov).length > 0) {
-      A.exerciseOverrides[key] = ov;
+      (A.exerciseOverrides||{})[key] = ov;
     } else {
-      delete A.exerciseOverrides[key];
+      delete (A.exerciseOverrides||{})[key];
     }
     
     await saveExerciseOverrides();
@@ -2283,8 +2283,8 @@ export async function saveVideoOverrides() {
 }
 
 export function getVideoUrl(planId, workoutIdx, defaultUrl) {
-  if (A.videoOverrides[planId] && A.videoOverrides[planId][workoutIdx] !== undefined) {
-    return A.videoOverrides[planId][workoutIdx] || defaultUrl;
+  if ((A.videoOverrides||{})[planId] && (A.videoOverrides||{})[planId][workoutIdx] !== undefined) {
+    return (A.videoOverrides||{})[planId][workoutIdx] || defaultUrl;
   }
   return defaultUrl;
 }
