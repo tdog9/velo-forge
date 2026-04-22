@@ -718,8 +718,6 @@ function showMainApp() {
   hide('auth-signup');
   const mainApp = $('main-app');
   mainApp.classList.remove('hidden');
-  mainApp.style.display = 'flex';
-  mainApp.style.flexDirection = 'column';
   show('ai-fab');
   // Set avatar initial
   const avatarBtn = $('user-avatar-btn');
