@@ -5,6 +5,7 @@ let A = {};
 export function initRaceLog(ctx) { A = ctx; }
 
 export async function loadUserRaceLogs() {
+  if (!A || !A.$) return;
   if (!A.currentUser || !A.db) { A.userRaceLogs = []; return; }
   try {
     const snap = await A.getDocs(A.collection(A.db, 'users', A.currentUser.uid, 'raceLogs'));
@@ -20,6 +21,7 @@ export async function loadUserRaceLogs() {
 }
 
 export function getFootageForRace(raceId) {
+  if (!A || !A.$) return;
   // Check admin-managed footage, then default race data
   if (A.raceFootage[raceId] && A.raceFootage[raceId].length) return A.raceFootage[raceId];
   const race = A.getActiveRaces().find(r => r.id === raceId);
@@ -28,6 +30,7 @@ export function getFootageForRace(raceId) {
 }
 
 export function getStreamForRace(raceId) {
+  if (!A || !A.$) return;
   const race = A.getActiveRaces().find(r => r.id === raceId);
   return (race && race.streamUrl) || '';
 }
@@ -57,6 +60,7 @@ export function renderFootageLinks(raceId) {
 }
 
 export function getCompletedRacesNeedingLogs() {
+  if (!A || !A.$) return;
   const races = A.getActiveRaces();
   const today = new Date().toISOString().split('T')[0];
   const loggedTracks = new Set((A.userRaceLogs || []).map(l => (l.trackName || '').toLowerCase()));
@@ -73,6 +77,7 @@ export function getCompletedRacesNeedingLogs() {
 }
 
 export function renderRaceLog() {
+  if (!A || !A.$) return; // Module not initialized yet
   const c = A.$('racelog-content');
   let html = '<div class="page-title" style="margin-top:8px">Race Log</div>';
 
@@ -223,6 +228,7 @@ export function renderRaceLog() {
 }
 
 export function openRaceLogForm(existing, editIdx) {
+  if (!A || !A.$) return;
   const c = A.$('racelog-content');
   const isEdit = existing !== undefined;
   const e = existing || {};
