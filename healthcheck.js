@@ -220,3 +220,40 @@ export function getLastHealthReport() {
 }
 
 export function forceHealthCheck(A) { return runHealthCheck(A, true); }
+
+// ── Global JS error collector ─────────────────────────────────────────────────
+export function initHealthErrorCollector() {
+  window._hcErrors = [];
+  window.addEventListener('error', e => {
+    window._hcErrors.push({
+      message: e.message || 'Unknown error',
+      file: (e.filename || '').split('/').pop(),
+      line: e.lineno || 0,
+      ts: Date.now(),
+    });
+    if (window._hcErrors.length > 50) window._hcErrors.shift();
+  });
+  window.addEventListener('unhandledrejection', e => {
+    window._hcErrors.push({
+      message: 'Promise: ' + (e.reason?.message || String(e.reason) || 'Unknown'),
+      file: 'promise',
+      line: 0,
+      ts: Date.now(),
+    });
+    if (window._hcErrors.length > 50) window._hcErrors.shift();
+  });
+}
+
+// ── Run health check if due ────────────────────────────────────────────────────
+export function maybeRunHealthCheck(ctx) {
+  try {
+    const count = (parseInt(localStorage.getItem('tp_hc_load_count') || '0')) + 1;
+    localStorage.setItem('tp_hc_load_count', count.toString());
+    const today = new Date().toISOString().split('T')[0];
+    const lastDate = localStorage.getItem('tp_hc_last_date') || '';
+    if (count % 5 === 0 || lastDate !== today) {
+      localStorage.setItem('tp_hc_last_date', today);
+      setTimeout(() => runHealthCheck(ctx), 3000);
+    }
+  } catch(e) {}
+}
