@@ -45,6 +45,89 @@
   --chart-sprint:#8B5CF6;
   --chart-strength:#DC2626;
 }
+
+/* ===== MASTER LAYOUT — rebuilt clean 2026-04-22 ===== */
+html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font-body); height:100%; overflow:hidden; }
+body { -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; }
+
+#main-app {
+  display:none;
+  flex-direction:column !important;
+  width:100%;
+  height:100vh;
+  height:100dvh;
+  overflow:hidden;
+  position:relative;
+}
+#main-app.hidden { display:none !important; }
+#main-app:not(.hidden) { display:flex !important; }
+
+#main-app > .header {
+  flex-shrink:0;
+  width:100%;
+  height:calc(56px + env(safe-area-inset-top, 0px));
+  padding:env(safe-area-inset-top, 0px) 16px 8px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:var(--bg);
+  border-bottom:1px solid var(--border);
+  box-sizing:border-box;
+  z-index:30;
+}
+
+#main-app > #content {
+  flex:1 1 auto;
+  width:100%;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  padding:16px;
+  box-sizing:border-box;
+  position:relative;
+}
+
+#main-app > .tab-bar {
+  flex-shrink:0;
+  width:100%;
+  height:calc(56px + env(safe-area-inset-bottom, 0px));
+  padding-bottom:env(safe-area-inset-bottom, 0px);
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:stretch;
+  background:var(--bg);
+  border-top:1px solid var(--border);
+  z-index:40;
+  box-sizing:border-box;
+}
+
+#main-app > .tab-bar .tab-btn {
+  flex:1 1 0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  background:none;
+  border:none;
+  cursor:pointer;
+  color:var(--muted-fg);
+  min-height:44px;
+  padding:4px 0;
+  -webkit-tap-highlight-color:transparent;
+  font-family:var(--font-sans);
+}
+#main-app > .tab-bar .tab-btn svg { width:22px; height:22px; flex-shrink:0; stroke:currentColor; }
+#main-app > .tab-bar .tab-btn-label { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+#main-app > .tab-bar .tab-btn.active { color:var(--primary); }
+
+.page { display:none; width:100%; }
+.page.active { display:block; }
+
+/* ===== END MASTER LAYOUT ===== */
+
+
 /* TurboPrep v4.5.0 — built April 2026 */
 /* ===== TURBOPREP — Unified Design System ===== */
 /* Reset */
@@ -137,7 +220,7 @@ input,select,textarea{
   height:100%;height:var(--app-h);
   width:100%;overflow:hidden;position:relative;
 }
-#main-app{display:flex;flex-direction:column;height:100dvh;height:100vh;overflow:hidden;position:relative;}
+
 
 /* ===== Header ===== */
 
