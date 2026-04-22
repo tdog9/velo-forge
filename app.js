@@ -349,9 +349,9 @@ function showModal(title, content, onConfirm) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  $('modal-cancel').addEventListener('click', () => overlay.remove());
+  $('modal-cancel')?.addEventListener('click', () => overlay.remove());
   $('modal-backdrop')?.addEventListener('click', () => overlay.remove());
-  $('modal-confirm').addEventListener('click', () => {
+  $('modal-confirm')?.addEventListener('click', () => {
     if (onConfirm) onConfirm(overlay);
     overlay.remove();
   });
@@ -1313,19 +1313,19 @@ document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
 const fitnessPage = $('page-fitness');
 const fitSubOrder = ['workouts', 'plans', 'health', 'demos'];
 let swipeStartX = 0, swipeStartY = 0, swipeDeltaX = 0, swiping = false;
-fitnessPage.addEventListener('touchstart', (e) => {
+if (fitnessPage) fitnessPage.addEventListener('touchstart', (e) => {
   swipeStartX = e.touches[0].clientX;
   swipeStartY = e.touches[0].clientY;
   swiping = true;
   swipeDeltaX = 0;
 }, { passive: true });
-fitnessPage.addEventListener('touchmove', (e) => {
+fitnessPage?.addEventListener('touchmove', (e) => {
   if (!swiping) return;
   swipeDeltaX = e.touches[0].clientX - swipeStartX;
   const deltaY = Math.abs(e.touches[0].clientY - swipeStartY);
   if (deltaY > Math.abs(swipeDeltaX)) { swiping = false; }
 }, { passive: true });
-fitnessPage.addEventListener('touchend', () => {
+fitnessPage?.addEventListener('touchend', () => {
   if (!swiping) return;
   swiping = false;
   if (Math.abs(swipeDeltaX) < 60) return;
@@ -2521,8 +2521,8 @@ function renderToday() {
         </div>
       </div>`;
       document.body.appendChild(overlay);
-      $('goal-cancel').addEventListener('click', () => overlay.remove());
-      $('goal-save').addEventListener('click', () => {
+      $('goal-cancel')?.addEventListener('click', () => overlay.remove());
+      $('goal-save')?.addEventListener('click', () => {
         const type = $('goal-type-sel').value;
         const target = parseInt($('goal-target-inp').value);
         const label = $('goal-label-inp').value.trim();
@@ -4891,7 +4891,7 @@ function renderTeamTab(c) {
       ` : ''}
     `;
     c.innerHTML = html;
-    $('team-join-btn').addEventListener('click', openJoinTeamSheet);
+    $('team-join-btn')?.addEventListener('click', openJoinTeamSheet);
     $('team-request-btn')?.addEventListener('click', openCreateTeamSheet);
     renderTeamSearchResults(c, '');
     $('team-search-input').addEventListener('input', debounce(e => renderTeamSearchResults(c, e.target.value), 250));
