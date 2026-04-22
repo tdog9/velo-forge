@@ -100,7 +100,7 @@ export function startAiWeeklyReview() {
   // Build last 7 days of training data
   const now = Date.now();
   const weekAgo = now - 7 * 86400000;
-  const weekWorkouts = A.userWorkouts.filter(w => {
+  const weekWorkouts = (A.userWorkouts||[]).filter(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     return d && d.getTime() > weekAgo && w.source !== 'strava'; // Exclude Strava data per API agreement
   });
@@ -211,7 +211,7 @@ export function generateRacePrepPlan(raceName, daysUntil) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       message: `Create a race preparation and taper plan for ${raceName} which is ${daysUntil} days away.`,
-      context: `RACE_PREP_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Race: ${raceName}, ${daysUntil} days away. Total workouts logged: ${A.userWorkouts.length}. Give a day-by-day taper plan that: 1) Reduces volume progressively 2) Maintains some intensity 3) Includes rest days before race 4) Gives race-day nutrition and warm-up advice. Be specific with exercises and durations.`
+      context: `RACE_PREP_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Race: ${raceName}, ${daysUntil} days away. Total workouts logged: ${(A.userWorkouts||[]).length}. Give a day-by-day taper plan that: 1) Reduces volume progressively 2) Maintains some intensity 3) Includes rest days before race 4) Gives race-day nutrition and warm-up advice. Be specific with exercises and durations.`
     })
   }).then(r => r.json()).then(data => {
     typingMsg.innerHTML = data.reply || 'Sorry, couldn\'t generate a race prep plan.';
@@ -350,13 +350,13 @@ export function openInlineWorkoutEdit(planId, weekIdx, workoutIdx, workout) {
 
 // AI Training Insight — auto-generated from workout data
 export function generateTrainingInsight() {
-  if (A.userWorkouts.length < 5) return null;
+  if ((A.userWorkouts||[]).length < 5) return null;
   const now = Date.now();
-  const thisWeek = A.userWorkouts.filter(w => {
+  const thisWeek = (A.userWorkouts||[]).filter(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     return d && (now - d.getTime()) < 7 * 86400000;
   });
-  const lastWeek = A.userWorkouts.filter(w => {
+  const lastWeek = (A.userWorkouts||[]).filter(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     return d && (now - d.getTime()) >= 7 * 86400000 && (now - d.getTime()) < 14 * 86400000;
   });
@@ -455,12 +455,12 @@ export function startAiFormCheck() {
 // Coach Notification Summary — generates a summary of student activity for coaches
 export function generateCoachSummary() {
   if (!A.isAdmin && !(A.userProfile?.role === 'coach')) return null;
-  if (A.userWorkouts.length === 0) return null;
+  if (!(A.userWorkouts||[]).length) return null;
   // This is for the coach's own view — in a real deployment, coach would see all students
   // For now, generate based on available data
   const now = Date.now();
   const fiveDaysAgo = now - 5 * 86400000;
-  const recentWorkouts = A.userWorkouts.filter(w => {
+  const recentWorkouts = (A.userWorkouts||[]).filter(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     return d && d.getTime() > fiveDaysAgo;
   });
