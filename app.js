@@ -144,7 +144,7 @@ const STRAVA_REDIRECT_URI = 'https://turboprep.app';
 let stravaTokens = null; // { access_token, refresh_token, expires_at, athlete }
 let stravaActivities = []; // cached recent activities
 let userWorkouts = [];
-let userChecklist = {};
+let userChecklist = {}; // always an object, never undefined
 let workoutsUnsubscribe = null;
 let checklistUnsubscribe = null;
 let profileUnsubscribe = null;
@@ -192,7 +192,7 @@ function calcXp() {
       let done = 0;
       plan.workouts.forEach((w, i) => {
         const k = userProfile.activePlanId + '-' + w.week + '-' + w.day + '-' + (plan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
-        if (userChecklist[k]) done++;
+        if (userChecklist && userChecklist[k]) done++;
       });
       if (done >= total && total > 0) xp += 75;
     }
@@ -299,7 +299,7 @@ function calcPlanPct() {
   let done = 0;
   plan.workouts.forEach((w, i) => {
     const k = userProfile.activePlanId + '-' + w.week + '-' + w.day + '-' + (plan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
-    if (userChecklist[k]) done++;
+    if (userChecklist && userChecklist[k]) done++;
   });
   return Math.round((done / plan.workouts.length) * 100);
 }
@@ -1951,7 +1951,7 @@ function renderPlanRecommendation() {
       let done = 0;
       plan.workouts.forEach((w, i) => {
         const k = activePlanId + '-' + w.week + '-' + w.day + '-' + (plan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
-        if (userChecklist[k]) done++;
+        if (userChecklist && userChecklist[k]) done++;
       });
       if (done < total) return ''; // Plan still in progress
     }
@@ -2189,7 +2189,7 @@ function renderToday() {
     let completedPlanWorkouts = 0;
     activePlan.workouts.forEach((w, i) => {
       const k = activePlanId + '-' + w.week + '-' + w.day + '-' + (activePlan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
-      if (userChecklist[k]) completedPlanWorkouts++;
+      if (userChecklist && userChecklist[k]) completedPlanWorkouts++;
     });
     const progressPct = totalPlanWorkouts > 0 ? Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100) : 0;
     html += `<div class="plan-progress"><div class="plan-progress-text"><span>${escHtml(pdData.name)}</span><span>${completedPlanWorkouts}/${totalPlanWorkouts} · ${progressPct}%</span></div><div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div></div>`;
@@ -2216,7 +2216,7 @@ function renderToday() {
           w.scaled = true;
         }
         const checkKey = activePlanId + '-' + origW.week + '-' + origW.day + '-' + i;
-        const isChecked = userChecklist[checkKey] === true;
+        const isChecked = userChecklist && userChecklist[checkKey] === true;
         html += renderChecklistItem(w, checkKey, isChecked);
       });
       html += '</div>';
