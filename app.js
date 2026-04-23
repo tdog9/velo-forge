@@ -133,6 +133,19 @@ function debounce(fn, ms=300) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+// Authenticated call to the AI coach function. Attaches the signed-in user's
+// Firebase ID token so the server can verify + rate-limit per user.
+async function aiCoachFetch(payload) {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = await auth?.currentUser?.getIdToken?.().catch(() => null);
+  if (token) headers.Authorization = 'Bearer ' + token;
+  return fetch('/.netlify/functions/ai-coach', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+}
+
 function getMapTileUrl() {
   return currentTheme === 'light'
     ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
@@ -779,7 +792,7 @@ $('login-btn')?.addEventListener('click', async () => {
     if (selectedClub && db) {
       try {
         await updateDoc(doc(db, 'users', cred.user.uid), { clubId: selectedClub });
-      } catch(e) {}
+      } catch(e) { logError('login-set-club', e, { clubId: selectedClub }); }
     }
   } catch(e) {
     hideLoading();
@@ -1144,11 +1157,7 @@ ${entry.code ? 'Error code: ' + entry.code : ''}
 Online: ${entry.online}
 Platform: ${entry.platform}
 Context: ${JSON.stringify(entry.context || {})}`;
-      const resp = await fetch('/.netlify/functions/ai-coach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: diagPrompt, context: 'ERROR_DIAGNOSIS. ' + (isAdmin ? 'User is admin. Include Firestore paths, env var names, and Netlify deploy steps. Be technical.' : 'Respond in 3-4 sentences. Be specific and practical. Use simple language a student would understand.') })
-      });
+      const resp = await aiCoachFetch({ message: diagPrompt, context: 'ERROR_DIAGNOSIS. ' + (isAdmin ? 'User is admin. Include Firestore paths, env var names, and Netlify deploy steps. Be technical.' : 'Respond in 3-4 sentences. Be specific and practical. Use simple language a student would understand.') });
       const data = await resp.json();
       resultEl.innerHTML = `<div style="padding:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:13px;color:var(--fg);line-height:1.5">
         <div style="font-size:12px;font-weight:600;color:#a855f7;margin-bottom:4px">AI Diagnosis${isAdmin ? ' (Admin)' : ''}</div>
@@ -3107,7 +3116,7 @@ async function toggleChecklist(key) {
         if (userChecklist[k2]) doneCount++;
       });
       if (doneCount === totalItems && totalItems > 0) showCelebration('Plan complete! You crushed it! 🏆');
-    } catch(e) {}
+    } catch(e) { logError('plan-complete-check', e, { activePlanId }); }
   }
   if (demoMode || !db) return;
   try {
@@ -3360,13 +3369,9 @@ async function sendAiMessage(message) {
   }
   ctx.push('Total workouts logged: ' + userWorkouts.length);
   try {
-    const resp = await fetch('/.netlify/functions/ai-coach', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        context: ctx.join('. ')
-      })
+    const resp = await aiCoachFetch({
+      message,
+      context: ctx.join('. ')
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Request failed');
@@ -3408,11 +3413,7 @@ Explain: what this plan trains, why the workouts are in this order, what the stu
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   try {
-    const resp = await fetch('/.netlify/functions/ai-coach', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: prompt, context: '' })
-    });
+    const resp = await aiCoachFetch({ message: prompt, context: '' });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Request failed');
     typingMsg.innerHTML = '';
@@ -3477,13 +3478,9 @@ async function generateAiPlan(category, yearLevel, tier, customGoal) {
     ? 'Create a training plan: "' + customGoal + '". Student is ' + yearLevel + ', ' + tier + ' tier.'
     : 'Create a ' + (catNames[category] || category) + ' training plan for ' + yearLevel + ' at ' + tier + ' tier.';
   try {
-    const resp = await fetch('/.netlify/functions/ai-coach', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: prompt,
-        context: 'PLAN_GENERATION_MODE: Respond with ONLY valid JSON, no markdown or explanation. Structure: {"name":"...","description":"...","category":"' + (category||'floor') + '","yearLevel":"' + yearLevel + '","tier":"' + tier + '","durationWeeks":2,"sessionsPerWeek":3,"workouts":[{"week":1,"day":"Mon","name":"...","description":"detailed workout description","duration":40,"intensity":"easy|moderate|hard"}]}. intensity must be easy, moderate, or hard. day must be Mon-Sun. Make ' + (yearLevel === 'Y7' || yearLevel === 'Y8' ? '2-3 sessions/week, 30-45 min, easy to moderate' : yearLevel === 'Y9' || yearLevel === 'Y10' ? '3-4 sessions/week, 40-60 min, one hard max' : '4-5 sessions/week, 50-80 min, 1-2 hard') + '. Write workout descriptions in motivating coaching voice with specific exercises, reps, and rest times. Australian English.'
-      })
+    const resp = await aiCoachFetch({
+      message: prompt,
+      context: 'PLAN_GENERATION_MODE: Respond with ONLY valid JSON, no markdown or explanation. Structure: {"name":"...","description":"...","category":"' + (category||'floor') + '","yearLevel":"' + yearLevel + '","tier":"' + tier + '","durationWeeks":2,"sessionsPerWeek":3,"workouts":[{"week":1,"day":"Mon","name":"...","description":"detailed workout description","duration":40,"intensity":"easy|moderate|hard"}]}. intensity must be easy, moderate, or hard. day must be Mon-Sun. Make ' + (yearLevel === 'Y7' || yearLevel === 'Y8' ? '2-3 sessions/week, 30-45 min, easy to moderate' : yearLevel === 'Y9' || yearLevel === 'Y10' ? '3-4 sessions/week, 40-60 min, one hard max' : '4-5 sessions/week, 50-80 min, 1-2 hard') + '. Write workout descriptions in motivating coaching voice with specific exercises, reps, and rest times. Australian English.'
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Failed');
@@ -4099,7 +4096,7 @@ async function saveWorkout(rpe, photoData, workoutType) {
     if (stravaTokens?.access_token) {
       stravaUploadActivity({ name, type, duration, distance, date: dateObj }).then(async (sid) => {
         if (sid) {
-          try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid) }); } catch(e) {}
+          try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid) }); } catch(e) { logError('strava-link-workout', e, { workoutId: docRef.id, stravaId: sid }); }
           showToast('Synced to Strava!', 'success');
         }
       });
@@ -5377,7 +5374,7 @@ async function updateProfileField(field, value) {
   if (!currentUser) return;
   userProfile[field] = value;
   if (field === 'displayName' && updateProfile) {
-    try { await updateProfile(currentUser, { displayName: value }); } catch(e) {}
+    try { await updateProfile(currentUser, { displayName: value }); } catch(e) { logError('update-display-name', e, { value }); }
   }
   if (!demoMode && db) {
     try { await updateDoc(doc(db, 'users', currentUser.uid), { [field]: value }); } catch(e) { console.error(e); }
@@ -5796,7 +5793,16 @@ async function leaveTeam() {
     showLoading('Leaving team...');
     try {
       const tid = userProfile.teamId;
-      await updateDoc(doc(db, 'teams', tid), { members: arrayRemove(currentUser.uid) });
+      // If this user is the only member, delete the team instead of emptying members
+      // (Firestore rules block updates that leave members empty, to avoid orphan teams).
+      const teamSnap = await getDoc(doc(db, 'teams', tid));
+      const members = teamSnap.exists() ? (teamSnap.data().members || []) : [];
+      const isLastMember = members.length <= 1 && members.includes(currentUser.uid);
+      if (isLastMember) {
+        await deleteDoc(doc(db, 'teams', tid));
+      } else {
+        await updateDoc(doc(db, 'teams', tid), { members: arrayRemove(currentUser.uid) });
+      }
       await updateDoc(doc(db, 'users', currentUser.uid), { teamId: null, teamName: null });
       userProfile.teamId = null;
       userProfile.teamName = null;
@@ -6075,7 +6081,7 @@ function buildModuleCtx() {
     findPlan, getActiveRaces, getVisiblePlans, getPlanDisplayData, getEmbedUrl,
     getMapTileUrl, renderToday, renderFitness, renderPlans, renderProfile,
     stravaUploadActivity, autoUpdateChallengeScore, showModal, saveCustomPlansLocal,
-    sendAiMessage, calcStreak,
+    sendAiMessage, calcStreak, aiCoachFetch,
   };
 }
 // ── God Admin — Global Settings ─────────────────────────────────────────────
@@ -6262,11 +6268,11 @@ function startApp() {
           }
         }, 60000);
       } catch(e) {}
-      try { await loadAdminEmails(); } catch(e) {}
-      try { checkAdmin(user.email); } catch(e) {}
+      try { await loadAdminEmails(); } catch(e) { logError('load-admin-emails', e, {}); }
+      try { checkAdmin(user.email); } catch(e) { logError('check-admin', e, { email: user.email }); }
       // Ensure master account has isCoach flag
       if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && !userProfile?.isCoach && db) {
-        try { await updateDoc(doc(db,'users',user.uid),{isCoach:true}); if(userProfile) userProfile.isCoach=true; } catch(e){}
+        try { await updateDoc(doc(db,'users',user.uid),{isCoach:true}); if(userProfile) userProfile.isCoach=true; } catch(e){ logError('set-master-coach', e, { uid: user.uid }); }
       }
       // PHASE 2: Show the app NOW — don't wait for all data
       hideLoading();
@@ -6288,7 +6294,7 @@ function startApp() {
               showToast('Activity saved!', 'success');
               if (stravaTokens?.access_token && workout.type !== 'gym') {
                 stravaUploadActivity(workout).then(async (sid) => {
-                  if (sid) { try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid), source: 'tracker' }); } catch(e) {} showToast('Synced to Strava!', 'success'); }
+                  if (sid) { try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid), source: 'tracker' }); } catch(e) { logError('strava-link-tracker', e, { workoutId: docRef.id, stravaId: sid }); } showToast('Synced to Strava!', 'success'); }
                 });
               }
               autoUpdateChallengeScore(workout.duration || 0, 10);
