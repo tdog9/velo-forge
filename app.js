@@ -1356,68 +1356,76 @@ fitnessPage?.addEventListener('touchend', () => {
 const scrollTopBtn = $('scroll-top-btn');
 const contentEl = $('content');
 let scrollTopVisible = false;
-contentEl.addEventListener('scroll', () => {
-  const shouldShow = contentEl.scrollTop > 400;
-  if (shouldShow !== scrollTopVisible) {
-    scrollTopVisible = shouldShow;
-    if (scrollTopBtn) scrollTopBtn.classList.toggle('visible', shouldShow);
-  }
-}, { passive: true });
-scrollTopBtn.addEventListener('click', () => {
-  haptic('light');
-  contentEl.scrollTo({ top: 0, behavior: 'smooth' });
-});
+if (contentEl) {
+  contentEl.addEventListener('scroll', () => {
+    const shouldShow = contentEl.scrollTop > 400;
+    if (shouldShow !== scrollTopVisible) {
+      scrollTopVisible = shouldShow;
+      if (scrollTopBtn) scrollTopBtn.classList.toggle('visible', shouldShow);
+    }
+  }, { passive: true });
+}
+if (scrollTopBtn && contentEl) {
+  scrollTopBtn.addEventListener('click', () => {
+    haptic('light');
+    contentEl.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
 // --- Feature 7: Keyboard dismiss on scroll ---
-contentEl.addEventListener('scroll', () => {
-  const active = document.activeElement;
-  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-    active.blur();
-  }
-}, { passive: true });
+if (contentEl) {
+  contentEl.addEventListener('scroll', () => {
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+      active.blur();
+    }
+  }, { passive: true });
+}
 // --- Feature 11: Pull-to-refresh on Today page ---
 let ptrStartY = 0, ptrActive = false, ptrTriggered = false;
 const ptrEl = document.createElement('div');
 ptrEl.className = 'ptr-indicator';
 ptrEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
-contentEl.insertBefore(ptrEl, contentEl.firstChild);
-contentEl.addEventListener('touchstart', (e) => {
-  if (currentPage === 'today' && contentEl.scrollTop <= 0) {
-    ptrStartY = e.touches[0].clientY;
-    ptrActive = true;
-    ptrTriggered = false;
-  }
-}, { passive: true });
-contentEl.addEventListener('touchmove', (e) => {
-  if (!ptrActive) return;
-  const dy = e.touches[0].clientY - ptrStartY;
-  if (dy > 10 && dy < 120) {
-    ptrEl.classList.add('pulling');
-    ptrEl.style.transform = 'translateX(-50%) translateY(' + (dy - 40) + 'px)';
-    ptrEl.querySelector('svg').style.transform = 'rotate(' + (dy * 3) + 'deg)';
-    if (dy > 80) ptrTriggered = true;
-  }
-}, { passive: true });
-contentEl.addEventListener('touchend', () => {
-  if (!ptrActive) return;
-  ptrActive = false;
-  if (ptrTriggered) {
-    ptrEl.classList.add('refreshing');
-    haptic('medium');
-    // Reload profile and workouts from Firestore
-    if (db && currentUser) {
-      loadUserProfile(currentUser.uid).then(() => renderCurrentPage());
-    } else {
-      renderCurrentPage();
+if (contentEl) contentEl.insertBefore(ptrEl, contentEl.firstChild);
+if (contentEl) {
+  contentEl.addEventListener('touchstart', (e) => {
+    if (currentPage === 'today' && contentEl.scrollTop <= 0) {
+      ptrStartY = e.touches[0].clientY;
+      ptrActive = true;
+      ptrTriggered = false;
     }
-    setTimeout(() => {
-      ptrEl.classList.remove('pulling', 'refreshing');
+  }, { passive: true });
+  contentEl.addEventListener('touchmove', (e) => {
+    if (!ptrActive) return;
+    const dy = e.touches[0].clientY - ptrStartY;
+    if (dy > 10 && dy < 120) {
+      ptrEl.classList.add('pulling');
+      ptrEl.style.transform = 'translateX(-50%) translateY(' + (dy - 40) + 'px)';
+      ptrEl.querySelector('svg').style.transform = 'rotate(' + (dy * 3) + 'deg)';
+      if (dy > 80) ptrTriggered = true;
+    }
+  }, { passive: true });
+  contentEl.addEventListener('touchend', () => {
+    if (!ptrActive) return;
+    ptrActive = false;
+    if (ptrTriggered) {
+      ptrEl.classList.add('refreshing');
+      haptic('medium');
+      // Reload profile and workouts from Firestore
+      if (db && currentUser) {
+        loadUserProfile(currentUser.uid).then(() => renderCurrentPage());
+      } else {
+        renderCurrentPage();
+      }
+      setTimeout(() => {
+        ptrEl.classList.remove('pulling', 'refreshing');
+        ptrEl.style.transform = 'translateX(-50%) translateY(-40px)';
+      }, 600);
+    } else {
+      ptrEl.classList.remove('pulling');
       ptrEl.style.transform = 'translateX(-50%) translateY(-40px)';
-    }, 600);
-  } else {
-    ptrEl.classList.remove('pulling');
-    ptrEl.style.transform = 'translateX(-50%) translateY(-40px)';
-  }
-}, { passive: true });
+    }
+  }, { passive: true });
+}
 // --- Feature 6 continued: Restore tab on load ---
 // Set correct initial active tab styling
 document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === currentPage));

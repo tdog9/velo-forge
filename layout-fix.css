@@ -1,1 +1,400 @@
-/* layout-fix.css — overrides handled in styles.css */
+/* ============================================================
+   TurboPrep — Premium "Future Fitness" Theme Layer (2026-04-23)
+   Loaded AFTER styles.css, overrides select components only.
+   To roll back: empty this file. Base styles.css untouched.
+   ============================================================ */
+
+/* ---------- Type color tokens ---------- */
+:root{
+  --type-hpv:#f97316;
+  --type-ride:#3b82f6;
+  --type-run:#22c55e;
+  --type-walk:#a855f7;
+  --type-treadmill:#06b6d4;
+  --type-gym:#f59e0b;
+  --type-cycle:#3b82f6;
+  --type-default:#6b7280;
+  --font-data:'SF Mono','JetBrains Mono','Menlo',ui-monospace,monospace;
+}
+
+/* ---------- Background — subtle radial gradients for depth ---------- */
+body{
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(249,115,22,.06), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(59,130,246,.05), transparent 60%),
+    #0a0b0f;
+}
+.light-theme body{
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(234,106,10,.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(59,130,246,.05), transparent 60%),
+    #f4f3ef;
+}
+
+/* ---------- Wider content on desktop ---------- */
+@media (min-width:900px){
+  :root{ --content-max:1200px; }
+  #main-app > #content{
+    padding:28px 32px 40px;
+  }
+  #main-app > #content > .page,
+  #main-app > #content > .page.active{
+    max-width:var(--content-max);
+    margin:0 auto;
+  }
+}
+
+/* ---------- Page title: bolder, more presence ---------- */
+.page-title{
+  font-size:28px;
+  font-weight:800;
+  letter-spacing:-.02em;
+  margin-bottom:18px;
+  background:linear-gradient(180deg, var(--fg) 0%, var(--muted-fg) 240%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+@media (min-width:900px){
+  .page-title{ font-size:34px; margin-bottom:22px; }
+}
+
+/* ---------- Section / card polish ---------- */
+.section-title{
+  font-size:12px;
+  letter-spacing:.12em;
+  color:var(--muted-fg);
+  margin:22px 0 10px;
+}
+
+.card, .wo-card, .challenge-card, .goal-card, .stat, .pb-card, .demo-ex-card, .plan-rec-card, .section-card{
+  background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)) , var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  transition:transform .18s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.card:hover, .wo-card:hover, .challenge-card:hover, .goal-card:hover{
+  border-color:var(--border-strong);
+  box-shadow:0 10px 30px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
+}
+
+/* ============================================================
+   ACTIVITY CARDS — the hero piece of the overhaul
+   ============================================================ */
+
+/* Grid layout on desktop */
+#wo-list{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+}
+@media (min-width:900px){
+  #wo-list{
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+}
+@media (min-width:1400px){
+  #wo-list{ grid-template-columns:1fr 1fr 1fr; }
+}
+
+.wo-card{
+  position:relative;
+  overflow:hidden;
+  padding:0;
+  margin-bottom:0; /* grid gap handles spacing */
+  border-radius:14px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,0) 40%),
+    var(--card);
+}
+
+/* Left accent stripe keyed to activity type */
+.wo-card::before{
+  content:"";
+  position:absolute;
+  top:0; left:0; bottom:0;
+  width:4px;
+  background:linear-gradient(180deg, var(--type-default), transparent);
+  opacity:.9;
+}
+.wo-card[data-wo-type="hpv"]::before{      background:linear-gradient(180deg, var(--type-hpv), rgba(249,115,22,.1)); }
+.wo-card[data-wo-type="ride"]::before,
+.wo-card[data-wo-type="cycle"]::before{    background:linear-gradient(180deg, var(--type-ride), rgba(59,130,246,.1)); }
+.wo-card[data-wo-type="run"]::before{      background:linear-gradient(180deg, var(--type-run), rgba(34,197,94,.1)); }
+.wo-card[data-wo-type="walk"]::before{     background:linear-gradient(180deg, var(--type-walk), rgba(168,85,247,.1)); }
+.wo-card[data-wo-type="treadmill"]::before{background:linear-gradient(180deg, var(--type-treadmill), rgba(6,182,212,.1)); }
+.wo-card[data-wo-type="gym"]::before,
+.wo-card[data-wo-type="strength"]::before{ background:linear-gradient(180deg, var(--type-gym), rgba(245,158,11,.1)); }
+
+/* Subtle type-colored glow on hover */
+.wo-card:hover{ transform:translateY(-1px); }
+.wo-card[data-wo-type="hpv"]:hover{       box-shadow:0 10px 30px rgba(249,115,22,.15), 0 0 0 1px rgba(249,115,22,.25); }
+.wo-card[data-wo-type="ride"]:hover,
+.wo-card[data-wo-type="cycle"]:hover{     box-shadow:0 10px 30px rgba(59,130,246,.15), 0 0 0 1px rgba(59,130,246,.25); }
+.wo-card[data-wo-type="run"]:hover{       box-shadow:0 10px 30px rgba(34,197,94,.15), 0 0 0 1px rgba(34,197,94,.25); }
+.wo-card[data-wo-type="walk"]:hover{      box-shadow:0 10px 30px rgba(168,85,247,.15), 0 0 0 1px rgba(168,85,247,.25); }
+.wo-card[data-wo-type="treadmill"]:hover{ box-shadow:0 10px 30px rgba(6,182,212,.15), 0 0 0 1px rgba(6,182,212,.25); }
+.wo-card[data-wo-type="gym"]:hover{       box-shadow:0 10px 30px rgba(245,158,11,.15), 0 0 0 1px rgba(245,158,11,.25); }
+
+.wo-card .card-pad{
+  padding:16px 16px 16px 22px; /* extra left for accent stripe */
+}
+
+.wo-name{
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:-.01em;
+}
+
+/* Activity badges — refined */
+.activity-badge{
+  text-transform:uppercase;
+  font-size:10px !important;
+  letter-spacing:.08em;
+  padding:3px 9px !important;
+  border-radius:6px !important;
+  font-weight:800 !important;
+  border:1px solid transparent;
+}
+
+/* Activity stats — big, bold, monospace */
+.activity-stats-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px 20px;
+  margin-top:10px;
+  font-family:var(--font-data);
+}
+.activity-stats-row span{
+  display:inline-flex;
+  align-items:baseline;
+  gap:4px;
+  font-size:11px;
+  color:var(--muted-fg);
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.activity-stats-row strong{
+  font-size:18px;
+  font-weight:700;
+  color:var(--fg);
+  font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em;
+}
+
+/* Delete button — less shouty */
+.wo-delete{
+  opacity:.35;
+  padding:6px !important;
+  border-radius:8px;
+  transition:opacity .15s, background .15s;
+}
+.wo-delete:hover{
+  opacity:1;
+  background:rgba(239,68,68,.1);
+}
+.wo-delete svg{ width:16px; height:16px; }
+
+/* Filter buttons — pill style */
+.wo-filter-btn{
+  transition:all .15s ease !important;
+}
+.wo-filter-btn:not(.active):hover{
+  border-color:var(--border-strong) !important;
+  color:var(--fg) !important;
+}
+.wo-filter-btn.active{
+  box-shadow:0 0 0 3px rgba(249,115,22,.12);
+}
+
+/* ============================================================
+   STAT CARDS — bigger numbers, data font
+   ============================================================ */
+.stat-grid{ gap:10px; margin-bottom:16px; }
+@media (min-width:700px){
+  .stat-grid{ grid-template-columns:repeat(4, 1fr); }
+}
+.stat{
+  padding:14px 12px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)),
+    var(--card);
+}
+.stat-val{
+  font-size:28px;
+  font-family:var(--font-data);
+  font-weight:800;
+  letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;
+}
+.stat-lbl{
+  font-size:10px;
+  letter-spacing:.1em;
+  margin-top:4px;
+}
+
+/* PB cards match */
+.pb-grid{ gap:10px; }
+@media (min-width:700px){ .pb-grid{ grid-template-columns:repeat(4, 1fr); } }
+.pb-val{
+  font-family:var(--font-data);
+  font-size:22px;
+  letter-spacing:-.02em;
+}
+
+/* ============================================================
+   FITNESS SUB-TABS — cleaner underline
+   ============================================================ */
+.fitness-sub-tab{
+  font-weight:600;
+  letter-spacing:.02em;
+  transition:color .15s ease;
+}
+.fitness-sub-tab.active{
+  position:relative;
+}
+
+/* ============================================================
+   AI COACH — premium chat surface
+   ============================================================ */
+.ai-messages{
+  background:
+    radial-gradient(600px 300px at 50% 0%, rgba(249,115,22,.04), transparent 70%),
+    var(--bg);
+}
+.ai-msg{
+  border-radius:14px !important;
+  font-size:14px;
+  line-height:1.5;
+}
+.ai-msg.ai{
+  background:linear-gradient(180deg, var(--card), var(--bg-elevated)) !important;
+  border:1px solid var(--border);
+}
+.ai-msg.user{
+  background:linear-gradient(180deg, var(--primary), var(--primary-hover)) !important;
+  box-shadow:0 4px 16px rgba(249,115,22,.25);
+}
+.ai-quick-btn{
+  transition:transform .12s ease, border-color .15s ease, background .15s ease !important;
+}
+.ai-quick-btn:hover{
+  transform:translateY(-1px);
+  border-color:var(--border-strong) !important;
+}
+.ai-input-bar{
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  background:rgba(10,11,15,.7) !important;
+}
+.light-theme .ai-input-bar{ background:rgba(244,243,239,.8) !important; }
+
+/* ============================================================
+   LEADERBOARD — modernized rows
+   ============================================================ */
+.feed-avatar{
+  background:linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
+  color:var(--primary-fg) !important;
+  box-shadow:0 2px 8px rgba(249,115,22,.2);
+}
+
+/* Challenge team fill — smoother */
+.challenge-team-fill{
+  background:linear-gradient(90deg, var(--primary), #ffa552) !important;
+}
+
+/* XP bar — glow */
+.xp-fill{
+  background:linear-gradient(90deg, var(--primary), #ffa552) !important;
+  box-shadow:0 0 12px rgba(249,115,22,.4);
+}
+
+/* ============================================================
+   EMPTY STATES — less austere
+   ============================================================ */
+.empty-state{
+  padding:48px 24px !important;
+  text-align:center;
+}
+.empty-state-icon{
+  opacity:.5;
+  margin-bottom:12px;
+}
+.empty-state-title{
+  font-size:17px !important;
+  font-weight:700 !important;
+  margin-bottom:6px;
+}
+.empty-state-desc{
+  max-width:320px;
+  margin:0 auto;
+  line-height:1.5;
+}
+
+/* ============================================================
+   TAB BAR — subtle glass effect
+   ============================================================ */
+#main-app > .tab-bar{
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  background:rgba(10,11,15,.75) !important;
+}
+.light-theme #main-app > .tab-bar{ background:rgba(244,243,239,.85) !important; }
+
+#main-app > .tab-bar .tab-btn.active{
+  color:var(--primary);
+}
+#main-app > .tab-bar .tab-btn.active::before{
+  content:"";
+  position:absolute;
+  top:2px;
+  left:50%;
+  transform:translateX(-50%);
+  width:28px;
+  height:2px;
+  background:var(--primary);
+  border-radius:2px;
+  box-shadow:0 0 8px var(--primary);
+}
+#main-app > .tab-bar .tab-btn{ position:relative; }
+
+/* ============================================================
+   RECORD BUTTON — more prominent
+   ============================================================ */
+#main-app > .tab-bar .tab-btn[data-page="record"] svg,
+.record-btn{
+  filter:drop-shadow(0 4px 12px rgba(249,115,22,.4));
+}
+
+/* ============================================================
+   FILTER PILLS — consistent rounding
+   ============================================================ */
+[class*="-filter-btn"]{
+  font-family:var(--font-sans);
+  transition:all .15s ease !important;
+}
+
+/* ============================================================
+   SCROLLBAR — slim for desktop
+   ============================================================ */
+@media (min-width:900px){
+  #content::-webkit-scrollbar{ width:8px; }
+  #content::-webkit-scrollbar-track{ background:transparent; }
+  #content::-webkit-scrollbar-thumb{
+    background:var(--border-strong);
+    border-radius:4px;
+  }
+  #content::-webkit-scrollbar-thumb:hover{ background:var(--muted-fg); }
+}
+
+/* ============================================================
+   iPhone: safe-area + input sizing
+   ============================================================ */
+@media (max-width:480px){
+  .page-title{ font-size:24px; margin-bottom:14px; }
+  .activity-stats-row{ gap:10px 16px; }
+  .activity-stats-row strong{ font-size:16px; }
+  .stat-val{ font-size:24px; }
+  .wo-card .card-pad{ padding:14px 14px 14px 20px; }
+}
