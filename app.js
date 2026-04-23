@@ -6237,6 +6237,16 @@ function startApp() {
     }
   }
   if (!initFirebase()) return;
+  // Init modules before auth resolves so A.$ etc. work if the user clicks UI
+  // (e.g. "Review My Week") before onAuthStateChanged fires. buildModuleCtx
+  // uses getters, so live values (currentUser, db, etc.) update automatically.
+  // Independent try/catches so one failure doesn't skip the rest.
+  try { initAdmin(buildModuleCtx()); } catch(e) { console.warn('initAdmin:', e); }
+  try { initStrava(buildModuleCtx()); } catch(e) { console.warn('initStrava:', e); }
+  try { initRaceLog(buildModuleCtx()); } catch(e) { console.warn('initRaceLog:', e); }
+  try { initTimer(buildModuleCtx()); } catch(e) { console.warn('initTimer:', e); }
+  try { initAiFeatures(buildModuleCtx()); } catch(e) { console.warn('initAiFeatures:', e); }
+  try { initRaceDay(buildModuleCtx()); } catch(e) { console.warn('initRaceDay:', e); }
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       currentUser = user;
@@ -6247,7 +6257,6 @@ function startApp() {
         userProfile = { displayName: user.displayName || 'User', email: user.email || '', yearLevel: 'Y7', fitnessLevel: 'basic', activePlanId: null };
       }
       try { setupListeners(user.uid); } catch(e) { console.warn('Listeners:', e); }
-      try { initAdmin(buildModuleCtx()); initStrava(buildModuleCtx()); initRaceLog(buildModuleCtx()); initTimer(buildModuleCtx()); initAiFeatures(buildModuleCtx()); initRaceDay(buildModuleCtx()); } catch(e) { console.warn('Module init:', e); }
       // Start global settings listener
       try { listenGlobalSettings(); } catch(e) {}
       // Check race day state — if active, take over full screen
