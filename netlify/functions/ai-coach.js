@@ -1,27 +1,89 @@
 // AI Coach — Netlify Serverless Function
-// Uses Anthropic Claude API to answer training questions and generate plans
+// Uses Anthropic Claude API to answer training questions and generate plans.
 //
-// SETUP: Add ANTHROPIC_API_KEY to Netlify environment variables
+// ENV VARS:
+//   ANTHROPIC_API_KEY         — Anthropic API key
+//   FIREBASE_SERVICE_ACCOUNT  — Firebase Admin service account JSON (for token verify + rate limits)
+
+const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (raw) {
+    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
+  }
+}
+
+const ALLOWED_ORIGINS = new Set([
+  'https://turboprep.app',
+  'https://veloforge.netlify.app',
+]);
+
+const RATE_LIMIT_WINDOW_SEC = 300; // 5 minutes
+const RATE_LIMIT_MAX_CALLS = 30;
+
+function corsHeaders(origin) {
+  const allow = ALLOWED_ORIGINS.has(origin) ? origin : 'https://turboprep.app';
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Content-Type': 'application/json',
+  };
+}
+
+async function verifyIdToken(event) {
+  const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
+  const m = authHeader.match(/^Bearer\s+(.+)$/);
+  if (!m) return null;
+  try {
+    return await admin.auth().verifyIdToken(m[1]);
+  } catch {
+    return null;
+  }
+}
+
+async function checkRateLimit(uid) {
+  const ref = admin.firestore().collection('rate_limits').doc(uid);
+  return admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const now = Date.now();
+    const data = snap.exists ? snap.data() : null;
+    const windowStart = data?.windowStart?.toMillis?.() || data?.windowStart || 0;
+    const count = data?.count || 0;
+    if (now - windowStart > RATE_LIMIT_WINDOW_SEC * 1000) {
+      tx.set(ref, { windowStart: new Date(now), count: 1 });
+      return { ok: true };
+    }
+    if (count >= RATE_LIMIT_MAX_CALLS) {
+      const retryAfter = Math.ceil((windowStart + RATE_LIMIT_WINDOW_SEC * 1000 - now) / 1000);
+      return { ok: false, retryAfter };
+    }
+    tx.update(ref, { count: count + 1 });
+    return { ok: true };
+  });
+}
 
 exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
+  const headers = corsHeaders(event.headers?.origin || event.headers?.Origin);
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
-
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
-  }
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+  if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
   const API_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!API_KEY) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }) };
+  if (!API_KEY) return { statusCode: 500, headers, body: JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }) };
+  if (!admin.apps.length) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase Admin not configured (set FIREBASE_SERVICE_ACCOUNT)' }) };
+
+  const decoded = await verifyIdToken(event);
+  if (!decoded) return { statusCode: 401, headers, body: JSON.stringify({ error: 'Sign in required' }) };
+
+  const rate = await checkRateLimit(decoded.uid);
+  if (!rate.ok) {
+    return {
+      statusCode: 429,
+      headers: { ...headers, 'Retry-After': String(rate.retryAfter) },
+      body: JSON.stringify({ error: `Too many requests. Try again in ${rate.retryAfter}s.` }),
+    };
   }
 
   let body;
@@ -32,9 +94,7 @@ exports.handler = async (event) => {
   }
 
   const { message, context } = body;
-  if (!message) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing message' }) };
-  }
+  if (!message) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing message' }) };
 
   const isPlanMode = context && context.startsWith('PLAN_GENERATION_MODE:');
   const isSpecialMode = context && (
@@ -52,7 +112,6 @@ exports.handler = async (event) => {
     systemPrompt = context.replace('PLAN_GENERATION_MODE: ', '');
     maxTokens = 2000;
   } else if (isSpecialMode) {
-    // Special AI modes get more tokens and a focused system prompt
     systemPrompt = `You are the VeloForge AI Coach — a sports science expert for a school HPV (Human Powered Vehicle) racing team in Victoria, Australia. Students aged 12-18 pedal recumbent vehicles in endurance and sprint events.
 
 Rules:
@@ -136,16 +195,8 @@ ${context ? 'Student context: ' + context : ''}`;
     const data = await response.json();
     const reply = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ reply })
-    };
+    return { statusCode: 200, headers, body: JSON.stringify({ reply }) };
   } catch (e) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Failed to contact AI service', details: e.message })
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to contact AI service', details: e.message }) };
   }
 };

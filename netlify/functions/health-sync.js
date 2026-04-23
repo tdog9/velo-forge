@@ -1,111 +1,91 @@
-// Health Sync Webhook — Firebase REST API
-// ENV VARS: FIREBASE_API_KEY, FIREBASE_PROJECT_ID, HEALTH_SYNC_SECRET
+// Health Sync Webhook — writes via firebase-admin (bypasses Firestore rules).
+// ENV VARS:
+//   FIREBASE_SERVICE_ACCOUNT — JSON service account key (single-line, full JSON)
+//   HEALTH_SYNC_SECRET        — shared secret sent by client/Shortcut in request body
+//
+// NOTE: the client currently hardcodes HEALTH_SYNC_SECRET in app.js, so this
+// secret is effectively public. Firestore security does NOT rely on it — rules
+// deny all unauthenticated access. The secret is only a cheap spam filter.
+
+const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (raw) {
+    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
+  }
+}
+
+const ALLOWED_ORIGINS = new Set([
+  'https://turboprep.app',
+  'https://veloforge.netlify.app',
+]);
+
+function corsHeaders(origin) {
+  const allow = ALLOWED_ORIGINS.has(origin) ? origin : 'https://turboprep.app';
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Content-Type': 'application/json',
+  };
+}
 
 exports.handler = async (event) => {
-  const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Content-Type': 'application/json' };
+  const headers = corsHeaders(event.headers?.origin || event.headers?.Origin);
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'POST only' }) };
+
+  if (!admin.apps.length) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase Admin not configured (set FIREBASE_SERVICE_ACCOUNT)' }) };
+  }
 
   try {
     const body = JSON.parse(event.body || '{}');
     const { token, secret, type, data } = body;
 
-    if (secret !== process.env.HEALTH_SYNC_SECRET) {
+    if (process.env.HEALTH_SYNC_SECRET && secret !== process.env.HEALTH_SYNC_SECRET) {
       return { statusCode: 401, headers, body: JSON.stringify({ error: 'Invalid secret' }) };
     }
     if (!token || !type || !data) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing token, type, or data' }) };
     }
 
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    const apiKey = process.env.FIREBASE_API_KEY;
-    if (!projectId || !apiKey) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase not configured' }) };
-    }
+    const db = admin.firestore();
 
-    const base = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
-
-    // Find user by sync token
-    const qr = await fetch(`${base}:runQuery?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        structuredQuery: {
-          from: [{ collectionId: 'users' }],
-          where: { fieldFilter: { field: { fieldPath: 'syncToken' }, op: 'EQUAL', value: { stringValue: token } } },
-          limit: 1
-        }
-      })
-    });
-    const results = await qr.json();
-    if (!results || !results[0] || !results[0].document) {
+    // Find user by sync token.
+    const snap = await db.collection('users').where('syncToken', '==', token).limit(1).get();
+    if (snap.empty) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Invalid sync token' }) };
     }
-
-    const userDoc = results[0].document;
-    const userId = userDoc.name.split('/').pop();
+    const userRef = snap.docs[0].ref;
+    const existingHealth = snap.docs[0].get('health') || {};
     const now = new Date().toISOString();
 
-    // Get existing health data from user doc
-    const existingHealth = userDoc.fields?.health?.mapValue?.fields || {};
+    const healthUpdate = { lastSync: now };
+    if (type === 'heart_rate' && data.bpm != null) healthUpdate.latestHr = Math.round(Number(data.bpm));
+    if (type === 'steps' && data.count != null) healthUpdate.latestSteps = Math.round(Number(data.count));
+    if (type === 'sleep' && data.duration != null) healthUpdate.latestSleep = parseFloat(data.duration);
+    if (type === 'body' && data.restingHr != null) healthUpdate.restingHr = Math.round(Number(data.restingHr));
+    if (type === 'body' && data.vo2max != null) healthUpdate.vo2max = parseFloat(data.vo2max);
 
-    // Build updated health map
-    const healthFields = {};
-    // Preserve existing values
-    if (existingHealth.latestHr) healthFields.latestHr = existingHealth.latestHr;
-    if (existingHealth.latestSteps) healthFields.latestSteps = existingHealth.latestSteps;
-    if (existingHealth.latestSleep) healthFields.latestSleep = existingHealth.latestSleep;
-    if (existingHealth.restingHr) healthFields.restingHr = existingHealth.restingHr;
-    if (existingHealth.vo2max) healthFields.vo2max = existingHealth.vo2max;
+    await userRef.update({ health: { ...existingHealth, ...healthUpdate } });
 
-    // Apply new data
-    if (type === 'heart_rate' && data.bpm) healthFields.latestHr = { integerValue: String(Math.round(data.bpm)) };
-    if (type === 'steps' && data.count) healthFields.latestSteps = { integerValue: String(Math.round(data.count)) };
-    if (type === 'sleep' && data.duration) healthFields.latestSleep = { doubleValue: parseFloat(data.duration) };
-    if (type === 'body' && data.restingHr) healthFields.restingHr = { integerValue: String(Math.round(data.restingHr)) };
-    if (type === 'body' && data.vo2max) healthFields.vo2max = { doubleValue: parseFloat(data.vo2max) };
-    healthFields.lastSync = { stringValue: now };
-
-    // Update with proper nested map structure
-    const ur = await fetch(`${base}/users/${userId}?updateMask.fieldPaths=health&key=${apiKey}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fields: {
-          health: {
-            mapValue: {
-              fields: healthFields
-            }
-          }
-        }
-      })
-    });
-
-    if (!ur.ok) {
-      const err = await ur.text();
-      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Update failed', detail: err }) };
-    }
-
-    // Save workout if type is workout
     if (type === 'workout') {
-      const wf = {
-        name: { stringValue: data.name || 'Synced Workout' },
-        type: { stringValue: data.type || 'cardio' },
-        duration: { integerValue: String(data.duration || 0) },
-        source: { stringValue: 'health_sync' },
-        date: { timestampValue: data.startTime || now },
-        createdAt: { timestampValue: now }
+      const workout = {
+        name: data.name || 'Synced Workout',
+        type: data.type || 'cardio',
+        duration: Number(data.duration || 0),
+        source: 'health_sync',
+        date: data.startTime ? new Date(data.startTime) : new Date(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
       };
-      if (data.distance) wf.distance = { doubleValue: data.distance };
-      if (data.avgHr) wf.heartRate = { integerValue: String(data.avgHr) };
-      await fetch(`${base}/users/${userId}/workouts?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields: wf })
-      });
+      if (data.distance != null) workout.distance = parseFloat(data.distance);
+      if (data.avgHr != null) workout.heartRate = Math.round(Number(data.avgHr));
+      await userRef.collection('workouts').add(workout);
     }
 
-    return { statusCode: 200, headers, body: JSON.stringify({ success: true, type, userId }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ success: true, type, userId: userRef.id }) };
   } catch (e) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
   }

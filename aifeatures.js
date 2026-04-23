@@ -75,13 +75,9 @@ export async function sendAiPlanEdit(instruction, plan) {
   const planSummary = plan.workouts ? plan.workouts.map(w => `Week ${w.week} ${w.day}: ${w.name} (${w.duration}min, ${w.intensity})`).join('; ') : 'No workout details';
   
   try {
-    const resp = await fetch('/.netlify/functions/ai-coach', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: instruction,
-        context: `PLAN_EDIT_MODE. Current plan: "${plan.name}" (${plan.category}, ${plan.yearLevel}, ${plan.tier}). Workouts: ${planSummary}. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Respond with specific workout-by-workout changes the student should make. Be practical and specific.`
-      })
+    const resp = await A.aiCoachFetch({
+      message: instruction,
+      context: `PLAN_EDIT_MODE. Current plan: "${plan.name}" (${plan.category}, ${plan.yearLevel}, ${plan.tier}). Workouts: ${planSummary}. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Respond with specific workout-by-workout changes the student should make. Be practical and specific.`
     });
     const data = await resp.json();
     typingMsg.innerHTML = data.reply || 'Sorry, I couldn\'t process that edit.';
@@ -135,13 +131,9 @@ export function startAiWeeklyReview() {
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
-  fetch('/.netlify/functions/ai-coach', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: 'Review my training from the past week and tell me what I did well, what I could improve, and what to focus on next week.',
-      context: `WEEKLY_REVIEW. Student: ${A.userProfile?.displayName || 'student'}, ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. This week: ${weekWorkouts.length} sessions, ${totalMins} total minutes, ${totalDist.toFixed(1)}km distance${avgRpe ? ', avg RPE ' + avgRpe : ''}. Sessions: ${summary}. Active plan: ${A.userProfile?.activePlanId ? A.findPlan(A.userProfile.activePlanId)?.name || 'unknown' : 'none'}. Give a structured weekly review with: 1) What went well 2) Areas to improve 3) Next week\'s focus. Be specific to their actual data.`
-    })
+  A.aiCoachFetch({
+    message: 'Review my training from the past week and tell me what I did well, what I could improve, and what to focus on next week.',
+    context: `WEEKLY_REVIEW. Student: ${A.userProfile?.displayName || 'student'}, ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. This week: ${weekWorkouts.length} sessions, ${totalMins} total minutes, ${totalDist.toFixed(1)}km distance${avgRpe ? ', avg RPE ' + avgRpe : ''}. Sessions: ${summary}. Active plan: ${A.userProfile?.activePlanId ? A.findPlan(A.userProfile.activePlanId)?.name || 'unknown' : 'none'}. Give a structured weekly review with: 1) What went well 2) Areas to improve 3) Next week\'s focus. Be specific to their actual data.`
   }).then(r => r.json()).then(data => {
     typingMsg.innerHTML = data.reply || 'Sorry, couldn\'t generate a review.';
   }).catch(() => {
@@ -206,13 +198,9 @@ export function generateRacePrepPlan(raceName, daysUntil) {
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
-  fetch('/.netlify/functions/ai-coach', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: `Create a race preparation and taper plan for ${raceName} which is ${daysUntil} days away.`,
-      context: `RACE_PREP_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Race: ${raceName}, ${daysUntil} days away. Total workouts logged: ${(A.userWorkouts||[]).length}. Give a day-by-day taper plan that: 1) Reduces volume progressively 2) Maintains some intensity 3) Includes rest days before race 4) Gives race-day nutrition and warm-up advice. Be specific with exercises and durations.`
-    })
+  A.aiCoachFetch({
+    message: `Create a race preparation and taper plan for ${raceName} which is ${daysUntil} days away.`,
+    context: `RACE_PREP_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Race: ${raceName}, ${daysUntil} days away. Total workouts logged: ${(A.userWorkouts||[]).length}. Give a day-by-day taper plan that: 1) Reduces volume progressively 2) Maintains some intensity 3) Includes rest days before race 4) Gives race-day nutrition and warm-up advice. Be specific with exercises and durations.`
   }).then(r => r.json()).then(data => {
     typingMsg.innerHTML = data.reply || 'Sorry, couldn\'t generate a race prep plan.';
   }).catch(() => {
@@ -272,13 +260,9 @@ export function sendInjuryModification(injuryArea, plan) {
 
   const planInfo = plan ? `Active plan: "${plan.name}" (${plan.category})` : 'No active plan';
 
-  fetch('/.netlify/functions/ai-coach', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: `My ${injuryArea} is sore/injured. How should I modify my training?`,
-      context: `INJURY_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'}. ${planInfo}. Injury area: ${injuryArea}. Give: 1) What to AVOID (specific exercises) 2) Safe alternatives that maintain fitness 3) Recovery suggestions 4) When to return to normal training. Always remind them to see a coach or doctor if pain is severe. Be specific and practical.`
-    })
+  A.aiCoachFetch({
+    message: `My ${injuryArea} is sore/injured. How should I modify my training?`,
+    context: `INJURY_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'}. ${planInfo}. Injury area: ${injuryArea}. Give: 1) What to AVOID (specific exercises) 2) Safe alternatives that maintain fitness 3) Recovery suggestions 4) When to return to normal training. Always remind them to see a coach or doctor if pain is severe. Be specific and practical.`
   }).then(r => r.json()).then(data => {
     typingMsg.innerHTML = data.reply || 'Sorry, couldn\'t generate modifications.';
   }).catch(() => {
@@ -415,7 +399,7 @@ export function renderSeasonPhase() {
 
 // AI Form/Technique Checker
 export function startAiFormCheck() {
-  const messagesEl = $('ai-messages');
+  const messagesEl = A.$('ai-messages');
   const aiMsg = document.createElement('div');
   aiMsg.className = 'ai-msg ai';
   aiMsg.innerHTML = `I can give you detailed form and technique tips. What are you working on?<br><br>
