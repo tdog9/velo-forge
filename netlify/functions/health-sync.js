@@ -18,7 +18,6 @@ if (!admin.apps.length) {
 
 const ALLOWED_ORIGINS = new Set([
   'https://turboprep.app',
-  'https://veloforge.netlify.app',
 ]);
 
 function corsHeaders(origin) {

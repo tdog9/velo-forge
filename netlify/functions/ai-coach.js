@@ -16,7 +16,6 @@ if (!admin.apps.length) {
 
 const ALLOWED_ORIGINS = new Set([
   'https://turboprep.app',
-  'https://veloforge.netlify.app',
 ]);
 
 const RATE_LIMIT_WINDOW_SEC = 300; // 5 minutes
