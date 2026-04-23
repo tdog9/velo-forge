@@ -1,7 +1,7 @@
 // TurboPrep Strava Integration Module
 import { decodePolyline, escHtml } from './state.js';
 
-let A = {};
+let A = { $: (id) => document.getElementById(id) };
 export function initStrava(ctx) { A = ctx; }
 
 export function stravaStartAuth() {

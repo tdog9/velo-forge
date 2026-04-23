@@ -42,7 +42,7 @@ let firebaseImportFailed = false;
 const [adminRes, stravaRes, racelogRes, timerRes, aifRes, plansRes, fbAppRes, fbAuthRes, fbFsRes] = await Promise.allSettled([
   import('./admin.js'),
   import('./strava.js'),
-  import('./racelog.js'),
+  import('./raceLog.js'),
   import('./timer.js'),
   import('./aifeatures.js'),
   import('./plans.js'),

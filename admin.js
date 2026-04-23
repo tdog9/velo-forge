@@ -2,7 +2,9 @@
 // All state accessed via A (app context set by initAdmin)
 import { escHtml, capitalize, getXpLevel, timeAgo } from './state.js';
 
-let A = {};
+// Default A with working $ so render functions don't hard-crash if init hasn't
+// run yet (module load race, demo mode bypass, etc.). initAdmin replaces this.
+let A = { $: (id) => document.getElementById(id) };
 let usersSubTab = 'all';
 let plansSubTab = 'manage';
 export function initAdmin(ctx) { A = ctx; }

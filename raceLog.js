@@ -1,7 +1,7 @@
 // TurboPrep Race Log Module
 import { escHtml } from './state.js';
 
-let A = {};
+let A = { $: (id) => document.getElementById(id) };
 export function initRaceLog(ctx) { A = ctx; }
 
 export async function loadUserRaceLogs() {

@@ -1,6 +1,6 @@
 // TurboPrep Workout Timer Module
 import { escHtml } from './state.js';
-let A = {};
+let A = { $: (id) => document.getElementById(id) };
 export function initTimer(ctx) {
   A = ctx;
   // Bind timer controls after context is available

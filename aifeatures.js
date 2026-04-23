@@ -1,7 +1,8 @@
 // TurboPrep AI Features Module — Plan editing, weekly review, race prep, injury mode
 import { escHtml } from './state.js';
 
-let A = {};
+// Default A with working $ so render functions don't crash if init hasn't run.
+let A = { $: (id) => document.getElementById(id) };
 export function initAiFeatures(ctx) { A = ctx; }
 
 export function startAiPlanEdit() {

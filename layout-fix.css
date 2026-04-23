@@ -244,15 +244,54 @@ body{
 }
 
 /* ============================================================
-   FITNESS SUB-TABS — cleaner underline
+   FITNESS SUB-TABS — stack correctly + visible on all sub-pages
    ============================================================ */
-.fitness-sub-tab{
-  font-weight:600;
-  letter-spacing:.02em;
-  transition:color .15s ease;
+/* Override styles.css:1351 which set top to header height — that pushed
+   the sub-bar to 56px INSIDE the scroll area, leaving a gap and causing
+   the demo-filter-sticky to stack on top of it. Sub-bar belongs at top
+   of the scroll container. */
+.fitness-sub-bar-sticky{
+  top:0 !important;
+  margin:0 0 12px !important;
+  padding:10px 0 !important;
+  background:
+    linear-gradient(180deg, var(--bg) 85%, rgba(10,11,15,0)) !important;
+  box-shadow:none !important;
+  z-index:25 !important;
 }
+.fitness-sub-bar{
+  background:var(--surface) !important;
+  border:1px solid var(--border) !important;
+  border-radius:12px !important;
+  padding:4px !important;
+  gap:4px !important;
+}
+.fitness-sub-tab{
+  flex:1;
+  padding:10px 14px !important;
+  font-size:13px !important;
+  font-weight:600 !important;
+  letter-spacing:.01em;
+  background:transparent !important;
+  color:var(--muted-fg) !important;
+  border:none !important;
+  border-radius:8px !important;
+  transition:color .15s ease, background .15s ease, box-shadow .2s ease !important;
+}
+.fitness-sub-tab:hover{ color:var(--fg) !important; }
 .fitness-sub-tab.active{
-  position:relative;
+  background:var(--primary) !important;
+  color:var(--primary-fg) !important;
+  box-shadow:0 4px 12px rgba(249,115,22,.25), 0 0 0 1px rgba(249,115,22,.3) inset;
+}
+
+/* Demo search/filter bar sticks BELOW the fitness sub-tabs */
+.demo-filter-sticky{
+  top:60px !important;
+  padding:8px 0 10px !important;
+  background:
+    linear-gradient(180deg, var(--bg) 85%, rgba(10,11,15,0)) !important;
+  z-index:22 !important;
 }
 
 /* ============================================================
@@ -389,6 +428,193 @@ body{
 }
 
 /* ============================================================
+   AI COACH OVERLAY — wider, panel feel on desktop
+   ============================================================ */
+.ai-overlay{
+  background:
+    radial-gradient(600px 300px at 50% 0%, rgba(249,115,22,.05), transparent 60%),
+    var(--bg) !important;
+}
+@media (min-width:900px){
+  .ai-overlay{
+    max-width:880px !important;
+    left:50% !important;
+    right:auto !important;
+    transform:translateX(-50%) !important;
+    border-left:1px solid var(--border);
+    border-right:1px solid var(--border);
+    box-shadow:0 0 60px rgba(0,0,0,.5);
+  }
+  .ai-messages{
+    max-width:720px;
+    margin:0 auto;
+    width:100%;
+  }
+  .ai-input-bar{
+    max-width:720px;
+    margin:0 auto;
+    width:100%;
+  }
+}
+.ai-header{
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  background:rgba(10,11,15,.7) !important;
+}
+.light-theme .ai-header{ background:rgba(244,243,239,.8) !important; }
+.ai-header-badge{
+  background:linear-gradient(135deg, rgba(124,58,237,.2), rgba(168,85,247,.15)) !important;
+  border:1px solid rgba(168,85,247,.3);
+  letter-spacing:.05em;
+}
+
+/* ============================================================
+   AUTH SCREENS — premium polish
+   ============================================================ */
+.auth-screen{
+  background:
+    radial-gradient(800px 400px at 50% -10%, rgba(249,115,22,.12), transparent 60%),
+    radial-gradient(600px 400px at 50% 110%, rgba(59,130,246,.06), transparent 60%),
+    var(--bg) !important;
+}
+.auth-logo-mark{
+  background:linear-gradient(135deg, var(--primary), #ffa552) !important;
+  box-shadow:
+    0 8px 32px rgba(249,115,22,.35),
+    0 0 0 1px rgba(249,115,22,.4) inset,
+    0 2px 0 rgba(255,255,255,.15) inset !important;
+  font-size:34px !important;
+}
+.auth-wordmark{ letter-spacing:.14em !important; }
+.auth-tagline{
+  font-size:12px !important;
+  text-transform:uppercase;
+  letter-spacing:.18em;
+  color:var(--muted-fg) !important;
+  margin-top:6px;
+}
+.auth-card{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0) 40%),
+    var(--card) !important;
+  border:1px solid var(--border-strong) !important;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,.5),
+    0 1px 0 rgba(255,255,255,.04) inset !important;
+  padding:28px !important;
+  border-radius:20px !important;
+}
+.auth-card .label{
+  font-size:11px !important;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--muted-fg) !important;
+  font-weight:600;
+  margin-bottom:6px;
+  display:block;
+}
+.auth-card .input,
+.auth-card select.input{
+  background:var(--surface) !important;
+  border:1px solid var(--border) !important;
+  border-radius:10px !important;
+  padding:12px 14px !important;
+  font-size:15px !important;
+  transition:border-color .15s ease, box-shadow .15s ease, background .15s ease !important;
+}
+.auth-card .input:focus,
+.auth-card select.input:focus{
+  border-color:var(--primary) !important;
+  background:var(--bg) !important;
+  box-shadow:0 0 0 3px rgba(249,115,22,.15) !important;
+  outline:none !important;
+}
+.auth-card .btn-primary{
+  background:linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
+  border:none !important;
+  border-radius:10px !important;
+  padding:14px !important;
+  font-size:15px !important;
+  font-weight:700 !important;
+  letter-spacing:.01em;
+  box-shadow:
+    0 8px 20px rgba(249,115,22,.3),
+    0 1px 0 rgba(255,255,255,.15) inset !important;
+  transition:transform .12s ease, box-shadow .2s ease !important;
+}
+.auth-card .btn-primary:hover{
+  transform:translateY(-1px);
+  box-shadow:
+    0 12px 28px rgba(249,115,22,.4),
+    0 1px 0 rgba(255,255,255,.15) inset !important;
+}
+.auth-card .btn-primary:active{ transform:translateY(0); }
+.auth-switch{
+  margin-top:20px !important;
+}
+.auth-switch a{
+  color:var(--primary) !important;
+  font-weight:700;
+  cursor:pointer;
+  border-bottom:1px dashed rgba(249,115,22,.4);
+}
+.auth-error{
+  border-radius:10px !important;
+  padding:12px 14px !important;
+}
+.role-selector{
+  display:grid !important;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:6px;
+}
+.role-btn{
+  padding:14px 8px !important;
+  border-radius:10px !important;
+  background:var(--surface) !important;
+  border:1px solid var(--border) !important;
+  transition:all .15s ease !important;
+  font-size:13px !important;
+}
+.role-btn.active{
+  background:var(--primary-dim) !important;
+  border-color:var(--primary) !important;
+  color:var(--primary) !important;
+  box-shadow:0 0 0 3px rgba(249,115,22,.1);
+}
+.radio-group{
+  display:grid !important;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:6px;
+}
+.radio-option{
+  position:relative;
+}
+.radio-option label{
+  display:block;
+  padding:10px;
+  text-align:center;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:8px;
+  font-size:13px;
+  font-weight:600;
+  color:var(--muted-fg);
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.radio-option input[type="radio"]{
+  position:absolute;
+  opacity:0;
+  inset:0;
+  cursor:pointer;
+}
+.radio-option input[type="radio"]:checked + label{
+  background:var(--primary-dim);
+  border-color:var(--primary);
+  color:var(--primary);
+}
+
+/* ============================================================
    iPhone: safe-area + input sizing
    ============================================================ */
 @media (max-width:480px){
@@ -397,4 +623,6 @@ body{
   .activity-stats-row strong{ font-size:16px; }
   .stat-val{ font-size:24px; }
   .wo-card .card-pad{ padding:14px 14px 14px 20px; }
+  .auth-card{ padding:22px !important; }
+  .auth-logo-mark{ width:56px !important; height:56px !important; font-size:28px !important; }
 }
