@@ -1268,6 +1268,14 @@ function switchPage(page) {
 function renderCurrentPage() {
   const pageTitles = {today:'Today — TurboPrep',fitness:'Fitness — TurboPrep',races:'Races & Calendar — TurboPrep',team:'Leaderboard & Teams — TurboPrep',admin:'Admin — TurboPrep',coach:'Coach — TurboPrep'};
   document.title = pageTitles[currentPage] || 'TurboPrep';
+  // Re-seed module contexts before every render so A.* is always populated,
+  // even if the original startApp init missed a module (load race, stale
+  // cache, etc.). Cheap — each init is just A = ctx.
+  try {
+    const ctx = buildModuleCtx();
+    initAdmin(ctx); initStrava(ctx); initRaceLog(ctx);
+    initTimer(ctx); initAiFeatures(ctx); initRaceDay(ctx);
+  } catch(e) { console.warn('Module re-init:', e); }
   switch(currentPage) {
     case 'today': renderToday(); loadWeather(); break;
     case 'fitness': renderFitness(); break;
