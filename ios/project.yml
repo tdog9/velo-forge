@@ -54,7 +54,14 @@ targets:
     platform: watchOS
     sources:
       - path: VeloForgeWatch
-      - path: Shared
+      # Shared is selectively included — Firestore-adjacent files are iOS-only
+      # because FirebaseFirestore doesn't build for watchOS (C++ gRPC/LevelDB).
+      # Watch-side Firestore access flows via WatchConnectivity → iPhone.
+      - path: Shared/AuthService.swift
+      - path: Shared/FirebaseBootstrap.swift
+      - path: Shared/UserProfile.swift
+      - path: Shared/PlanOverride.swift
+      - path: Shared/Workout.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tdog9.veloforge.watchkitapp
@@ -68,5 +75,3 @@ targets:
     dependencies:
       - package: Firebase
         product: FirebaseAuth
-      - package: Firebase
-        product: FirebaseFirestore

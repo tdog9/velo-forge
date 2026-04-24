@@ -31,25 +31,20 @@ struct WatchSignedOutView: View {
 
 struct WatchHomeView: View {
     @EnvironmentObject private var auth: AuthService
-    @StateObject private var firestore = FirestoreService()
 
+    // Firestore data isn't available directly on watchOS — FirebaseFirestore
+    // doesn't build for watchOS. Profile + workout data will flow from the
+    // paired iPhone via WatchConnectivity (wired in a later milestone).
     var body: some View {
         List {
             Section("You") {
                 Text(auth.currentUser?.email ?? "—").font(.footnote)
             }
-            if let p = firestore.profile {
-                Section("Plan") {
-                    Text(p.activePlanId ?? "No active plan").font(.footnote)
-                    if let xp = p.totalXp {
-                        LabeledContent("XP") { Text("\(xp)") }
-                    }
-                }
+            Section("Coming soon") {
+                Text("Heart rate, workout session, and plan sync arrive once WatchConnectivity is wired.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
-        }
-        .task(id: auth.currentUser?.uid) {
-            guard let uid = auth.currentUser?.uid else { return }
-            await firestore.loadProfile(uid: uid)
         }
     }
 }
