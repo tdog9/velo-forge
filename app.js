@@ -143,6 +143,28 @@ const RACES = [
   {id:'r3', name:'Vic HPV Round 4 — Casey Fields', date:'2026-10-17', location:'Casey Fields, Cranbourne East, VIC', distance:120, type:'endurance', notes:'9am–5pm. 8-hour endurance race. Series finale — Round 4 of the 2026 Victorian HPV Grand Prix Series.'},
   {id:'r4', name:'Energy Breakthrough — Maryborough 24hr', date:'2026-11-18', location:'Maryborough, VIC', distance:900, type:'multi_day', notes:'18–22 November. The flagship 24-hour HPV endurance race on the 1.58km Maryborough street circuit. Teams of 8 riders.'},
 ];
+// Race phase — maps days-until-next-race to a periodisation phase so today's
+// card can anchor training to the upcoming Vic HPR round. Plans are short
+// library blocks (2 weeks each) so phase is a user-level concept derived from
+// the race calendar, not a plan property. Returns null when no upcoming race.
+function computeRacePhase(fromDate) {
+  const today = new Date(fromDate || new Date()); today.setHours(0,0,0,0);
+  const upcoming = RACES
+    .map(r => ({ ...r, dt: new Date(r.date + 'T00:00:00') }))
+    .filter(r => r.dt >= today)
+    .sort((a, b) => a.dt - b.dt);
+  if (upcoming.length === 0) return null;
+  const race = upcoming[0];
+  const daysOut = Math.round((race.dt - today) / 86400000);
+  const weeksOut = Math.floor(daysOut / 7);
+  let phase, label, description;
+  if (daysOut <= 7)       { phase = 'race-week'; label = 'RACE WEEK'; description = 'Keep it light. Stay sharp. Trust your prep.'; }
+  else if (daysOut <= 14) { phase = 'taper';     label = 'TAPER';     description = 'Back off volume — your body absorbs the work now.'; }
+  else if (daysOut <= 42) { phase = 'peak';      label = 'PEAK';      description = 'Race-pace intervals. Sharpen your top gear.'; }
+  else if (daysOut <= 84) { phase = 'build';     label = 'BUILD';     description = 'Ramp intensity. Build race-pace capacity.'; }
+  else                    { phase = 'base';      label = 'BASE';      description = 'Aerobic engine building. Consistency over effort.'; }
+  return { phase, label, description, race, daysOut, weeksOut };
+}
 // App State
 let app, auth, db;
 let currentUser = null;
@@ -2276,6 +2298,50 @@ function renderToday() {
       </div>`;
     }
   }
+  // Race-phase banner — anchors today to the next Vic HPR round. Always on
+  // when there's an upcoming race, not gated on widget toggles: this is the
+  // load-bearing context for why today's session matters.
+  const racePhase = computeRacePhase(now);
+  if (racePhase) {
+    const { phase, label, description, race, daysOut } = racePhase;
+    const phaseColors = {
+      'base':      { bg: 'rgba(34,197,94,.10)',  border: 'rgba(34,197,94,.25)',  fg: '#22c55e' },
+      'build':     { bg: 'rgba(245,158,11,.10)', border: 'rgba(245,158,11,.25)', fg: '#f59e0b' },
+      'peak':      { bg: 'rgba(239,68,68,.10)',  border: 'rgba(239,68,68,.25)',  fg: '#ef4444' },
+      'taper':     { bg: 'rgba(59,130,246,.10)', border: 'rgba(59,130,246,.25)', fg: '#3b82f6' },
+      'race-week': { bg: 'rgba(139,92,246,.12)', border: 'rgba(139,92,246,.30)', fg: '#8b5cf6' },
+    };
+    const pc = phaseColors[phase];
+    const countdown = daysOut === 0 ? 'TODAY' : daysOut === 1 ? 'TOMORROW' : daysOut + ' days';
+    const raceShort = race.name.replace(/^Vic HPV /, '').replace(/ — /, ' · ');
+    let gearHtml = '';
+    if (phase === 'race-week') {
+      const gearCheckItems = [
+        { id: 'rw-bike',    label: 'Bike checked — brakes, chain, tyre pressure' },
+        { id: 'rw-weather', label: 'Weather forecast reviewed' },
+        { id: 'rw-sleep',   label: 'Sleep priority — 8+ hrs each night' },
+        { id: 'rw-fuel',    label: 'Pre-race meal + race-day nutrition planned' },
+        { id: 'rw-kit',     label: 'Race kit packed — helmet, gloves, spares' },
+      ];
+      let gearState = {};
+      try { gearState = JSON.parse(localStorage.getItem('tp_race_gear') || '{}'); } catch(e) {}
+      gearHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px solid ${pc.border}">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:${pc.fg};margin-bottom:6px">PRE-RACE CHECK</div>
+        ${gearCheckItems.map(g => `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;cursor:pointer;color:var(--fg)">
+          <input type="checkbox" data-gear-check="${g.id}" ${gearState[g.id]?'checked':''} style="width:16px;height:16px;accent-color:${pc.fg}">
+          <span>${g.label}</span>
+        </label>`).join('')}
+      </div>`;
+    }
+    html += `<div class="race-phase-banner" style="background:${pc.bg};border:1px solid ${pc.border};border-radius:12px;padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:${pc.fg}">${label}</div>
+        <div style="font-size:11px;font-weight:700;color:${pc.fg}">${countdown} · ${escHtml(raceShort)}</div>
+      </div>
+      <div style="font-size:13px;color:var(--fg);line-height:1.4">${description}</div>
+      ${gearHtml}
+    </div>`;
+  }
   // ── SECTION 2: Today's Training (the main thing) ──
   if (activePlan) {
     const pdData = getPlanDisplayData(activePlan);
@@ -2522,6 +2588,16 @@ function renderToday() {
       const dur = btn.dataset.dur;
       localStorage.setItem('tp_session_duration', dur);
       renderCurrentPage();
+    });
+  });
+  // Bind race-week gear check (persists per-item in localStorage)
+  document.querySelectorAll('[data-gear-check]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      let gs = {};
+      try { gs = JSON.parse(localStorage.getItem('tp_race_gear') || '{}'); } catch(e) {}
+      gs[cb.dataset.gearCheck] = cb.checked;
+      localStorage.setItem('tp_race_gear', JSON.stringify(gs));
+      haptic('light');
     });
   });
   // Bind "More Stats" toggle
@@ -3090,7 +3166,6 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
         haptic('success');
         toggleChecklist(key);
         ov.remove();
-        showToast('Workout complete! \ud83d\udcaa', 'success');
       }
     });
   }
@@ -3148,7 +3223,6 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
       if (restTimerInterval) clearInterval(restTimerInterval);
       toggleChecklist(key);
       ov.remove();
-      showToast('Workout complete! \ud83d\udcaa', 'success');
     });
   }
   document.body.appendChild(ov);
@@ -3170,10 +3244,46 @@ async function activatePlan(planId) {
     } catch(e) { showError('Failed to activate plan', 'plan', e, { action: 'activate' }); }
   }
 }
+// Build a phase-aware completion toast for a plan workout. Key shape is
+// `${planId}-${week}-${day}-${index}` and planId itself contains hyphens, so
+// strip the id prefix instead of splitting on '-'.
+function completionToastMsg(activePlan, key) {
+  const phase = computeRacePhase();
+  let durStr = 'Session';
+  if (activePlan && key && key.startsWith(activePlan.id + '-')) {
+    const [weekStr, day, idxStr] = key.slice(activePlan.id.length + 1).split('-');
+    const week = parseInt(weekStr, 10);
+    const idx = parseInt(idxStr, 10);
+    if (!isNaN(week) && day && !isNaN(idx)) {
+      const sameDay = activePlan.workouts.filter(w => w.week === week && w.day === day);
+      const w = sameDay[idx];
+      if (w && w.duration) durStr = w.duration + ' min';
+    }
+  }
+  if (!phase) return `✓ ${durStr} banked! 💪`;
+  const raceShort = phase.race.name.replace(/^Vic HPV /, '').replace(/ — /, ' · ');
+  const d = phase.daysOut;
+  switch (phase.phase) {
+    case 'race-week': return `✓ ${durStr} logged. ${d}d to ${raceShort} — stay sharp.`;
+    case 'taper':     return `✓ ${durStr} logged. Trust the taper — ${d}d to ${raceShort}.`;
+    case 'peak':      return `✓ ${durStr} banked toward ${raceShort}. Every interval counts.`;
+    case 'build':     return `✓ ${durStr} banked. ${d}d to ${raceShort} — keep building.`;
+    default:          return `✓ ${durStr} banked. Laying the base — ${d}d to ${raceShort}.`;
+  }
+}
 async function toggleChecklist(key) {
   if (!currentUser) return;
+  // activePlan/activePlanId are defined inside renderToday() and aren't
+  // module-scoped — the week-complete/plan-complete blocks below used to
+  // throw ReferenceError silently inside their try/catch, so celebrations
+  // never fired. Compute them locally.
+  const activePlanId = userProfile?.activePlanId;
+  const activePlan = activePlanId ? findPlan(activePlanId) : null;
   const newVal = !userChecklist[key];
   userChecklist[key] = newVal;
+  if (newVal && activePlan) {
+    showToast(completionToastMsg(activePlan, key), 'success');
+  }
   renderToday();
   // Check if all workouts for the current plan week are done → celebrate
   if (newVal && activePlan) {
@@ -3593,15 +3703,39 @@ async function skipTodaysWorkouts() {
   const todayWorkouts = plan.workouts.filter(w => dayMap[w.day] === todayDay);
   if (todayWorkouts.length === 0) throw new Error('No workouts scheduled today');
   const updates = {};
+  let skippedMinutes = 0;
   todayWorkouts.forEach((w, i) => {
     const key = userProfile.activePlanId + '-' + w.week + '-' + w.day + '-' + i;
     userChecklist[key] = true;
     updates[key] = true;
+    skippedMinutes += (w.duration || 0);
   });
+  // Local skip log so the app can surface patterns without a schema change.
+  // Auto-rescheduling missed sessions is a larger, separate piece of work.
+  try {
+    const skipLog = JSON.parse(localStorage.getItem('tp_skip_log') || '[]');
+    skipLog.unshift({
+      date: now.toISOString().split('T')[0],
+      planId: userProfile.activePlanId,
+      count: todayWorkouts.length,
+      minutes: skippedMinutes,
+    });
+    localStorage.setItem('tp_skip_log', JSON.stringify(skipLog.slice(0, 30)));
+  } catch(e) {}
   if (!demoMode && db && currentUser) {
     const dateKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
     await setDoc(doc(db, 'users', currentUser.uid, 'checklist', dateKey), { items: updates }, { merge: true });
   }
+  const phase = computeRacePhase(now);
+  const mins = skippedMinutes ? ' (' + skippedMinutes + ' min)' : '';
+  let msg = 'Today marked skipped' + mins + '. Back at it tomorrow.';
+  if (phase) {
+    const raceShort = phase.race.name.replace(/^Vic HPV /, '').replace(/ — /, ' · ');
+    if (phase.phase === 'race-week')  msg = 'Rest logged' + mins + '. ' + phase.daysOut + 'd to ' + raceShort + ' — recovery is training.';
+    else if (phase.phase === 'taper') msg = 'Taper skip' + mins + '. ' + phase.daysOut + 'd to ' + raceShort + ' — rest serves you now.';
+    else                              msg = 'Skipped' + mins + '. ' + phase.daysOut + 'd to ' + raceShort + ' — catch the next one.';
+  }
+  showToast(msg, 'info');
   if (currentPage === 'today') renderToday();
 }
 // Explain plan function — called from plan cards
