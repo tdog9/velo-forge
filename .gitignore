@@ -72,3 +72,17 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Xcode build artifacts
+ios/**/xcuserdata/
+ios/**/*.xcworkspace/xcuserdata/
+ios/**/*.xcodeproj/project.xcworkspace/xcuserdata/
+ios/**/DerivedData/
+ios/**/.build/
+ios/**/.swiftpm/
+ios/**/Package.resolved
+.DS_Store
+ios/VeloForge.xcodeproj/
+# GoogleService-Info.plist contains secrets — add locally, never commit
+ios/VeloForge/GoogleService-Info.plist
+ios/VeloForgeWatch/GoogleService-Info.plist
