@@ -5,3 +5,24 @@
 
 [functions]
   node_bundler = "esbuild"
+
+# Caching headers. index.html always re-fetches so deploys show up
+# immediately. For JS/CSS, stale-while-revalidate lets browsers use a
+# cached copy instantly on repeat visits, then re-fetch in the background
+# — users see the new version on their next page load, not the current
+# one. We can't use "immutable" because the filenames don't change per
+# deploy (only CACHE_NAME / APP_VERSION inside them do).
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=300, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=300, stale-while-revalidate=86400"

@@ -49,6 +49,9 @@
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- DNS lookup for the OpenStreetMap tile CDN — maps render faster because
+       the browser already knows the IP address by the time Leaflet asks for tiles. -->
+  <link rel="dns-prefetch" href="//basemaps.cartocdn.com">
   <!-- Parallel-fetch the Firebase SDK modules so they aren't blocked by app.js parse -->
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js">
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js">
@@ -67,7 +70,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap">
 </head>
 <body>
-<div class="toast-container" id="toast-container"></div>
+<div class="toast-container" id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 <div id="app">
 
 <!-- LOGIN -->
