@@ -62,19 +62,19 @@ function playBeep(freq, dur, count) {
 }
 
 function updateTimerDisplay() {
+  // Guard: if the overlay was removed while an interval was still firing,
+  // bail out rather than crashing on null .textContent / .classList access.
+  const overlay = A.$('timer-overlay');
+  if (!overlay) return;
   const mins = Math.floor(timerSeconds / 60);
   const secs = timerSeconds % 60;
-  A.$('timer-minutes').textContent = String(mins).padStart(2, '0');
-  A.$('timer-seconds').textContent = String(secs).padStart(2, '0');
-  // Progress bar
+  const mEl = A.$('timer-minutes'); if (mEl) mEl.textContent = String(mins).padStart(2, '0');
+  const sEl = A.$('timer-seconds'); if (sEl) sEl.textContent = String(secs).padStart(2, '0');
   if (timerTotal > 0) {
     const pct = Math.max(0, ((timerTotal - timerSeconds) / timerTotal) * 100);
-    A.$('timer-progress').style.width = pct + '%';
+    const pEl = A.$('timer-progress'); if (pEl) pEl.style.width = pct + '%';
   }
-  // Running state
-  const overlay = A.$('timer-overlay');
-  if (timerRunning) overlay.classList.add('timer-running');
-  else overlay.classList.remove('timer-running');
+  overlay.classList.toggle('timer-running', timerRunning);
 }
 
 function timerTick() {
