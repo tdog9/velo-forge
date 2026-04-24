@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct VeloForgeWatchApp: App {
+struct TurboPrepWatchApp: App {
     @StateObject private var auth = AuthService()
 
     init() {

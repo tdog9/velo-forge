@@ -12,7 +12,7 @@ import FirebaseAuth
 // in their .entitlements file. Firebase prepends the AppIdentifierPrefix at
 // runtime, so we pass just the bundle identifier here.
 enum FirebaseBootstrap {
-    private static let sharedAccessGroup = "com.tdog9.veloforge"
+    private static let sharedAccessGroup = "com.403productions.turboprep"
     private static var configured = false
 
     static func configure() {
