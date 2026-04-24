@@ -2,7 +2,7 @@
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { initRaceDay, loadRaceDayState, getRaceDayActive, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay, checkRaceDaySchedule } from './raceday.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
-import { maybeRunHealthCheck, initHealthErrorCollector } from './healthcheck.js';
+import { maybeRunHealthCheck, initHealthErrorCollector, forceHealthCheck, getLastHealthReport } from './healthcheck.js';
 initHealthErrorCollector();
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)
 let renderAdmin = () => {}, renderCoachDashboard = async () => {}, renderAdminTraining = () => {}, loadAdminEmails = async () => {},
