@@ -1,8 +1,3 @@
-# GitHub Actions syntax-check workflow. Save this as .github/workflows/check.yml
-# to enable — my session's PAT didn't have `workflow` scope so I couldn't push
-# it directly. Low-risk addition that would have caught the
-# getLastHealthReport-not-defined blank-screen regression before it merged.
-
 name: check
 
 on:
