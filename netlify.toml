@@ -3,11 +3,5 @@
   publish = "."
   command = "node scripts/stamp-version.js"
 
-[build.environment]
-  # Skip devDependencies at install — @firebase/rules-unit-testing is only
-  # needed to run tests locally, and its install chain was failing Netlify's
-  # dependency stage. Keep production deps (firebase-admin etc.) working.
-  NPM_FLAGS = "--omit=dev"
-
 [functions]
   node_bundler = "esbuild"

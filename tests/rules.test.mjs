@@ -1,5 +1,8 @@
-// Firestore rules tests. Run against the Firestore emulator:
-//   npx firebase emulators:exec --only firestore "node --test tests/rules.test.mjs"
+// Firestore rules tests. One-time setup (adds ~80MB to node_modules;
+// kept out of package.json so Netlify's install stays clean):
+//
+//   npm install --save-dev --legacy-peer-deps @firebase/rules-unit-testing firebase
+//   npm run test:rules
 //
 // Covers the scenarios the production bugs came from:
 // - teams/create rejects orphan creators (not in members)
@@ -8,8 +11,6 @@
 // - teams/update rejects writes from someone who isn't a member and isn't joining
 // - teams/delete allows a member to delete; rejects non-members
 // - users/{uid} is owner-only for writes; any signed-in user can read
-//
-// Requires: npm install -D @firebase/rules-unit-testing
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
