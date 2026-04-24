@@ -356,7 +356,7 @@ function getHrZone(hr, maxHr) {
   return zones[0];
 }
 // MODAL SYSTEM (replaces prompt() calls)
-function showModal(title, content, onConfirm) {
+function showModal(title, content, onConfirm, onCancel) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'vf-modal';
@@ -370,18 +370,34 @@ function showModal(title, content, onConfirm) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  $('modal-cancel')?.addEventListener('click', () => overlay.remove());
-  $('modal-backdrop')?.addEventListener('click', () => overlay.remove());
-  $('modal-confirm')?.addEventListener('click', () => {
-    if (onConfirm) onConfirm(overlay);
-    overlay.remove();
-  });
+  const close = (confirmed) => {
+    // Call the callback BEFORE removing so callers like showEditModal /
+    // showSelectModal can still read form values via overlay.querySelector.
+    try {
+      if (confirmed && onConfirm) onConfirm(overlay);
+      else if (!confirmed && onCancel) onCancel();
+    } finally {
+      overlay.remove();
+    }
+  };
+  $('modal-cancel')?.addEventListener('click', () => close(false));
+  $('modal-backdrop')?.addEventListener('click', () => close(false));
+  $('modal-confirm')?.addEventListener('click', () => close(true));
   // Focus first input if present
   setTimeout(() => {
     const inp = overlay.querySelector('input, select');
     if (inp) inp.focus();
   }, 100);
   return overlay;
+}
+
+// Promise-returning wrapper for simple yes/no confirms — used by AI coach
+// actions so we can `await` user input without nesting callbacks.
+function confirmModal(title, message) {
+  return new Promise(resolve => {
+    showModal(title, `<div style="font-size:14px;color:var(--fg);line-height:1.5">${escHtml(message)}</div>`,
+      () => resolve(true), () => resolve(false));
+  });
 }
 function showEditModal(title, inputId, currentValue, onSave) {
   showModal(title, `<input class="input" id="${inputId}" type="text" value="${escHtml(currentValue)}" style="width:100%">`, (ov) => {
@@ -3423,13 +3439,17 @@ function renderAiActions(parentMsg, actions) {
 
 async function executeAiAction(action, btn) {
   const confirms = {
-    cancel_plan: 'Cancel your current training plan? Your logged workouts will be kept.',
-    skip_today:  "Mark today's plan workouts as done?",
-    start_plan:  'Start this plan? It will replace your current active plan.',
-    log_workout: 'Log this workout to your activities?',
-    set_goal:    'Add this goal to your profile?'
+    cancel_plan: ['Cancel plan?', 'Cancel your current training plan? Your logged workouts will be kept.'],
+    skip_today:  ['Skip today?', "Mark today's plan workouts as done?"],
+    start_plan:  ['Start this plan?', 'This will replace your current active plan.'],
+    log_workout: ['Log workout?', 'Add this workout to your activities?'],
+    set_goal:    ['Add goal?', 'Save this to your personal goals?']
   };
-  if (confirms[action.type] && !confirm(confirms[action.type])) return;
+  if (confirms[action.type]) {
+    const [title, body] = confirms[action.type];
+    const ok = await confirmModal(title, body);
+    if (!ok) return;
+  }
 
   const originalLabel = btn.textContent;
   btn.disabled = true;
