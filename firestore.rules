@@ -19,10 +19,14 @@ service cloud.firestore {
     }
 
     function isAdmin() {
+      // Delegated admins live in config/adminEmails — that's where the client
+      // writes via admin.js:saveAdminEmails. An earlier version of these rules
+      // referenced a `config/adminPerms` doc that the app never creates, so
+      // delegated admins were silently blocked from every admin write.
       return isGodAdmin() || (
         isSignedIn()
-        && exists(/databases/$(database)/documents/config/adminPerms)
-        && request.auth.token.email in get(/databases/$(database)/documents/config/adminPerms).data.emails
+        && exists(/databases/$(database)/documents/config/adminEmails)
+        && request.auth.token.email in get(/databases/$(database)/documents/config/adminEmails).data.emails
       );
     }
 
