@@ -1271,11 +1271,13 @@ function renderCurrentPage() {
   // Re-seed module contexts before every render so A.* is always populated,
   // even if the original startApp init missed a module (load race, stale
   // cache, etc.). Cheap — each init is just A = ctx.
-  try {
-    const ctx = buildModuleCtx();
-    initAdmin(ctx); initStrava(ctx); initRaceLog(ctx);
-    initTimer(ctx); initAiFeatures(ctx); initRaceDay(ctx);
-  } catch(e) { console.warn('Module re-init:', e); }
+  const _ctx = buildModuleCtx();
+  try { initAdmin(_ctx); }      catch(e) { console.warn('re-init admin:', e); }
+  try { initStrava(_ctx); }     catch(e) { console.warn('re-init strava:', e); }
+  try { initRaceLog(_ctx); }    catch(e) { console.warn('re-init racelog:', e); }
+  try { initTimer(_ctx); }      catch(e) { console.warn('re-init timer:', e); }
+  try { initAiFeatures(_ctx); } catch(e) { console.warn('re-init aifeatures:', e); }
+  try { initRaceDay(_ctx); }    catch(e) { console.warn('re-init raceday:', e); }
   switch(currentPage) {
     case 'today': renderToday(); loadWeather(); break;
     case 'fitness': renderFitness(); break;
@@ -3384,6 +3386,10 @@ async function sendAiMessage(message) {
     if (plan) ctx.push('Active plan: ' + plan.name + ' (' + plan.category + ')');
   }
   ctx.push('Total workouts logged: ' + userWorkouts.length);
+  if (Array.isArray(ALL_PLANS) && ALL_PLANS.length) {
+    const planList = ALL_PLANS.map(p => `${p.id}|${p.name}|${p.yearLevel}|${p.tier}|${p.category}`).join(';');
+    ctx.push('AVAILABLE_PLANS: ' + planList);
+  }
   try {
     const resp = await aiCoachFetch({
       message,
@@ -3393,12 +3399,95 @@ async function sendAiMessage(message) {
     if (!resp.ok) throw new Error(data.error || 'Request failed');
     typingMsg.innerHTML = '';
     typingMsg.textContent = data.reply;
+    if (Array.isArray(data.actions) && data.actions.length) {
+      renderAiActions(typingMsg, data.actions);
+    }
   } catch(e) {
     typingMsg.innerHTML = '';
     typingMsg.textContent = 'Sorry, I could not get a response. Make sure the AI Coach function is deployed on Netlify with the ANTHROPIC_API_KEY environment variable.';
     console.error('AI Coach error:', e);
   }
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function renderAiActions(parentMsg, actions) {
+  const row = document.createElement('div');
+  row.className = 'ai-action-row';
+  actions.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'ai-action-btn' + (a.destructive ? ' danger' : '');
+    btn.textContent = a.label || a.type;
+    btn.addEventListener('click', () => executeAiAction(a, btn));
+    row.appendChild(btn);
+  });
+  parentMsg.appendChild(row);
+}
+
+async function executeAiAction(action, btn) {
+  const confirms = {
+    cancel_plan: 'Cancel your current training plan? Your logged workouts will be kept.',
+    skip_today:  "Mark today's plan workouts as done?",
+    start_plan:  'Start this plan? It will replace your current active plan.'
+  };
+  if (confirms[action.type] && !confirm(confirms[action.type])) return;
+
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+  try {
+    if (action.type === 'start_plan') {
+      const planId = action.planId;
+      if (!planId || !findPlan(planId)) throw new Error('Unknown plan');
+      await activatePlan(planId);
+    } else if (action.type === 'cancel_plan') {
+      if (demoMode) {
+        userProfile.activePlanId = null;
+      } else if (db && currentUser) {
+        await updateDoc(doc(db, 'users', currentUser.uid), { activePlanId: null });
+        userProfile.activePlanId = null;
+      }
+      if (currentPage === 'today') renderToday();
+      if (currentPage === 'fitness') renderFitness();
+    } else if (action.type === 'skip_today') {
+      await skipTodaysWorkouts();
+    } else if (action.type === 'adjust_plan') {
+      startAiPlanEdit();
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+      return;
+    } else {
+      throw new Error('Unknown action');
+    }
+    btn.textContent = 'Done ✓';
+    btn.classList.add('done');
+  } catch(e) {
+    console.error('AI action error:', e);
+    showToast('Action failed: ' + (e.message || 'unknown'), 'error');
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+async function skipTodaysWorkouts() {
+  if (!userProfile?.activePlanId) throw new Error('No active plan');
+  const plan = findPlan(userProfile.activePlanId);
+  if (!plan) throw new Error('Plan not found');
+  const dayMap = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
+  const now = new Date();
+  const todayDay = now.getDay();
+  const todayWorkouts = plan.workouts.filter(w => dayMap[w.day] === todayDay);
+  if (todayWorkouts.length === 0) throw new Error('No workouts scheduled today');
+  const updates = {};
+  todayWorkouts.forEach((w, i) => {
+    const key = userProfile.activePlanId + '-' + w.week + '-' + w.day + '-' + i;
+    userChecklist[key] = true;
+    updates[key] = true;
+  });
+  if (!demoMode && db && currentUser) {
+    const dateKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    await setDoc(doc(db, 'users', currentUser.uid, 'checklist', dateKey), { items: updates }, { merge: true });
+  }
+  if (currentPage === 'today') renderToday();
 }
 // Explain plan function — called from plan cards
 async function explainPlan(planId) {
@@ -5809,15 +5898,18 @@ async function leaveTeam() {
     showLoading('Leaving team...');
     try {
       const tid = userProfile.teamId;
-      // If this user is the only member, delete the team instead of emptying members
-      // (Firestore rules block updates that leave members empty, to avoid orphan teams).
       const teamSnap = await getDoc(doc(db, 'teams', tid));
-      const members = teamSnap.exists() ? (teamSnap.data().members || []) : [];
-      const isLastMember = members.length <= 1 && members.includes(currentUser.uid);
-      if (isLastMember) {
-        await deleteDoc(doc(db, 'teams', tid));
-      } else {
-        await updateDoc(doc(db, 'teams', tid), { members: arrayRemove(currentUser.uid) });
+      if (teamSnap.exists()) {
+        const members = teamSnap.data().members || [];
+        const isMember = members.includes(currentUser.uid);
+        if (isMember && members.length <= 1) {
+          // Last member: delete team — rules block updates that empty members.
+          await deleteDoc(doc(db, 'teams', tid));
+        } else if (isMember) {
+          await updateDoc(doc(db, 'teams', tid), { members: arrayRemove(currentUser.uid) });
+        }
+        // If teamId is set but user isn't in members (corrupt state), skip the team
+        // write and just clear the profile below so they can escape.
       }
       await updateDoc(doc(db, 'users', currentUser.uid), { teamId: null, teamName: null });
       userProfile.teamId = null;

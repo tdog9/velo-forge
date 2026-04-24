@@ -162,6 +162,17 @@ HEART RATE ZONES: If students have Strava data with heart rate, the app calculat
 
 OFF-SEASON & HOLIDAY PLANS: Students can generate off-season plans (fun cross-training like swimming, hiking, yoga) and holiday plans (short 15-20 min bodyweight sessions) through the AI Coach → Generate a Plan menu.
 
+ACTIONS PROTOCOL (follow exactly):
+If — and only if — the student asks you to take an action on their training plan (e.g. "cancel my plan", "start the Y10 intense in-vehicle one", "skip today's session", "adjust my plan"), append a machine-readable block at the very end of your reply:
+
+<<ACTIONS>>[ { "type": "...", "label": "...", "destructive": true|false, "planId": "..." } ]<<END>>
+
+- Types: "start_plan" (requires planId from AVAILABLE_PLANS in the student context), "cancel_plan", "skip_today", "adjust_plan".
+- "destructive" is true for "cancel_plan" and "skip_today"; false for "start_plan" and "adjust_plan".
+- "label" is short button text (e.g. "Cancel Plan", "Skip Today", "Start Y10 Intense").
+- In the visible reply, briefly confirm what you're offering ("Want me to cancel your current plan?"). Never paste the JSON block into the visible text.
+- Omit the block entirely for informational questions or anything you're not sure about. Don't invent planIds that aren't in AVAILABLE_PLANS.
+
 ${context ? 'Student context: ' + context : ''}`;
     maxTokens = 500;
   }
@@ -192,9 +203,25 @@ ${context ? 'Student context: ' + context : ''}`;
     }
 
     const data = await response.json();
-    const reply = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
+    let reply = data.content?.[0]?.text || 'Sorry, I could not generate a response.';
 
-    return { statusCode: 200, headers, body: JSON.stringify({ reply }) };
+    let actions = [];
+    const m = reply.match(/<<ACTIONS>>([\s\S]*?)<<END>>/);
+    if (m) {
+      try {
+        const parsed = JSON.parse(m[1].trim());
+        if (Array.isArray(parsed)) {
+          const allowed = new Set(['start_plan', 'cancel_plan', 'skip_today', 'adjust_plan']);
+          actions = parsed.filter(a =>
+            a && typeof a === 'object' && allowed.has(a.type)
+            && (a.type !== 'start_plan' || typeof a.planId === 'string')
+          );
+        }
+      } catch {}
+      reply = reply.replace(/<<ACTIONS>>[\s\S]*?<<END>>/, '').trim();
+    }
+
+    return { statusCode: 200, headers, body: JSON.stringify({ reply, actions }) };
   } catch (e) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to contact AI service', details: e.message }) };
   }

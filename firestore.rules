@@ -58,10 +58,19 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && (request.auth.uid in request.resource.data.members || isAdmin());
       // Members may update, but cannot empty the members array (would lock everyone out).
+      // Non-members may add exactly themselves (self-join via team code), and only to
+      // the `members` field — they can't rename the team or alter other fields.
       allow update: if (
         isSignedIn()
-        && request.auth.uid in resource.data.members
         && request.resource.data.members.size() > 0
+        && (
+          request.auth.uid in resource.data.members
+          ||
+          (
+            request.auth.uid in request.resource.data.members
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          )
+        )
       ) || isAdmin();
       allow delete: if (isSignedIn() && request.auth.uid in resource.data.members) || isAdmin();
 

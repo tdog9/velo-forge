@@ -654,6 +654,13 @@ select.input{
 .ai-quick-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
 .ai-quick-btn{padding:6px 12px;border-radius:16px;font-size:12px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);color:#a855f7;font-weight:500;cursor:pointer;white-space:nowrap}
 .ai-quick-btn:active{background:#7c3aed;color:#fff}
+.ai-action-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.ai-action-btn{padding:7px 12px;border-radius:10px;font-size:12px;font-weight:600;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.28);color:#a855f7;cursor:pointer;white-space:nowrap}
+.ai-action-btn:active{background:#7c3aed;color:#fff}
+.ai-action-btn:disabled{opacity:.6;cursor:default}
+.ai-action-btn.danger{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:#ef4444}
+.ai-action-btn.danger:active{background:#ef4444;color:#fff}
+.ai-action-btn.done{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3);color:#22c55e}
 .plan-explain-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);color:#a855f7;font-size:11px;font-weight:600;cursor:pointer;margin-top:6px}
 .plan-explain-btn:active{background:#7c3aed;color:#fff}
 .plan-explain-btn svg{width:12px;height:12px}
