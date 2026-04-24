@@ -165,6 +165,52 @@ function computeRacePhase(fromDate) {
   else                    { phase = 'base';      label = 'BASE';      description = 'Aerobic engine building. Consistency over effort.'; }
   return { phase, label, description, race, daysOut, weeksOut };
 }
+// Map (phase, daysOut) to a 0..1 position along the 5-segment arc bar.
+// Each phase occupies 20% of the bar; within a segment the marker advances
+// linearly from start → end of that phase as daysOut shrinks.
+function phaseArcProgress(phase, daysOut) {
+  const seg = 0.2;
+  switch (phase) {
+    case 'base':      return Math.max(0, seg - Math.min(84, daysOut - 84) / 84 * seg);
+    case 'build':     return seg   + ((84 - daysOut) / 42) * seg;
+    case 'peak':      return 2*seg + ((42 - daysOut) / 28) * seg;
+    case 'taper':     return 3*seg + ((14 - daysOut) / 7)  * seg;
+    case 'race-week': return 4*seg + ((7  - daysOut) / 7)  * seg;
+    default: return 0;
+  }
+}
+// Render the 5-segment phase timeline with a "you are here" marker.
+// Inline SVG, responsive, no chart library.
+function renderPhaseTimeline(racePhase) {
+  if (!racePhase) return '';
+  const segments = [
+    { id: 'base',      label: 'BASE',  color: '#22c55e' },
+    { id: 'build',     label: 'BUILD', color: '#f59e0b' },
+    { id: 'peak',      label: 'PEAK',  color: '#ef4444' },
+    { id: 'taper',     label: 'TAPER', color: '#3b82f6' },
+    { id: 'race-week', label: 'RACE',  color: '#8b5cf6' },
+  ];
+  const pct = Math.max(0, Math.min(1, phaseArcProgress(racePhase.phase, racePhase.daysOut))) * 100;
+  const segRects = segments.map((s, i) => {
+    const isCurrent = s.id === racePhase.phase;
+    const opacity = isCurrent ? '0.35' : '0.12';
+    return `<rect x="${i * 20}" y="0" width="20" height="12" fill="${s.color}" fill-opacity="${opacity}"/>`;
+  }).join('');
+  const labels = segments.map((s, i) => {
+    const isCurrent = s.id === racePhase.phase;
+    const color = isCurrent ? s.color : 'var(--muted-fg)';
+    const weight = isCurrent ? '800' : '600';
+    return `<div style="flex:1;text-align:center;font-size:9px;font-weight:${weight};color:${color};letter-spacing:.04em">${s.label}</div>`;
+  }).join('');
+  return `<div class="phase-timeline" style="margin-bottom:12px">
+    <svg viewBox="0 0 100 12" preserveAspectRatio="none" style="width:100%;height:14px;display:block">
+      ${segRects}
+      <line x1="${pct}" y1="-2" x2="${pct}" y2="14" stroke="var(--fg)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+      <circle cx="${pct}" cy="6" r="3" fill="var(--fg)" stroke="var(--bg)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div style="display:flex;margin-top:4px">${labels}</div>
+  </div>`;
+}
 // App State
 let app, auth, db;
 let currentUser = null;
@@ -214,8 +260,13 @@ let stravaTokens = null; // { access_token, refresh_token, expires_at, athlete }
 let stravaActivities = []; // cached recent activities
 let userWorkouts = [];
 let userChecklist = {}; // always an object, never undefined
+// Plan overrides = reschedules of plan workouts when the athlete skips a day.
+// Shape: { [planId]: { entries: [{ week, day, shiftedTo: 'YYYY-MM-DD', shiftedAt }] } }
+// Identity per entry is (week, day) — all workouts scheduled that day shift together.
+let userPlanOverrides = {};
 let workoutsUnsubscribe = null;
 let checklistUnsubscribe = null;
+let planOverridesUnsubscribe = null;
 let profileUnsubscribe = null;
 // XP & Levelling (imported from state.js)
 function calcXp() {
@@ -966,6 +1017,7 @@ $('logout-btn')?.addEventListener('click', async () => {
   try {
     if (workoutsUnsubscribe) { workoutsUnsubscribe(); workoutsUnsubscribe = null; }
     if (checklistUnsubscribe) { checklistUnsubscribe(); checklistUnsubscribe = null; }
+    if (planOverridesUnsubscribe) { planOverridesUnsubscribe(); planOverridesUnsubscribe = null; }
     if (profileUnsubscribe) { clearInterval(profileUnsubscribe); profileUnsubscribe = null; }
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
     await signOut(auth);
@@ -973,6 +1025,7 @@ $('logout-btn')?.addEventListener('click', async () => {
     userProfile = null;
     userWorkouts = [];
     userChecklist = {};
+    userPlanOverrides = {};
     showAuthLogin();
   } catch(e) {
     console.error('Logout error:', e);
@@ -2341,6 +2394,7 @@ function renderToday() {
       <div style="font-size:13px;color:var(--fg);line-height:1.4">${description}</div>
       ${gearHtml}
     </div>`;
+    html += renderPhaseTimeline(racePhase);
   }
   // ── SECTION 2: Today's Training (the main thing) ──
   if (activePlan) {
@@ -2366,10 +2420,17 @@ function renderToday() {
     </div>`;
     const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
     const todayDay = now.getDay();
-    const todayWorkouts = activePlan.workouts.filter(w => dayMap[w.day] === todayDay);
+    const todayDateKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    const overrides = (userPlanOverrides[activePlanId]?.entries) || [];
+    // Effective today = natural matches not shifted away + any shifted-in for today.
+    const todayWorkouts = activePlan.workouts.filter(w => {
+      const shifted = overrides.find(o => o.week === w.week && o.day === w.day);
+      if (shifted) return shifted.shiftedTo === todayDateKey;
+      return dayMap[w.day] === todayDay;
+    });
     if (todayWorkouts.length > 0) {
       html += '<div class="space-y">';
-      todayWorkouts.forEach((origW, i) => {
+      todayWorkouts.forEach((origW) => {
         const globalIdx = activePlan.workouts.indexOf(origW);
         const w = getWorkoutData(activePlanId, globalIdx, origW) || {...origW};
         if (!w || !w.name) return;
@@ -2380,7 +2441,14 @@ function renderToday() {
           w.duration = selectedDur;
           w.scaled = true;
         }
-        const checkKey = activePlanId + '-' + origW.week + '-' + origW.day + '-' + i;
+        // Canonical checkKey: index among same-week-same-day workouts within
+        // the plan. Matches calcPlanPct's key shape so completion toggles from
+        // here are correctly counted in progress metrics.
+        const sameWeekDayIdx = activePlan.workouts
+          .slice(0, globalIdx)
+          .filter(ww => ww.week === origW.week && ww.day === origW.day)
+          .length;
+        const checkKey = activePlanId + '-' + origW.week + '-' + origW.day + '-' + sameWeekDayIdx;
         const isChecked = userChecklist && userChecklist[checkKey] === true;
         html += renderChecklistItem(w, checkKey, isChecked);
       });
@@ -3693,47 +3761,110 @@ function setAiGoal(g) {
   if (currentPage === 'today') renderToday();
 }
 
+// Find the next day within the next 7 days that has no plan workout naturally
+// scheduled AND no prior override landing on it. "Naturally free" means the
+// plan has no workout on that day-of-week in any week.
+function nextFreePlanDay(plan, overrides, fromDate) {
+  const occupiedDays = new Set(plan.workouts.map(w => w.day));
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  for (let i = 1; i <= 7; i++) {
+    const probe = new Date(fromDate);
+    probe.setDate(probe.getDate() + i);
+    const probeDay = dayNames[probe.getDay()];
+    const probeDate = probe.getFullYear() + '-' + String(probe.getMonth()+1).padStart(2,'0') + '-' + String(probe.getDate()).padStart(2,'0');
+    const alreadyShiftedHere = overrides.some(o => o.shiftedTo === probeDate);
+    if (!occupiedDays.has(probeDay) && !alreadyShiftedHere) {
+      return { date: probeDate, dayName: probeDay };
+    }
+  }
+  return null;
+}
+
 async function skipTodaysWorkouts() {
   if (!userProfile?.activePlanId) throw new Error('No active plan');
   const plan = findPlan(userProfile.activePlanId);
   if (!plan) throw new Error('Plan not found');
+  const planId = userProfile.activePlanId;
   const dayMap = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
   const now = new Date();
   const todayDay = now.getDay();
-  const todayWorkouts = plan.workouts.filter(w => dayMap[w.day] === todayDay);
-  if (todayWorkouts.length === 0) throw new Error('No workouts scheduled today');
-  const updates = {};
-  let skippedMinutes = 0;
-  todayWorkouts.forEach((w, i) => {
-    const key = userProfile.activePlanId + '-' + w.week + '-' + w.day + '-' + i;
-    userChecklist[key] = true;
-    updates[key] = true;
-    skippedMinutes += (w.duration || 0);
+  const todayDateKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  const existingOverrides = (userPlanOverrides[planId]?.entries) || [];
+  // Effective today — matches the renderToday filter so we shift whatever the
+  // athlete actually sees scheduled for today.
+  const todayWorkouts = plan.workouts.filter(w => {
+    const shifted = existingOverrides.find(o => o.week === w.week && o.day === w.day);
+    if (shifted) return shifted.shiftedTo === todayDateKey;
+    return dayMap[w.day] === todayDay;
   });
-  // Local skip log so the app can surface patterns without a schema change.
-  // Auto-rescheduling missed sessions is a larger, separate piece of work.
+  if (todayWorkouts.length === 0) throw new Error('No workouts scheduled today');
+
+  const target = nextFreePlanDay(plan, existingOverrides, now);
+  const skippedMinutes = todayWorkouts.reduce((s, w) => s + (w.duration || 0), 0);
+  const phase = computeRacePhase(now);
+  const raceShort = phase ? phase.race.name.replace(/^Vic HPV /, '').replace(/ — /, ' · ') : null;
+
+  // No free day — fall back to marking done (legacy behaviour) + warn.
+  if (!target) {
+    const updates = {};
+    todayWorkouts.forEach(w => {
+      const sameWeekDayIdx = plan.workouts
+        .slice(0, plan.workouts.indexOf(w))
+        .filter(ww => ww.week === w.week && ww.day === w.day)
+        .length;
+      const key = planId + '-' + w.week + '-' + w.day + '-' + sameWeekDayIdx;
+      userChecklist[key] = true;
+      updates[key] = true;
+    });
+    if (!demoMode && db && currentUser) {
+      await setDoc(doc(db, 'users', currentUser.uid, 'checklist', todayDateKey), { items: updates }, { merge: true });
+    }
+    showToast('Plan is full this week — marked done instead of rescheduled.', 'warn');
+    if (currentPage === 'today') renderToday();
+    return;
+  }
+
+  // Reschedule: one override entry per unique (week, day). Update existing
+  // entries rather than duplicating so repeated skips of the same session
+  // just re-shift rather than accumulating stale history.
+  const nextEntries = [...existingOverrides];
+  const groupsShifted = new Set();
+  todayWorkouts.forEach(w => {
+    const groupKey = w.week + ':' + w.day;
+    if (groupsShifted.has(groupKey)) return;
+    groupsShifted.add(groupKey);
+    const entry = { week: w.week, day: w.day, shiftedTo: target.date, shiftedAt: new Date().toISOString() };
+    const existingIdx = nextEntries.findIndex(o => o.week === w.week && o.day === w.day);
+    if (existingIdx >= 0) nextEntries[existingIdx] = entry;
+    else nextEntries.push(entry);
+  });
+
+  userPlanOverrides[planId] = { entries: nextEntries, updatedAt: new Date().toISOString() };
+  if (!demoMode && db && currentUser) {
+    await setDoc(doc(db, 'users', currentUser.uid, 'planOverrides', planId), userPlanOverrides[planId]);
+  }
+
+  // Local log — analytics + coach visibility hook (without schema changes).
   try {
     const skipLog = JSON.parse(localStorage.getItem('tp_skip_log') || '[]');
     skipLog.unshift({
-      date: now.toISOString().split('T')[0],
-      planId: userProfile.activePlanId,
+      date: todayDateKey,
+      planId,
       count: todayWorkouts.length,
       minutes: skippedMinutes,
+      shiftedTo: target.date,
     });
     localStorage.setItem('tp_skip_log', JSON.stringify(skipLog.slice(0, 30)));
   } catch(e) {}
-  if (!demoMode && db && currentUser) {
-    const dateKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-    await setDoc(doc(db, 'users', currentUser.uid, 'checklist', dateKey), { items: updates }, { merge: true });
-  }
-  const phase = computeRacePhase(now);
+
   const mins = skippedMinutes ? ' (' + skippedMinutes + ' min)' : '';
-  let msg = 'Today marked skipped' + mins + '. Back at it tomorrow.';
-  if (phase) {
-    const raceShort = phase.race.name.replace(/^Vic HPV /, '').replace(/ — /, ' · ');
-    if (phase.phase === 'race-week')  msg = 'Rest logged' + mins + '. ' + phase.daysOut + 'd to ' + raceShort + ' — recovery is training.';
-    else if (phase.phase === 'taper') msg = 'Taper skip' + mins + '. ' + phase.daysOut + 'd to ' + raceShort + ' — rest serves you now.';
-    else                              msg = 'Skipped' + mins + '. ' + phase.daysOut + 'd to ' + raceShort + ' — catch the next one.';
+  let msg = 'Rescheduled to ' + target.dayName + mins + '.';
+  if (phase && raceShort) {
+    if (phase.phase === 'race-week')  msg += ' ' + phase.daysOut + 'd to ' + raceShort + ' — recovery is training.';
+    else if (phase.phase === 'taper') msg += ' ' + phase.daysOut + 'd to ' + raceShort + ' — rest serves you.';
+    else                              msg += ' ' + phase.daysOut + 'd to ' + raceShort + '.';
+  } else {
+    msg += ' Back at it then.';
   }
   showToast(msg, 'info');
   if (currentPage === 'today') renderToday();
@@ -4083,9 +4214,102 @@ async function loadTrainingSessions() {
   } catch(e) { console.error('Load training sessions error:', e); }
 
 }
+// Training load curve — past 8 weeks + current + next 3 weeks. Bars = actual
+// minutes logged; dashed lines = phase-derived targets. Gives the athlete a
+// visual read on whether volume is ramping/tapering to match the race.
+function renderLoadCurve() {
+  if (!userWorkouts || userWorkouts.length < 3) return '';
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  // Monday-start week index
+  const weekday = now.getDay() || 7;
+  const thisMonday = new Date(now);
+  thisMonday.setDate(now.getDate() - weekday + 1);
+  const targetMap = { base: 90, build: 130, peak: 160, taper: 80, 'race-week': 40 };
+  const phaseColors = { base: '#22c55e', build: '#f59e0b', peak: '#ef4444', taper: '#3b82f6', 'race-week': '#8b5cf6' };
+  const weeks = [];
+  for (let offset = -8; offset <= 3; offset++) {
+    const wStart = new Date(thisMonday);
+    wStart.setDate(thisMonday.getDate() + offset * 7);
+    const wEnd = new Date(wStart);
+    wEnd.setDate(wEnd.getDate() + 6);
+    wEnd.setHours(23, 59, 59, 999);
+    let actual = 0;
+    if (offset <= 0) {
+      userWorkouts.forEach(w => {
+        const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+        if (d && d >= wStart && d <= wEnd) actual += (w.duration || 0);
+      });
+    }
+    const phase = computeRacePhase(wStart);
+    const target = phase ? targetMap[phase.phase] : 0;
+    weeks.push({
+      offset, wStart, actual, target,
+      phase: phase?.phase,
+      color: phase?.phase ? phaseColors[phase.phase] : '#888',
+    });
+  }
+  const maxVal = Math.max(160, ...weeks.map(w => Math.max(w.actual, w.target)));
+  const pad = { top: 10, right: 6, bottom: 22, left: 6 };
+  const innerW = 340;
+  const innerH = 110;
+  const svgW = innerW + pad.left + pad.right;
+  const svgH = innerH + pad.top + pad.bottom;
+  const bandW = innerW / weeks.length;
+  const parts = [];
+  weeks.forEach((w, i) => {
+    const x = pad.left + i * bandW;
+    const isCurrent = w.offset === 0;
+    // Actual bar
+    if (w.actual > 0) {
+      const h = (w.actual / maxVal) * innerH;
+      const fill = isCurrent ? 'var(--primary)' : 'rgba(255,255,255,0.45)';
+      parts.push(`<rect x="${x + bandW * 0.15}" y="${pad.top + innerH - h}" width="${bandW * 0.7}" height="${h}" fill="${fill}" rx="2"/>`);
+    }
+    // Target dash
+    if (w.target > 0) {
+      const ty = pad.top + innerH - (w.target / maxVal) * innerH;
+      parts.push(`<line x1="${x + bandW * 0.08}" x2="${x + bandW * 0.92}" y1="${ty}" y2="${ty}" stroke="${w.color}" stroke-width="2" stroke-dasharray="3 2"/>`);
+    }
+    // Label every 2nd week + always current
+    if (i % 2 === 0 || isCurrent) {
+      const label = isCurrent ? 'now' : (w.offset < 0 ? String(w.offset) : '+' + w.offset);
+      const labelColor = isCurrent ? 'var(--primary)' : 'var(--muted-fg)';
+      const weight = isCurrent ? '700' : '500';
+      parts.push(`<text x="${x + bandW / 2}" y="${svgH - 8}" font-size="10" fill="${labelColor}" font-weight="${weight}" text-anchor="middle">${label}</text>`);
+    }
+  });
+  // Now line
+  const nowIdx = weeks.findIndex(w => w.offset === 0);
+  if (nowIdx >= 0) {
+    const x = pad.left + nowIdx * bandW + bandW / 2;
+    parts.push(`<line x1="${x}" x2="${x}" y1="${pad.top}" y2="${pad.top + innerH}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="2 3" opacity="0.25"/>`);
+  }
+  // Race markers in window
+  const firstDt = weeks[0].wStart;
+  const lastDt = new Date(weeks[weeks.length - 1].wStart); lastDt.setDate(lastDt.getDate() + 6);
+  RACES.forEach(r => {
+    const rd = new Date(r.date + 'T00:00:00');
+    if (rd < firstDt || rd > lastDt) return;
+    // x position based on day offset from thisMonday
+    const daysFromStart = Math.round((rd - firstDt) / 86400000);
+    const x = pad.left + (daysFromStart / (weeks.length * 7)) * innerW;
+    parts.push(`<line x1="${x}" x2="${x}" y1="${pad.top}" y2="${pad.top + innerH}" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="4 2"/>`);
+    parts.push(`<text x="${x}" y="${pad.top - 2}" font-size="9" fill="#8b5cf6" text-anchor="middle" font-weight="700">🏁</text>`);
+  });
+  return `<div style="margin-bottom:14px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:700;color:var(--fg)">Training Load</div>
+      <div style="font-size:10px;color:var(--muted-fg)">min/week · past 8 → next 3</div>
+    </div>
+    <svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">${parts.join('')}</svg>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:2px;line-height:1.4">Bars = logged · Dashes = target for that week's phase · 🏁 = race day</div>
+  </div>`;
+}
 function renderWorkouts() {
   const c = $('workouts-content');
   let html = '<div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Log Manually</button></div>';
+  html += renderLoadCurve();
   // Load stored routes for mini maps — tracker.js and strava.js both write to vf_routes
   let storedRoutes = {};
   try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
@@ -6383,6 +6607,21 @@ function setupListeners(uid) {
     console.error('Checklist listener error:', err);
     userChecklist = {};
   });
+  // Listen to plan overrides for the active plan
+  if (planOverridesUnsubscribe) planOverridesUnsubscribe();
+  const activeId = userProfile?.activePlanId;
+  if (activeId) {
+    const poRef = doc(db, 'users', uid, 'planOverrides', activeId);
+    planOverridesUnsubscribe = onSnapshot(poRef, (snap) => {
+      userPlanOverrides[activeId] = snap.exists()
+        ? (snap.data() || { entries: [] })
+        : { entries: [] };
+      if (currentPage === 'today') renderToday();
+    }, (err) => {
+      console.error('Plan overrides listener error:', err);
+      userPlanOverrides[activeId] = { entries: [] };
+    });
+  }
 }
 async function loadUserProfile(uid) {
   try {

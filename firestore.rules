@@ -53,6 +53,12 @@ service cloud.firestore {
       match /raceLogs/{logId} {
         allow read, write: if isOwner(userId);
       }
+
+      match /planOverrides/{planId} {
+        // Reschedules of plan workouts when the athlete skips a day.
+        // Owner-only — no coach/team visibility yet.
+        allow read, write: if isOwner(userId);
+      }
     }
 
     match /teams/{teamId} {
