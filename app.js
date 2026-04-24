@@ -6426,34 +6426,36 @@ function startApp() {
     if (user) {
       currentUser = user;
       showLoading('Loading...');
-      // PHASE 1: Profile + admin check (must complete before showing app)
-      try { await loadUserProfile(user.uid); } catch(e) {
-        console.error('Profile load failed:', e);
+      // PHASE 1: fetch profile, admin emails, race-day state in PARALLEL.
+      // Each used to await the previous for no reason; they don't depend on
+      // each other. On a typical connection this cuts ~300-500ms off boot.
+      const [profileRes, adminRes, rdSchedRes] = await Promise.allSettled([
+        loadUserProfile(user.uid),
+        loadAdminEmails(),
+        checkRaceDaySchedule(),
+      ]);
+      if (profileRes.status === 'rejected') {
+        console.error('Profile load failed:', profileRes.reason);
         userProfile = { displayName: user.displayName || 'User', email: user.email || '', yearLevel: 'Y7', fitnessLevel: 'basic', activePlanId: null };
       }
+      if (adminRes.status === 'rejected') logError('load-admin-emails', adminRes.reason, {});
+      try { checkAdmin(user.email); } catch(e) { logError('check-admin', e, { email: user.email }); }
       try { setupListeners(user.uid); } catch(e) { console.warn('Listeners:', e); }
-      // Start global settings listener
       try { listenGlobalSettings(); } catch(e) {}
-      // Check race day state — if active, take over full screen
       try {
-        await checkRaceDaySchedule();
-        const rdActive=await loadRaceDayState();
-        if (rdActive) { setTimeout(()=>openRaceDayOverlay(),300); }
-        // Check schedule every 60 seconds
-        setInterval(async()=>{
+        const rdActive = await loadRaceDayState();
+        if (rdActive) setTimeout(() => openRaceDayOverlay(), 300);
+        setInterval(async () => {
           await checkRaceDaySchedule();
-          const stillActive=getRaceDayActive();
-          // If race day just ended, close overlay if open
+          const stillActive = getRaceDayActive();
           if (!stillActive && document.getElementById('raceday-overlay')) {
             document.getElementById('raceday-overlay')?.remove();
-            const ma=document.getElementById('main-app');
-            if (ma) ma.style.display='flex';
-            showToast('Race day has ended.','info');
+            const ma = document.getElementById('main-app');
+            if (ma) ma.style.display = 'flex';
+            showToast('Race day has ended.', 'info');
           }
         }, 60000);
       } catch(e) {}
-      try { await loadAdminEmails(); } catch(e) { logError('load-admin-emails', e, {}); }
-      try { checkAdmin(user.email); } catch(e) { logError('check-admin', e, { email: user.email }); }
       // Ensure master account has isCoach flag
       if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && !userProfile?.isCoach && db) {
         try { await updateDoc(doc(db,'users',user.uid),{isCoach:true}); if(userProfile) userProfile.isCoach=true; } catch(e){ logError('set-master-coach', e, { uid: user.uid }); }
@@ -6490,24 +6492,36 @@ function startApp() {
       showMainApp();
       const initial = (userProfile?.displayName || user.displayName || user.email || 'U').charAt(0).toUpperCase();
       try { $('user-avatar-btn').textContent = initial; } catch(e) {}
-      // PHASE 3a: Critical data first (needed for current page)
-      await Promise.allSettled([
-        loadAnnouncements(), loadTeamData(), loadUserRaceLogs(),
-        isAdmin ? loadAdminData() : Promise.resolve()
-      ]);
+      // PHASE 3a: first paint. Render NOW with whatever we already have
+      // (profile + plans + user workouts via listener). Everything else
+      // fetches in the background and re-renders as it lands. Previously
+      // this awaited 4 Firestore round trips before painting; now it
+      // paints instantly after showMainApp() and fills in progressively.
       renderCurrentPage();
-      // PHASE 3b: Non-critical — defer 500ms so page renders first
+      // PHASE 3b: all other data loads, fully parallel. Each getter triggers
+      // a targeted re-render so the user sees data flowing in rather than a
+      // single big refresh 2 seconds later.
+      const currentPageNeeds = {
+        today:   () => renderToday(),
+        fitness: () => renderFitness(),
+        races:   () => renderCurrentPage(),
+        team:    () => renderTeam(),
+        admin:   () => { if (isAdmin) renderAdmin(); },
+      };
+      const refresh = () => { try { (currentPageNeeds[currentPage] || (() => {}))(); } catch(e) {} };
+      loadAnnouncements().then(refresh).catch(() => {});
+      loadTeamData().then(refresh).catch(() => {});
+      loadUserRaceLogs().then(refresh).catch(() => {});
+      if (isAdmin) loadAdminData().then(refresh).catch(() => {});
+      // Non-critical bulk loads — defer 500ms, then refresh once when all done.
       setTimeout(() => {
         Promise.allSettled([
           loadVideoOverrides(), loadFirestoreRaces(), loadHiddenPlans(),
           loadRaceFootage(), loadRaceLogVideos(), loadExerciseOverrides(),
           loadPlanOverrides(), loadExerciseDemoVideos(), loadCustomPlans(),
           loadTeamFeed(), loadTeamChallenge(), loadTrainingSessions()
-        ]).then(() => renderCurrentPage());
+        ]).then(refresh);
       }, 500);
-      // Re-render after data loads if on team/today page
-      if (currentPage === 'team') renderTeam();
-      if (currentPage === 'today') renderToday();
       // PHASE 4: Non-async finishers
       try { setupAnnouncementListener(); } catch(e) {}
       // Health check — runs every 5th load and daily
@@ -6534,10 +6548,6 @@ function startApp() {
       }
       try { loadStravaTokens(); } catch(e) {}
       try { loadGoals(); } catch(e) {}
-      // Re-render current page with full data
-      renderCurrentPage();
-      // If on team page, re-render after team data loads so hasTeam is correct
-      if (currentPage === 'team') renderTeam();
       // Show welcome/onboarding for new users with API connection options
       if (!localStorage.getItem('tp_onboarded')) {
         setTimeout(() => showWelcomeSetup(), 800);
