@@ -1,0 +1,34 @@
+# GitHub Actions syntax-check workflow. Save this as .github/workflows/check.yml
+# to enable — my session's PAT didn't have `workflow` scope so I couldn't push
+# it directly. Low-risk addition that would have caught the
+# getLastHealthReport-not-defined blank-screen regression before it merged.
+
+name: check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: syntax check every .js
+        run: |
+          set -euo pipefail
+          find . \
+            -name node_modules -prune -o \
+            -name .git -prune -o \
+            -name www -prune -o \
+            -type f -name '*.js' -print \
+          | xargs -n1 node --check
+      - name: netlify.toml + firestore.rules parse
+        run: |
+          node -e "const s=require('fs').readFileSync('netlify.toml','utf8'); if(!/\[build\]/.test(s)) throw new Error('netlify.toml missing [build]')"
+          node -e "const s=require('fs').readFileSync('firestore.rules','utf8'); if(!/rules_version/.test(s)) throw new Error('firestore.rules missing rules_version')"
