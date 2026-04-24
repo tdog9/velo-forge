@@ -163,14 +163,21 @@ HEART RATE ZONES: If students have Strava data with heart rate, the app calculat
 OFF-SEASON & HOLIDAY PLANS: Students can generate off-season plans (fun cross-training like swimming, hiking, yoga) and holiday plans (short 15-20 min bodyweight sessions) through the AI Coach → Generate a Plan menu.
 
 ACTIONS PROTOCOL (follow exactly):
-If — and only if — the student asks you to take an action on their training plan (e.g. "cancel my plan", "start the Y10 intense in-vehicle one", "skip today's session", "adjust my plan"), append a machine-readable block at the very end of your reply:
+If — and only if — the student asks you to take an action (e.g. "cancel my plan", "start the Y10 intense one", "skip today's session", "log today's ride", "set a goal of 3 rides a week"), append a machine-readable block at the very end of your reply:
 
-<<ACTIONS>>[ { "type": "...", "label": "...", "destructive": true|false, "planId": "..." } ]<<END>>
+<<ACTIONS>>[ { "type": "...", "label": "...", "destructive": true|false, ... } ]<<END>>
 
-- Types: "start_plan" (requires planId from AVAILABLE_PLANS in the student context), "cancel_plan", "skip_today", "adjust_plan".
-- "destructive" is true for "cancel_plan" and "skip_today"; false for "start_plan" and "adjust_plan".
-- "label" is short button text (e.g. "Cancel Plan", "Skip Today", "Start Y10 Intense").
-- In the visible reply, briefly confirm what you're offering ("Want me to cancel your current plan?"). Never paste the JSON block into the visible text.
+Types and payloads:
+- "start_plan" — { planId } from AVAILABLE_PLANS in the student context. Not destructive.
+- "cancel_plan" — no extra fields. Destructive.
+- "skip_today" — no extra fields. Destructive.
+- "adjust_plan" — no extra fields. Not destructive.
+- "log_workout" — { workout: { name, type, duration, distance?, notes? } }. type is one of: ride, run, walk, hpv, gym, strength. duration in minutes (integer). distance in km (number). Not destructive.
+- "set_goal" — { goal: { type, target, label? } }. type is one of: weekly_workouts, weekly_mins, monthly_km, streak_days. target is a number. label is optional plain text. Not destructive.
+
+Rules:
+- "label" is short button text (e.g. "Cancel Plan", "Log 30 min ride").
+- In the visible reply, briefly confirm what you're offering ("Want me to log that for you?"). Never paste the JSON block into the visible text.
 - Omit the block entirely for informational questions or anything you're not sure about. Don't invent planIds that aren't in AVAILABLE_PLANS.
 
 ${context ? 'Student context: ' + context : ''}`;
@@ -211,11 +218,14 @@ ${context ? 'Student context: ' + context : ''}`;
       try {
         const parsed = JSON.parse(m[1].trim());
         if (Array.isArray(parsed)) {
-          const allowed = new Set(['start_plan', 'cancel_plan', 'skip_today', 'adjust_plan']);
-          actions = parsed.filter(a =>
-            a && typeof a === 'object' && allowed.has(a.type)
-            && (a.type !== 'start_plan' || typeof a.planId === 'string')
-          );
+          const allowed = new Set(['start_plan', 'cancel_plan', 'skip_today', 'adjust_plan', 'log_workout', 'set_goal']);
+          actions = parsed.filter(a => {
+            if (!a || typeof a !== 'object' || !allowed.has(a.type)) return false;
+            if (a.type === 'start_plan' && typeof a.planId !== 'string') return false;
+            if (a.type === 'log_workout' && (!a.workout || typeof a.workout !== 'object')) return false;
+            if (a.type === 'set_goal' && (!a.goal || typeof a.goal !== 'object')) return false;
+            return true;
+          });
         }
       } catch {}
       reply = reply.replace(/<<ACTIONS>>[\s\S]*?<<END>>/, '').trim();

@@ -1,6 +1,7 @@
 [build]
   functions = "netlify/functions"
   publish = "."
+  command = "node scripts/stamp-version.js"
 
 [functions]
   node_bundler = "esbuild"

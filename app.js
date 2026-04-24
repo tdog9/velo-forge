@@ -38,17 +38,25 @@ let initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword,
     onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs,
     arrayUnion, arrayRemove;
 let firebaseImportFailed = false;
-// Fire all imports at once — Promise.allSettled so one failure doesn't block others
+// Each import races a timeout so a hung CDN can't strand the page at a white
+// screen forever. Promise.allSettled still lets survivors continue loading.
+const IMPORT_TIMEOUT_MS = 12000;
+function importWithTimeout(url) {
+  return Promise.race([
+    import(url),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout loading ' + url)), IMPORT_TIMEOUT_MS))
+  ]);
+}
 const [adminRes, stravaRes, racelogRes, timerRes, aifRes, plansRes, fbAppRes, fbAuthRes, fbFsRes] = await Promise.allSettled([
-  import('./admin.js'),
-  import('./strava.js'),
-  import('./raceLog.js'),
-  import('./timer.js'),
-  import('./aifeatures.js'),
-  import('./plans.js'),
-  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
-  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'),
-  import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+  importWithTimeout('./admin.js'),
+  importWithTimeout('./strava.js'),
+  importWithTimeout('./raceLog.js'),
+  importWithTimeout('./timer.js'),
+  importWithTimeout('./aifeatures.js'),
+  importWithTimeout('./plans.js'),
+  importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
+  importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'),
+  importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
 ]);
 // Unpack results — each is {status:'fulfilled', value:module} or {status:'rejected', reason:error}
 if (adminRes.status === 'fulfilled') {
@@ -388,7 +396,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '4.4.0';
+const APP_VERSION = '202604240834';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -956,21 +964,29 @@ function showToast(message, type = 'info') {
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 3100);
 }
-// Error log — keeps last 20 errors for diagnostics
+// Error log — keeps last 20 errors for diagnostics (in-memory + mirrored to
+// localStorage so the admin panel can display them across reloads).
 const errorLog = [];
+try {
+  const saved = JSON.parse(localStorage.getItem('tp_error_log') || '[]');
+  if (Array.isArray(saved)) errorLog.push(...saved.slice(0, 20));
+} catch(e) {}
 // Local escHtml for error system (avoids dependency on state.js import timing)
 const _esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 function logError(area, error, context) {
+  const ts = new Date().toISOString();
   const entry = {
-    area, message: error?.message || String(error), code: error?.code || null,
+    area, source: area, // both field names — admin.js reads `source`
+    message: error?.message || String(error), code: error?.code || null,
     stack: error?.stack?.split('\n').slice(0, 4).join('\n') || null,
     context: context || {},
-    time: new Date().toISOString(),
+    time: ts, timestamp: ts, // both — admin.js reads `timestamp`
     user: userProfile?.displayName || 'Unknown',
     online: navigator.onLine, platform: navigator.userAgent?.includes('iPhone') ? 'iOS' : navigator.userAgent?.includes('Android') ? 'Android' : 'Desktop'
   };
   errorLog.unshift(entry);
   if (errorLog.length > 20) errorLog.pop();
+  try { localStorage.setItem('tp_error_log', JSON.stringify(errorLog)); } catch(e) {}
   console.error('[TurboPrep Error]', area, error);
   return entry;
 }
@@ -1362,26 +1378,8 @@ fitnessPage?.addEventListener('touchend', () => {
     $('content').scrollTop = 0;
   }
 }, { passive: true });
-// --- Feature 1: Scroll-to-top button ---
-const scrollTopBtn = $('scroll-top-btn');
 const contentEl = $('content');
-let scrollTopVisible = false;
-if (contentEl) {
-  contentEl.addEventListener('scroll', () => {
-    const shouldShow = contentEl.scrollTop > 400;
-    if (shouldShow !== scrollTopVisible) {
-      scrollTopVisible = shouldShow;
-      if (scrollTopBtn) scrollTopBtn.classList.toggle('visible', shouldShow);
-    }
-  }, { passive: true });
-}
-if (scrollTopBtn && contentEl) {
-  scrollTopBtn.addEventListener('click', () => {
-    haptic('light');
-    contentEl.scrollTo({ top: 0, behavior: 'smooth' });
-  });
-}
-// --- Feature 7: Keyboard dismiss on scroll ---
+// --- Keyboard dismiss on scroll ---
 if (contentEl) {
   contentEl.addEventListener('scroll', () => {
     const active = document.activeElement;
@@ -3427,7 +3425,9 @@ async function executeAiAction(action, btn) {
   const confirms = {
     cancel_plan: 'Cancel your current training plan? Your logged workouts will be kept.',
     skip_today:  "Mark today's plan workouts as done?",
-    start_plan:  'Start this plan? It will replace your current active plan.'
+    start_plan:  'Start this plan? It will replace your current active plan.',
+    log_workout: 'Log this workout to your activities?',
+    set_goal:    'Add this goal to your profile?'
   };
   if (confirms[action.type] && !confirm(confirms[action.type])) return;
 
@@ -3455,6 +3455,10 @@ async function executeAiAction(action, btn) {
       btn.textContent = originalLabel;
       btn.disabled = false;
       return;
+    } else if (action.type === 'log_workout') {
+      await logAiWorkout(action.workout);
+    } else if (action.type === 'set_goal') {
+      setAiGoal(action.goal);
     } else {
       throw new Error('Unknown action');
     }
@@ -3466,6 +3470,43 @@ async function executeAiAction(action, btn) {
     btn.disabled = false;
     btn.textContent = originalLabel;
   }
+}
+
+async function logAiWorkout(w) {
+  if (!w || typeof w !== 'object') throw new Error('No workout payload');
+  const allowedTypes = new Set(['ride', 'run', 'walk', 'hpv', 'gym', 'strength']);
+  const type = allowedTypes.has(String(w.type || '').toLowerCase()) ? String(w.type).toLowerCase() : 'ride';
+  const duration = Math.max(1, parseInt(w.duration) || 0);
+  const distance = w.distance != null ? parseFloat(w.distance) : null;
+  const name = String(w.name || '').trim() || (type.charAt(0).toUpperCase() + type.slice(1));
+  const notes = w.notes ? String(w.notes).trim() : null;
+  if (!duration) throw new Error('Duration required');
+  const entry = { name, type, duration, date: new Date() };
+  if (distance && isFinite(distance)) entry.distance = distance;
+  if (notes) entry.notes = notes;
+  if (demoMode) {
+    userWorkouts.unshift({ _id: 'wo-' + Date.now(), ...entry });
+  } else if (db && currentUser) {
+    await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), { ...entry, date: serverTimestamp() });
+  } else {
+    throw new Error('Not signed in');
+  }
+  autoUpdateChallengeScore(duration, 10);
+  if (currentPage === 'today') renderToday();
+  if (currentPage === 'fitness') renderFitness();
+}
+
+function setAiGoal(g) {
+  if (!g || typeof g !== 'object') throw new Error('No goal payload');
+  const allowedTypes = new Set(['weekly_workouts', 'weekly_mins', 'monthly_km', 'streak_days']);
+  const type = allowedTypes.has(g.type) ? g.type : null;
+  const target = parseFloat(g.target);
+  if (!type) throw new Error('Unknown goal type');
+  if (!isFinite(target) || target <= 0) throw new Error('Bad target');
+  const label = g.label ? String(g.label).trim() : (target + ' ' + type.replace(/_/g, ' '));
+  userGoals.push({ id: Date.now().toString(), type, target, label, createdAt: new Date().toISOString() });
+  saveGoals();
+  if (currentPage === 'today') renderToday();
 }
 
 async function skipTodaysWorkouts() {
@@ -6310,7 +6351,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '4.4.0';
+  const APP_VERSION = '202604240834';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

@@ -288,16 +288,13 @@ input,select,textarea{
   white-space:nowrap;
   -webkit-tap-highlight-color:transparent;
 }
-.fitness-sub-tab
 /* lb-sub-tab (leaderboard) same style */
 
-.lb-sub-tab
 
 /* ===== Bottom Tab Bar ===== */
 
 .light-theme 
 
-.tab-btn
 .tab-btn.active::after{
   content:'';position:absolute;bottom:-2px;left:50%;
   transform:translateX(-50%);
@@ -367,9 +364,7 @@ input,select,textarea{
   transition:all .15s;
   -webkit-tap-highlight-color:transparent;
 }
-.admin-tab
 .admin-section{display:none}
-.admin-section
 
 /* ===== Toggle Switch ===== */
 .admin-toggle{
@@ -383,7 +378,6 @@ input,select,textarea{
   background:#fff;position:absolute;top:3px;left:3px;
   transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);
 }
-.admin-toggle
 .admin-toggle.on::after{transform:translateX(20px)}
 
 /* ===== Forms ===== */
@@ -416,7 +410,6 @@ select.input{
   position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;
   opacity:0;transition:opacity .25s ease;
 }
-.sheet-overlay
 .sheet{
   position:fixed;bottom:0;left:0;right:0;z-index:101;
   background:var(--card);
@@ -427,7 +420,6 @@ select.input{
   transform:translateY(100%);
   transition:transform .3s cubic-bezier(.32,.72,0,1);
 }
-.sheet
   /* Swipe down to close */
 .sheet-handle{
   width:36px;height:4px;border-radius:2px;
@@ -473,7 +465,6 @@ select.input{
   max-width:calc(100vw - 32px);
   text-align:center;
 }
-.toast
 .toast-success{background:#22c55e;color:#fff}
 .toast-error{background:var(--destructive);color:#fff}
 .toast-warn{background:#f59e0b;color:#000}
@@ -553,7 +544,6 @@ select.input{
 .timer-rest-btn:active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
 .timer-steps{width:100%;max-width:360px;margin-top:8px}
 .timer-step{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;margin-bottom:4px;font-size:13px}
-.timer-step
 .timer-step.done{opacity:.4}
 .timer-step-num{width:22px;height:22px;border-radius:50%;background:var(--muted);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
 .timer-step.active .timer-step-num{background:var(--primary);color:var(--primary-fg)}
@@ -578,7 +568,6 @@ select.input{
 .profile-row-value{font-size:14px;color:var(--muted-fg)}
 .profile-row-action{font-size:13px;color:var(--primary);font-weight:600;cursor:pointer}
 .theme-toggle{width:48px;height:26px;border-radius:13px;background:var(--muted);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;border:none}
-.theme-toggle
 .theme-toggle-knob{width:22px;height:22px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .theme-toggle.on .theme-toggle-knob{transform:translateX(22px)}
 
@@ -675,14 +664,12 @@ select.input{
 .coach-card-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .coach-card-name{font-size:14px;font-weight:600;flex:1}
 .coach-card-badge{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600}
-.coach-card-badge
 .coach-card-badge.inactive{background:rgba(239,68,68,.15);color:#ef4444}
 .coach-card-stats{display:flex;gap:12px;font-size:11px;color:var(--muted-fg)}
 .coach-card-stats strong{color:var(--fg)}
 .coach-sort-bar{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;scrollbar-width:none}
 .coach-sort-bar::-webkit-scrollbar{display:none}
 .coach-sort-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted-fg);cursor:pointer;white-space:nowrap}
-.coach-sort-btn
 
 /* ===== Races ===== */
 .race-card{}
@@ -729,7 +716,6 @@ select.input{
 .auth-subtitle{font-size:14px;color:var(--muted-fg);margin-bottom:20px}
 .role-select-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
 .role-btn{padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s}
-.role-btn
 .auth-switch{text-align:center;font-size:13px;color:var(--muted-fg);margin-top:16px}
 .auth-switch button{color:var(--primary);font-weight:600;background:none;border:none;cursor:pointer}
 
@@ -807,7 +793,6 @@ select.input{
 }
 .tab-btn svg{width:22px;height:22px;flex-shrink:0}
 .tab-btn-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;line-height:1}
-.tab-btn
 .tab-btn:active{transform:scale(.88);transition:transform .1s}
 .record-tab{flex:0 0 auto;position:relative}
 .record-tab-circle{
@@ -931,7 +916,6 @@ select.input{
 
 /* Pages */
 .page{display:none;flex:1;overflow:hidden;flex-direction:column}
-.page
 
 /* Auth extras */
 .auth-card{width:100%;max-width:360px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-lg)}
@@ -943,7 +927,6 @@ select.input{
 .role-selector{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
 .radio-group{display:flex;flex-direction:column;gap:6px}
 .radio-option{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:border-color .15s}
-.radio-option
 
 /* User menu */
 .user-avatar{width:34px;height:34px;border-radius:50%;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;border:none}
@@ -1026,7 +1009,6 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 /* ===== Coach feature toggles ===== */
 .coach-feat-toggle{width:46px;height:26px;border-radius:13px;background:var(--muted);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;border:none}
 .coach-feat-toggle::after{content:'';width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-.coach-feat-toggle
 .coach-feat-toggle.on::after{transform:translateX(20px)}
 
 #toast-container{position:fixed;top:calc(var(--header-h)+var(--safe-t)+8px);left:50%;transform:translateX(-50%);z-index:500;display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:calc(100vw - 32px);}
@@ -1277,7 +1259,6 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .tracker-type-bar{display:flex;gap:6px;padding:10px 16px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
 .tracker-type-bar::-webkit-scrollbar{display:none}
 .tracker-type-btn{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer;white-space:nowrap;transition:all .15s}
-.tracker-type-btn
 .tracker-map{flex:1;position:relative;background:var(--card)}
 #tracker-map-el{width:100%;height:100%}
 .tracker-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);flex-shrink:0}
@@ -1326,7 +1307,6 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .perm-admin-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .perm-admin-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .perm-feature-toggle{padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer}
-.perm-feature-toggle
 .perm-check{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .perm-check.on{background:var(--primary);border-color:var(--primary)}
 
@@ -1335,7 +1315,6 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 
 /* ===== Bulk messaging ===== */
 .bulk-target-btn{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer}
-.bulk-target-btn
 
 /* ===== Training session ===== */
 .ts-notify-btn{padding:6px 12px;border-radius:6px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);color:#3b82f6;font-size:12px;font-weight:600;cursor:pointer}
