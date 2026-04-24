@@ -70,7 +70,7 @@ struct HomeView: View {
                     Button("Sign out", role: .destructive) { auth.signOut() }
                 }
             }
-            .navigationTitle("VeloForge")
+            .navigationTitle("TurboPrep")
             .task(id: auth.currentUser?.uid) {
                 guard let uid = auth.currentUser?.uid else { return }
                 await firestore.loadProfile(uid: uid)

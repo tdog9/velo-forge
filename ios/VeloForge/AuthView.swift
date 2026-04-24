@@ -9,7 +9,7 @@ struct AuthView: View {
         VStack(spacing: 20) {
             Spacer()
             VStack(spacing: 6) {
-                Text("VeloForge").font(.largeTitle).bold()
+                Text("TurboPrep").font(.largeTitle).bold()
                 Text("Sign in with your TurboPrep account")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
