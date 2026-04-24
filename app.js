@@ -34,7 +34,8 @@ let startAiPlanEdit = () => {}, sendAiPlanEdit = async () => {},
 let ALL_PLANS = [];
 let initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword,
     createUserWithEmailAndPassword, signOut, updateProfile,
-    getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy,
+    getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+    doc, getDoc, setDoc, updateDoc, collection, query, orderBy,
     onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs,
     arrayUnion, arrayRemove;
 let firebaseImportFailed = false;
@@ -92,6 +93,10 @@ Promise.allSettled([
        generateTrainingInsight, renderSeasonPhase } = m);
   }, e => console.warn('aifeatures.js load failed:', e)),
 ]).then(async () => {
+  // The module ctx we handed to initX() earlier wrapped the noop stubs.
+  // Now that real functions are in scope, invalidate so the next renderCurrentPage
+  // builds a fresh ctx pointing at the real exports.
+  if (typeof invalidateModuleCtx === 'function') invalidateModuleCtx();
   // admin.js owns loadAdminEmails — re-fetch the admin roster + re-apply
   // checkAdmin now that the real function is in memory, so delegated admins
   // get their tab even though the first pass ran with the noop stub.
@@ -112,7 +117,7 @@ Promise.allSettled([
 if (fbAppRes.status === 'fulfilled' && fbAuthRes.status === 'fulfilled' && fbFsRes.status === 'fulfilled') {
   initializeApp = fbAppRes.value.initializeApp;
   ({ getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } = fbAuthRes.value);
-  ({ getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs, arrayUnion, arrayRemove } = fbFsRes.value);
+  ({ getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs, arrayUnion, arrayRemove } = fbFsRes.value);
 } else {
   console.error('Firebase SDK failed:', fbAppRes.reason || fbAuthRes.reason || fbFsRes.reason);
   firebaseImportFailed = true;
@@ -651,7 +656,25 @@ function initFirebase() {
     }
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    db = getFirestore(app);
+    // Firestore with IndexedDB-backed persistent cache. Reads come from the
+    // local store on repeat visits (instant), then sync in the background.
+    // Multi-tab manager lets multiple open tabs share the cache safely.
+    // Falls back to the in-memory default if the browser blocks IndexedDB
+    // (private mode, quota exhausted, old Safari).
+    try {
+      if (initializeFirestore && persistentLocalCache) {
+        db = initializeFirestore(app, {
+          localCache: persistentLocalCache(
+            persistentMultipleTabManager ? { tabManager: persistentMultipleTabManager() } : {}
+          )
+        });
+      } else {
+        db = getFirestore(app);
+      }
+    } catch(e) {
+      console.warn('Firestore persistent cache unavailable, using in-memory:', e);
+      db = getFirestore(app);
+    }
     firebaseReady = true;
     return true;
   } catch(e) {
@@ -1318,13 +1341,23 @@ function switchPage(page) {
   const savedScroll = scrollPositions[page] || 0;
   $('content').scrollTop = savedScroll;
 }
+// Module context is built ONCE and reused — all its fields are either
+// getter-wrapped (so they stay live as module state changes) or immutable
+// function refs. Rebuilding a 60-prop object on every page switch was
+// burning frame budget for no value.
+let _moduleCtxCache = null;
+function getModuleCtx() { return _moduleCtxCache || (_moduleCtxCache = buildModuleCtx()); }
+// Called after a deferred import lands — the function references inside
+// buildModuleCtx captured the noop stubs when we first built the ctx, so
+// we need to rebuild once the real exports are bound.
+function invalidateModuleCtx() { _moduleCtxCache = null; }
+
 function renderCurrentPage() {
   const pageTitles = {today:'Today — TurboPrep',fitness:'Fitness — TurboPrep',races:'Races & Calendar — TurboPrep',team:'Leaderboard & Teams — TurboPrep',admin:'Admin — TurboPrep',coach:'Coach — TurboPrep'};
   document.title = pageTitles[currentPage] || 'TurboPrep';
-  // Re-seed module contexts before every render so A.* is always populated,
-  // even if the original startApp init missed a module (load race, stale
-  // cache, etc.). Cheap — each init is just A = ctx.
-  const _ctx = buildModuleCtx();
+  // Re-seed module contexts before every render so A.* is always populated
+  // (noop under the no-op stubs until a module loads; cheap when it does).
+  const _ctx = getModuleCtx();
   try { initAdmin(_ctx); }      catch(e) { console.warn('re-init admin:', e); }
   try { initStrava(_ctx); }     catch(e) { console.warn('re-init strava:', e); }
   try { initRaceLog(_ctx); }    catch(e) { console.warn('re-init racelog:', e); }
