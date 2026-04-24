@@ -31,20 +31,50 @@ struct WatchSignedOutView: View {
 
 struct WatchHomeView: View {
     @EnvironmentObject private var auth: AuthService
+    @StateObject private var health = HealthKitService()
 
-    // Firestore data isn't available directly on watchOS — FirebaseFirestore
-    // doesn't build for watchOS. Profile + workout data will flow from the
-    // paired iPhone via WatchConnectivity (wired in a later milestone).
     var body: some View {
         List {
             Section("You") {
                 Text(auth.currentUser?.email ?? "—").font(.footnote)
             }
-            Section("Coming soon") {
-                Text("Heart rate, workout session, and plan sync arrive once WatchConnectivity is wired.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            Section("Heart rate") {
+                switch health.authorization {
+                case .notRequested, .requesting:
+                    Button("Allow Health") {
+                        Task { await health.requestAuthorization() }
+                    }
+                    .disabled(health.authorization == .requesting)
+                case .denied:
+                    Text("Open Watch app on iPhone → enable Health permissions.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                case .unavailable:
+                    Text("HealthKit unavailable")
+                        .foregroundStyle(.secondary)
+                case .granted:
+                    if let bpm = health.latestHeartRate {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text("\(bpm)").font(.system(size: 36, weight: .bold))
+                            Text("bpm").foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("Waiting for sample…").font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
             }
+        }
+        .task {
+            if health.authorization == .notRequested {
+                await health.requestAuthorization()
+            }
+            if health.authorization == .granted {
+                await health.refreshLatestHeartRate()
+                health.startHeartRateStreaming()
+            }
+        }
+        .onDisappear {
+            health.stopHeartRateStreaming()
         }
     }
 }
