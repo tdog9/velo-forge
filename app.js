@@ -91,11 +91,17 @@ Promise.allSettled([
        startAiFormCheck, generateCoachSummary,
        generateTrainingInsight, renderSeasonPhase } = m);
   }, e => console.warn('aifeatures.js load failed:', e)),
-]).then(() => {
+]).then(async () => {
+  // admin.js owns loadAdminEmails — re-fetch the admin roster + re-apply
+  // checkAdmin now that the real function is in memory, so delegated admins
+  // get their tab even though the first pass ran with the noop stub.
+  if (typeof currentUser !== 'undefined' && currentUser?.email) {
+    try { await loadAdminEmails(); } catch(e) {}
+    try { checkAdmin(currentUser.email); } catch(e) {}
+  }
   // Re-render only if the user landed on a page whose UI depends on a
   // deferred module — stubs are invisible no-ops on today/fitness/team so
-  // re-rendering them would just flash for no reason. Races and admin show
-  // empty until their module arrives, so they need the refresh.
+  // re-rendering them would just flash for no reason.
   const app = document.getElementById('main-app');
   if (!app || app.style.display === 'none') return;
   if (currentPage === 'races' || currentPage === 'admin') {
@@ -5106,6 +5112,7 @@ function renderTeamTab(c) {
           </div>
         </div>
         <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-manage-sub-btn">Manage Subteams</button>
+        <button class="btn" style="width:100%;margin-bottom:8px;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" id="team-delete-btn">Delete Team</button>
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
           <div style="font-size:13px;font-weight:600;margin-bottom:8px">Race Day</div>
           ${getRaceDayActive() ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:13px;cursor:pointer">🏁 End Race Day Mode</button>` : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e;font-weight:700;font-size:13px;cursor:pointer">🏁 Activate Race Day Mode</button>`}
@@ -5143,6 +5150,7 @@ function renderTeamTab(c) {
       });
     });
     $('coach-manage-sub-btn')?.addEventListener('click', openManageSubteamsSheet);
+    $('team-delete-btn')?.addEventListener('click', deleteTeam);
     $('coach-start-rd')?.addEventListener('click', async () => {
       const ok=await activateRaceDay();
       if(ok){ showToast('Race day mode activated!','success'); openRaceDayOverlay(); }
@@ -5948,6 +5956,60 @@ function openManageSubteamsSheet() {
   });
 }
 
+// Delete-team — only the creator should call this. Cleans up:
+//   1. sharedPlans subcollection (Firestore doesn't cascade-delete)
+//   2. Every other member's userProfile.teamId / teamName
+//   3. Local per-team localStorage cache (capture the id BEFORE we null out
+//      userProfile — the previous implementation cleared teamId first, then
+//      read userProfile.teamId for the cache key and got 'tp_team_null')
+// Does NOT flip isCoach off — the creator may want to start another team.
+async function deleteTeam() {
+  const tid = userProfile?.teamId;
+  if (!currentUser || !tid) return;
+  if (demoMode) {
+    teamData = null; teamMembers = []; userProfile.teamId = null; userProfile.teamName = null;
+    showToast('Team deleted.', 'info'); renderTeam(); return;
+  }
+  if (!db) return;
+  const ok = await confirmModal(
+    'Delete team?',
+    'Permanently delete this team? All members will lose access. This cannot be undone.'
+  );
+  if (!ok) return;
+  showLoading('Deleting team...');
+  try {
+    // 1. Remove shared plans under the team so the doc can delete cleanly.
+    try {
+      const sp = await getDocs(collection(db, 'teams', tid, 'sharedPlans'));
+      await Promise.allSettled(sp.docs.map(d =>
+        deleteDoc(doc(db, 'teams', tid, 'sharedPlans', d.id))
+      ));
+    } catch(e) { logError('delete-team-sharedplans', e, { tid }); }
+    // 2. Clear teamId on every member's profile so their UI doesn't dangle.
+    const memberIds = Array.isArray(teamData?.members) ? teamData.members : [currentUser.uid];
+    await Promise.allSettled(memberIds.map(uid =>
+      updateDoc(doc(db, 'users', uid), { teamId: null, teamName: null })
+        .catch(e => logError('delete-team-member-profile', e, { uid, tid }))
+    ));
+    // 3. Delete the team doc itself.
+    await deleteDoc(doc(db, 'teams', tid));
+    // 4. Local cleanup.
+    try {
+      localStorage.removeItem('tp_team_' + tid);
+      localStorage.removeItem('tp_team_ts_' + tid);
+    } catch(e) {}
+    teamData = null; teamMembers = [];
+    userProfile.teamId = null; userProfile.teamName = null;
+    hideLoading();
+    showToast('Team deleted.', 'info');
+    renderTeam();
+  } catch(e) {
+    hideLoading();
+    logError('delete-team', e, { tid });
+    showError('Failed to delete team', 'team', e, { action: 'delete' });
+  }
+}
+
 async function leaveTeam() {
   if (!currentUser || !userProfile?.teamId) return;
   const teamName = teamData?.name || 'this team';
@@ -6694,18 +6756,9 @@ function renderCoachTeam(el) {
     });
   });
   el.querySelector('#coach-sub-manage')?.addEventListener('click', openManageSubteamsSheet);
-  el.querySelector('#coach-delete-team-btn')?.addEventListener('click', () => {
-    showModal('Delete Team', '<div style="font-size:14px;color:var(--fg);line-height:1.6">Are you sure you want to <strong>permanently delete</strong> this team? All members will lose access. This cannot be undone.</div>', async () => {
-      try {
-        if (db && userProfile?.teamId) {
-          await deleteDoc(doc(db,'teams',userProfile.teamId));
-          await updateDoc(doc(db,'users',currentUser.uid),{teamId:null,teamName:null,isCoach:false});
-        }
-        teamData=null; teamMembers=[]; userProfile.teamId=null; userProfile.teamName=null; userProfile.isCoach=false;
-        try { localStorage.removeItem('tp_team_'+userProfile?.teamId); } catch(e) {}
-        showToast('Team deleted.','info'); renderTeam(); renderCoachPage();
-      } catch(e) { showToast('Failed to delete team.','error'); }
-    });
+  el.querySelector('#coach-delete-team-btn')?.addEventListener('click', async () => {
+    await deleteTeam();
+    renderCoachPage();
   });
 }
 
@@ -6738,14 +6791,22 @@ function renderCoachRaceDay(el) {
 function checkAdmin(email) {
   const e = (email || '').toLowerCase();
   const isMaster = e === ADMIN_EMAIL.toLowerCase();
-  isAdmin = isMaster;
-  currentAdminPerms = isMaster ? ALL_ADMIN_FEATURES.map(f => f.id) : [];
+  // Delegated admins: listed in config/adminEmails either as a bare email
+  // (legacy) or as { email, perms: [...] } in adminPerms.
+  const isDelegatedByEmail = Array.isArray(adminEmails)
+    && adminEmails.some(x => String(x || '').toLowerCase() === e);
+  const delegatedPerms = Array.isArray(adminPerms)
+    ? adminPerms.find(p => p && String(p.email || '').toLowerCase() === e)
+    : null;
+  const isDelegated = isDelegatedByEmail || !!delegatedPerms;
+  isAdmin = isMaster || isDelegated;
+  currentAdminPerms = isMaster
+    ? ALL_ADMIN_FEATURES.map(f => f.id)
+    : (delegatedPerms?.perms || (isDelegatedByEmail ? ALL_ADMIN_FEATURES.map(f => f.id) : []));
 
   const studentView = localStorage.getItem('tp_student_view') === 'true';
-  // Admin tab — master only
   const adminTab = document.getElementById('admin-tab');
-  if (adminTab) adminTab.style.display = (isMaster && !studentView) ? '' : 'none';
-  // Coach tab — coaches AND master get it, nobody else
+  if (adminTab) adminTab.style.display = (isAdmin && !studentView) ? '' : 'none';
   const coachTab = document.getElementById('coach-tab');
   const isCoach = userProfile?.isCoach === true;
   if (coachTab) coachTab.style.display = ((isCoach || isMaster) && !studentView) ? '' : 'none';
