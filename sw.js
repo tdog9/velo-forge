@@ -68,8 +68,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network-first for HTML and JS (always get fresh code)
-  if (url.pathname.endsWith('.html') || url.pathname.endsWith('.js') || url.pathname === '/') {
+  // Network-first for HTML only — we want the shell to track deploys so the
+  // bootstrap version-check script in index.html can invalidate caches.
+  if (url.pathname.endsWith('.html') || url.pathname === '/') {
     event.respondWith(
       fetch(event.request).then(response => {
         if (response.ok) {
@@ -82,7 +83,10 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for CSS, images, fonts
+  // Stale-while-revalidate for JS, CSS, images, fonts — cache version is
+  // stamped with the commit SHA (see scripts/stamp-version.js), so each
+  // deploy produces a fresh CACHE_NAME and old caches are wiped on activate.
+  // Within a deploy, serving the cached copy gives near-instant repeat loads.
   event.respondWith(
     caches.match(event.request).then(cached => {
       const fetched = fetch(event.request).then(response => {

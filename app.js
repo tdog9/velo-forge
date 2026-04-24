@@ -47,47 +47,62 @@ function importWithTimeout(url) {
     new Promise((_, reject) => setTimeout(() => reject(new Error('timeout loading ' + url)), IMPORT_TIMEOUT_MS))
   ]);
 }
-const [adminRes, stravaRes, racelogRes, timerRes, aifRes, plansRes, fbAppRes, fbAuthRes, fbFsRes] = await Promise.allSettled([
-  importWithTimeout('./admin.js'),
-  importWithTimeout('./strava.js'),
-  importWithTimeout('./raceLog.js'),
-  importWithTimeout('./timer.js'),
-  importWithTimeout('./aifeatures.js'),
+// CRITICAL PATH — boot can't render Today without Firebase SDKs or plans.js
+// (ALL_PLANS is read synchronously by renderToday for the active plan card).
+// Everything else loads in the background; renderCurrentPage re-runs once
+// modules arrive so tab UI fills in without a manual refresh.
+const [plansRes, fbAppRes, fbAuthRes, fbFsRes] = await Promise.allSettled([
   importWithTimeout('./plans.js'),
   importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
   importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'),
-  importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js')
+  importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'),
 ]);
-// Unpack results — each is {status:'fulfilled', value:module} or {status:'rejected', reason:error}
-if (adminRes.status === 'fulfilled') {
-  ({ initAdmin, renderAdmin, renderCoachDashboard, renderAdminTraining, loadAdminEmails, loadExerciseOverrides,
-     savePlanOverrides, loadPlanOverrides, loadExerciseDemoVideos, saveExerciseDemoVideos,
-     loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides,
-     loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } = adminRes.value);
-} else { console.warn('admin.js load failed:', adminRes.reason); }
-if (stravaRes.status === 'fulfilled') {
-  ({ initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities,
-     renderStravaActivities, stravaDisconnect, loadStravaTokens,
-     stravaUploadActivity } = stravaRes.value);
-} else { console.warn('strava.js load failed:', stravaRes.reason); }
-if (racelogRes.status === 'fulfilled') {
-  ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
-     getFootageForRace, getStreamForRace, renderFootageLinks,
-     getCompletedRacesNeedingLogs } = racelogRes.value);
-} else { console.warn('racelog.js load failed:', racelogRes.reason); }
-if (timerRes.status === 'fulfilled') {
-  ({ initTimer, openWorkoutTimer, closeWorkoutTimer } = timerRes.value);
-} else { console.warn('timer.js load failed:', timerRes.reason); }
-if (aifRes.status === 'fulfilled') {
-  ({ initAiFeatures, startAiPlanEdit, sendAiPlanEdit, startAiWeeklyReview,
-     startAiRacePrep, generateRacePrepPlan, startAiInjuryMod,
-     sendInjuryModification, openInlineWorkoutEdit,
-     startAiFormCheck, generateCoachSummary,
-     generateTrainingInsight, renderSeasonPhase } = aifRes.value);
-} else { console.warn('aifeatures.js load failed:', aifRes.reason); }
 if (plansRes.status === 'fulfilled') {
   ALL_PLANS = plansRes.value.ALL_PLANS || [];
 } else { console.error('plans.js load failed:', plansRes.reason); }
+
+// Background imports — don't block first render. Each module has safe noop
+// stubs (see top of file); as each resolves we swap in real exports. We then
+// ping renderCurrentPage() so any tab that was waiting on a module refreshes.
+Promise.allSettled([
+  importWithTimeout('./admin.js').then(m => {
+    ({ initAdmin, renderAdmin, renderCoachDashboard, renderAdminTraining, loadAdminEmails, loadExerciseOverrides,
+       savePlanOverrides, loadPlanOverrides, loadExerciseDemoVideos, saveExerciseDemoVideos,
+       loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides,
+       loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } = m);
+  }, e => console.warn('admin.js load failed:', e)),
+  importWithTimeout('./strava.js').then(m => {
+    ({ initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities,
+       renderStravaActivities, stravaDisconnect, loadStravaTokens,
+       stravaUploadActivity } = m);
+  }, e => console.warn('strava.js load failed:', e)),
+  importWithTimeout('./raceLog.js').then(m => {
+    ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
+       getFootageForRace, getStreamForRace, renderFootageLinks,
+       getCompletedRacesNeedingLogs } = m);
+  }, e => console.warn('racelog.js load failed:', e)),
+  importWithTimeout('./timer.js').then(m => {
+    ({ initTimer, openWorkoutTimer, closeWorkoutTimer } = m);
+  }, e => console.warn('timer.js load failed:', e)),
+  importWithTimeout('./aifeatures.js').then(m => {
+    ({ initAiFeatures, startAiPlanEdit, sendAiPlanEdit, startAiWeeklyReview,
+       startAiRacePrep, generateRacePrepPlan, startAiInjuryMod,
+       sendInjuryModification, openInlineWorkoutEdit,
+       startAiFormCheck, generateCoachSummary,
+       generateTrainingInsight, renderSeasonPhase } = m);
+  }, e => console.warn('aifeatures.js load failed:', e)),
+]).then(() => {
+  // Re-render only if the user landed on a page whose UI depends on a
+  // deferred module — stubs are invisible no-ops on today/fitness/team so
+  // re-rendering them would just flash for no reason. Races and admin show
+  // empty until their module arrives, so they need the refresh.
+  const app = document.getElementById('main-app');
+  if (!app || app.style.display === 'none') return;
+  if (currentPage === 'races' || currentPage === 'admin') {
+    try { renderCurrentPage(); } catch(e) { console.warn('post-load re-render:', e); }
+  }
+});
+
 if (fbAppRes.status === 'fulfilled' && fbAuthRes.status === 'fulfilled' && fbFsRes.status === 'fulfilled') {
   initializeApp = fbAppRes.value.initializeApp;
   ({ getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } = fbAuthRes.value);

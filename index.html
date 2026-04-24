@@ -40,15 +40,29 @@
 <link rel="apple-touch-startup-image" media="(device-width:393px) and (device-height:852px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1179 2556'%3E%3Crect fill='%230a0b0f' width='1179' height='2556'/%3E%3Crect x='490' y='1178' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='590' y='1295' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-startup-image" media="(device-width:390px) and (device-height:844px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1170 2532'%3E%3Crect fill='%230a0b0f' width='1170' height='2532'/%3E%3Crect x='485' y='1166' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='585' y='1283' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-startup-image" media="(device-width:375px) and (device-height:812px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1125 2436'%3E%3Crect fill='%230a0b0f' width='1125' height='2436'/%3E%3Crect x='463' y='1118' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='563' y='1235' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
-<link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400;500;700;800&f[]=satoshi@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="layout-fix.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <link rel="preconnect" href="https://firestore.googleapis.com">
   <link rel="preconnect" href="https://identitytoolkit.googleapis.com">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Parallel-fetch the Firebase SDK modules so they aren't blocked by app.js parse -->
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js">
+  <link rel="modulepreload" href="plans.js">
+  <link rel="modulepreload" href="state.js">
+  <link rel="modulepreload" href="healthcheck.js">
+  <!-- Modules only used on specific tabs — prefetch at low priority so first render isn't delayed -->
+  <link rel="modulepreload" href="raceday.js">
+  <link rel="modulepreload" href="raceLog.js">
+  <link rel="modulepreload" href="strava.js">
+  <link rel="modulepreload" href="timer.js">
+  <link rel="modulepreload" href="aifeatures.js">
+  <link rel="modulepreload" href="admin.js">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap">
 </head>
 <body>
