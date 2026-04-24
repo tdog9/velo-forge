@@ -147,7 +147,12 @@ function renderAdminMaintenance() {
       }
       ${errorLog.length > 0 ? '<button class="btn btn-secondary" style="width:100%;margin-top:8px;font-size:12px" id="maint-clear-log">Clear Error Log</button>' : ''}
     </div>
+
+    <div id="maint-health-reports" style="margin-top:16px"></div>
   `;
+
+  const hrEl = el.querySelector('#maint-health-reports');
+  if (hrEl) renderHealthReports(hrEl);
 
   el.querySelector('#maint-toggle')?.addEventListener('click', e => e.currentTarget.classList.toggle('on'));
   el.querySelector('#maint-save')?.addEventListener('click', async () => {
@@ -279,11 +284,6 @@ export function renderHealthReports(el) {
   }
   html += `<button onclick="localStorage.removeItem('tp_hc_reports');this.closest('[id]').innerHTML='<div style=\"text-align:center;padding:12px;font-size:12px;color:var(--muted-fg)\">Cleared</div>'" style="width:100%;margin-top:8px;padding:8px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);color:var(--muted-fg);font-size:12px;cursor:pointer">Clear Reports</button>`;
   el.innerHTML = html;
-  // Health reports
-  const _hrEl = document.createElement('div');
-  _hrEl.style.cssText = 'margin-top:16px';
-  renderHealthReports(_hrEl);
-  el.appendChild(_hrEl);
 }
 
 // ── System tab (god mode settings) ──────────────────────────────────────────
@@ -1713,12 +1713,12 @@ function renderUsersPermissions(el) {
   });
 
   el.querySelectorAll('[data-legacy-migrate]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.legacyMigrate);
       const email = A.adminEmails[idx];
       A.adminPerms.push({ email, perms: A.ALL_ADMIN_FEATURES.map(f => f.id) });
       A.adminEmails.splice(idx, 1);
-      saveAdminEmails();
+      await saveAdminEmails();
       renderAdminUsersMerged();
     });
   });
@@ -2089,9 +2089,17 @@ export async function loadAdminEmails() {
     const snap = await A.getDoc(A.doc(A.db, 'config', 'adminEmails'));
     if (snap.exists()) {
       const data = snap.data();
-      // Support both old format (emails: string[]) and new format (perms: [{email, perms}])
-      A.adminEmails = data.emails || [];
+      // Server `emails[]` is the flat membership list the Firestore rule reads;
+      // it mirrors every perms[].email plus any legacy-only entries. Split on
+      // load so A.adminEmails holds *pure-legacy* entries (no matching perms
+      // record) and A.adminPerms holds the delegated admin records.
       A.adminPerms = data.perms || [];
+      const permEmails = new Set(
+        A.adminPerms.map(p => (p.email || '').toLowerCase()).filter(Boolean)
+      );
+      A.adminEmails = (data.emails || []).filter(
+        e => !permEmails.has((e || '').toLowerCase())
+      );
     } else {
       A.adminEmails = [];
       A.adminPerms = [];
@@ -2105,7 +2113,18 @@ export async function loadAdminEmails() {
 export async function saveAdminEmails() {
   if (!A.db) return;
   try {
-    await A.setDoc(A.doc(A.db, 'config', 'adminEmails'), { emails: A.adminEmails, perms: A.adminPerms });
+    // Firestore rule checks `emails[]` for membership and cannot iterate
+    // perms[].email, so write emails[] as the union of pure-legacy entries and
+    // every delegated admin's email. Keeps the rule's single lookup valid for
+    // both kinds of admin.
+    const mergedEmails = Array.from(new Set([
+      ...A.adminEmails.map(e => (e || '').toLowerCase()).filter(Boolean),
+      ...A.adminPerms.map(p => (p.email || '').toLowerCase()).filter(Boolean),
+    ]));
+    await A.setDoc(A.doc(A.db, 'config', 'adminEmails'), {
+      emails: mergedEmails,
+      perms: A.adminPerms,
+    });
   } catch(e) {
     console.error('Save admin emails error:', e);
     A.showToast('Failed to save.', 'error');
@@ -2374,8 +2393,6 @@ async function renderAdminRequests() {
         await A.updateDoc(A.doc(A.db,'team_requests',reqId), { status:'approved', teamId: teamRef.id, approvedAt: A.serverTimestamp() });
         A.showToast(clubName + ' approved! Team code: ' + code, 'success');
         renderAdminRequests();
-        // Also refresh league requests section
-        renderLeagueRequests(el);
       } catch(e) {
         btn.disabled = false;
         btn.textContent = '✓ Approve & Create Team';
