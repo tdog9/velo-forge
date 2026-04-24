@@ -38,6 +38,13 @@ struct WatchHomeView: View {
             Section("You") {
                 Text(auth.currentUser?.email ?? "—").font(.footnote)
             }
+            Section {
+                NavigationLink {
+                    WorkoutSessionView()
+                } label: {
+                    Label("Start ride", systemImage: "bicycle")
+                }
+            }
             Section("Heart rate") {
                 switch health.authorization {
                 case .notRequested, .requesting:

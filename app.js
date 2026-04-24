@@ -4334,15 +4334,19 @@ function renderWorkouts() {
         html += `<button class="wo-filter-btn" data-wofilter="${t}" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">${typeIcons[t]} ${capitalize(t)} (${count})</button>`;
       }
     });
-    // Check for tracked vs manual
+    // Check for tracked vs manual vs watch
     const trackedCount = userWorkouts.filter(w => w.source === 'tracker').length;
     const stravaCount = userWorkouts.filter(w => w.source === 'strava').length;
-    const manualCount = userWorkouts.length - trackedCount - stravaCount;
+    const watchCount = userWorkouts.filter(w => w.source === 'watch').length;
+    const manualCount = userWorkouts.length - trackedCount - stravaCount - watchCount;
     if (trackedCount > 0) {
       html += `<button class="wo-filter-btn" data-wofilter="tracked" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">📍 GPS (${trackedCount})</button>`;
     }
     if (stravaCount > 0) {
       html += `<button class="wo-filter-btn" data-wofilter="strava" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">⬡ Strava (${stravaCount})</button>`;
+    }
+    if (watchCount > 0) {
+      html += `<button class="wo-filter-btn" data-wofilter="watch" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">⌚ Watch (${watchCount})</button>`;
     }
     html += '</div>';
     html += '<div class="space-y" id="wo-list">';
@@ -4355,6 +4359,7 @@ function renderWorkouts() {
       const wType = (w.type || 'ride').toLowerCase();
       const isTracked = w.source === 'tracker';
       const isStrava = w.source === 'strava';
+      const isWatch = w.source === 'watch';
       const routeId = w.routeId || (w.stravaId ? 'strava-' + w.stravaId : w._id);
       const hasRoute = routeId && storedRoutes[routeId] && storedRoutes[routeId].length > 1;
       const typeLabels = {hpv:'HPV',ride:'Ride',run:'Run',walk:'Walk',treadmill:'Treadmill',gym:'Gym',cycle:'Cycle'};
@@ -4369,6 +4374,7 @@ function renderWorkouts() {
               <div class="wo-title-row">
                 <span class="wo-name">${escHtml(w.name || 'Workout')}</span>
                 <span class="activity-badge" style="background:${(typeColors[wType]||'#6b7280')+'22'};color:${typeColors[wType]||'#6b7280'}">${typeLabels[wType]||capitalize(wType)}</span>
+                ${isWatch ? '<span class="activity-badge" style="background:rgba(139,92,246,.15);color:#8b5cf6" title="Recorded on Apple Watch">⌚ Watch</span>' : ''}
               </div>
               <div class="activity-stats-row">
                 ${w.duration ? `<span><strong>${w.duration}</strong> min</span>` : ''}
@@ -4440,6 +4446,7 @@ function renderWorkouts() {
         if (filter === 'all') { card.style.display = ''; }
         else if (filter === 'tracked') { card.style.display = card.dataset.woSource === 'tracker' ? '' : 'none'; }
         else if (filter === 'strava') { card.style.display = card.dataset.woSource === 'strava' ? '' : 'none'; }
+        else if (filter === 'watch') { card.style.display = card.dataset.woSource === 'watch' ? '' : 'none'; }
         else { card.style.display = card.dataset.woType === filter ? '' : 'none'; }
       });
     });

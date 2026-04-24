@@ -64,6 +64,8 @@ targets:
       - path: Shared/PlanOverride.swift
       - path: Shared/Workout.swift
       - path: Shared/HealthKitService.swift
+      - path: Shared/WorkoutPayload.swift
+      - path: Shared/ConnectivityService.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tdog9.veloforge.watchkitapp

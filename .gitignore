@@ -78,6 +78,7 @@ ios/**/xcuserdata/
 ios/**/*.xcworkspace/xcuserdata/
 ios/**/*.xcodeproj/project.xcworkspace/xcuserdata/
 ios/**/DerivedData/
+ios/build/
 ios/**/.build/
 ios/**/.swiftpm/
 ios/**/Package.resolved
