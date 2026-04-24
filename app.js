@@ -2303,7 +2303,7 @@ function renderToday() {
   const lastActivityDate = lastActivity?.date ? (lastActivity.date.toDate ? lastActivity.date.toDate() : new Date(lastActivity.date)) : null;
   const isToday = lastActivityDate && lastActivityDate.toDateString() === now.toDateString();
   let storedRoutes = {};
-  try { storedRoutes = JSON.parse(localStorage.getItem('tp_routes') || '{}'); } catch(e) {}
+  try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
   const lastRouteId = lastActivity?.routeId || (lastActivity?.stravaId ? 'strava-' + lastActivity.stravaId : lastActivity?._id);
   const lastRoute = lastRouteId ? storedRoutes[lastRouteId] : null;
   const hasLastRoute = lastRoute && lastRoute.length > 1;
@@ -3837,9 +3837,9 @@ async function loadTrainingSessions() {
 function renderWorkouts() {
   const c = $('workouts-content');
   let html = '<div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Log Manually</button></div>';
-  // Load stored routes for mini maps
+  // Load stored routes for mini maps — tracker.js and strava.js both write to vf_routes
   let storedRoutes = {};
-  try { storedRoutes = JSON.parse(localStorage.getItem('tp_routes') || '{}'); } catch(e) {}
+  try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
   if (userWorkouts.length === 0) {
     html += `<div class="empty-state">
       <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;color:var(--muted-fg)"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg></div>
@@ -4428,14 +4428,8 @@ function bindPlanSearchAndCards(c) {
     hdr.addEventListener('click', () => {
       const card = hdr.closest('.plan-card');
       const schedule = card.querySelector('.plan-schedule');
-      const chevron = hdr.querySelector('.plan-chevron');
-      if (schedule.style.display === 'none' || !schedule.style.display) {
-        schedule.style.display = 'block';
-        chevron.style.transform = 'rotate(180deg)';
-      } else {
-        schedule.style.display = 'none';
-        chevron.style.transform = '';
-      }
+      const isOpen = schedule.style.display && schedule.style.display !== 'none';
+      schedule.style.display = isOpen ? 'none' : 'block';
     });
   });
   // Bind activate buttons
@@ -4553,9 +4547,6 @@ function renderPlanCard(plan, isActive) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
             Explain Plan
           </button>
-        </div>
-        <div class="plan-actions">
-          <svg class="plan-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
       </div>
       <div class="plan-schedule" style="display:none">
