@@ -88,6 +88,23 @@ struct RaceDayLapView: View {
                 }
 
                 if !state.raceDayLaps.isEmpty {
+                    Button(role: .destructive) {
+                        finishStint()
+                    } label: {
+                        HStack {
+                            Image(systemName: "stop.fill").font(.headline)
+                            Text("Finish stint")
+                                .font(.system(.body, weight: .bold))
+                            Spacer(minLength: 0)
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity)
+                        .background(Theme.phasePeak)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("LAPS")
                             .font(.system(size: 9, weight: .heavy))
@@ -138,6 +155,23 @@ struct RaceDayLapView: View {
     private func recordLap() {
         let dur = Date().timeIntervalSince(lapStartedAt)
         state.recordLap(durationSeconds: dur)
+        lapStartedAt = Date()
+    }
+
+    private func finishStint() {
+        let payload: [String: Any] = [
+            "stintEndedAt": Date().timeIntervalSince1970,
+            "stintStartedAt": (state.raceDayStartedAt ?? Date()).timeIntervalSince1970,
+            "laps": state.raceDayLaps.map { lap in
+                [
+                    "number": lap.number,
+                    "duration": Int(lap.durationSeconds * 1000),  // ms
+                    "recordedAt": lap.recordedAt.timeIntervalSince1970,
+                ] as [String: Any]
+            },
+        ]
+        ConnectivityService.shared.sendRaceDayLaps(payload)
+        state.raceDayLaps.removeAll()
         lapStartedAt = Date()
     }
 

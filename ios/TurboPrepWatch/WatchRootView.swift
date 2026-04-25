@@ -17,11 +17,11 @@ struct WatchRootView: View {
                         .containerBackground(Theme.bg.gradient, for: .tabView)
                 }
                 .tabViewStyle(.verticalPage)
-                .environmentObject(state)
             } else {
                 WatchSignedOutView()
             }
         }
+        .environmentObject(state)
         .preferredColorScheme(.dark)
     }
 }
@@ -48,13 +48,20 @@ struct WatchSignedOutView: View {
 }
 
 /// "TurboPrep" wordmark — split-color matches the web header treatment.
+/// Long-press toggles race-day dev mode locally on the Watch (until the
+/// iPhone bridge lands a real race-day status push).
 struct BrandHeader: View {
+    @EnvironmentObject private var state: WatchAppState
     var body: some View {
         HStack(spacing: 0) {
             Text("Turbo").foregroundStyle(Theme.fg)
             Text("Prep").foregroundStyle(Theme.primary)
         }
         .font(.system(.title3, design: .rounded, weight: .heavy))
+        .contentShape(Rectangle())
+        .onLongPressGesture(minimumDuration: 1.5) {
+            state.toggleRaceDayForDev()
+        }
     }
 }
 

@@ -41,6 +41,8 @@ struct WebViewContainer: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {}
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+        weak var webView: WKWebView?
+
         // Web → native: handle posted messages from the web app.
         func userContentController(_ uc: WKUserContentController, didReceive msg: WKScriptMessage) {
             guard let body = msg.body as? [String: Any],
@@ -49,8 +51,30 @@ struct WebViewContainer: UIViewRepresentable {
             case "ping":
                 // No-op handshake. Kept so the bridge is testable from JS.
                 break
+            case "watch-state":
+                // Web has gathered a state snapshot for the Watch. Forward it
+                // via WCSession so the Watch's WatchAppState updates.
+                if let state = body["state"] as? [String: Any] {
+                    Task { @MainActor in
+                        ConnectivityService.shared.pushStateToWatch(state)
+                    }
+                }
             default:
                 break
+            }
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            self.webView = webView
+            // Wire the relay used to forward Watch race-day laps into the web.
+            Task { @MainActor in
+                WatchWorkoutReceiver.jsRelay = { [weak webView] payload in
+                    guard let webView,
+                          let data = try? JSONSerialization.data(withJSONObject: payload),
+                          let json = String(data: data, encoding: .utf8) else { return }
+                    let js = "if (window.tpNative && typeof window.tpNative.onRaceDayLaps === 'function') { window.tpNative.onRaceDayLaps(\(json)); }"
+                    webView.evaluateJavaScript(js, completionHandler: nil)
+                }
             }
         }
 

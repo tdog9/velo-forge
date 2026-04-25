@@ -18,6 +18,10 @@ final class ConnectivityService: NSObject, ObservableObject {
 
     /// iPhone-only: invoked when a workout payload arrives from the Watch.
     var onWorkoutReceived: ((WorkoutPayload) -> Void)?
+    /// iPhone-only: invoked when the Watch reports race-day laps.
+    var onRaceDayLapsReceived: (([String: Any]) -> Void)?
+    /// Watch-only: invoked when the iPhone pushes a fresh state snapshot.
+    var onStateSnapshotReceived: (([String: Any]) -> Void)?
 
     override init() {
         super.init()
@@ -28,17 +32,38 @@ final class ConnectivityService: NSObject, ObservableObject {
     }
 
     func sendWorkout(_ payload: WorkoutPayload) {
+        send(["payload": "workout", "data": payload.toDictionary()])
+    }
+
+    /// iPhone → Watch: push the latest state snapshot using
+    /// updateApplicationContext so the Watch wakes up to it next launch
+    /// even if we weren't reachable when it was sent.
+    func pushStateToWatch(_ snapshot: [String: Any]) {
         guard WCSession.isSupported() else { return }
         let s = WCSession.default
-        guard s.activationState == .activated else {
-            s.activate()
-            return
+        guard s.activationState == .activated else { s.activate(); return }
+        let payload: [String: Any] = ["payload": "state", "data": snapshot]
+        do {
+            try s.updateApplicationContext(payload)
+        } catch {
+            // Fallback: try a live message if the context call fails.
+            if s.isReachable {
+                s.sendMessage(payload, replyHandler: nil, errorHandler: nil)
+            }
         }
-        let dict = payload.toDictionary()
+    }
+
+    /// Watch → iPhone: send race-day lap data when the athlete ends a stint.
+    func sendRaceDayLaps(_ laps: [String: Any]) {
+        send(["payload": "raceDayLaps", "data": laps])
+    }
+
+    private func send(_ dict: [String: Any]) {
+        guard WCSession.isSupported() else { return }
+        let s = WCSession.default
+        guard s.activationState == .activated else { s.activate(); return }
         if s.isReachable {
             s.sendMessage(dict, replyHandler: nil) { _ in
-                // Live delivery failed — queue via transferUserInfo so the
-                // payload still lands when the iPhone next wakes the app.
                 s.transferUserInfo(dict)
             }
         } else {
@@ -75,17 +100,41 @@ extension ConnectivityService: WCSessionDelegate {
 
     nonisolated func session(_ session: WCSession,
                              didReceiveMessage message: [String: Any]) {
-        guard let payload = WorkoutPayload(from: message) else { return }
-        Task { @MainActor [weak self] in
-            self?.onWorkoutReceived?(payload)
-        }
+        Task { @MainActor [weak self] in self?.routeIncoming(message) }
     }
 
     nonisolated func session(_ session: WCSession,
                              didReceiveUserInfo userInfo: [String: Any] = [:]) {
-        guard let payload = WorkoutPayload(from: userInfo) else { return }
-        Task { @MainActor [weak self] in
-            self?.onWorkoutReceived?(payload)
+        Task { @MainActor [weak self] in self?.routeIncoming(userInfo) }
+    }
+
+    nonisolated func session(_ session: WCSession,
+                             didReceiveApplicationContext applicationContext: [String: Any]) {
+        Task { @MainActor [weak self] in self?.routeIncoming(applicationContext) }
+    }
+
+    @MainActor
+    private func routeIncoming(_ dict: [String: Any]) {
+        // Legacy path: messages with no "payload" tag are treated as workouts
+        // (kept so older Watch builds in the wild still talk to a new iPhone).
+        guard let kind = dict["payload"] as? String else {
+            if let workout = WorkoutPayload(from: dict) {
+                onWorkoutReceived?(workout)
+            }
+            return
+        }
+        let body = (dict["data"] as? [String: Any]) ?? [:]
+        switch kind {
+        case "workout":
+            if let workout = WorkoutPayload(from: body) {
+                onWorkoutReceived?(workout)
+            }
+        case "state":
+            onStateSnapshotReceived?(body)
+        case "raceDayLaps":
+            onRaceDayLapsReceived?(body)
+        default:
+            break
         }
     }
 }

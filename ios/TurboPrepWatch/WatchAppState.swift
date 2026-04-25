@@ -49,17 +49,61 @@ final class WatchAppState: ObservableObject {
         guard let idx = todayWorkouts.firstIndex(where: { $0.id == workout.id }) else { return }
         todayWorkouts[idx].completed = true
     }
+
+    /// Apply a state snapshot received from the iPhone (which got it from the
+    /// web app via the tpNative bridge). Replaces mock data with real values.
+    func applyRemoteSnapshot(_ dict: [String: Any]) {
+        if let phaseDict = dict["racePhase"] as? [String: Any] {
+            self.racePhase = WatchRacePhase(from: phaseDict)
+        } else if dict.keys.contains("racePhase") {
+            self.racePhase = nil
+        }
+        if let plan = dict["todayWorkouts"] as? [[String: Any]] {
+            self.todayWorkouts = plan.compactMap(WatchPlanWorkout.init(from:))
+        }
+        if let logged = dict["completedWorkouts"] as? [[String: Any]] {
+            self.completedWorkouts = logged.compactMap(WatchLoggedWorkout.init(from:))
+        }
+        if let active = dict["raceDayActive"] as? Bool {
+            // Only mutate raceDayActive when an explicit value arrives; preserve
+            // local laps if the iPhone is just refreshing other state.
+            if active != self.raceDayActive {
+                self.raceDayActive = active
+                if active {
+                    self.raceDayStartedAt = Date()
+                    self.raceDayLaps.removeAll()
+                } else {
+                    self.raceDayStartedAt = nil
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Models (mirror schemas/*.ts and the web app's working shapes)
 
 struct WatchRacePhase: Equatable {
-    enum Phase: String { case base, build, peak, taper, raceWeek }
+    enum Phase: String { case base, build, peak, taper, raceWeek = "race-week" }
     let phase: Phase
     let label: String
     let description: String
     let raceShortName: String
     let daysOut: Int
+
+    init(phase: Phase, label: String, description: String, raceShortName: String, daysOut: Int) {
+        self.phase = phase; self.label = label; self.description = description
+        self.raceShortName = raceShortName; self.daysOut = daysOut
+    }
+
+    init?(from dict: [String: Any]) {
+        guard let phaseStr = dict["phase"] as? String,
+              let phase = Phase(rawValue: phaseStr) else { return nil }
+        self.phase = phase
+        self.label = (dict["label"] as? String) ?? phaseStr.uppercased()
+        self.description = (dict["description"] as? String) ?? ""
+        self.raceShortName = (dict["raceShortName"] as? String) ?? ""
+        self.daysOut = (dict["daysOut"] as? Int) ?? 0
+    }
 
     static let demoTaper = WatchRacePhase(
         phase: .taper,
@@ -88,6 +132,27 @@ struct WatchPlanWorkout: Identifiable, Equatable {
     let durationMinutes: Int
     let intensity: String    // "easy" | "moderate" | "hard"
     var completed: Bool
+
+    init(planId: String, week: Int, day: String, indexInDay: Int, name: String, durationMinutes: Int, intensity: String, completed: Bool) {
+        self.planId = planId; self.week = week; self.day = day; self.indexInDay = indexInDay
+        self.name = name; self.durationMinutes = durationMinutes; self.intensity = intensity
+        self.completed = completed
+    }
+
+    init?(from dict: [String: Any]) {
+        guard let planId = dict["planId"] as? String,
+              let week = dict["week"] as? Int,
+              let day = dict["day"] as? String,
+              let name = dict["name"] as? String else { return nil }
+        self.planId = planId
+        self.week = week
+        self.day = day
+        self.indexInDay = (dict["indexInDay"] as? Int) ?? 0
+        self.name = name
+        self.durationMinutes = (dict["durationMinutes"] as? Int) ?? 0
+        self.intensity = (dict["intensity"] as? String) ?? "moderate"
+        self.completed = (dict["completed"] as? Bool) ?? false
+    }
 
     static let demoToday: [WatchPlanWorkout] = [
         WatchPlanWorkout(
@@ -120,6 +185,26 @@ struct WatchLoggedWorkout: Identifiable, Equatable {
     let date: Date
     let avgHeartRate: Int?
     let source: String?     // "watch" | "tracker" | "strava" | "manual"
+
+    init(id: String, name: String, durationMinutes: Int, date: Date, avgHeartRate: Int?, source: String?) {
+        self.id = id; self.name = name; self.durationMinutes = durationMinutes
+        self.date = date; self.avgHeartRate = avgHeartRate; self.source = source
+    }
+
+    init?(from dict: [String: Any]) {
+        guard let id = dict["id"] as? String,
+              let name = dict["name"] as? String else { return nil }
+        self.id = id
+        self.name = name
+        self.durationMinutes = (dict["durationMinutes"] as? Int) ?? 0
+        if let ts = dict["date"] as? TimeInterval {
+            self.date = Date(timeIntervalSince1970: ts)
+        } else {
+            self.date = Date()
+        }
+        self.avgHeartRate = dict["avgHeartRate"] as? Int
+        self.source = dict["source"] as? String
+    }
 
     static let demoRecent: [WatchLoggedWorkout] = [
         WatchLoggedWorkout(

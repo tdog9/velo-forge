@@ -2,21 +2,29 @@ import Foundation
 import FirebaseAuth
 import FirebaseFirestore
 
-/// iPhone-side bridge: receives WorkoutPayloads forwarded by the Watch via
-/// ConnectivityService and writes them to `users/{uid}/workouts/{autoId}`.
-/// Idempotent — safe to call install() multiple times; the latest closure
-/// wins.
+/// iPhone-side bridge for messages arriving from the Watch via WatchConnectivity.
+/// - Workout payloads → write to `users/{uid}/workouts/{autoId}` in Firestore.
+/// - Race-day lap payloads → forward to the web app (which owns the race-day
+///   stints model) by evaluating a JS handler inside the WebView.
 @MainActor
 enum WatchWorkoutReceiver {
+    /// Set by WebViewContainer once `didFinish` fires so race-day payloads
+    /// can be relayed into the web app's JS context.
+    static var jsRelay: (([String: Any]) -> Void)?
+
     static func install() {
         ConnectivityService.shared.onWorkoutReceived = { payload in
             persist(payload)
+        }
+        ConnectivityService.shared.onRaceDayLapsReceived = { laps in
+            jsRelay?(laps)
         }
     }
 
     private static func persist(_ payload: WorkoutPayload) {
         guard let uid = Auth.auth().currentUser?.uid else {
-            print("⚠️ Watch workout received but no signed-in user — dropping.")
+            print("⚠️ Watch workout received but no native signed-in user — dropping. " +
+                  "(Sign-in flows through the WebView; native AuthService isn't holding a user yet.)")
             return
         }
         let workout = payload.toWorkout()
