@@ -30,7 +30,13 @@ struct WebViewContainer: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
-        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.scrollView.contentInsetAdjustmentBehavior = .automatic
+        // Stop iOS from inserting accessory bars or doing magnification when
+        // an input gains focus. Combined with the 16px-min input CSS this
+        // fully resolves the focus-zoom + sizing wobble.
+        webView.scrollView.bouncesZoom = false
+        webView.scrollView.minimumZoomScale = 1.0
+        webView.scrollView.maximumZoomScale = 1.0
         webView.isOpaque = false
         webView.backgroundColor = UIColor(red: 10/255, green: 11/255, blue: 15/255, alpha: 1)  // matches web --bg
         webView.scrollView.backgroundColor = webView.backgroundColor

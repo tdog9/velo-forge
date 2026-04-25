@@ -219,6 +219,9 @@ async function loadTodayStints() {
 // ── Public Getters ────────────────────────────────────────────────────────────
 export function getRaceDayActive(){ return rdd.active; }
 export function getRaceDayData(){ return rdd; }
+/** Today's race-day stints — used by the Watch bridge to render a wrist
+ *  leaderboard. Each stint shape: { uid, displayName, laps:[{duration,...}] }. */
+export function getTodayStints(){ return todayStints; }
 
 // ── Main Overlay ─────────────────────────────────────────────────────────────
 export async function openRaceDayOverlay() {

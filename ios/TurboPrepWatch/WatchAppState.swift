@@ -20,6 +20,7 @@ final class WatchAppState: ObservableObject {
     @Published var raceDayActive: Bool = false
     @Published var raceDayLaps: [WatchLap] = []
     @Published var raceDayStartedAt: Date?
+    @Published var raceDayLeaderboard: [WatchLeaderboardEntry] = []
 
     private init() {}
 
@@ -63,6 +64,9 @@ final class WatchAppState: ObservableObject {
         }
         if let logged = dict["completedWorkouts"] as? [[String: Any]] {
             self.completedWorkouts = logged.compactMap(WatchLoggedWorkout.init(from:))
+        }
+        if let lb = dict["raceDayLeaderboard"] as? [[String: Any]] {
+            self.raceDayLeaderboard = lb.compactMap(WatchLeaderboardEntry.init(from:))
         }
         if let active = dict["raceDayActive"] as? Bool {
             // Only mutate raceDayActive when an explicit value arrives; preserve
@@ -239,4 +243,25 @@ struct WatchLap: Identifiable, Equatable {
     let number: Int
     let durationSeconds: TimeInterval
     let recordedAt: Date
+}
+
+struct WatchLeaderboardEntry: Identifiable, Equatable {
+    var id: String { uid }
+    let rank: Int
+    let uid: String
+    let displayName: String
+    let lapCount: Int
+    let bestMs: Int?
+    let isMe: Bool
+
+    init?(from dict: [String: Any]) {
+        guard let uid = dict["uid"] as? String,
+              let rank = dict["rank"] as? Int else { return nil }
+        self.uid = uid
+        self.rank = rank
+        self.displayName = (dict["displayName"] as? String) ?? uid
+        self.lapCount = (dict["lapCount"] as? Int) ?? 0
+        self.bestMs = dict["bestMs"] as? Int
+        self.isMe = (dict["isMe"] as? Bool) ?? false
+    }
 }

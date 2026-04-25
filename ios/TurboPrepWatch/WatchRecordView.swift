@@ -9,11 +9,99 @@ struct WatchRecordView: View {
     var body: some View {
         Group {
             if state.raceDayActive {
-                RaceDayLapView()
+                TabView {
+                    RaceDayLapView()
+                        .containerBackground(Theme.bg.gradient, for: .tabView)
+                    RaceDayLeaderboardView()
+                        .containerBackground(Theme.bg.gradient, for: .tabView)
+                }
+                .tabViewStyle(.page)
             } else {
                 WorkoutSessionView()
             }
         }
+    }
+}
+
+/// Live race-day standings — pushed from the iPhone (which reads Firestore
+/// stints). Entries ordered by lap count desc then best lap asc; "you" row
+/// gets the orange accent so it's findable at a wrist-glance.
+struct RaceDayLeaderboardView: View {
+    @EnvironmentObject private var state: WatchAppState
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Circle().fill(Theme.phasePeak).frame(width: 6, height: 6)
+                    Text("STANDINGS")
+                        .font(.system(size: 10, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.phasePeak)
+                }
+                .padding(.top, 4)
+                if state.raceDayLeaderboard.isEmpty {
+                    ThemeCard {
+                        Text("Standings appear once your team starts logging stints.")
+                            .font(.system(.caption2))
+                            .foregroundStyle(Theme.mutedFg)
+                    }
+                } else {
+                    ForEach(state.raceDayLeaderboard) { e in
+                        leaderboardRow(e)
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.bottom, 12)
+        }
+    }
+
+    private func leaderboardRow(_ e: WatchLeaderboardEntry) -> some View {
+        HStack(spacing: 6) {
+            Text("\(e.rank)")
+                .font(.system(.caption, design: .rounded, weight: .heavy))
+                .foregroundStyle(e.isMe ? Theme.primary : Theme.mutedFg)
+                .frame(width: 18, alignment: .leading)
+                .monospacedDigit()
+            VStack(alignment: .leading, spacing: 1) {
+                Text(e.displayName)
+                    .font(.system(.caption, weight: e.isMe ? .heavy : .semibold))
+                    .foregroundStyle(e.isMe ? Theme.primary : Theme.fg)
+                    .lineLimit(1)
+                if let best = e.bestMs {
+                    Text("Best \(formatLap(best))")
+                        .font(.system(size: 9, design: .rounded))
+                        .foregroundStyle(Theme.mutedFg)
+                        .monospacedDigit()
+                }
+            }
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 1) {
+                Text("\(e.lapCount)")
+                    .font(.system(.caption, design: .rounded, weight: .heavy))
+                    .foregroundStyle(Theme.fg)
+                    .monospacedDigit()
+                Text("laps")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Theme.mutedFg)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(e.isMe ? Theme.primary.opacity(0.1) : Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadiusSmall, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.cornerRadiusSmall, style: .continuous)
+                .stroke(e.isMe ? Theme.primary.opacity(0.5) : Theme.border, lineWidth: 0.5)
+        )
+    }
+
+    private func formatLap(_ ms: Int) -> String {
+        let s = ms / 1000
+        let m = s / 60
+        let rem = s % 60
+        return String(format: "%d:%02d", m, rem)
     }
 }
 

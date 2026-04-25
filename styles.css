@@ -1,3 +1,18 @@
+/* iOS WKWebView: prevent the auto-zoom that fires when a sub-16px input
+   gets focus. Targeting the iOS-only feature query keeps Android/desktop
+   layouts untouched. Also normalises text-size-adjust + tap-highlight. */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select, .input, .ai-input {
+    font-size: 16px !important;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
 :root{
   --safe-t:env(safe-area-inset-top,0px);
   --safe-b:env(safe-area-inset-bottom,0px);

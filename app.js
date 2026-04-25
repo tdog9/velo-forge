@@ -1,6 +1,6 @@
 // TurboPrep HPV Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
-import { initRaceDay, loadRaceDayState, getRaceDayActive, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay, checkRaceDaySchedule } from './raceday.js';
+import { initRaceDay, loadRaceDayState, getRaceDayActive, getTodayStints, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay, checkRaceDaySchedule } from './raceday.js';
 import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
 import { maybeRunHealthCheck, initHealthErrorCollector, forceHealthCheck, getLastHealthReport } from './healthcheck.js';
 initHealthErrorCollector();
@@ -275,8 +275,32 @@ function pushWatchState() {
       };
     });
     const raceDayActive = !!getRaceDayActive();
+    // Race-day leaderboard: rank stints by lap count desc then best-lap asc.
+    // Watch only needs top entries + the current user's standing.
+    let raceDayLeaderboard = [];
+    try {
+      const stints = (typeof getTodayStints === 'function') ? (getTodayStints() || []) : [];
+      const ranked = stints.map(s => {
+        const laps = Array.isArray(s.laps) ? s.laps : [];
+        const lapCount = laps.length;
+        const lapDurations = laps.map(l => l.duration || 0).filter(d => d > 0);
+        const bestMs = lapDurations.length > 0 ? Math.min(...lapDurations) : null;
+        return { uid: s.uid, displayName: s.displayName || s.uid, lapCount, bestMs };
+      }).sort((a, b) => {
+        if (b.lapCount !== a.lapCount) return b.lapCount - a.lapCount;
+        return (a.bestMs ?? Infinity) - (b.bestMs ?? Infinity);
+      });
+      raceDayLeaderboard = ranked.slice(0, 8).map((r, i) => ({
+        rank: i + 1,
+        uid: r.uid,
+        displayName: r.displayName,
+        lapCount: r.lapCount,
+        bestMs: r.bestMs,
+        isMe: r.uid === currentUser?.uid,
+      }));
+    } catch(e) {}
     postNative('watch-state', {
-      state: { racePhase, todayWorkouts, completedWorkouts, raceDayActive },
+      state: { racePhase, todayWorkouts, completedWorkouts, raceDayActive, raceDayLeaderboard },
     });
   } catch(e) {}
 }
@@ -374,6 +398,27 @@ function maybeAutoGenerateAiWidget() {
     generateAiWidget();
   } catch(e) {}
 }
+// AI Coach v2 — event-triggered insights. Fires a contextual widget on
+// specific moments rather than waiting for the user to open Today. Each
+// trigger has its own cooldown to avoid coach-spam.
+function triggerCoachInsight(reason, contextOverride) {
+  try {
+    const cooldowns = {
+      'workout_complete': 4 * 3600 * 1000,   // 4h
+      'plan_complete':    24 * 3600 * 1000,  // 24h
+      'skip_streak':      24 * 3600 * 1000,
+      'race_week':        24 * 3600 * 1000,
+    };
+    const key = 'tp_ai_trigger_' + reason;
+    const last = parseInt(localStorage.getItem(key) || '0');
+    const cooldown = cooldowns[reason] ?? (4 * 3600 * 1000);
+    if (Date.now() - last < cooldown) return;
+    localStorage.setItem(key, String(Date.now()));
+    // Reuse generateAiWidget but seed the prompt with the trigger reason so
+    // the coach knows why it's speaking up.
+    generateAiWidget({ reason, ...(contextOverride || {}) });
+  } catch(e) {}
+}
 function saveAiWidgets(list) {
   try { localStorage.setItem('tp_ai_widgets', JSON.stringify(list.slice(0, 6))); } catch(e) {}
 }
@@ -408,7 +453,7 @@ function renderAiWidgets() {
   });
   return html;
 }
-async function generateAiWidget() {
+async function generateAiWidget(extraContext) {
   const btn = $('ai-widget-generate');
   if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.querySelector('span').textContent = 'Thinking…'; }
   try {
@@ -427,8 +472,10 @@ async function generateAiWidget() {
       next_race: phase ? { name: phase.race?.name, days_out: phase.daysOut, phase: phase.phase } : null,
       recent_workouts: recent,
       recent_skips: skipLog,
+      ...(extraContext || {}),
     };
-    const userMsg = `Generate ONE bespoke widget for my Today page. Reply with a SHORT message (1-2 sentences) AND a JSON tail like:\n<<WIDGET>>{ "kind": "tip|metric|warning|praise", "title": "5-7 word headline", "body": "1-2 sentence insight" }<<END>>\nMy state:\n${JSON.stringify(promptContext)}`;
+    const triggerLine = extraContext?.reason ? `\nTrigger: ${extraContext.reason}` : '';
+    const userMsg = `Generate ONE bespoke widget for my Today page. Reply with a SHORT message (1-2 sentences) AND a JSON tail like:\n<<WIDGET>>{ "kind": "tip|metric|warning|praise", "title": "5-7 word headline", "body": "1-2 sentence insight" }<<END>>${triggerLine}\nMy state:\n${JSON.stringify(promptContext)}`;
     const resp = await aiCoachFetch({ messages: [{ role: 'user', content: userMsg }] });
     if (!resp.ok) throw new Error('AI coach unavailable');
     const data = await resp.json();
@@ -2602,6 +2649,15 @@ function renderToday() {
   // First Today render of the day → ask the coach for a proactive insight
   // (no-op if one was already auto-generated today, or there's no signal yet).
   maybeAutoGenerateAiWidget();
+  // Race-week trigger: once-per-day specialist coaching when the athlete
+  // crosses into taper or race-week so the AI has a chance to give a focused
+  // peaking/recovery message ahead of competition.
+  try {
+    const phaseNow = computeRacePhase(now);
+    if (phaseNow && (phaseNow.phase === 'taper' || phaseNow.phase === 'race-week')) {
+      triggerCoachInsight('race_week', { phase: phaseNow.phase, days_out: phaseNow.daysOut });
+    }
+  } catch(e) {}
   // AI Coach widgets — bespoke insight cards generated by the AI coach using
   // the athlete's recent training, race phase, and plan. Persisted in
   // localStorage so they survive reloads. Each card has a header with a
@@ -3618,6 +3674,7 @@ async function toggleChecklist(key) {
   userChecklist[key] = newVal;
   if (newVal && activePlan) {
     showToast(completionToastMsg(activePlan, key), 'success');
+    triggerCoachInsight('workout_complete', { event: 'workout_complete' });
   }
   renderToday();
   // Check if all workouts for the current plan week are done → celebrate
@@ -3637,7 +3694,10 @@ async function toggleChecklist(key) {
           const k = activePlanId + '-' + w.week + '-' + w.day + '-' + (weekWorkouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
           return userChecklist[k];
         });
-        if (allDone) showCelebration('Week ' + currentWeek + ' complete! 🎉');
+        if (allDone) {
+          showCelebration('Week ' + currentWeek + ' complete! 🎉');
+          triggerCoachInsight('plan_complete', { event: 'week_complete', week: currentWeek });
+        }
       }
       // Check if ENTIRE plan is done
       const totalItems = activePlan.workouts.length;
@@ -3646,7 +3706,10 @@ async function toggleChecklist(key) {
         const k2 = activePlanId + '-' + w.week + '-' + w.day + '-' + (activePlan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
         if (userChecklist[k2]) doneCount++;
       });
-      if (doneCount === totalItems && totalItems > 0) showCelebration('Plan complete! You crushed it! 🏆');
+      if (doneCount === totalItems && totalItems > 0) {
+        showCelebration('Plan complete! You crushed it! 🏆');
+        triggerCoachInsight('plan_complete', { event: 'plan_complete' });
+      }
     } catch(e) { logError('plan-complete-check', e, { activePlanId }); }
   }
   if (demoMode || !db) return;
@@ -4134,6 +4197,14 @@ async function skipTodaysWorkouts() {
     msg += ' Back at it then.';
   }
   showToast(msg, 'info');
+  // Coach intervenes if there's a pattern: 3 skips in the last 10 days
+  // probably means the athlete is overloaded or the plan needs adjusting.
+  try {
+    const skipLog = JSON.parse(localStorage.getItem('tp_skip_log') || '[]');
+    const tenDaysAgo = new Date(); tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+    const recentSkips = skipLog.filter(s => new Date(s.date) >= tenDaysAgo).length;
+    if (recentSkips >= 3) triggerCoachInsight('skip_streak', { recent_skip_count: recentSkips });
+  } catch(e) {}
   if (currentPage === 'today') renderToday();
 }
 // Explain plan function — called from plan cards
@@ -8247,6 +8318,29 @@ async function flushOfflineQueue() {
   if (synced > 0) showToast(synced + ' offline workout' + (synced > 1 ? 's' : '') + ' synced!', 'success');
 }
 window.addEventListener('online', () => { setTimeout(flushOfflineQueue, 2000); });
+// ── Offline indicator banner ──────────────────────────────────────────────
+// Show a thin amber banner at the top of the page when navigator.onLine
+// flips to false. Auto-removes when connection returns.
+function _ensureOfflineBanner() {
+  if (document.getElementById('tp-offline-banner')) return;
+  const el = document.createElement('div');
+  el.id = 'tp-offline-banner';
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:200;padding:6px 12px;background:rgba(245,158,11,.95);color:#0d0e12;font-size:12px;font-weight:700;text-align:center;letter-spacing:.04em';
+  el.textContent = '⚠ OFFLINE — saved actions will sync when you reconnect';
+  document.body.appendChild(el);
+  document.body.style.paddingTop = '26px';
+}
+function _removeOfflineBanner() {
+  const el = document.getElementById('tp-offline-banner');
+  if (el) el.remove();
+  document.body.style.paddingTop = '';
+}
+function _checkConnectivity() {
+  if (navigator.onLine) _removeOfflineBanner(); else _ensureOfflineBanner();
+}
+window.addEventListener('online', _checkConnectivity);
+window.addEventListener('offline', _checkConnectivity);
+_checkConnectivity();
 // Start
 startApp();
 // Register service worker for offline support — force update check
