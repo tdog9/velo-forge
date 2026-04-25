@@ -84,6 +84,7 @@ ios/**/.swiftpm/
 ios/**/Package.resolved
 .DS_Store
 ios/TurboPrep.xcodeproj/
+ios/VeloForge.xcodeproj/
 # GoogleService-Info.plist contains secrets — add locally, never commit
 ios/TurboPrep/GoogleService-Info.plist
 ios/TurboPrepWatch/GoogleService-Info.plist

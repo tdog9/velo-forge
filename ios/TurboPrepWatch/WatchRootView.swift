@@ -2,16 +2,24 @@ import SwiftUI
 
 struct WatchRootView: View {
     @EnvironmentObject private var auth: AuthService
+    @StateObject private var state = WatchAppState.shared
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.bg.ignoresSafeArea()
-                if auth.currentUser != nil {
-                    WatchHomeView()
-                } else {
-                    WatchSignedOutView()
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            if auth.currentUser != nil {
+                TabView {
+                    WatchTodayView()
+                        .containerBackground(Theme.bg.gradient, for: .tabView)
+                    WatchRecordView()
+                        .containerBackground(Theme.bg.gradient, for: .tabView)
+                    WatchFitnessView()
+                        .containerBackground(Theme.bg.gradient, for: .tabView)
                 }
+                .tabViewStyle(.verticalPage)
+                .environmentObject(state)
+            } else {
+                WatchSignedOutView()
             }
         }
         .preferredColorScheme(.dark)
@@ -39,102 +47,6 @@ struct WatchSignedOutView: View {
     }
 }
 
-struct WatchHomeView: View {
-    @EnvironmentObject private var auth: AuthService
-    @StateObject private var health = HealthKitService()
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                BrandHeader()
-                heartRateCard
-                rideButton
-            }
-            .padding(.horizontal, 4)
-            .padding(.bottom, 12)
-        }
-        .task {
-            if health.authorization == .notRequested {
-                await health.requestAuthorization()
-            }
-            if health.authorization == .granted {
-                await health.refreshLatestHeartRate()
-                health.startHeartRateStreaming()
-            }
-        }
-        .onDisappear { health.stopHeartRateStreaming() }
-    }
-
-    private var heartRateCard: some View {
-        ThemeCard {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 4) {
-                    Image(systemName: "heart.fill")
-                        .foregroundStyle(Theme.heartRateColor)
-                        .font(.caption2)
-                    Text("HEART RATE")
-                        .font(.system(size: 9, weight: .heavy))
-                        .tracking(0.6)
-                        .foregroundStyle(Theme.mutedFg)
-                }
-                switch health.authorization {
-                case .granted:
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(health.latestHeartRate.map(String.init) ?? "—")
-                            .font(.system(size: 30, weight: .black, design: .rounded))
-                            .foregroundStyle(Theme.fg)
-                            .monospacedDigit()
-                        Text("bpm")
-                            .font(.system(.caption2))
-                            .foregroundStyle(Theme.mutedFg)
-                    }
-                case .notRequested, .requesting:
-                    Button {
-                        Task { await health.requestAuthorization() }
-                    } label: {
-                        Text("Allow Health")
-                            .font(.system(.caption, weight: .semibold))
-                            .foregroundStyle(Theme.primary)
-                    }
-                    .buttonStyle(.plain)
-                case .denied:
-                    Text("Health denied — change in iPhone Watch app.")
-                        .font(.system(.caption2))
-                        .foregroundStyle(Theme.mutedFg)
-                case .unavailable:
-                    Text("HealthKit unavailable")
-                        .font(.system(.caption2))
-                        .foregroundStyle(Theme.mutedFg)
-                }
-            }
-        }
-    }
-
-    private var rideButton: some View {
-        NavigationLink {
-            WorkoutSessionView()
-        } label: {
-            HStack {
-                Image(systemName: "bicycle")
-                    .font(.headline)
-                Text("Start ride")
-                    .font(.system(.body, weight: .bold))
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.caption2)
-                    .opacity(0.6)
-            }
-            .foregroundStyle(Theme.primaryFg)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity)
-            .background(Theme.primary)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 /// "TurboPrep" wordmark — split-color matches the web header treatment.
 struct BrandHeader: View {
     var body: some View {
@@ -143,6 +55,38 @@ struct BrandHeader: View {
             Text("Prep").foregroundStyle(Theme.primary)
         }
         .font(.system(.title3, design: .rounded, weight: .heavy))
-        .padding(.top, 4)
+    }
+}
+
+/// Phase chip — small pill in the phase colour, used on Today tab.
+struct PhaseChip: View {
+    let phase: WatchRacePhase
+    var body: some View {
+        let color = phaseColor(phase.phase)
+        HStack(spacing: 6) {
+            Text(phase.label)
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(0.6)
+                .foregroundStyle(color)
+            Text("\(phase.daysOut)d · \(phase.raceShortName)")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Theme.fg.opacity(0.85))
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(color.opacity(0.15))
+        .clipShape(Capsule())
+    }
+
+    private func phaseColor(_ p: WatchRacePhase.Phase) -> Color {
+        switch p {
+        case .base:      return Theme.phaseBase
+        case .build:     return Theme.phaseBuild
+        case .peak:      return Theme.phasePeak
+        case .taper:     return Theme.phaseTaper
+        case .raceWeek:  return Theme.phaseRaceWeek
+        }
     }
 }
