@@ -5,53 +5,136 @@ struct WorkoutSessionView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 8) {
-            if session.isActive {
-                Text(formattedElapsed(session.elapsed))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                if let bpm = session.heartRate {
-                    HStack(spacing: 4) {
-                        Image(systemName: "heart.fill").foregroundStyle(.red)
-                        Text("\(bpm) bpm").font(.headline)
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 10) {
+                    if session.isActive {
+                        activeView
+                    } else {
+                        idleView
+                    }
+                    if let err = session.lastError {
+                        Text(err)
+                            .font(.system(.caption2))
+                            .foregroundStyle(Theme.phasePeak)
+                            .multilineTextAlignment(.center)
                     }
                 }
-                if session.energyKcal > 0 {
-                    Text("\(Int(session.energyKcal)) kcal")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 4)
-                Button(role: .destructive) {
-                    Task {
-                        _ = await session.end()
-                        dismiss()
-                    }
-                } label: {
-                    Label("End", systemImage: "stop.fill")
-                        .frame(maxWidth: .infinity)
-                }
-            } else {
-                Text("HPV ride").font(.headline)
-                Text("Tap Start when you're ready to record.")
-                    .font(.caption2)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal)
-                Button {
-                    Task { await session.start() }
-                } label: {
-                    Label("Start", systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .tint(.green)
-            }
-            if let err = session.lastError {
-                Text(err).font(.caption2).foregroundStyle(.red)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 12)
             }
         }
-        .padding(.vertical, 6)
-        .navigationTitle("Workout")
+        .navigationTitle("HPV ride")
+    }
+
+    private var activeView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Big elapsed timer — matches web's prominent "you've banked X min" rhythm.
+            ThemeCard {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ELAPSED")
+                        .font(.system(size: 9, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.mutedFg)
+                    Text(formattedElapsed(session.elapsed))
+                        .font(.system(size: 34, weight: .black, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.fg)
+                }
+            }
+
+            ThemeCard {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart.fill")
+                            .foregroundStyle(Theme.heartRateColor)
+                            .font(.caption2)
+                        Text("HEART RATE")
+                            .font(.system(size: 9, weight: .heavy))
+                            .tracking(0.6)
+                            .foregroundStyle(Theme.mutedFg)
+                    }
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(session.heartRate.map(String.init) ?? "—")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundStyle(Theme.fg)
+                            .monospacedDigit()
+                        Text("bpm")
+                            .font(.system(.caption2))
+                            .foregroundStyle(Theme.mutedFg)
+                        if let max = session.heartRateMax, max > 0 {
+                            Spacer()
+                            Text("max \(max)")
+                                .font(.system(.caption2))
+                                .foregroundStyle(Theme.mutedFg)
+                        }
+                    }
+                    if session.energyKcal > 0 {
+                        Text("\(Int(session.energyKcal.rounded())) kcal banked")
+                            .font(.system(.caption2))
+                            .foregroundStyle(Theme.mutedFg)
+                    }
+                }
+            }
+
+            Button(role: .destructive) {
+                Task {
+                    _ = await session.end()
+                    dismiss()
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "stop.fill").font(.headline)
+                    Text("End ride")
+                        .font(.system(.body, weight: .bold))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.white)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity)
+                .background(Theme.phasePeak)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var idleView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ThemeCard {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("READY")
+                        .font(.system(size: 9, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.mutedFg)
+                    Text("HPV ride")
+                        .font(.system(.title3, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.fg)
+                    Text("Tap start when you're rolling. Heart rate and energy are recorded for the whole session.")
+                        .font(.system(.caption2))
+                        .foregroundStyle(Theme.mutedFg)
+                }
+            }
+            Button {
+                Task { await session.start() }
+            } label: {
+                HStack {
+                    Image(systemName: "play.fill").font(.headline)
+                    Text("Start ride")
+                        .font(.system(.body, weight: .bold))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Theme.primaryFg)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity)
+                .background(Theme.primary)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private func formattedElapsed(_ t: TimeInterval) -> String {
