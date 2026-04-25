@@ -20,6 +20,8 @@ final class ConnectivityService: NSObject, ObservableObject {
     var onWorkoutReceived: ((WorkoutPayload) -> Void)?
     /// iPhone-only: invoked when the Watch reports race-day laps.
     var onRaceDayLapsReceived: (([String: Any]) -> Void)?
+    /// iPhone-only: invoked when the Watch reports its HealthKit summary.
+    var onHealthSummaryReceived: (([String: Any]) -> Void)?
     /// Watch-only: invoked when the iPhone pushes a fresh state snapshot.
     var onStateSnapshotReceived: (([String: Any]) -> Void)?
 
@@ -56,6 +58,12 @@ final class ConnectivityService: NSObject, ObservableObject {
     /// Watch → iPhone: send race-day lap data when the athlete ends a stint.
     func sendRaceDayLaps(_ laps: [String: Any]) {
         send(["payload": "raceDayLaps", "data": laps])
+    }
+
+    /// Watch → iPhone: push a HealthKit summary (HR, steps, energy, sleep)
+    /// so the iPhone can update the web app's userProfile.health.
+    func sendHealthSummary(_ summary: [String: Any]) {
+        send(["payload": "healthSummary", "data": summary])
     }
 
     private func send(_ dict: [String: Any]) {
@@ -133,6 +141,8 @@ extension ConnectivityService: WCSessionDelegate {
             onStateSnapshotReceived?(body)
         case "raceDayLaps":
             onRaceDayLapsReceived?(body)
+        case "healthSummary":
+            onHealthSummaryReceived?(body)
         default:
             break
         }

@@ -274,7 +274,7 @@ function pushWatchState() {
         source: w.source || 'manual',
       };
     });
-    const raceDayActive = !!window._raceDayActiveCache;
+    const raceDayActive = !!getRaceDayActive();
     postNative('watch-state', {
       state: { racePhase, todayWorkouts, completedWorkouts, raceDayActive },
     });
@@ -284,13 +284,60 @@ function pushWatchState() {
 // Wires up here so it exists by the time Watch sends anything.
 if (typeof window !== 'undefined') {
   window.tpNative = window.tpNative || {};
-  window.tpNative.onRaceDayLaps = function(payload) {
+  // Native → web: HealthKit summary from the Watch. Merges into userProfile.health
+  // and writes back to Firestore so the web's health card sees Watch data.
+  window.tpNative.onHealthSummary = async function(summary) {
     try {
+      if (!summary || typeof summary !== 'object') return;
+      const healthPatch = {
+        latestHr: summary.latestHr ?? null,
+        latestSteps: summary.latestSteps ?? null,
+        restingHr: summary.restingHr ?? null,
+        activeEnergyKcal: summary.activeEnergyKcal ?? null,
+        lastSync: new Date().toISOString(),
+        source: 'watch',
+      };
+      // Local update first so the UI reflects immediately.
+      userProfile = { ...(userProfile || {}), health: { ...(userProfile?.health || {}), ...healthPatch } };
+      if (currentPage === 'today') renderToday();
+      // Best-effort Firestore write.
+      if (db && currentUser) {
+        await setDoc(doc(db, 'users', currentUser.uid), { health: healthPatch }, { merge: true }).catch(() => {});
+      }
+    } catch(e) {}
+  };
+  window.tpNative.onRaceDayLaps = async function(payload) {
+    try {
+      // Always cache locally so the data isn't lost if Firestore is offline.
       const log = JSON.parse(localStorage.getItem('tp_race_day_laps') || '[]');
       log.unshift({ receivedAt: Date.now(), ...(payload || {}) });
       localStorage.setItem('tp_race_day_laps', JSON.stringify(log.slice(0, 20)));
+      const lapCount = (payload && Array.isArray(payload.laps)) ? payload.laps.length : 0;
+      // Best-effort write into the race-day stints subcollection. Merges with
+      // any existing record for this user today so multiple stints accumulate.
+      try {
+        if (db && currentUser) {
+          const today = new Date();
+          const dk = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+          const ref = doc(db, 'race_day', dk, 'stints', currentUser.uid);
+          const snap = await getDoc(ref).catch(() => null);
+          const prior = (snap && snap.exists && snap.exists()) ? (snap.data() || {}) : {};
+          const priorLaps = Array.isArray(prior.laps) ? prior.laps : [];
+          const newLaps = (payload.laps || []).map(l => ({
+            duration: l.duration,            // ms
+            number:   l.number,
+            recordedAt: l.recordedAt,
+            source: 'watch',
+          }));
+          await setDoc(ref, {
+            displayName: userProfile?.displayName || currentUser.email || '',
+            uid: currentUser.uid,
+            laps: priorLaps.concat(newLaps),
+            lastWatchStintAt: Date.now(),
+          }, { merge: true });
+        }
+      } catch(e) { console.warn('race-day stint Firestore write:', e); }
       if (typeof showToast === 'function') {
-        const lapCount = (payload && Array.isArray(payload.laps)) ? payload.laps.length : 0;
         showToast(`Watch stint received — ${lapCount} laps.`, 'success');
       }
     } catch(e) {}
@@ -309,6 +356,23 @@ const AI_WIDGET_KINDS = {
 };
 function loadAiWidgets() {
   try { return JSON.parse(localStorage.getItem('tp_ai_widgets') || '[]'); } catch(e) { return []; }
+}
+// Once-per-day proactive coach widget: generate a fresh insight on the first
+// Today render of each day if the user hasn't already received one. Avoids
+// nagging by keeping the cap at 1/day.
+function maybeAutoGenerateAiWidget() {
+  try {
+    const todayKey = new Date().toISOString().split('T')[0];
+    const lastAutoKey = localStorage.getItem('tp_ai_widget_last_auto');
+    if (lastAutoKey === todayKey) return;
+    // Only auto-generate if we have signal to give the coach: a logged workout
+    // OR an active plan. New-account opens shouldn't burn an AI call.
+    const hasSignal = (userWorkouts && userWorkouts.length > 0) || !!userProfile?.activePlanId;
+    if (!hasSignal) return;
+    localStorage.setItem('tp_ai_widget_last_auto', todayKey);
+    // Fire-and-forget. generateAiWidget handles its own toast on failure.
+    generateAiWidget();
+  } catch(e) {}
 }
 function saveAiWidgets(list) {
   try { localStorage.setItem('tp_ai_widgets', JSON.stringify(list.slice(0, 6))); } catch(e) {}
@@ -2535,6 +2599,9 @@ function renderToday() {
   // Native bridge — refresh the Watch's state snapshot whenever Today re-renders.
   // No-op when not inside the iOS WebView.
   pushWatchState();
+  // First Today render of the day → ask the coach for a proactive insight
+  // (no-op if one was already auto-generated today, or there's no signal yet).
+  maybeAutoGenerateAiWidget();
   // AI Coach widgets — bespoke insight cards generated by the AI coach using
   // the athlete's recent training, race phase, and plan. Persisted in
   // localStorage so they survive reloads. Each card has a header with a

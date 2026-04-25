@@ -67,6 +67,64 @@ final class HealthKitService: ObservableObject {
         }
     }
 
+    /// One-shot summary of today's key Health metrics. Returns a dictionary
+    /// suitable for cross-device transport (no Date types — timestamps as
+    /// TimeInterval since 1970). Used by the Watch to push a summary up to
+    /// the iPhone, which forwards it into the web app's userProfile.health.
+    func fetchTodaySummary() async -> [String: Any] {
+        guard HKHealthStore.isHealthDataAvailable() else { return [:] }
+        let cal = Calendar.current
+        let startOfDay = cal.startOfDay(for: Date())
+        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: nil, options: .strictStartDate)
+        var summary: [String: Any] = ["asOf": Date().timeIntervalSince1970]
+        await refreshLatestHeartRate()
+        if let hr = latestHeartRate { summary["latestHr"] = hr }
+        // Steps today
+        if let stepsType = HKObjectType.quantityType(forIdentifier: .stepCount) {
+            let steps = await sumQuantity(type: stepsType, predicate: predicate, unit: .count())
+            summary["latestSteps"] = Int(steps)
+        }
+        // Active energy today (kcal)
+        if let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) {
+            let kcal = await sumQuantity(type: energyType, predicate: predicate, unit: .kilocalorie())
+            summary["activeEnergyKcal"] = Int(kcal)
+        }
+        // Resting heart rate (most recent within 7 days)
+        if let restingType = HKObjectType.quantityType(forIdentifier: .restingHeartRate) {
+            let bpmUnit = HKUnit.count().unitDivided(by: .minute())
+            let weekAgo = Date().addingTimeInterval(-7 * 86400)
+            let weekPredicate = HKQuery.predicateForSamples(withStart: weekAgo, end: nil, options: .strictStartDate)
+            if let resting = await mostRecentQuantity(type: restingType, predicate: weekPredicate, unit: bpmUnit) {
+                summary["restingHr"] = Int(resting.rounded())
+            }
+        }
+        return summary
+    }
+
+    private func sumQuantity(type: HKQuantityType, predicate: NSPredicate, unit: HKUnit) async -> Double {
+        await withCheckedContinuation { (cont: CheckedContinuation<Double, Never>) in
+            let q = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, _ in
+                let v = stats?.sumQuantity()?.doubleValue(for: unit) ?? 0
+                cont.resume(returning: v)
+            }
+            store.execute(q)
+        }
+    }
+
+    private func mostRecentQuantity(type: HKQuantityType, predicate: NSPredicate, unit: HKUnit) async -> Double? {
+        await withCheckedContinuation { (cont: CheckedContinuation<Double?, Never>) in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+            let q = HKSampleQuery(sampleType: type, predicate: predicate, limit: 1, sortDescriptors: [sort]) { _, samples, _ in
+                if let s = samples?.first as? HKQuantitySample {
+                    cont.resume(returning: s.quantity.doubleValue(for: unit))
+                } else {
+                    cont.resume(returning: nil)
+                }
+            }
+            store.execute(q)
+        }
+    }
+
     /// One-shot fetch of the most-recent heart-rate sample. Cheap; safe to
     /// call from a `.task` modifier or on a refresh.
     func refreshLatestHeartRate() async {

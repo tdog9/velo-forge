@@ -8,9 +8,10 @@ import SwiftUI
 /// `tpNative` JS handler.
 struct WebViewContainer: UIViewRepresentable {
     let url: URL
+    var onWebLoaded: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(onWebLoaded: onWebLoaded)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -35,6 +36,12 @@ struct WebViewContainer: UIViewRepresentable {
         webView.scrollView.backgroundColor = webView.backgroundColor
 
         webView.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
+        // Pull-to-refresh: standard iOS gesture; reloads the web bundle.
+        let refresh = UIRefreshControl()
+        refresh.tintColor = UIColor(red: 0xf9/255, green: 0x73/255, blue: 0x16/255, alpha: 1)
+        refresh.addTarget(context.coordinator, action: #selector(Coordinator.pullToRefresh(_:)), for: .valueChanged)
+        webView.scrollView.refreshControl = refresh
+        context.coordinator.refresh = refresh
         return webView
     }
 
@@ -42,6 +49,18 @@ struct WebViewContainer: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         weak var webView: WKWebView?
+        weak var refresh: UIRefreshControl?
+        let onWebLoaded: (() -> Void)?
+        private var didFireLoaded = false
+
+        init(onWebLoaded: (() -> Void)?) {
+            self.onWebLoaded = onWebLoaded
+            super.init()
+        }
+
+        @objc func pullToRefresh(_ sender: UIRefreshControl) {
+            webView?.reload()
+        }
 
         // Web → native: handle posted messages from the web app.
         func userContentController(_ uc: WKUserContentController, didReceive msg: WKScriptMessage) {
@@ -66,13 +85,25 @@ struct WebViewContainer: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             self.webView = webView
-            // Wire the relay used to forward Watch race-day laps into the web.
+            refresh?.endRefreshing()
+            if !didFireLoaded {
+                didFireLoaded = true
+                onWebLoaded?()
+            }
+            // Wire the relays used to forward Watch payloads into the web.
             Task { @MainActor in
                 WatchWorkoutReceiver.jsRelay = { [weak webView] payload in
                     guard let webView,
                           let data = try? JSONSerialization.data(withJSONObject: payload),
                           let json = String(data: data, encoding: .utf8) else { return }
                     let js = "if (window.tpNative && typeof window.tpNative.onRaceDayLaps === 'function') { window.tpNative.onRaceDayLaps(\(json)); }"
+                    webView.evaluateJavaScript(js, completionHandler: nil)
+                }
+                WatchWorkoutReceiver.jsHealthRelay = { [weak webView] summary in
+                    guard let webView,
+                          let data = try? JSONSerialization.data(withJSONObject: summary),
+                          let json = String(data: data, encoding: .utf8) else { return }
+                    let js = "if (window.tpNative && typeof window.tpNative.onHealthSummary === 'function') { window.tpNative.onHealthSummary(\(json)); }"
                     webView.evaluateJavaScript(js, completionHandler: nil)
                 }
             }

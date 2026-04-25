@@ -11,6 +11,8 @@ enum WatchWorkoutReceiver {
     /// Set by WebViewContainer once `didFinish` fires so race-day payloads
     /// can be relayed into the web app's JS context.
     static var jsRelay: (([String: Any]) -> Void)?
+    /// Set by WebViewContainer for health-summary forwarding into web.
+    static var jsHealthRelay: (([String: Any]) -> Void)?
 
     static func install() {
         ConnectivityService.shared.onWorkoutReceived = { payload in
@@ -18,6 +20,9 @@ enum WatchWorkoutReceiver {
         }
         ConnectivityService.shared.onRaceDayLapsReceived = { laps in
             jsRelay?(laps)
+        }
+        ConnectivityService.shared.onHealthSummaryReceived = { summary in
+            jsHealthRelay?(summary)
         }
     }
 

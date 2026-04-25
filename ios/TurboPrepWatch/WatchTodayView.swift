@@ -43,9 +43,22 @@ struct WatchTodayView: View {
             if health.authorization == .granted {
                 await health.refreshLatestHeartRate()
                 health.startHeartRateStreaming()
+                await pushHealthSummary()
             }
         }
         .onDisappear { health.stopHeartRateStreaming() }
+    }
+
+    private func pushHealthSummary() async {
+        // Throttle: at most once every 10 minutes.
+        let key = "tp_last_health_push"
+        let now = Date().timeIntervalSince1970
+        let last = UserDefaults.standard.double(forKey: key)
+        if now - last < 600 { return }
+        let summary = await health.fetchTodaySummary()
+        guard !summary.isEmpty else { return }
+        ConnectivityService.shared.sendHealthSummary(summary)
+        UserDefaults.standard.set(now, forKey: key)
     }
 
     private var raceDayBanner: some View {
