@@ -7,7 +7,11 @@ struct WatchRootView: View {
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
-            if auth.currentUser != nil {
+            // Show the main UI as soon as EITHER the native AuthService has a
+            // user OR the iPhone has reported the user is signed in. The
+            // iPhone path is the one that works on simulator and on real
+            // devices without paid-team keychain sharing.
+            if auth.currentUser != nil || state.iPhoneSignedIn {
                 TabView {
                     WatchTodayView()
                         .containerBackground(Theme.bg.gradient, for: .tabView)

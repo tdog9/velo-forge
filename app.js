@@ -299,8 +299,17 @@ function pushWatchState() {
         isMe: r.uid === currentUser?.uid,
       }));
     } catch(e) {}
+    // iPhone-reported auth state — Watch trusts this as the signed-in
+    // signal because keychain auth sharing requires paid-team signing.
+    const iPhoneSignedIn = !!currentUser;
+    const iPhoneUserEmail = currentUser?.email || null;
+    const iPhoneUserDisplayName = userProfile?.displayName || currentUser?.displayName || null;
     postNative('watch-state', {
-      state: { racePhase, todayWorkouts, completedWorkouts, raceDayActive, raceDayLeaderboard },
+      state: {
+        racePhase, todayWorkouts, completedWorkouts,
+        raceDayActive, raceDayLeaderboard,
+        iPhoneSignedIn, iPhoneUserEmail, iPhoneUserDisplayName,
+      },
     });
   } catch(e) {}
 }

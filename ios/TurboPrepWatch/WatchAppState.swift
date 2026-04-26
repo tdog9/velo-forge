@@ -21,6 +21,13 @@ final class WatchAppState: ObservableObject {
     @Published var raceDayLaps: [WatchLap] = []
     @Published var raceDayStartedAt: Date?
     @Published var raceDayLeaderboard: [WatchLeaderboardEntry] = []
+    /// iPhone-side auth state mirrored into the Watch. The Watch can't read
+    /// Firebase Firestore directly (no watchOS support) and keychain auth
+    /// sharing requires paid-team signing, so the iPhone is the source of
+    /// truth for "is the user signed in" via the WatchConnectivity bridge.
+    @Published var iPhoneSignedIn: Bool = false
+    @Published var iPhoneUserEmail: String?
+    @Published var iPhoneUserDisplayName: String?
 
     private init() {}
 
@@ -54,6 +61,15 @@ final class WatchAppState: ObservableObject {
     /// Apply a state snapshot received from the iPhone (which got it from the
     /// web app via the tpNative bridge). Replaces mock data with real values.
     func applyRemoteSnapshot(_ dict: [String: Any]) {
+        if let signedIn = dict["iPhoneSignedIn"] as? Bool {
+            self.iPhoneSignedIn = signedIn
+        }
+        if let email = dict["iPhoneUserEmail"] as? String {
+            self.iPhoneUserEmail = email
+        }
+        if let name = dict["iPhoneUserDisplayName"] as? String {
+            self.iPhoneUserDisplayName = name
+        }
         if let phaseDict = dict["racePhase"] as? [String: Any] {
             self.racePhase = WatchRacePhase(from: phaseDict)
         } else if dict.keys.contains("racePhase") {
