@@ -298,9 +298,60 @@ button.user-avatar {
   margin-bottom: var(--ds-space-3) !important;
 }
 
-/* Header logo + wordmark sit at consistent height so the row doesn't shift. */
-.header { min-height: 48px; }
-.header-logo { width: 32px; height: 32px; flex-shrink: 0; }
+/* Header — logo + wordmark were both orange and competing. Hide the T tile
+   on screens where the wordmark already carries the brand; keep it visible
+   on very narrow viewports as a fallback identity. */
+.header { min-height: 48px; padding-left: var(--ds-space-3); padding-right: var(--ds-space-3); }
+.header-logo {
+  width: 28px; height: 28px;
+  border-radius: var(--ds-radius-sm) !important;
+  font-size: 13px;
+  box-shadow: none;
+  display: none;  /* wordmark wins; brings up if the wordmark is hidden */
+}
+.hw-turbo, .hw-prep { font-size: 16px; letter-spacing: .05em; }
+.hw-prep { color: var(--primary) !important; opacity: .65; }
+
+/* Bottom tab bar polish — subtle separator above, label sized down, active
+   indicator becomes a dot above the icon instead of full-width line so the
+   centre Record circle reads as the focal point. */
+.tab-bar {
+  border-top: var(--ds-border-thin);
+  background: var(--bg);
+}
+.tab-btn {
+  color: var(--muted-fg);
+  transition: color var(--ds-dur-fast) var(--ds-ease-out);
+}
+.tab-btn.active { color: var(--primary); }
+.tab-btn-label {
+  margin-top: 2px;
+  opacity: .9;
+}
+
+/* Card polish — softer ambient shadow + subtle press scale. */
+.card {
+  background: var(--card);
+  border: var(--ds-border-thin);
+  box-shadow: var(--ds-elev-1);
+}
+.card.card-pad { padding: var(--ds-space-4); }
+
+/* Sheet — round only the top edges and add the same elevation as a dialog. */
+.sheet {
+  border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
+  box-shadow: var(--ds-elev-3);
+}
+
+/* Focus ring — single color, generous offset, never inside the element. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--ds-radius-sm);
+}
+
+/* Skeletons — match the card surface so loading state doesn't look broken. */
+.skeleton { background: var(--surface); }
 
 /* Reduce motion — honor the system preference everywhere. */
 @media (prefers-reduced-motion: reduce) {
