@@ -371,11 +371,40 @@ body.ds-modal-open {
   max-width: 100%;
 }
 
-/* Page title — clamp the giant headings so they don't crowd the sub-tabs. */
+/* Page title — phone-first sizing. Was 28px globally (set for desktop) so
+   on iPhone it dwarfed everything around it. Scale up only on tablet+. */
 .page-title {
-  font-size: var(--ds-text-2xl) !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
   line-height: var(--ds-leading-tight) !important;
+  letter-spacing: -.02em !important;
   margin-bottom: var(--ds-space-3) !important;
+}
+@media (min-width: 600px) {
+  .page-title { font-size: 26px !important; }
+}
+@media (min-width: 900px) {
+  .page-title { font-size: 32px !important; margin-bottom: var(--ds-space-5) !important; }
+}
+
+/* Mobile-first content density — the app was clearly tuned on a wide
+   screen. Tighten the default phone padding so cards fill the viewport
+   without huge dead zones at the edges. */
+@media (max-width: 599px) {
+  .content { padding: 12px !important; }
+  .card-pad, .ds-surface { padding: var(--ds-space-3) !important; }
+  .ds-stack { gap: var(--ds-space-2); }
+  .ds-stack-4 { gap: var(--ds-space-3); }
+}
+
+/* Centre the page column on iPhone — without this, a 6.7" Pro Max
+   shows content left-aligned to the safe-area inset and feels off-
+   centre. A tight max-width with auto margins fixes it. */
+#main-app > #content > .page,
+#main-app > #content > .page.active {
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Header — logo + wordmark were both orange and competing. Hide the T tile

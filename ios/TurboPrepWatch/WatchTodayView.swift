@@ -5,6 +5,7 @@ import SwiftUI
 struct WatchTodayView: View {
     @EnvironmentObject private var state: WatchAppState
     @StateObject private var health = HealthKitService()
+    @State private var showSession = false
 
     var body: some View {
         ScrollView {
@@ -31,6 +32,7 @@ struct WatchTodayView: View {
                         TodayWorkoutCard(workout: w)
                     }
                 }
+                quickStartButton
                 heartRateCard
             }
             .padding(.horizontal, 4)
@@ -77,6 +79,44 @@ struct WatchTodayView: View {
                     .font(.system(.caption2))
                     .foregroundStyle(Theme.mutedFg)
             }
+        }
+    }
+
+    /// Big primary action — start an HKWorkoutSession from the Today tab so
+    /// the athlete doesn't have to scroll to the Record tab to begin a ride.
+    /// Mirrors the iPhone's "Tap to record" hero button. Presented as a
+    /// fullScreenCover because the parent TabView (.verticalPage) can't
+    /// host a NavigationStack without breaking page swipe.
+    private var quickStartButton: some View {
+        Button {
+            showSession = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Theme.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Start Workout")
+                        .font(.system(.body, weight: .heavy))
+                        .foregroundStyle(Theme.fg)
+                    Text(state.raceDayActive ? "Race day mode active" : "Tap to begin")
+                        .font(.system(.caption2))
+                        .foregroundStyle(Theme.mutedFg)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                    .stroke(Theme.primary.opacity(0.5), lineWidth: 1.2)
+            )
+        }
+        .buttonStyle(.plain)
+        .fullScreenCover(isPresented: $showSession) {
+            WorkoutSessionView()
         }
     }
 
