@@ -25,5 +25,14 @@ struct RootView: View {
             .background(Color(red: 10/255, green: 11/255, blue: 15/255))
             SplashOverlay(visible: $splashVisible)
         }
+        .onAppear {
+            // Safety net — if the WebView never reports didFinish (DNS issue,
+            // load timeout, server down), fade the splash anyway after 12s
+            // so the user can pull-to-refresh instead of staring at a frozen
+            // screen.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 12) {
+                if splashVisible { splashVisible = false }
+            }
+        }
     }
 }

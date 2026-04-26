@@ -314,19 +314,61 @@ button.user-avatar {
 
 /* Sub-tab overflow guard — Race Day was clipping in the Coach tab because
    the strip wasn't allowing horizontal scroll. Permit scroll, hide the
-   scrollbar, and let each tab size to its content. */
+   scrollbar, let each tab size to its content, and ensure children can
+   shrink (min-width: 0) so the strip stays in one row. */
 .fitness-sub-bar {
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   flex-wrap: nowrap;
+  min-width: 0;
 }
 .fitness-sub-bar::-webkit-scrollbar { display: none; }
 .fitness-sub-tab {
   flex: 0 0 auto !important;
+  min-width: 0;
   white-space: nowrap;
   padding-left: var(--ds-space-4);
   padding-right: var(--ds-space-4);
+}
+
+/* Touch-target floor — 44px is Apple HIG. Several legacy controls were
+   under (timer-close 36px, profile-back 36px, admin-toggle 26px). Bump
+   them up so they're tappable without hitting the wrong thing. */
+.timer-close,
+.profile-back,
+.btn-icon {
+  width: 44px !important;
+  height: 44px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-toggle {
+  width: 52px !important;
+  height: 32px !important;
+}
+.admin-toggle::after { width: 24px; height: 24px; top: 4px; left: 4px; }
+.admin-toggle.on::after { transform: translateX(20px); }
+
+/* Body scroll lock when a modal/sheet is open — without this, swiping
+   past the modal scrolls the page behind it on iOS. App.js toggles this
+   class on body when an overlay is presented. */
+body.ds-modal-open {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
+/* Long-text guards on header + page titles so a long team or user name
+   never breaks the layout. */
+.header-wordmark,
+.ai-header-title,
+.user-menu-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* Page title — clamp the giant headings so they don't crowd the sub-tabs. */

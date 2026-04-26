@@ -198,9 +198,18 @@ struct WebViewContainer: UIViewRepresentable {
         }
 
         private func present(_ alert: UIAlertController) {
-            UIApplication.shared.connectedScenes
-                .compactMap { ($0 as? UIWindowScene)?.keyWindow?.rootViewController }
-                .first?.present(alert, animated: true)
+            // keyWindow is deprecated in iOS 15+; walk windows instead so we
+            // pick up the active scene's primary window without relying on
+            // the deprecated property.
+            let root = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+                .first(where: { $0.isKeyWindow })?.rootViewController
+                ?? UIApplication.shared.connectedScenes
+                    .compactMap { $0 as? UIWindowScene }
+                    .flatMap { $0.windows }
+                    .first?.rootViewController
+            root?.present(alert, animated: true)
         }
     }
 }

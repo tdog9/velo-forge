@@ -771,6 +771,9 @@ function showModal(title, content, onConfirm, onCancel) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  // Lock body scroll while modal open — without this, swiping past the modal
+  // scrolls the page underneath on iOS, which breaks the dialog metaphor.
+  document.body.classList.add('ds-modal-open');
   const close = (confirmed) => {
     // Call the callback BEFORE removing so callers like showEditModal /
     // showSelectModal can still read form values via overlay.querySelector.
@@ -779,6 +782,10 @@ function showModal(title, content, onConfirm, onCancel) {
       else if (!confirmed && onCancel) onCancel();
     } finally {
       overlay.remove();
+      // Only release scroll lock if no other modal is still open.
+      if (!document.querySelector('.modal-overlay, .sheet-overlay:not([style*="display: none"])')) {
+        document.body.classList.remove('ds-modal-open');
+      }
     }
   };
   $('modal-cancel')?.addEventListener('click', () => close(false));

@@ -69,6 +69,16 @@ service cloud.firestore {
         // Owner-only — no coach/team visibility yet.
         allow read, write: if isOwner(userId);
       }
+
+      match /raceResults/{resultId} {
+        // Personal race results — owner-only.
+        allow read, write: if isOwner(userId);
+      }
+
+      match /devices/{tokenId} {
+        // Push notification tokens registered by the iOS app.
+        allow read, write: if isOwner(userId);
+      }
     }
 
     match /teams/{teamId} {
@@ -117,6 +127,46 @@ service cloud.firestore {
       // reads all + flips status (approved/exempt/denied) on review.
       allow read, create: if isOwner(uid);
       allow read, update, delete: if isAdmin();
+    }
+
+    match /approved_clubs/{clubId} {
+      // Public list of approved clubs — used by the signup screen team
+      // dropdown and the team-search UI. Anyone signed in can read; only
+      // admins can approve a new club.
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /team_requests/{requestId} {
+      // Coach signup requests for new teams. Coach creates one; admin
+      // reads + approves/denies. We don't restrict the creator field at
+      // create time — relying on the email field being self-attested
+      // because there's no harm in a duplicate request.
+      allow read, write: if isAdmin();
+      allow create: if isSignedIn();
+      allow read, delete: if isSignedIn() && resource.data.coachUid == request.auth.uid;
+    }
+
+    match /leagues/{leagueId} {
+      // Cross-team / cross-school leagues. Anyone signed in reads to
+      // see standings; admin manages.
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /race_day/{date} {
+      // Race day coordination doc — admin starts/ends the day. Everyone
+      // signed in can read the active state.
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+
+      match /stints/{uid} {
+        // Each athlete's stint on a given race day. Owner writes their own
+        // (race-day stint logging from the Watch); team can read all stints
+        // for the leaderboard.
+        allow read: if isSignedIn();
+        allow write: if isOwner(uid);
+      }
     }
   }
 }
