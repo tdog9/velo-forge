@@ -381,9 +381,13 @@ export async function renderCoachDashboard() {
   const sevenDaysAgo = new Date(now.getTime() - 86400000 * 7);
   const fiveDaysAgo = new Date(now.getTime() - 86400000 * 5);
 
-  // Coach notification for inactive students
+  // Coach notification for inactive students.
+  // The Notification web API doesn't exist in WKWebView (iOS strips it for
+  // privacy), so guard with `'Notification' in window` before any access —
+  // otherwise the bare reference throws "Can't find variable: Notification"
+  // and crashes the entire Coach Students render.
   const needsFollowUp = students.filter(s => s.lastActive && s.lastActive < fiveDaysAgo && s.lastActive > new Date(now.getTime() - 86400000 * 30));
-  if (needsFollowUp.length > 0 && Notification.permission === 'granted') {
+  if (needsFollowUp.length > 0 && ('Notification' in window) && Notification.permission === 'granted') {
     const lastNotif = localStorage.getItem('vf_coach_notif_date');
     const today = now.toISOString().split('T')[0];
     if (lastNotif !== today) {

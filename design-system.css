@@ -236,6 +236,72 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ===========================================================================
+ * 3. UI RULES — invariants that must hold app-wide.
+ * ========================================================================= */
+
+/* Perfect circles. Any element marked .ds-circle (or already round via the
+   legacy avatar/dot/badge classes) is forced to a 1:1 aspect ratio so
+   flexbox can't squash it into an oval. Width or height alone sets size.
+   Targets the user-avatar (top-right initial), record-tab-circle (centre
+   tab), and any other round badges. */
+.ds-circle,
+.user-avatar,
+.record-tab-circle,
+.lb-podium-avatar,
+.team-hero-code,
+.coach-feat-toggle::after,
+.admin-toggle::after,
+button.user-avatar {
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  flex-shrink: 0;
+}
+
+/* Avatar sizing — explicit so it can't inherit a stretched height from its
+   flex parent. */
+.user-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--primary-fg);
+  background: var(--primary);
+  border: none;
+  padding: 0;
+}
+
+/* Sub-tab overflow guard — Race Day was clipping in the Coach tab because
+   the strip wasn't allowing horizontal scroll. Permit scroll, hide the
+   scrollbar, and let each tab size to its content. */
+.fitness-sub-bar {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+.fitness-sub-bar::-webkit-scrollbar { display: none; }
+.fitness-sub-tab {
+  flex: 0 0 auto !important;
+  white-space: nowrap;
+  padding-left: var(--ds-space-4);
+  padding-right: var(--ds-space-4);
+}
+
+/* Page title — clamp the giant headings so they don't crowd the sub-tabs. */
+.page-title {
+  font-size: var(--ds-text-2xl) !important;
+  line-height: var(--ds-leading-tight) !important;
+  margin-bottom: var(--ds-space-3) !important;
+}
+
+/* Header logo + wordmark sit at consistent height so the row doesn't shift. */
+.header { min-height: 48px; }
+.header-logo { width: 32px; height: 32px; flex-shrink: 0; }
+
 /* Reduce motion — honor the system preference everywhere. */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
