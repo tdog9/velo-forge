@@ -19,7 +19,9 @@ struct RootView: View {
                     splashVisible = false
                 }
             }
-            .ignoresSafeArea(.container, edges: .bottom)
+            // Edge-to-edge: web bundle handles status-bar + home-indicator
+            // padding via env(safe-area-inset-*).
+            .ignoresSafeArea()
             .background(Color(red: 10/255, green: 11/255, blue: 15/255))
             SplashOverlay(visible: $splashVisible)
         }

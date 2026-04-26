@@ -221,7 +221,8 @@ function postNative(type, body) {
   if (!_hasNativeBridge()) return;
   try {
     window.webkit.messageHandlers.tpNative.postMessage({ type, ...(body || {}) });
-  } catch(e) {}
+    if (type === 'watch-state') console.log('[bridge] → native watch-state', body?.state ? Object.keys(body.state) : '(empty)');
+  } catch(e) { console.warn('[bridge] postNative failed:', e); }
 }
 // Web → native: serialize the slices the Watch UI needs and post them.
 // Called from renderToday so the Watch picks up plan/race/workout changes.

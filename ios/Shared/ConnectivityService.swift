@@ -41,16 +41,29 @@ final class ConnectivityService: NSObject, ObservableObject {
     /// updateApplicationContext so the Watch wakes up to it next launch
     /// even if we weren't reachable when it was sent.
     func pushStateToWatch(_ snapshot: [String: Any]) {
-        guard WCSession.isSupported() else { return }
+        guard WCSession.isSupported() else {
+            print("📲 [WC] WCSession not supported — skip pushStateToWatch")
+            return
+        }
         let s = WCSession.default
-        guard s.activationState == .activated else { s.activate(); return }
+        guard s.activationState == .activated else {
+            print("📲 [WC] session not activated yet (state \(s.activationState.rawValue)); reactivating")
+            s.activate()
+            return
+        }
         let payload: [String: Any] = ["payload": "state", "data": snapshot]
         do {
             try s.updateApplicationContext(payload)
+            print("📲 [WC] pushStateToWatch via applicationContext OK (reachable=\(s.isReachable))")
         } catch {
-            // Fallback: try a live message if the context call fails.
+            print("📲 [WC] applicationContext failed: \(error.localizedDescription); falling back")
             if s.isReachable {
-                s.sendMessage(payload, replyHandler: nil, errorHandler: nil)
+                s.sendMessage(payload, replyHandler: nil) { err in
+                    print("📲 [WC] sendMessage fallback also failed: \(err.localizedDescription)")
+                }
+            } else {
+                s.transferUserInfo(payload)
+                print("📲 [WC] queued via transferUserInfo")
             }
         }
     }
@@ -123,6 +136,8 @@ extension ConnectivityService: WCSessionDelegate {
 
     @MainActor
     private func routeIncoming(_ dict: [String: Any]) {
+        let kind = (dict["payload"] as? String) ?? "(legacy)"
+        print("📲 [WC] received payload=\(kind), keys=\(dict.keys.sorted())")
         // Legacy path: messages with no "payload" tag are treated as workouts
         // (kept so older Watch builds in the wild still talk to a new iPhone).
         guard let kind = dict["payload"] as? String else {

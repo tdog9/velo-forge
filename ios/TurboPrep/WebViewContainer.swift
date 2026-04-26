@@ -30,10 +30,11 @@ struct WebViewContainer: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
-        webView.scrollView.contentInsetAdjustmentBehavior = .automatic
-        // Stop iOS from inserting accessory bars or doing magnification when
-        // an input gains focus. Combined with the 16px-min input CSS this
-        // fully resolves the focus-zoom + sizing wobble.
+        // .never lets the web's CSS env(safe-area-inset-*) own all spacing,
+        // so the bottom nav reaches the home-indicator edge instead of the
+        // system inserting an extra inset above it. The 16px-min input CSS
+        // (in styles.css) and the zoom locks below handle the rest.
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bouncesZoom = false
         webView.scrollView.minimumZoomScale = 1.0
         webView.scrollView.maximumZoomScale = 1.0
@@ -80,9 +81,12 @@ struct WebViewContainer: UIViewRepresentable {
                 // Web has gathered a state snapshot for the Watch. Forward it
                 // via WCSession so the Watch's WatchAppState updates.
                 if let state = body["state"] as? [String: Any] {
+                    print("📲 [bridge] iPhone received watch-state — keys: \(state.keys.sorted())")
                     Task { @MainActor in
                         ConnectivityService.shared.pushStateToWatch(state)
                     }
+                } else {
+                    print("📲 [bridge] watch-state arrived but no `state` key")
                 }
             default:
                 break
