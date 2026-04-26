@@ -22,5 +22,14 @@
 	<!-- StoreKit / In-App Purchase doesn't need a separate entitlement; the
 	     capability is enabled automatically once the app is signed by a team
 	     enrolled in the Apple Developer Program. -->
+	<!-- Associated Domains — lets https://turboprep.app/* links open the
+	     iOS app instead of Safari. The matching apple-app-site-association
+	     file lives at /.well-known/apple-app-site-association on the web
+	     bundle and is served as application/json (see netlify.toml). -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:turboprep.app</string>
+		<string>webcredentials:turboprep.app</string>
+	</array>
 </dict>
 </plist>

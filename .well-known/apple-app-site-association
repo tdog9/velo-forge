@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["7HM78HZ5D4.com.403productions.turboprep"],
+        "components": [
+          { "/": "/*" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["7HM78HZ5D4.com.403productions.turboprep"]
+  }
+}

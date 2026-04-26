@@ -9,10 +9,13 @@ private let turboPrepURL = URL(string: "https://turboprep.app")!
 /// overlays (e.g. a phone-only HealthKit permission sheet).
 struct RootView: View {
     @State private var splashVisible = true
+    /// Mutated when a Universal Link arrives so WebViewContainer reloads at
+    /// the deep-linked path instead of the home screen.
+    @State private var loadURL: URL = turboPrepURL
 
     var body: some View {
         ZStack {
-            WebViewContainer(url: turboPrepURL) {
+            WebViewContainer(url: loadURL) {
                 // didFinish callback — fade the splash with a slight delay so
                 // the first paint of the web app is visible underneath.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
@@ -33,6 +36,16 @@ struct RootView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 12) {
                 if splashVisible { splashVisible = false }
             }
+        }
+        // Universal Links — when a https://turboprep.app/* link is tapped
+        // anywhere on iOS (Messages, Mail, Safari long-press), iOS hands
+        // us the URL via NSUserActivity and we navigate the WebView to
+        // that exact path inside the app.
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            guard let url = activity.webpageURL,
+                  let host = url.host?.lowercased(),
+                  host.contains("turboprep.app") else { return }
+            loadURL = url
         }
     }
 }

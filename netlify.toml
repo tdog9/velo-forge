@@ -6,6 +6,16 @@
 [functions]
   node_bundler = "esbuild"
 
+# Apple's Associated Domains check downloads
+# https://turboprep.app/.well-known/apple-app-site-association and rejects
+# anything that isn't application/json with no extension. Force the right
+# Content-Type and skip caching so Apple always sees the latest declaration.
+[[headers]]
+  for = "/.well-known/apple-app-site-association"
+  [headers.values]
+    Content-Type = "application/json"
+    Cache-Control = "public, max-age=300"
+
 # Caching headers. index.html always re-fetches so deploys show up
 # immediately. For JS/CSS, stale-while-revalidate lets browsers use a
 # cached copy instantly on repeat visits, then re-fetch in the background
