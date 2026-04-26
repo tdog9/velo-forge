@@ -86,3 +86,23 @@ targets:
     dependencies:
       - package: Firebase
         product: FirebaseAuth
+      - target: TurboPrepWatchComplication
+        embed: true
+        codeSign: true
+
+  TurboPrepWatchComplication:
+    # WidgetKit extension — provides the watch face complication for
+    # TurboPrep. Reads cached state from the shared App Group container
+    # (group.com.403productions.turboprep) that the Watch app writes.
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: TurboPrepWatchComplication
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.403productions.turboprep.watchkitapp.complication
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: TurboPrepWatchComplication/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: TurboPrep
+        CODE_SIGN_ENTITLEMENTS: TurboPrepWatchComplication/TurboPrepComplication.entitlements

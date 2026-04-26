@@ -1,5 +1,8 @@
 import Foundation
 import Combine
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 /// Single source of truth for the Watch UI. Mirrors the slices of state the
 /// web app exposes on iPhone: race phase, today's plan items, recent
@@ -97,6 +100,41 @@ final class WatchAppState: ObservableObject {
                 }
             }
         }
+        // After ingesting the new state, push a snapshot to the App Group
+        // container so the watch face complication can read it. The
+        // complication is sandboxed (no Firebase, no WatchConnectivity)
+        // so this is its only source of fresh data.
+        writeComplicationSnapshot()
+    }
+
+    /// Mirror the parts of state the complication needs into the shared
+    /// App Group UserDefaults, then ask WidgetKit to redraw all timelines.
+    /// Stored as flat key/values (not JSON) so the complication doesn't have
+    /// to know about Codable / Date encoding strategies.
+    private func writeComplicationSnapshot() {
+        guard let defaults = UserDefaults(suiteName: "group.com.403productions.turboprep") else { return }
+        let phase = racePhase
+        let phaseAccentHex: String = {
+            switch phase?.phase {
+            case .base?:     return "#3b82f6"
+            case .build?:    return "#a855f7"
+            case .peak?:     return "#ef4444"
+            case .taper?:    return "#22c55e"
+            case .raceWeek?: return "#f97316"
+            default:         return "#7a7d88"
+            }
+        }()
+        defaults.set(phase?.label ?? "OFF SEASON",     forKey: "tp_comp_phaseLabel")
+        defaults.set(phaseAccentHex,                   forKey: "tp_comp_phaseAccent")
+        defaults.set(phase?.daysOut ?? 0,              forKey: "tp_comp_daysOut")
+        defaults.set(phase?.raceShortName ?? "—",      forKey: "tp_comp_raceShortName")
+        defaults.set(todayWorkouts.filter(\.completed).count, forKey: "tp_comp_todayDoneCount")
+        defaults.set(todayWorkouts.count,              forKey: "tp_comp_todayTotalCount")
+        defaults.set(Date().timeIntervalSince1970,     forKey: "tp_comp_updatedAt")
+
+        #if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
     }
 }
 
