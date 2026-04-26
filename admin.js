@@ -291,7 +291,32 @@ function renderAdminSystem() {
   const el = A.$('admin-system');
   if (!el) return;
   const s = A.globalSettings || {};
+  let pretendBase = false;
+  try { pretendBase = localStorage.getItem('tp_admin_view_base') === '1'; } catch(e) {}
   el.innerHTML = `
+    <div class="card" style="margin-bottom:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Admin Preview Mode</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">View as Base Coach</div>
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Hide Pro tabs so you see what a free-tier coach sees.</div>
+        </div>
+        <button class="admin-toggle ${pretendBase?'on':''}" id="admin-view-base-toggle"></button>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted-fg)">Currently: <strong>${pretendBase?'Base Coach (preview)':'Coach Pro (full access)'}</strong></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Notification Tester</div>
+      <input class="input" type="text" id="push-test-title" placeholder="Title (default: TurboPrep)" maxlength="80">
+      <textarea class="input" id="push-test-body" placeholder="Test message body" style="margin-top:8px;min-height:60px">Test push from admin</textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-secondary" id="push-test-self" style="flex:1">📱 Send to Me</button>
+        <button class="btn btn-primary" id="push-test-broadcast" style="flex:1">📢 Broadcast All</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-top:8px">Self-test goes only to your devices. Broadcast hits every iOS user with a registered token.</div>
+    </div>
+
     <div style="margin-bottom:14px">
       <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Global Feature Flags</div>
       ${['leaderboard','races','plans','health','demos','ai_coach'].map(f=>`
@@ -307,6 +332,19 @@ function renderAdminSystem() {
       <button class="btn btn-secondary" style="width:100%;margin-top:8px" id="gc-announce-save">Save Announcement</button>
     </div>
   `;
+  el.querySelector('#admin-view-base-toggle')?.addEventListener('click', () => {
+    const btn = el.querySelector('#admin-view-base-toggle');
+    const turningOn = !btn.classList.contains('on');
+    try {
+      if (turningOn) localStorage.setItem('tp_admin_view_base', '1');
+      else localStorage.removeItem('tp_admin_view_base');
+    } catch(e) {}
+    A.showToast(turningOn ? 'Now viewing as Base Coach. Reloading…' : 'Restored Coach Pro view. Reloading…', 'success');
+    setTimeout(() => location.reload(), 700);
+  });
+  el.querySelector('#push-test-self')?.addEventListener('click', () => sendTestPush(false));
+  el.querySelector('#push-test-broadcast')?.addEventListener('click', () => sendTestPush(true));
+
   el.querySelectorAll('.gc-feat-toggle').forEach(btn => btn.addEventListener('click',()=>btn.classList.toggle('on')));
   el.querySelector('#gc-flags-save')?.addEventListener('click', async () => {
     const feats = {};
@@ -323,6 +361,30 @@ function renderAdminSystem() {
       A.showToast('Announcement saved.','success');
     } catch(e) { A.showToast('Failed: '+e.message,'error'); }
   });
+}
+
+async function sendTestPush(broadcast) {
+  const title = (document.getElementById('push-test-title')?.value || '').trim() || 'TurboPrep';
+  const body  = (document.getElementById('push-test-body')?.value  || '').trim() || 'Test push from admin';
+  try {
+    const user = A.currentUser;
+    if (!user) { A.showToast('Not signed in.', 'error'); return; }
+    const idToken = await user.getIdToken();
+    const payload = broadcast
+      ? { broadcast: true, title, body, data: { kind: 'admin-test' } }
+      : { uid: user.uid,    title, body, data: { kind: 'admin-test' } };
+    const r = await fetch('/.netlify/functions/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+      body: JSON.stringify(payload),
+    });
+    const txt = await r.text();
+    if (!r.ok) { A.showToast('Push failed: ' + txt.slice(0, 80), 'error'); return; }
+    let parsed = {}; try { parsed = JSON.parse(txt); } catch(e) {}
+    A.showToast(`Push sent — delivered to ${parsed.delivered ?? '?'} device(s).`, 'success');
+  } catch(e) {
+    A.showToast('Push error: ' + (e.message || e), 'error');
+  }
 }
 
 // --- COACH DASHBOARD ---
@@ -952,8 +1014,7 @@ async function saveAnnouncements() {
 // the function itself enforces god-admin auth.
 async function broadcastAnnouncementPush(title, body) {
   if (A.demoMode) return;
-  const auth = A.auth || (window.firebaseAuth);
-  const user = auth?.currentUser;
+  const user = A.currentUser;
   if (!user) return;
   const idToken = await user.getIdToken();
   await fetch('/.netlify/functions/send-push', {

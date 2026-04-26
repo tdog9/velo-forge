@@ -4,8 +4,8 @@ export const ALL_PLANS = [
     "category": "invehicle",
     "yearLevel": "Y7",
     "tier": "basic",
-    "name": "Getting Started on the HPV",
-    "description": "Hey team, welcome to your very first HPV training plan! We are going to take it nice and easy as you get used to the recumbent position and learn how your body moves the vehicle. Two short sessions a week is all we need right now — focus on feeling comfortable and having fun.",
+    "name": "Getting Started on the HPR",
+    "description": "Hey team, welcome to your very first HPR training plan! We are going to take it nice and easy as you get used to the recumbent position and learn how your body moves the vehicle. Two short sessions a week is all we need right now — focus on feeling comfortable and having fun.",
     "durationWeeks": 2,
     "sessionsPerWeek": 2,
     "workouts": [
@@ -13,7 +13,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "First Spin — Finding Your Feet",
-        "description": "Today is all about getting comfortable inside the HPV and finding your natural pedalling rhythm. Hop in, adjust your seat so your legs have a slight bend at the bottom of each pedal stroke, and spend the whole session just spinning at whatever pace feels easy — aim for a cadence where you could hold a full conversation the entire time. Keep your shoulders relaxed, breathe steadily, and enjoy the feeling of the machine moving under you.",
+        "description": "Today is all about getting comfortable inside the HPR and finding your natural pedalling rhythm. Hop in, adjust your seat so your legs have a slight bend at the bottom of each pedal stroke, and spend the whole session just spinning at whatever pace feels easy — aim for a cadence where you could hold a full conversation the entire time. Keep your shoulders relaxed, breathe steadily, and enjoy the feeling of the machine moving under you.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -31,7 +31,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Longer Easy Ride",
-        "description": "Great work last week! Today we add just a few extra minutes to build your base fitness gradually. Spend 35 minutes in the HPV at a comfortable, easy pace — think of it like a pleasant bike ride with a friend. Focus on keeping a steady cadence (aim for about 70-80 pedal revolutions per minute if you can count), and practise looking ahead and steering smoothly through any turns on your course.",
+        "description": "Great work last week! Today we add just a few extra minutes to build your base fitness gradually. Spend 35 minutes in the HPR at a comfortable, easy pace — think of it like a pleasant bike ride with a friend. Focus on keeping a steady cadence (aim for about 70-80 pedal revolutions per minute if you can count), and practise looking ahead and steering smoothly through any turns on your course.",
         "duration": 35,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -49,7 +49,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Sat",
         "name": "Fun Free Ride",
-        "description": "This is your reward session — no structure, just hop in the HPV and ride for enjoyment! Aim for about 30-40 minutes at whatever pace feels good. Use this time to practise any skills you want, explore your course, or challenge a teammate to a friendly distance comparison. The only rule is to keep it comfortable and have a great time out there.",
+        "description": "This is your reward session — no structure, just hop in the HPR and ride for enjoyment! Aim for about 30-40 minutes at whatever pace feels good. Use this time to practise any skills you want, explore your course, or challenge a teammate to a friendly distance comparison. The only rule is to keep it comfortable and have a great time out there.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -61,8 +61,8 @@ export const ALL_PLANS = [
     "category": "invehicle",
     "yearLevel": "Y7",
     "tier": "average",
-    "name": "Building Your HPV Base",
-    "description": "You have got some riding under your belt and now it is time to build a proper base! This plan introduces cadence drills and short tempo efforts so you start understanding how to pace yourself in the HPV. We keep everything moderate — two solid sessions a week with a bonus ride to keep the legs ticking over.",
+    "name": "Building Your HPR Base",
+    "description": "You have got some riding under your belt and now it is time to build a proper base! This plan introduces cadence drills and short tempo efforts so you start understanding how to pace yourself in the HPR. We keep everything moderate — two solid sessions a week with a bonus ride to keep the legs ticking over.",
     "durationWeeks": 2,
     "sessionsPerWeek": 2,
     "workouts": [
@@ -119,7 +119,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y7",
     "tier": "intense",
     "name": "Y7 Performance Foundations",
-    "description": "You are ready to push harder and start training like a real HPV athlete! This plan introduces structured interval sessions and technique drills that will set you apart come race day. Remember, even at intense tier for Y7, we keep the very hardest efforts off the table — your body is still growing and we build smarter, not just harder.",
+    "description": "You are ready to push harder and start training like a real HPR athlete! This plan introduces structured interval sessions and technique drills that will set you apart come race day. Remember, even at intense tier for Y7, we keep the very hardest efforts off the table — your body is still growing and we build smarter, not just harder.",
     "durationWeeks": 2,
     "sessionsPerWeek": 3,
     "workouts": [
@@ -176,7 +176,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y8",
     "tier": "basic",
     "name": "Y8 Easy Rider Program",
-    "description": "Welcome to your Year 8 riding program! We are building great habits now that will carry you through your whole HPV career. These sessions are gentle, fun and focused on learning the craft of riding the HPV well. Twice a week, we get you in the vehicle and make steady progress — no rush, no pressure.",
+    "description": "Welcome to your Year 8 riding program! We are building great habits now that will carry you through your whole HPR career. These sessions are gentle, fun and focused on learning the craft of riding the HPR well. Twice a week, we get you in the vehicle and make steady progress — no rush, no pressure.",
     "durationWeeks": 2,
     "sessionsPerWeek": 2,
     "workouts": [
@@ -184,7 +184,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Tue",
         "name": "Comfort Lap Session",
-        "description": "Hop in and spend today just getting comfortable — we are focusing entirely on body position and relaxation inside the HPV. Ride easy for 35 minutes and periodically check in with yourself: are your shoulders tight? Relax them. Are you gripping the handles hard? Loosen up. Are your legs pushing in smooth circles? Try to eliminate any jerky movements. Ride as if you are on a Sunday stroll — calm, controlled, and in control.",
+        "description": "Hop in and spend today just getting comfortable — we are focusing entirely on body position and relaxation inside the HPR. Ride easy for 35 minutes and periodically check in with yourself: are your shoulders tight? Relax them. Are you gripping the handles hard? Loosen up. Are your legs pushing in smooth circles? Try to eliminate any jerky movements. Ride as if you are on a Sunday stroll — calm, controlled, and in control.",
         "duration": 35,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -202,7 +202,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Rhythm Builder",
-        "description": "Warm up for 10 minutes, then settle into a steady comfortable rhythm and hold it for 22 minutes — think of your pedalling as a metronome, totally consistent. Cool down for 8 minutes. The aim is to eliminate speed surges and dips: you want your pace to be as even as possible from minute one to minute twenty-two. This kind of consistent effort is exactly what great HPV racing looks like.",
+        "description": "Warm up for 10 minutes, then settle into a steady comfortable rhythm and hold it for 22 minutes — think of your pedalling as a metronome, totally consistent. Cool down for 8 minutes. The aim is to eliminate speed surges and dips: you want your pace to be as even as possible from minute one to minute twenty-two. This kind of consistent effort is exactly what great HPR racing looks like.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -220,7 +220,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Sun",
         "name": "Long Easy Adventure Ride",
-        "description": "Your longest ride yet — 45 minutes at a completely comfortable, easy pace. This is pure base building and it will make every other session feel easier over time. Find a friend or teammate to ride with if you can, because the time will fly by. Focus on staying smooth, keeping your head up, and enjoying the fact that you are building real fitness as a cyclist and HPV racer. Well done on a great two weeks!",
+        "description": "Your longest ride yet — 45 minutes at a completely comfortable, easy pace. This is pure base building and it will make every other session feel easier over time. Find a friend or teammate to ride with if you can, because the time will fly by. Focus on staying smooth, keeping your head up, and enjoying the fact that you are building real fitness as a cyclist and HPR racer. Well done on a great two weeks!",
         "duration": 45,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -277,7 +277,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Sat",
         "name": "Long Steady Distance",
-        "description": "Your biggest ride of the fortnight — 50 minutes at a comfortable moderate pace. There is no interval work today, just sustained, beautiful aerobic riding. Focus on maintaining great form throughout: smooth pedal strokes, relaxed upper body, consistent cadence. When you finish this one, you will have earned the right to be proud — a 50-minute HPV session is a real athletic achievement for Year 8.",
+        "description": "Your biggest ride of the fortnight — 50 minutes at a comfortable moderate pace. There is no interval work today, just sustained, beautiful aerobic riding. Focus on maintaining great form throughout: smooth pedal strokes, relaxed upper body, consistent cadence. When you finish this one, you will have earned the right to be proud — a 50-minute HPR session is a real athletic achievement for Year 8.",
         "duration": 45,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -316,7 +316,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Fri",
         "name": "Cadence and Power Combo",
-        "description": "Warm up for 10 minutes, then alternate: 3 minutes at 90rpm low resistance, then 3 minutes at 65rpm higher resistance — that is one set. Complete 4 full sets with 2 minutes easy spinning between each. Cool down for 10 minutes. This session trains both your neuromuscular speed and your muscular strength — the combination is exactly what makes a well-rounded HPV racer. Notice how different the two efforts feel in your legs.",
+        "description": "Warm up for 10 minutes, then alternate: 3 minutes at 90rpm low resistance, then 3 minutes at 65rpm higher resistance — that is one set. Complete 4 full sets with 2 minutes easy spinning between each. Cool down for 10 minutes. This session trains both your neuromuscular speed and your muscular strength — the combination is exactly what makes a well-rounded HPR racer. Notice how different the two efforts feel in your legs.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -325,7 +325,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Progressive Effort Ride",
-        "description": "Warm up for 10 minutes. Then ride 30 minutes where every 10 minutes you step up the effort: first 10 minutes at easy-moderate, second 10 minutes at moderate, final 10 minutes at comfortably hard. Cool down for 10 minutes. This progressive structure teaches your body to handle increasing intensity — crucial for any HPV race where you need to have something left for the final laps. Finish strong!",
+        "description": "Warm up for 10 minutes. Then ride 30 minutes where every 10 minutes you step up the effort: first 10 minutes at easy-moderate, second 10 minutes at moderate, final 10 minutes at comfortably hard. Cool down for 10 minutes. This progressive structure teaches your body to handle increasing intensity — crucial for any HPR race where you need to have something left for the final laps. Finish strong!",
         "duration": 45,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -373,7 +373,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Sat",
         "name": "Long Easy Ride",
-        "description": "Your weekend long ride — 45 minutes at a truly easy pace. No structure, no intervals, just steady aerobic work. Ride with teammates if possible and keep the pace comfortable for everyone. The goal is time on the bike and nothing else. Use this as a chance to practise everything you learned in the week's sessions: smooth pedalling, good position, consistent cadence. Enjoy every kilometre — this is the life of an HPV athlete!",
+        "description": "Your weekend long ride — 45 minutes at a truly easy pace. No structure, no intervals, just steady aerobic work. Ride with teammates if possible and keep the pace comfortable for everyone. The goal is time on the bike and nothing else. Use this as a chance to practise everything you learned in the week's sessions: smooth pedalling, good position, consistent cadence. Enjoy every kilometre — this is the life of an HPR athlete!",
         "duration": 45,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -404,7 +404,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y9",
     "tier": "average",
     "name": "Y9 All-Round Development",
-    "description": "This plan is your ticket to becoming a genuinely well-rounded HPV racer. We mix endurance work, interval sessions and one proper hard session per week to develop every energy system you need. Four sessions a week builds serious aerobic capacity while keeping you fresh enough to perform at your best each session.",
+    "description": "This plan is your ticket to becoming a genuinely well-rounded HPR racer. We mix endurance work, interval sessions and one proper hard session per week to develop every energy system you need. Four sessions a week builds serious aerobic capacity while keeping you fresh enough to perform at your best each session.",
     "durationWeeks": 2,
     "sessionsPerWeek": 3,
     "workouts": [
@@ -448,7 +448,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Fri",
         "name": "Race Simulation Pack Ride",
-        "description": "Today we simulate race-day conditions. After 10 minutes warm-up, ride a 30-minute continuous effort where you change pace every few minutes: surge for 30 seconds, settle at tempo for 3 minutes, surge again for 30 seconds — keep this irregular so it feels like real racing. Cool down for 10 minutes. You are training your body to handle the fluctuating demands of HPV racing rather than just steady-state riding. This is the fun stuff!",
+        "description": "Today we simulate race-day conditions. After 10 minutes warm-up, ride a 30-minute continuous effort where you change pace every few minutes: surge for 30 seconds, settle at tempo for 3 minutes, surge again for 30 seconds — keep this irregular so it feels like real racing. Cool down for 10 minutes. You are training your body to handle the fluctuating demands of HPR racing rather than just steady-state riding. This is the fun stuff!",
         "duration": 30,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -632,7 +632,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y10",
     "tier": "intense",
     "name": "Y10 Competitive Edge",
-    "description": "This is where serious athletes separate themselves from the pack. Four high-quality sessions a week with two genuinely hard efforts, smart recovery work, and progressive overload. This plan builds the fitness base that competitive HPV racers need to challenge for podium positions. Put the work in now and you will see the results when it counts.",
+    "description": "This is where serious athletes separate themselves from the pack. Four high-quality sessions a week with two genuinely hard efforts, smart recovery work, and progressive overload. This plan builds the fitness base that competitive HPR racers need to challenge for podium positions. Put the work in now and you will see the results when it counts.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
@@ -667,7 +667,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Long Threshold Blocks",
-        "description": "Warm up 12 minutes, then ride 3 x 12-minute threshold blocks — sustained, controlled, maximally aerobic. Rest 4 minutes easy between each. Cool down 12 minutes. These longer threshold blocks build your ability to maintain race intensity over extended periods — critical for HPV events that can run for many hours. Your cadence target is 78-82rpm throughout each block. When block 3 starts feeling hard, that is when the real fitness gains happen.",
+        "description": "Warm up 12 minutes, then ride 3 x 12-minute threshold blocks — sustained, controlled, maximally aerobic. Rest 4 minutes easy between each. Cool down 12 minutes. These longer threshold blocks build your ability to maintain race intensity over extended periods — critical for HPR events that can run for many hours. Your cadence target is 78-82rpm throughout each block. When block 3 starts feeling hard, that is when the real fitness gains happen.",
         "duration": 45,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -746,7 +746,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y11",
     "tier": "average",
     "name": "Y11 Race Machine",
-    "description": "This plan is designed for athletes who want to be genuinely competitive on race day. Five sessions a week, including maximum effort intervals, sustained threshold work, and smart recovery rides. We are building a complete HPV racer — powerful, efficient, and mentally tough. Your race season starts here.",
+    "description": "This plan is designed for athletes who want to be genuinely competitive on race day. Five sessions a week, including maximum effort intervals, sustained threshold work, and smart recovery rides. We are building a complete HPR racer — powerful, efficient, and mentally tough. Your race season starts here.",
     "durationWeeks": 2,
     "sessionsPerWeek": 5,
     "workouts": [
@@ -860,7 +860,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y12",
     "tier": "basic",
     "name": "Y12 Consistent Aerobic Base",
-    "description": "Year 12 — your final year of school HPV racing and we want it to be your best. This basic plan is built for athletes building back up or developing a strong aerobic base to support the year ahead. Four sessions a week with smart progression, one max effort session, and plenty of focus on technique and efficiency.",
+    "description": "Year 12 — your final year of school HPR racing and we want it to be your best. This basic plan is built for athletes building back up or developing a strong aerobic base to support the year ahead. Four sessions a week with smart progression, one max effort session, and plenty of focus on technique and efficiency.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
@@ -904,7 +904,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Thu",
         "name": "Progressive Race Effort",
-        "description": "Warm up 12 minutes, then ride a 35-minute progressive effort that goes from comfortable to challenging over the whole duration — every 5 minutes, step the effort up slightly, so by the final 5 minutes you are at your race pace. Cool down 13 minutes. This session trains pacing and progression — exactly the race strategy that delivers the best HPV performances. Trust the process, stay patient early, and let the effort build naturally to a strong finish.",
+        "description": "Warm up 12 minutes, then ride a 35-minute progressive effort that goes from comfortable to challenging over the whole duration — every 5 minutes, step the effort up slightly, so by the final 5 minutes you are at your race pace. Cool down 13 minutes. This session trains pacing and progression — exactly the race strategy that delivers the best HPR performances. Trust the process, stay patient early, and let the effort build naturally to a strong finish.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -934,7 +934,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Aerobic Recovery Long Ride",
-        "description": "After a big Monday, we recover intelligently. Ride easy for 60 minutes — genuinely relaxed, totally conversational. Your aerobic system is recovering and adapting to Monday's work right now. Protect this ride's easy intensity and it will make next week's threshold session even better. Practise good breathing habits: deep belly breaths rather than shallow chest breaths. Breath control is a hidden performance tool that most HPV racers never develop.",
+        "description": "After a big Monday, we recover intelligently. Ride easy for 60 minutes — genuinely relaxed, totally conversational. Your aerobic system is recovering and adapting to Monday's work right now. Protect this ride's easy intensity and it will make next week's threshold session even better. Practise good breathing habits: deep belly breaths rather than shallow chest breaths. Breath control is a hidden performance tool that most HPR racers never develop.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -974,7 +974,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y12",
     "tier": "intense",
     "name": "Y12 Peak Performance Season",
-    "description": "This is the pinnacle of school HPV training — elite-level preparation for your Year 12 racing season. Six sessions a week, two maximum effort sessions per week, sustained threshold work, VO2 max development, and race simulations. This plan is for athletes committed to winning. Every session has been designed to make you the best HPV racer you can be. Let us finish your school career on top.",
+    "description": "This is the pinnacle of school HPR training — elite-level preparation for your Year 12 racing season. Six sessions a week, two maximum effort sessions per week, sustained threshold work, VO2 max development, and race simulations. This plan is for athletes committed to winning. Every session has been designed to make you the best HPR racer you can be. Let us finish your school career on top.",
     "durationWeeks": 2,
     "sessionsPerWeek": 6,
     "workouts": [
@@ -1000,7 +1000,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Max Effort Sprint Power",
-        "description": "Your first maximum effort session. After 15 minutes thorough warm-up with several progressive accelerations, complete 8 x 30-second all-out sprints — 10/10 every single one. Rest for 4 minutes full recovery between each. Cool down 15 minutes. This is your explosive power session: maximum sprint speed, maximum fast-twitch recruitment, maximum neuromuscular development. Elite HPV racers have sprint finishes that can cover 200 metres in under 10 seconds — this is how you build that weapon.",
+        "description": "Your first maximum effort session. After 15 minutes thorough warm-up with several progressive accelerations, complete 8 x 30-second all-out sprints — 10/10 every single one. Rest for 4 minutes full recovery between each. Cool down 15 minutes. This is your explosive power session: maximum sprint speed, maximum fast-twitch recruitment, maximum neuromuscular development. Elite HPR racers have sprint finishes that can cover 200 metres in under 10 seconds — this is how you build that weapon.",
         "duration": 30,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -1027,7 +1027,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Sat",
         "name": "Elite Race Day Simulation",
-        "description": "This is your ultimate session — the race simulation that pulls together everything you have trained in this fortnight and across your whole career. After 15 minutes warm-up, race for 55 minutes: 10 minutes building to race pace, 25 minutes at sustained hard race pace pushing at threshold, 10 minutes above race pace simulating the decisive break in a race, 10 minutes at maximum effort as a final-stage sprint endurance set. Cool down 15 minutes. This is as close to a real championship race as training gets. Leave everything in the HPV. You have earned this.",
+        "description": "This is your ultimate session — the race simulation that pulls together everything you have trained in this fortnight and across your whole career. After 15 minutes warm-up, race for 55 minutes: 10 minutes building to race pace, 25 minutes at sustained hard race pace pushing at threshold, 10 minutes above race pace simulating the decisive break in a race, 10 minutes at maximum effort as a final-stage sprint endurance set. Cool down 15 minutes. This is as close to a real championship race as training gets. Leave everything in the HPR. You have earned this.",
         "duration": 45,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
@@ -1040,7 +1040,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y7",
     "tier": "basic",
     "name": "Y7 Body Basics at Home",
-    "description": "Welcome to your floor and home training! These sessions use only your bodyweight and a bit of floor space — no equipment needed at all. We start super gentle, building your core strength, leg power, and flexibility to support all your HPV riding. Two short sessions a week is all you need to start feeling stronger.",
+    "description": "Welcome to your floor and home training! These sessions use only your bodyweight and a bit of floor space — no equipment needed at all. We start super gentle, building your core strength, leg power, and flexibility to support all your HPR riding. Two short sessions a week is all you need to start feeling stronger.",
     "durationWeeks": 2,
     "sessionsPerWeek": 2,
     "workouts": [
@@ -1048,7 +1048,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Tue",
         "name": "Core Awakening Session",
-        "description": "Today we wake up your core muscles — the ones that support your whole body in the HPV. Start with Cat-Cow: get on hands and knees and alternate arching your back up like a scared cat, then dipping it down like a cow, moving slowly — do 10 repetitions. Then do a Plank Hold: prop yourself on forearms and toes, body in a straight line, hold for 20 seconds, rest 30 seconds, repeat 3 times. Finish with Childs Pose: sit back on your heels with arms stretched forward and hold for 30 seconds. Focus on breathing slowly throughout.",
+        "description": "Today we wake up your core muscles — the ones that support your whole body in the HPR. Start with Cat-Cow: get on hands and knees and alternate arching your back up like a scared cat, then dipping it down like a cow, moving slowly — do 10 repetitions. Then do a Plank Hold: prop yourself on forearms and toes, body in a straight line, hold for 20 seconds, rest 30 seconds, repeat 3 times. Finish with Childs Pose: sit back on your heels with arms stretched forward and hold for 30 seconds. Focus on breathing slowly throughout.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=kqnua4rHVVA"
@@ -1057,7 +1057,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "Leg Foundations",
-        "description": "Your legs power the HPV, so we look after them from day one! Start with 10 slow Bodyweight Squats: feet shoulder-width apart, lower yourself as if sitting onto a chair behind you, keep your chest up and knees tracking over your toes, then push back up — take 3 seconds down and 2 seconds up. Rest 60 seconds, repeat for 3 sets. Then do 10 Calf Raises on each leg: stand near a wall for balance, rise up onto your toes slowly, lower slowly. Rest 45 seconds between sets for 3 sets. Finish with a 30-second Hamstring Stretch on each side lying on your back.",
+        "description": "Your legs power the HPR, so we look after them from day one! Start with 10 slow Bodyweight Squats: feet shoulder-width apart, lower yourself as if sitting onto a chair behind you, keep your chest up and knees tracking over your toes, then push back up — take 3 seconds down and 2 seconds up. Rest 60 seconds, repeat for 3 sets. Then do 10 Calf Raises on each leg: stand near a wall for balance, rise up onto your toes slowly, lower slowly. Rest 45 seconds between sets for 3 sets. Finish with a 30-second Hamstring Stretch on each side lying on your back.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=YaXPRqUwItQ"
@@ -1066,7 +1066,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Glute and Hip Activation",
-        "description": "Your glutes are one of the most important muscles for HPV power — and most people never properly activate them! Start with Glute Bridges: lie on your back, knees bent, feet flat on the floor, then push your hips up until your body forms a straight line from shoulders to knees. Hold for 2 seconds at the top, lower slowly. Do 12 reps for 3 sets with 45 seconds rest between sets. Then do Clamshells: lie on your side, knees bent at 90 degrees, and open and close your top knee like a clam — 12 reps each side for 2 sets. Your glutes should feel warm and working!",
+        "description": "Your glutes are one of the most important muscles for HPR power — and most people never properly activate them! Start with Glute Bridges: lie on your back, knees bent, feet flat on the floor, then push your hips up until your body forms a straight line from shoulders to knees. Hold for 2 seconds at the top, lower slowly. Do 12 reps for 3 sets with 45 seconds rest between sets. Then do Clamshells: lie on your side, knees bent at 90 degrees, and open and close your top knee like a clam — 12 reps each side for 2 sets. Your glutes should feel warm and working!",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=wPM8icPu6H8"
@@ -1084,7 +1084,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Sat",
         "name": "Full Body Easy Circuit",
-        "description": "Your reward session — a full-body circuit that brings everything together! Complete this circuit twice with 60 seconds rest between rounds: 10 Squats, 10 Glute Bridges, 20-second Plank Hold, 10 Calf Raises each leg, 8 Bird Dogs each side (on hands and knees, extend opposite arm and leg, hold 2 seconds), then Cat-Cow for 10 reps. Take your time with each exercise and focus on doing every single rep with perfect form. Two rounds of this circuit is a genuine achievement — you are building the strength that will make you a better HPV racer!",
+        "description": "Your reward session — a full-body circuit that brings everything together! Complete this circuit twice with 60 seconds rest between rounds: 10 Squats, 10 Glute Bridges, 20-second Plank Hold, 10 Calf Raises each leg, 8 Bird Dogs each side (on hands and knees, extend opposite arm and leg, hold 2 seconds), then Cat-Cow for 10 reps. Take your time with each exercise and focus on doing every single rep with perfect form. Two rounds of this circuit is a genuine achievement — you are building the strength that will make you a better HPR racer!",
         "duration": 35,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=wiFNA-e3pEo"
@@ -1097,7 +1097,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y7",
     "tier": "average",
     "name": "Y7 Strength for Speed",
-    "description": "You are building real functional strength that translates directly to HPV performance! These sessions develop your core stability, leg power, and flexibility using nothing but your bodyweight. Three short sessions a week introduces the key movement patterns every HPV racer needs — push, hinge, squat, and core brace.",
+    "description": "You are building real functional strength that translates directly to HPR performance! These sessions develop your core stability, leg power, and flexibility using nothing but your bodyweight. Three short sessions a week introduces the key movement patterns every HPR racer needs — push, hinge, squat, and core brace.",
     "durationWeeks": 2,
     "sessionsPerWeek": 2,
     "workouts": [
@@ -1114,7 +1114,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "Leg Power Builder",
-        "description": "Time to build powerful HPV legs! Complete 3 rounds of: 15 Bodyweight Squats (slow down for 3 seconds, pause at the bottom for 1 second, drive up through your heels), 12 Reverse Lunges each leg (step back rather than forward — easier on the knees for beginners), 15 Glute Bridges, and 12 Calf Raises each side. Rest 60 seconds between rounds. Focus on feeling the muscles working — if you can feel your glutes and quads burning slightly, you are doing it right. Finish with a 30-second Hip Flexor Stretch on each side.",
+        "description": "Time to build powerful HPR legs! Complete 3 rounds of: 15 Bodyweight Squats (slow down for 3 seconds, pause at the bottom for 1 second, drive up through your heels), 12 Reverse Lunges each leg (step back rather than forward — easier on the knees for beginners), 15 Glute Bridges, and 12 Calf Raises each side. Rest 60 seconds between rounds. Focus on feeling the muscles working — if you can feel your glutes and quads burning slightly, you are doing it right. Finish with a 30-second Hip Flexor Stretch on each side.",
         "duration": 40,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=YaXPRqUwItQ"
@@ -1123,7 +1123,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Upper Body and Push Session",
-        "description": "HPV riders need upper body stability too — your arms and shoulders hold the vehicle steady at speed. Warm up with arm circles and shoulder rolls for 3 minutes. Then complete 3 rounds of: 8 Push Ups (full if you can, on your knees if needed — keep a straight line from head to knees or toes), 30-second Plank, 10 Superman exercises (lie face down, lift both arms and both legs off the floor simultaneously, hold 2 seconds — squeezes your whole back), and 10 seconds of Wall Sit. Rest 60 seconds between rounds. Finish with 30 seconds of Downward Dog stretching.",
+        "description": "HPR riders need upper body stability too — your arms and shoulders hold the vehicle steady at speed. Warm up with arm circles and shoulder rolls for 3 minutes. Then complete 3 rounds of: 8 Push Ups (full if you can, on your knees if needed — keep a straight line from head to knees or toes), 30-second Plank, 10 Superman exercises (lie face down, lift both arms and both legs off the floor simultaneously, hold 2 seconds — squeezes your whole back), and 10 seconds of Wall Sit. Rest 60 seconds between rounds. Finish with 30 seconds of Downward Dog stretching.",
         "duration": 40,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4"
@@ -1141,7 +1141,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Sat",
         "name": "Balance and Flexibility Day",
-        "description": "Today is all about balance and flexibility — two qualities that make HPV riders smoother and more efficient. Start with 2 minutes of Sun Salutation flow (look up the sequence — it is a beautiful whole-body warm-up). Then: 30-second single-leg balance on each leg (try closing your eyes for extra challenge!), Pigeon Stretch holding 45 seconds each side (sit with one leg forward at a right angle, lean forward), Hamstring Stretch 30 seconds each leg, and Warrior Pose 20 seconds each side. Finish with Cat-Cow for 10 slow repetitions. You should feel relaxed, stretched out, and refreshed.",
+        "description": "Today is all about balance and flexibility — two qualities that make HPR riders smoother and more efficient. Start with 2 minutes of Sun Salutation flow (look up the sequence — it is a beautiful whole-body warm-up). Then: 30-second single-leg balance on each leg (try closing your eyes for extra challenge!), Pigeon Stretch holding 45 seconds each side (sit with one leg forward at a right angle, lean forward), Hamstring Stretch 30 seconds each leg, and Warrior Pose 20 seconds each side. Finish with Cat-Cow for 10 slow repetitions. You should feel relaxed, stretched out, and refreshed.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=FBiZ_4RtSE4"
@@ -1171,7 +1171,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Leg and Glute Power Session",
-        "description": "This session builds the leg and glute power that drives the HPV forward. Complete 4 rounds of: 15 Deep Squats (pause 2 seconds at the bottom, explosive drive up), 12 Reverse Lunges each leg (back knee almost touches the floor), 15 Glute Bridges with a 3-second hold at the top, 15 Fire Hydrants each side (on hands and knees, lift your bent knee out to the side like a dog at a fire hydrant — feels silly, works brilliantly), and 15 Calf Raises each side. Rest 45 seconds between rounds. Your legs will feel this tomorrow — that is perfect.",
+        "description": "This session builds the leg and glute power that drives the HPR forward. Complete 4 rounds of: 15 Deep Squats (pause 2 seconds at the bottom, explosive drive up), 12 Reverse Lunges each leg (back knee almost touches the floor), 15 Glute Bridges with a 3-second hold at the top, 15 Fire Hydrants each side (on hands and knees, lift your bent knee out to the side like a dog at a fire hydrant — feels silly, works brilliantly), and 15 Calf Raises each side. Rest 45 seconds between rounds. Your legs will feel this tomorrow — that is perfect.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=La3xzXoQpYk"
@@ -1211,7 +1211,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y8",
     "tier": "basic",
     "name": "Y8 Ground-Up Strength",
-    "description": "Year 8 floor training — building your body from the ground up! These sessions focus on the fundamental movement patterns: squatting, hinging, pushing, and core bracing. All of these translate directly into HPV performance and general athletic ability. Two sessions a week, nice and manageable, building real strength progressively.",
+    "description": "Year 8 floor training — building your body from the ground up! These sessions focus on the fundamental movement patterns: squatting, hinging, pushing, and core bracing. All of these translate directly into HPR performance and general athletic ability. Two sessions a week, nice and manageable, building real strength progressively.",
     "durationWeeks": 2,
     "sessionsPerWeek": 2,
     "workouts": [
@@ -1219,7 +1219,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Tue",
         "name": "Core and Hip Session",
-        "description": "Start with 5 minutes of gentle warm-up including Cat-Cow for 10 repetitions and hip circles. Then complete 3 rounds of: 25-second Plank Hold, 10 Glute Bridges with 2-second top hold, 8 Bird Dogs each side (on hands and knees, extend opposite arm and leg, hold 2 seconds, bring back without touching the floor), and 10 Clamshells each side. Rest 60 seconds between rounds. These hip and core exercises directly improve your HPV riding posture and the power transfer from your legs to the pedals.",
+        "description": "Start with 5 minutes of gentle warm-up including Cat-Cow for 10 repetitions and hip circles. Then complete 3 rounds of: 25-second Plank Hold, 10 Glute Bridges with 2-second top hold, 8 Bird Dogs each side (on hands and knees, extend opposite arm and leg, hold 2 seconds, bring back without touching the floor), and 10 Clamshells each side. Rest 60 seconds between rounds. These hip and core exercises directly improve your HPR riding posture and the power transfer from your legs to the pedals.",
         "duration": 35,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=wPM8icPu6H8"
@@ -1228,7 +1228,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Fri",
         "name": "Leg Strength Introduction",
-        "description": "Today we build your primary cycling muscles — quads, hamstrings, glutes and calves. Complete 3 rounds of: 10 slow Squats (3 seconds down, 1 second pause, 2 seconds up), 10 Reverse Lunges each leg (stepping backwards, lower your back knee towards the floor), 12 Calf Raises each leg. Rest 60 seconds between rounds. Finish with a 30-second Hip Flexor Stretch on each side and a 30-second Hamstring Stretch each side lying on your back. Your legs will thank you next time you get in the HPV.",
+        "description": "Today we build your primary cycling muscles — quads, hamstrings, glutes and calves. Complete 3 rounds of: 10 slow Squats (3 seconds down, 1 second pause, 2 seconds up), 10 Reverse Lunges each leg (stepping backwards, lower your back knee towards the floor), 12 Calf Raises each leg. Rest 60 seconds between rounds. Finish with a 30-second Hip Flexor Stretch on each side and a 30-second Hamstring Stretch each side lying on your back. Your legs will thank you next time you get in the HPR.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=wrwwXE_x-pQ"
@@ -1237,7 +1237,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Upper Body Stability",
-        "description": "HPV racing requires strong, stable shoulders and a solid upper back to control the vehicle at speed. Warm up 5 minutes with arm circles and shoulder rolls. Then complete 3 rounds of: 8 Push Ups (modify on knees if needed — always keep a straight body line), 10 Superman holds for 2 seconds each (face down, lift arms and legs simultaneously), 25-second Plank, and 10 Thoracic Rotation stretches each side (sit cross-legged, hands behind head, rotate your upper body left and right). Rest 60 seconds between rounds. These exercises build the stability that keeps your HPV straight and controlled.",
+        "description": "HPR racing requires strong, stable shoulders and a solid upper back to control the vehicle at speed. Warm up 5 minutes with arm circles and shoulder rolls. Then complete 3 rounds of: 8 Push Ups (modify on knees if needed — always keep a straight body line), 10 Superman holds for 2 seconds each (face down, lift arms and legs simultaneously), 25-second Plank, and 10 Thoracic Rotation stretches each side (sit cross-legged, hands behind head, rotate your upper body left and right). Rest 60 seconds between rounds. These exercises build the stability that keeps your HPR straight and controlled.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4"
@@ -1246,7 +1246,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Fri",
         "name": "Mobility and Flexibility Focus",
-        "description": "A dedicated flexibility session — often neglected but critically important for HPV riders who spend time in a recumbent position. Work through: Pigeon Pose holding 45 seconds each side, Downward Dog holding 30 seconds for 3 repetitions, Hip Flexor Stretch 40 seconds each side, Hamstring Stretch 40 seconds each side, and Childs Pose holding 45 seconds. Take your time with each stretch and breathe deeply into the tight areas. Regular flexibility work like this prevents injuries and keeps you riding comfortably all season long.",
+        "description": "A dedicated flexibility session — often neglected but critically important for HPR riders who spend time in a recumbent position. Work through: Pigeon Pose holding 45 seconds each side, Downward Dog holding 30 seconds for 3 repetitions, Hip Flexor Stretch 40 seconds each side, Hamstring Stretch 40 seconds each side, and Childs Pose holding 45 seconds. Take your time with each stretch and breathe deeply into the tight areas. Regular flexibility work like this prevents injuries and keeps you riding comfortably all season long.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=FBiZ_4RtSE4"
@@ -1268,7 +1268,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y8",
     "tier": "average",
     "name": "Y8 Functional Athlete Builder",
-    "description": "This program builds functional athletic strength — the kind that makes you a better HPV racer, not just someone who can do lots of push-ups. We target core stability, leg power, posterior chain strength (back of your body), and mobility in three weekly sessions. Expect to feel genuinely stronger after two weeks.",
+    "description": "This program builds functional athletic strength — the kind that makes you a better HPR racer, not just someone who can do lots of push-ups. We target core stability, leg power, posterior chain strength (back of your body), and mobility in three weekly sessions. Expect to feel genuinely stronger after two weeks.",
     "durationWeeks": 2,
     "sessionsPerWeek": 3,
     "workouts": [
@@ -1276,7 +1276,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "Core and Posterior Chain",
-        "description": "Warm up 5 minutes with Cat-Cow and hip circles. Complete 3 rounds of: 35-second Plank Hold, 12 Dead Bugs each side (lower back stays glued to the floor — this is the non-negotiable), 12 Glute Bridges with 3-second hold at top, 10 Superman holds for 2 seconds each, and 25-second Side Plank each side. Rest 50 seconds between rounds. Your posterior chain — glutes, hamstrings, lower back — is the engine of your HPV power. This session targets it systematically for maximum riding performance.",
+        "description": "Warm up 5 minutes with Cat-Cow and hip circles. Complete 3 rounds of: 35-second Plank Hold, 12 Dead Bugs each side (lower back stays glued to the floor — this is the non-negotiable), 12 Glute Bridges with 3-second hold at top, 10 Superman holds for 2 seconds each, and 25-second Side Plank each side. Rest 50 seconds between rounds. Your posterior chain — glutes, hamstrings, lower back — is the engine of your HPR power. This session targets it systematically for maximum riding performance.",
         "duration": 40,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=cc6UVRS7PaE"
@@ -1285,7 +1285,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "Leg and Squat Development",
-        "description": "Warm up 5 minutes. Then complete 4 rounds of: 15 Squats (full depth — thighs parallel to floor minimum), 12 Reverse Lunges each leg, 12 Calf Raises each leg with a 2-second hold at top, and 40-second Wall Sit (back flat against wall, thighs parallel to floor — this burns!). Rest 50 seconds between rounds. The Wall Sit is particularly good for HPV riders because it simulates the sustained quad demand of riding on the bike. Push through the burn — it means the training is working.",
+        "description": "Warm up 5 minutes. Then complete 4 rounds of: 15 Squats (full depth — thighs parallel to floor minimum), 12 Reverse Lunges each leg, 12 Calf Raises each leg with a 2-second hold at top, and 40-second Wall Sit (back flat against wall, thighs parallel to floor — this burns!). Rest 50 seconds between rounds. The Wall Sit is particularly good for HPR riders because it simulates the sustained quad demand of riding on the bike. Push through the burn — it means the training is working.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=JaZNYM3zAP0"
@@ -1303,7 +1303,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Progressive Core Challenge",
-        "description": "A step up from week one's core work. Complete 4 rounds of: 40-second Plank Hold, 12 Hollow Body holds for 3 seconds each (lie flat, press lower back down hard, lift legs and shoulders — incredibly effective core exercise), 12 Bicycle Crunches each side (slow and rotational — quality beats speed every time), 12 Bird Dogs each side, and 30-second Side Plank each side. Rest 50 seconds between rounds. These progressive core exercises are building genuine stability that will keep you powerful and injury-free throughout your HPV season.",
+        "description": "A step up from week one's core work. Complete 4 rounds of: 40-second Plank Hold, 12 Hollow Body holds for 3 seconds each (lie flat, press lower back down hard, lift legs and shoulders — incredibly effective core exercise), 12 Bicycle Crunches each side (slow and rotational — quality beats speed every time), 12 Bird Dogs each side, and 30-second Side Plank each side. Rest 50 seconds between rounds. These progressive core exercises are building genuine stability that will keep you powerful and injury-free throughout your HPR season.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=44ScXWFaVBs"
@@ -1342,7 +1342,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Explosive Leg Power",
-        "description": "Today we develop the explosive power that accelerates the HPV in race conditions. Warm up 5 minutes. Complete 4 rounds of: 15 Squats, 12 Split Squats each leg (one foot forward one back, lower the back knee — more challenging than a regular lunge), 15 Glute Bridges with single-leg hold for 2 seconds, 12 Calf Raises each leg, and 40-second Wall Sit. Rest 45 seconds between rounds. Add a cardio burst: 20 seconds of High Knees between rounds. Your legs should feel genuinely challenged. This is exactly the kind of power work that translates to HPV acceleration.",
+        "description": "Today we develop the explosive power that accelerates the HPR in race conditions. Warm up 5 minutes. Complete 4 rounds of: 15 Squats, 12 Split Squats each leg (one foot forward one back, lower the back knee — more challenging than a regular lunge), 15 Glute Bridges with single-leg hold for 2 seconds, 12 Calf Raises each leg, and 40-second Wall Sit. Rest 45 seconds between rounds. Add a cardio burst: 20 seconds of High Knees between rounds. Your legs should feel genuinely challenged. This is exactly the kind of power work that translates to HPR acceleration.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=eVL0dIj8y0E"
@@ -1360,7 +1360,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Push and Pull Strength",
-        "description": "Upper body and posterior chain focus today. Complete 4 rounds of: 12 Push Ups (full body straight line from head to toes — every rep), 12 Superman holds for 2 seconds, 45-second Plank, 15 Dead Bugs each side, and 12 Bird Dogs each side. Between rounds, add 10 Squats as a lower body maintenance exercise. Rest 45 seconds between rounds. Strong shoulders and back in the HPV means better control and less fatigue in the arms during long race events — this session directly improves your race durability.",
+        "description": "Upper body and posterior chain focus today. Complete 4 rounds of: 12 Push Ups (full body straight line from head to toes — every rep), 12 Superman holds for 2 seconds, 45-second Plank, 15 Dead Bugs each side, and 12 Bird Dogs each side. Between rounds, add 10 Squats as a lower body maintenance exercise. Rest 45 seconds between rounds. Strong shoulders and back in the HPR means better control and less fatigue in the arms during long race events — this session directly improves your race durability.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4"
@@ -1369,7 +1369,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Thu",
         "name": "Complete Athlete Finisher",
-        "description": "Your hardest session of the fortnight — a complete athlete circuit that leaves nothing on the table. Complete 4 rounds of: 15 Squats, 12 Push Ups, 15 Glute Bridges, 15 Flutter Kicks for 20 seconds, 45-second Plank, 12 Calf Raises each leg, 10 V-Ups (lie flat, simultaneously lift arms and legs meeting above your midpoint — tough!), 10 Superman holds. After each round, do 30 seconds of Mountain Climbers as a cardio burst. Rest 60 seconds between rounds. Completing this session means you are one of the fittest athletes in your year group. Remember that next time you line up on the HPV start line.",
+        "description": "Your hardest session of the fortnight — a complete athlete circuit that leaves nothing on the table. Complete 4 rounds of: 15 Squats, 12 Push Ups, 15 Glute Bridges, 15 Flutter Kicks for 20 seconds, 45-second Plank, 12 Calf Raises each leg, 10 V-Ups (lie flat, simultaneously lift arms and legs meeting above your midpoint — tough!), 10 Superman holds. After each round, do 30 seconds of Mountain Climbers as a cardio burst. Rest 60 seconds between rounds. Completing this session means you are one of the fittest athletes in your year group. Remember that next time you line up on the HPR start line.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=iP2fjvG0g3w"
@@ -1408,7 +1408,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Sat",
         "name": "Mobility and Upper Body",
-        "description": "A combined upper body and flexibility session. Complete 3 rounds of: 8 Push Ups, 10 Superman holds for 2 seconds each, 30-second Plank, 10 Thoracic Rotations each side. Rest 55 seconds between rounds. Then work through a mobility sequence: Sun Salutation for 5 minutes, Pigeon Pose 45 seconds each side, Downward Dog 30 seconds for 3 reps, Hip Flexor Stretch 40 seconds each side. This session balances your strength work with the flexibility maintenance that keeps your body moving freely in the HPV position.",
+        "description": "A combined upper body and flexibility session. Complete 3 rounds of: 8 Push Ups, 10 Superman holds for 2 seconds each, 30-second Plank, 10 Thoracic Rotations each side. Rest 55 seconds between rounds. Then work through a mobility sequence: Sun Salutation for 5 minutes, Pigeon Pose 45 seconds each side, Downward Dog 30 seconds for 3 reps, Hip Flexor Stretch 40 seconds each side. This session balances your strength work with the flexibility maintenance that keeps your body moving freely in the HPR position.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=cc6UVRS7PaE"
@@ -1426,7 +1426,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Thu",
         "name": "Full Body Strength Closer",
-        "description": "Finish your fortnight with a complete full-body session. Complete 3 rounds of this comprehensive circuit: 15 Squats, 10 Push Ups, 12 Glute Bridges, 10 Dead Bugs each side, 35-second Plank, 12 Calf Raises each leg, 10 Superman holds, 25-second Wall Sit. Rest 60 seconds between rounds. Finish with a complete stretch routine: Pigeon, Hip Flexor, Hamstring, Childs Pose. Two weeks of consistent training has made you genuinely stronger and more resilient — the HPV will feel that difference at your next session.",
+        "description": "Finish your fortnight with a complete full-body session. Complete 3 rounds of this comprehensive circuit: 15 Squats, 10 Push Ups, 12 Glute Bridges, 10 Dead Bugs each side, 35-second Plank, 12 Calf Raises each leg, 10 Superman holds, 25-second Wall Sit. Rest 60 seconds between rounds. Finish with a complete stretch routine: Pigeon, Hip Flexor, Hamstring, Childs Pose. Two weeks of consistent training has made you genuinely stronger and more resilient — the HPR will feel that difference at your next session.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=pSHjTRCQxIw"
@@ -1439,7 +1439,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y9",
     "tier": "average",
     "name": "Y9 Performance Conditioning",
-    "description": "This plan builds performance-level conditioning with three quality sessions per week. We develop explosive power, core stability, upper body strength, and the mobility to move freely in any position the HPV demands. The exercises get progressively harder through the fortnight, and completing each session is a real athletic achievement.",
+    "description": "This plan builds performance-level conditioning with three quality sessions per week. We develop explosive power, core stability, upper body strength, and the mobility to move freely in any position the HPR demands. The exercises get progressively harder through the fortnight, and completing each session is a real athletic achievement.",
     "durationWeeks": 2,
     "sessionsPerWeek": 3,
     "workouts": [
@@ -1456,7 +1456,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "Explosive Lower Body",
-        "description": "We develop explosive leg power today. Warm up 6 minutes with leg swings and light squats. Complete 4 rounds of: 15 Deep Squats (full depth, explosive up), 12 Split Squats each leg (hard balance challenge — use a wall if needed initially), 12 Calf Raises each leg with 3-second hold, 45-second Wall Sit, and 12 Fire Hydrants each side. Between rounds, add 20 seconds of High Knees for cardio. Rest 45 seconds between rounds. Explosive leg training is the number one floor exercise that improves HPV acceleration — do not shortchange these reps.",
+        "description": "We develop explosive leg power today. Warm up 6 minutes with leg swings and light squats. Complete 4 rounds of: 15 Deep Squats (full depth, explosive up), 12 Split Squats each leg (hard balance challenge — use a wall if needed initially), 12 Calf Raises each leg with 3-second hold, 45-second Wall Sit, and 12 Fire Hydrants each side. Between rounds, add 20 seconds of High Knees for cardio. Rest 45 seconds between rounds. Explosive leg training is the number one floor exercise that improves HPR acceleration — do not shortchange these reps.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=eVL0dIj8y0E"
@@ -1474,7 +1474,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Upper Body and Posterior Chain",
-        "description": "Upper body focus to balance out all your leg work. Warm up 5 minutes. Complete 4 rounds of: 12 Push Ups (control the descent — 3 seconds down, explosive up), 12 Superman holds for 2 seconds each, 45-second Plank, 12 Bird Dogs each side, and 10 Thoracic Rotations each side. Between rounds, add 10 Squats as a lower body maintenance burst. Rest 45 seconds between rounds. Strong shoulders and upper back are what separate smooth, controlled HPV riders from riders who fight the vehicle at speed. Build them here.",
+        "description": "Upper body focus to balance out all your leg work. Warm up 5 minutes. Complete 4 rounds of: 12 Push Ups (control the descent — 3 seconds down, explosive up), 12 Superman holds for 2 seconds each, 45-second Plank, 12 Bird Dogs each side, and 10 Thoracic Rotations each side. Between rounds, add 10 Squats as a lower body maintenance burst. Rest 45 seconds between rounds. Strong shoulders and upper back are what separate smooth, controlled HPR riders from riders who fight the vehicle at speed. Build them here.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4"
@@ -1483,7 +1483,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Fri",
         "name": "Complete Performance Circuit",
-        "description": "Your most demanding session of the fortnight — a complete performance circuit. Complete 4 rounds of: 15 Squats, 12 Push Ups, 15 Glute Bridges, 15 Flutter Kicks for 20 seconds, 45-second Plank, 12 Split Squats each leg, 12 Calf Raises each leg, 10 V-Ups. Between each round, do 30 seconds of Mountain Climbers. Rest 60 seconds between rounds. This circuit trains every major muscle group in a sequence that mirrors the demands of HPV racing. Completing four full rounds puts you in genuinely elite physical condition for your age group.",
+        "description": "Your most demanding session of the fortnight — a complete performance circuit. Complete 4 rounds of: 15 Squats, 12 Push Ups, 15 Glute Bridges, 15 Flutter Kicks for 20 seconds, 45-second Plank, 12 Split Squats each leg, 12 Calf Raises each leg, 10 V-Ups. Between each round, do 30 seconds of Mountain Climbers. Rest 60 seconds between rounds. This circuit trains every major muscle group in a sequence that mirrors the demands of HPR racing. Completing four full rounds puts you in genuinely elite physical condition for your age group.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=iP2fjvG0g3w"
@@ -1513,7 +1513,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Explosive Power Session",
-        "description": "Power and strength focus. Complete 4 rounds of: 20 Deep Squats, 15 Split Squats each leg (challenge: pause at the bottom for 2 seconds), 15 Glute Bridges with single-leg hold for 3 seconds each rep, 12 Calf Raises each leg with 3-second hold, 50-second Wall Sit. Between rounds, do 20 seconds of Squat Jumps — explosive, landing softly. Rest 45 seconds between rounds. Squat Jumps are the most HPV-specific explosive exercise you can do on the floor — the muscle activation pattern directly mirrors the power phase of the pedal stroke.",
+        "description": "Power and strength focus. Complete 4 rounds of: 20 Deep Squats, 15 Split Squats each leg (challenge: pause at the bottom for 2 seconds), 15 Glute Bridges with single-leg hold for 3 seconds each rep, 12 Calf Raises each leg with 3-second hold, 50-second Wall Sit. Between rounds, do 20 seconds of Squat Jumps — explosive, landing softly. Rest 45 seconds between rounds. Squat Jumps are the most HPR-specific explosive exercise you can do on the floor — the muscle activation pattern directly mirrors the power phase of the pedal stroke.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=CVaEhXotL7M"
@@ -1531,7 +1531,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Upper Body Athlete Session",
-        "description": "Upper body and full posterior chain. Complete 4 rounds of: 15 Push Ups, 12 Superman holds for 2 seconds each, 50-second Plank, 12 Bird Dogs each side, 10 Thoracic Rotations each side, 15 Dead Bugs each side. Between rounds, add 10 Squats and 10 Glute Bridges. Rest 40 seconds between rounds. Your upper body provides the vehicle control and shoulder stability that makes you a precise and powerful HPV racer. These sessions might not seem as exciting as leg work but the performance impact is enormous.",
+        "description": "Upper body and full posterior chain. Complete 4 rounds of: 15 Push Ups, 12 Superman holds for 2 seconds each, 50-second Plank, 12 Bird Dogs each side, 10 Thoracic Rotations each side, 15 Dead Bugs each side. Between rounds, add 10 Squats and 10 Glute Bridges. Rest 40 seconds between rounds. Your upper body provides the vehicle control and shoulder stability that makes you a precise and powerful HPR racer. These sessions might not seem as exciting as leg work but the performance impact is enormous.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4"
@@ -1553,7 +1553,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y10",
     "tier": "basic",
     "name": "Y10 Strength on a Budget",
-    "description": "No gym needed — just you, your floor, and the commitment to get stronger for the HPV season ahead. This basic plan builds functional strength across three weekly sessions with progressive overload built in. Whether you are returning from an off-season or new to structured training, this plan meets you where you are and moves you forward.",
+    "description": "No gym needed — just you, your floor, and the commitment to get stronger for the HPR season ahead. This basic plan builds functional strength across three weekly sessions with progressive overload built in. Whether you are returning from an off-season or new to structured training, this plan meets you where you are and moves you forward.",
     "durationWeeks": 2,
     "sessionsPerWeek": 3,
     "workouts": [
@@ -1561,7 +1561,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "Core Stability Foundations",
-        "description": "Warm up 6 minutes with Cat-Cow, hip circles, and arm swings. Complete 3 rounds of: 40-second Plank, 25-second Side Plank each side, 12 Dead Bugs each side, 12 Bird Dogs each side, 12 Hollow Body holds for 2 seconds each. Rest 55 seconds between rounds. Core stability is the key to transferring your leg power into the HPV pedals efficiently — a weak, wobbly core loses energy, a strong stable core channels every watt into vehicle speed. These exercises specifically train HPV-relevant core stability patterns.",
+        "description": "Warm up 6 minutes with Cat-Cow, hip circles, and arm swings. Complete 3 rounds of: 40-second Plank, 25-second Side Plank each side, 12 Dead Bugs each side, 12 Bird Dogs each side, 12 Hollow Body holds for 2 seconds each. Rest 55 seconds between rounds. Core stability is the key to transferring your leg power into the HPR pedals efficiently — a weak, wobbly core loses energy, a strong stable core channels every watt into vehicle speed. These exercises specifically train HPR-relevant core stability patterns.",
         "duration": 45,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=pSHjTRCQxIw"
@@ -1570,7 +1570,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "Lower Body Power",
-        "description": "Warm up 6 minutes. Complete 3 rounds of: 15 Squats (full depth, 3 seconds down), 12 Split Squats each leg, 15 Glute Bridges with 4-second hold, 15 Calf Raises each leg with 2-second hold, 40-second Wall Sit. Rest 55 seconds between rounds. Finish with Hip Flexor Stretch 45 seconds each side and Hamstring Stretch 40 seconds each side. The Wall Sit particularly develops the quad endurance needed for the sustained cycling effort in a long HPV race event — do not skip it even when it burns.",
+        "description": "Warm up 6 minutes. Complete 3 rounds of: 15 Squats (full depth, 3 seconds down), 12 Split Squats each leg, 15 Glute Bridges with 4-second hold, 15 Calf Raises each leg with 2-second hold, 40-second Wall Sit. Rest 55 seconds between rounds. Finish with Hip Flexor Stretch 45 seconds each side and Hamstring Stretch 40 seconds each side. The Wall Sit particularly develops the quad endurance needed for the sustained cycling effort in a long HPR race event — do not skip it even when it burns.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=JaZNYM3zAP0"
@@ -1579,7 +1579,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Sat",
         "name": "Upper Body and Mobility",
-        "description": "Complete 3 rounds of: 10 Push Ups, 12 Superman holds for 2 seconds each, 40-second Plank, 10 Thoracic Rotations each side, 12 Bicycle Crunches each side. Rest 55 seconds between rounds. After strength work, complete full mobility: Pigeon 50 seconds each side, Downward Dog 30 seconds for 3 reps, Warrior Pose 25 seconds each side, Hip Flexor 45 seconds each side, Childs Pose 45 seconds. Upper back strength keeps you stable in the HPV at speed, while this flexibility work prevents the tightness that builds up from being in a recumbent position regularly.",
+        "description": "Complete 3 rounds of: 10 Push Ups, 12 Superman holds for 2 seconds each, 40-second Plank, 10 Thoracic Rotations each side, 12 Bicycle Crunches each side. Rest 55 seconds between rounds. After strength work, complete full mobility: Pigeon 50 seconds each side, Downward Dog 30 seconds for 3 reps, Warrior Pose 25 seconds each side, Hip Flexor 45 seconds each side, Childs Pose 45 seconds. Upper back strength keeps you stable in the HPR at speed, while this flexibility work prevents the tightness that builds up from being in a recumbent position regularly.",
         "duration": 30,
         "intensity": "easy",
         "videoUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4"
@@ -1588,7 +1588,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Glute and Hip Complex",
-        "description": "Warm up 6 minutes. Complete 4 rounds of: 15 Glute Bridges (single-leg on the final 5 reps of each set — lift one foot off the floor), 15 Clamshells each side, 12 Fire Hydrants each side, 12 Split Squats each leg. Rest 50 seconds between rounds. The glutes are the single most important muscle for cycling power — they generate more force per stroke than any other muscle. This session specifically develops them across multiple planes of motion, building well-rounded glute strength for HPV performance.",
+        "description": "Warm up 6 minutes. Complete 4 rounds of: 15 Glute Bridges (single-leg on the final 5 reps of each set — lift one foot off the floor), 15 Clamshells each side, 12 Fire Hydrants each side, 12 Split Squats each leg. Rest 50 seconds between rounds. The glutes are the single most important muscle for cycling power — they generate more force per stroke than any other muscle. This session specifically develops them across multiple planes of motion, building well-rounded glute strength for HPR performance.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=cE_LnEtiMso"
@@ -1597,7 +1597,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Fri",
         "name": "Complete Strength Circuit",
-        "description": "Your two-week capstone session. Complete 3 rounds of this complete circuit: 15 Squats, 10 Push Ups, 15 Glute Bridges, 12 Dead Bugs each side, 40-second Plank, 12 Calf Raises each leg, 10 Superman holds, 30-second Wall Sit, 12 Bicycle Crunches each side. Rest 65 seconds between rounds. After three rounds, complete your full stretch routine. This circuit covers every major muscle group that HPV racing demands. Two weeks of consistent work has made a real difference — carry this into your next HPV session and feel the improvement.",
+        "description": "Your two-week capstone session. Complete 3 rounds of this complete circuit: 15 Squats, 10 Push Ups, 15 Glute Bridges, 12 Dead Bugs each side, 40-second Plank, 12 Calf Raises each leg, 10 Superman holds, 30-second Wall Sit, 12 Bicycle Crunches each side. Rest 65 seconds between rounds. After three rounds, complete your full stretch routine. This circuit covers every major muscle group that HPR racing demands. Two weeks of consistent work has made a real difference — carry this into your next HPR session and feel the improvement.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=pSHjTRCQxIw"
@@ -1610,7 +1610,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y10",
     "tier": "average",
     "name": "Y10 Athletic Conditioning",
-    "description": "Four quality sessions per week of athletic conditioning — this plan is comprehensive, challenging, and designed to produce real performance improvements. We develop explosive power, advanced core stability, upper body strength, and cardiovascular conditioning in a systematic program built around HPV racing demands.",
+    "description": "Four quality sessions per week of athletic conditioning — this plan is comprehensive, challenging, and designed to produce real performance improvements. We develop explosive power, advanced core stability, upper body strength, and cardiovascular conditioning in a systematic program built around HPR racing demands.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
@@ -1618,7 +1618,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "Power Core Circuit",
-        "description": "Warm up 6 minutes. Complete 4 rounds of: 50-second Plank, 15 Hollow Body holds for 3 seconds each, 15 Flutter Kicks for 25 seconds, 15 Bicycle Crunches each side, 30-second Side Plank each side, 12 V-Ups. Rest 45 seconds between rounds. These advanced core exercises develop the level of trunk stability that competitive HPV athletes need to generate maximum power for extended periods. Every time your core wavers in a race, you are losing speed — eliminate that weakness here.",
+        "description": "Warm up 6 minutes. Complete 4 rounds of: 50-second Plank, 15 Hollow Body holds for 3 seconds each, 15 Flutter Kicks for 25 seconds, 15 Bicycle Crunches each side, 30-second Side Plank each side, 12 V-Ups. Rest 45 seconds between rounds. These advanced core exercises develop the level of trunk stability that competitive HPR athletes need to generate maximum power for extended periods. Every time your core wavers in a race, you are losing speed — eliminate that weakness here.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=ANVdMDaYRts"
@@ -1627,7 +1627,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Lower Body Power Development",
-        "description": "The most HPV-specific strength session of the week. Warm up 6 minutes. Complete 4 rounds of: 20 Deep Squats (explosive up — imagine launching into the air), 15 Split Squats each leg with 2-second bottom pause, 15 Glute Bridges with 4-second hold, 15 Calf Raises each leg, 50-second Wall Sit. Between rounds, add 20 seconds of Squat Jumps (land softly — absorb the impact through bent knees). Rest 45 seconds between rounds. The combination of maximal effort squats, split squats, and explosive jumps builds the same fast-twitch muscle fibers you use to accelerate the HPV.",
+        "description": "The most HPR-specific strength session of the week. Warm up 6 minutes. Complete 4 rounds of: 20 Deep Squats (explosive up — imagine launching into the air), 15 Split Squats each leg with 2-second bottom pause, 15 Glute Bridges with 4-second hold, 15 Calf Raises each leg, 50-second Wall Sit. Between rounds, add 20 seconds of Squat Jumps (land softly — absorb the impact through bent knees). Rest 45 seconds between rounds. The combination of maximal effort squats, split squats, and explosive jumps builds the same fast-twitch muscle fibers you use to accelerate the HPR.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=CVaEhXotL7M"
@@ -1636,7 +1636,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Fri",
         "name": "Cardio and Mobility",
-        "description": "Conditioning and recovery combined. Complete 3 rounds of cardio: 40 seconds Mountain Climbers, 30 seconds Burpees, 40 seconds High Knees, 60 seconds rest. Then complete full mobility: Pigeon Pose 55 seconds each side, Hip Flexor 50 seconds each side, Hamstring 45 seconds each side, Downward Dog 30 seconds for 3 reps, Thoracic Rotation 12 reps each side, Warrior Pose 25 seconds each side. This session improves your cardiovascular conditioning while maintaining the flexibility that prevents the chronic tightness HPV riders are prone to in the hip flexors and hamstrings.",
+        "description": "Conditioning and recovery combined. Complete 3 rounds of cardio: 40 seconds Mountain Climbers, 30 seconds Burpees, 40 seconds High Knees, 60 seconds rest. Then complete full mobility: Pigeon Pose 55 seconds each side, Hip Flexor 50 seconds each side, Hamstring 45 seconds each side, Downward Dog 30 seconds for 3 reps, Thoracic Rotation 12 reps each side, Warrior Pose 25 seconds each side. This session improves your cardiovascular conditioning while maintaining the flexibility that prevents the chronic tightness HPR riders are prone to in the hip flexors and hamstrings.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=TU8QYVW0gDU"
@@ -1645,7 +1645,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Advanced Core and Upper Body",
-        "description": "The most challenging core session of your fortnight. Complete 4 rounds of: 15 Push Ups (slow: 4 seconds down, explosive up), 50-second Plank, 15 Dead Bugs each side, 15 Hollow Body holds for 3 seconds each, 12 V-Ups, 12 Superman holds for 2 seconds each. Rest 40 seconds between rounds. Between rounds, add 10 Thoracic Rotations each side. Your abdominal wall, obliques, deep spinal stabilizers and glutes all work simultaneously in these exercises — it is genuinely comprehensive core training that transfers into everything you do in the HPV.",
+        "description": "The most challenging core session of your fortnight. Complete 4 rounds of: 15 Push Ups (slow: 4 seconds down, explosive up), 50-second Plank, 15 Dead Bugs each side, 15 Hollow Body holds for 3 seconds each, 12 V-Ups, 12 Superman holds for 2 seconds each. Rest 40 seconds between rounds. Between rounds, add 10 Thoracic Rotations each side. Your abdominal wall, obliques, deep spinal stabilizers and glutes all work simultaneously in these exercises — it is genuinely comprehensive core training that transfers into everything you do in the HPR.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=iP2fjvG0g3w"
@@ -1667,7 +1667,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y10",
     "tier": "intense",
     "name": "Y10 Competitive Athlete Conditioning",
-    "description": "This is elite-level bodyweight conditioning designed for competitive HPV athletes serious about their race results. Four demanding sessions per week including plyometric power development, advanced core training, high-intensity cardio circuits, and mobility work. This plan will leave you genuinely stronger, more explosive, and more resilient than before.",
+    "description": "This is elite-level bodyweight conditioning designed for competitive HPR athletes serious about their race results. Four demanding sessions per week including plyometric power development, advanced core training, high-intensity cardio circuits, and mobility work. This plan will leave you genuinely stronger, more explosive, and more resilient than before.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
@@ -1684,7 +1684,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Plyometric Power Development",
-        "description": "Pure explosive power development. Warm up 8 minutes with progressive leg swings and light squats. Complete 4 rounds of: 10 Squat Jumps (land in a full squat, absorb smoothly), 10 Broad Jumps (jump forward as far as possible, land softly in squat position), 15 Split Squats each leg, 15 Glute Bridges with 4-second single-leg hold. Rest 60 seconds between rounds. These plyometric exercises train your fast-twitch muscles to generate power explosively — the exact quality that produces HPV race accelerations and sprint finishes. Land every jump with control: soft knees, no sound.",
+        "description": "Pure explosive power development. Warm up 8 minutes with progressive leg swings and light squats. Complete 4 rounds of: 10 Squat Jumps (land in a full squat, absorb smoothly), 10 Broad Jumps (jump forward as far as possible, land softly in squat position), 15 Split Squats each leg, 15 Glute Bridges with 4-second single-leg hold. Rest 60 seconds between rounds. These plyometric exercises train your fast-twitch muscles to generate power explosively — the exact quality that produces HPR race accelerations and sprint finishes. Land every jump with control: soft knees, no sound.",
         "duration": 30,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=96zJo3nlmHI"
@@ -1702,7 +1702,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Advanced Upper Body and Core",
-        "description": "Upper body strength and advanced core work. Complete 5 rounds of: 15 Push Ups (4 seconds down, explosive up), 55-second Plank, 15 Dead Bugs each side (perfect form every rep), 12 V-Ups, 12 Superman holds for 3 seconds each. Between rounds, add 10 Thoracic Rotations each side and 10 Squat Jumps. Rest 45 seconds between rounds. Your upper body and core are the vehicle control system for the HPV — strong, stable arms and trunk mean precise steering, better aerodynamics, and less energy wasted fighting the vehicle.",
+        "description": "Upper body strength and advanced core work. Complete 5 rounds of: 15 Push Ups (4 seconds down, explosive up), 55-second Plank, 15 Dead Bugs each side (perfect form every rep), 12 V-Ups, 12 Superman holds for 3 seconds each. Between rounds, add 10 Thoracic Rotations each side and 10 Squat Jumps. Rest 45 seconds between rounds. Your upper body and core are the vehicle control system for the HPR — strong, stable arms and trunk mean precise steering, better aerodynamics, and less energy wasted fighting the vehicle.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4"
@@ -1724,7 +1724,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y11",
     "tier": "basic",
     "name": "Y11 Building Race-Ready Strength",
-    "description": "Year 11 floor training builds the strength and conditioning foundation your body needs to race at its best. Four sessions a week with a clear focus on the muscle groups and movement patterns most important for HPV performance. We keep intensity manageable while building real progressive strength. Consistent work across these two weeks will produce results you can feel on the bike.",
+    "description": "Year 11 floor training builds the strength and conditioning foundation your body needs to race at its best. Four sessions a week with a clear focus on the muscle groups and movement patterns most important for HPR performance. We keep intensity manageable while building real progressive strength. Consistent work across these two weeks will produce results you can feel on the bike.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
@@ -1732,7 +1732,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "Core Strength Foundation",
-        "description": "Warm up 6 minutes with Cat-Cow, hip mobility and arm swings. Complete 4 rounds of: 45-second Plank, 12 Hollow Body holds for 3 seconds each, 12 Bicycle Crunches each side, 30-second Side Plank each side, 12 Dead Bugs each side. Rest 50 seconds between rounds. This core circuit builds the specific kind of rotational and anti-rotational stability that HPV riders need — not just a six-pack, but a core that can resist twisting forces, transfer power efficiently, and maintain good position through three-hour race events.",
+        "description": "Warm up 6 minutes with Cat-Cow, hip mobility and arm swings. Complete 4 rounds of: 45-second Plank, 12 Hollow Body holds for 3 seconds each, 12 Bicycle Crunches each side, 30-second Side Plank each side, 12 Dead Bugs each side. Rest 50 seconds between rounds. This core circuit builds the specific kind of rotational and anti-rotational stability that HPR riders need — not just a six-pack, but a core that can resist twisting forces, transfer power efficiently, and maintain good position through three-hour race events.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=44ScXWFaVBs"
@@ -1741,7 +1741,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Leg Strength Development",
-        "description": "Warm up 6 minutes with leg swings and light movement. Complete 4 rounds of: 20 Deep Squats (full depth, controlled descent, powerful ascent), 12 Split Squats each leg, 15 Glute Bridges with 4-second single-leg hold for final 5 reps, 15 Calf Raises each leg with 3-second hold, 50-second Wall Sit. Rest 50 seconds between rounds. Between each round, do 12 Fire Hydrants each side. This session is your primary lower body development workout — the exercises are all specifically chosen to strengthen the muscles most responsible for HPV pedalling power and efficiency.",
+        "description": "Warm up 6 minutes with leg swings and light movement. Complete 4 rounds of: 20 Deep Squats (full depth, controlled descent, powerful ascent), 12 Split Squats each leg, 15 Glute Bridges with 4-second single-leg hold for final 5 reps, 15 Calf Raises each leg with 3-second hold, 50-second Wall Sit. Rest 50 seconds between rounds. Between each round, do 12 Fire Hydrants each side. This session is your primary lower body development workout — the exercises are all specifically chosen to strengthen the muscles most responsible for HPR pedalling power and efficiency.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=YaXPRqUwItQ"
@@ -1768,7 +1768,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Thu",
         "name": "Strength and Cardio Combo",
-        "description": "Your most demanding session of the fortnight — a strength and cardio combination that tests your complete fitness. Complete 4 rounds of: 20 Squats, 12 Push Ups, 15 Split Squats each leg, 50-second Plank, 15 Glute Bridges, 12 V-Ups. After each strength round, immediately complete a cardio burst: 30 seconds Burpees, 30 seconds Mountain Climbers. Rest 65 seconds between rounds. This combination of strength and cardio conditioning mirrors the metabolic demands of HPV racing — sustained effort with recurring high-intensity bursts. You are training specifically for race conditions.",
+        "description": "Your most demanding session of the fortnight — a strength and cardio combination that tests your complete fitness. Complete 4 rounds of: 20 Squats, 12 Push Ups, 15 Split Squats each leg, 50-second Plank, 15 Glute Bridges, 12 V-Ups. After each strength round, immediately complete a cardio burst: 30 seconds Burpees, 30 seconds Mountain Climbers. Rest 65 seconds between rounds. This combination of strength and cardio conditioning mirrors the metabolic demands of HPR racing — sustained effort with recurring high-intensity bursts. You are training specifically for race conditions.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=TU8QYVW0gDU"
@@ -1781,7 +1781,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y11",
     "tier": "average",
     "name": "Y11 Performance Athlete Program",
-    "description": "A complete performance program for serious HPV athletes. Five sessions a week combining strength, power, cardio conditioning, and mobility to build the complete athletic profile needed for competitive racing. Every session has been designed with HPV-specific demands in mind — you will feel the difference on race day.",
+    "description": "A complete performance program for serious HPR athletes. Five sessions a week combining strength, power, cardio conditioning, and mobility to build the complete athletic profile needed for competitive racing. Every session has been designed with HPR-specific demands in mind — you will feel the difference on race day.",
     "durationWeeks": 2,
     "sessionsPerWeek": 5,
     "workouts": [
@@ -1789,7 +1789,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "Advanced Core Power Complex",
-        "description": "Warm up 7 minutes. Complete 5 rounds of: 55-second Plank, 15 Hollow Body holds for 3 seconds each, 20 Flutter Kicks for 25 seconds, 15 Bicycle Crunches each side, 35-second Side Plank each side, 12 V-Ups. Rest 40 seconds between rounds. This elite core circuit is the foundation of your week — begin with your most important training priority. A rock-solid core transforms your HPV performance more than any other single physical quality. Every minute of these 5 rounds is pure competitive advantage.",
+        "description": "Warm up 7 minutes. Complete 5 rounds of: 55-second Plank, 15 Hollow Body holds for 3 seconds each, 20 Flutter Kicks for 25 seconds, 15 Bicycle Crunches each side, 35-second Side Plank each side, 12 V-Ups. Rest 40 seconds between rounds. This elite core circuit is the foundation of your week — begin with your most important training priority. A rock-solid core transforms your HPR performance more than any other single physical quality. Every minute of these 5 rounds is pure competitive advantage.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=44ScXWFaVBs"
@@ -1807,7 +1807,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "Plyometric Power Day",
-        "description": "Warm up 8 minutes with progressive movement. Complete 4 rounds of: 10 Box Jumps or Squat Jumps (if no box, do explosive Squat Jumps — land soft and controlled), 10 Broad Jumps, 15 Tuck Jumps (drive both knees to chest, land smoothly), 12 Split Squats each leg at speed. Rest 60 seconds between rounds — full recovery is important for plyometric quality. This session develops the explosive fast-twitch power that produces HPV accelerations, pace surges, and sprint finishes. Every jump is an investment in your race-winning ability.",
+        "description": "Warm up 8 minutes with progressive movement. Complete 4 rounds of: 10 Box Jumps or Squat Jumps (if no box, do explosive Squat Jumps — land soft and controlled), 10 Broad Jumps, 15 Tuck Jumps (drive both knees to chest, land smoothly), 12 Split Squats each leg at speed. Rest 60 seconds between rounds — full recovery is important for plyometric quality. This session develops the explosive fast-twitch power that produces HPR accelerations, pace surges, and sprint finishes. Every jump is an investment in your race-winning ability.",
         "duration": 30,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=52r_Ul5k03g"
@@ -1816,7 +1816,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Upper Body and Posterior Chain",
-        "description": "Complete 5 rounds of: 15 Push Ups (4 seconds down, explosive up), 55-second Plank, 15 Dead Bugs each side, 12 V-Ups, 12 Superman holds for 3 seconds each, 10 Thoracic Rotations each side. Rest 40 seconds between rounds. After 5 rounds, complete your full mobility routine. Your posterior chain — glutes, hamstrings, lower and upper back — is your power generation system in the HPV. This session develops it comprehensively. Strong back = powerful ride. Every rep of every Superman hold is directly translating to HPV performance.",
+        "description": "Complete 5 rounds of: 15 Push Ups (4 seconds down, explosive up), 55-second Plank, 15 Dead Bugs each side, 12 V-Ups, 12 Superman holds for 3 seconds each, 10 Thoracic Rotations each side. Rest 40 seconds between rounds. After 5 rounds, complete your full mobility routine. Your posterior chain — glutes, hamstrings, lower and upper back — is your power generation system in the HPR. This session develops it comprehensively. Strong back = powerful ride. Every rep of every Superman hold is directly translating to HPR performance.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=cc6UVRS7PaE"
@@ -1838,7 +1838,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y11",
     "tier": "intense",
     "name": "Y11 Elite Conditioning Peak",
-    "description": "Peak conditioning for elite competitive athletes in their final two years of school HPV racing. Five high-intensity sessions per week covering plyometrics, advanced core, high-intensity cardio, and heavy strength circuits. This plan is genuinely demanding and produces genuinely elite results. If you are committed to winning in Year 11, this is your program.",
+    "description": "Peak conditioning for elite competitive athletes in their final two years of school HPR racing. Five high-intensity sessions per week covering plyometrics, advanced core, high-intensity cardio, and heavy strength circuits. This plan is genuinely demanding and produces genuinely elite results. If you are committed to winning in Year 11, this is your program.",
     "durationWeeks": 2,
     "sessionsPerWeek": 5,
     "workouts": [
@@ -1846,7 +1846,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "Elite Core and Stability",
-        "description": "Warm up 8 minutes with dynamic mobility. Complete 5 rounds of: 60-second Plank, 15 Hollow Body holds for 4 seconds each (challenge: arms overhead and pressed by ears), 20 Flutter Kicks for 30 seconds, 15 Bicycle Crunches each side, 40-second Side Plank each side, 15 V-Ups. Rest 35 seconds between rounds. This volume of advanced core work is elite-level training. Your obliques, transverse abdominis, and spinal extensors will all be challenged simultaneously. This is the core stability that wins HPV championships — build it systematically.",
+        "description": "Warm up 8 minutes with dynamic mobility. Complete 5 rounds of: 60-second Plank, 15 Hollow Body holds for 4 seconds each (challenge: arms overhead and pressed by ears), 20 Flutter Kicks for 30 seconds, 15 Bicycle Crunches each side, 40-second Side Plank each side, 15 V-Ups. Rest 35 seconds between rounds. This volume of advanced core work is elite-level training. Your obliques, transverse abdominis, and spinal extensors will all be challenged simultaneously. This is the core stability that wins HPR championships — build it systematically.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=44ScXWFaVBs"
@@ -1873,7 +1873,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Heavy Strength Circuit",
-        "description": "Your heavy strength day. Warm up 7 minutes. Complete 5 rounds of: 25 Deep Squats, 15 Push Ups with 4-second descent, 15 Split Squats each leg with 3-second bottom hold, 60-second Wall Sit, 15 Glute Bridges single-leg, 15 Calf Raises each leg with 3-second hold. Rest 50 seconds between rounds. This session maximizes strength through slower tempos and longer holds — creating significant muscular tension that drives adaptation. Slower is harder. Harder builds more strength. More strength means faster HPV racing.",
+        "description": "Your heavy strength day. Warm up 7 minutes. Complete 5 rounds of: 25 Deep Squats, 15 Push Ups with 4-second descent, 15 Split Squats each leg with 3-second bottom hold, 60-second Wall Sit, 15 Glute Bridges single-leg, 15 Calf Raises each leg with 3-second hold. Rest 50 seconds between rounds. This session maximizes strength through slower tempos and longer holds — creating significant muscular tension that drives adaptation. Slower is harder. Harder builds more strength. More strength means faster HPR racing.",
         "duration": 30,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=eVL0dIj8y0E"
@@ -1895,7 +1895,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y12",
     "tier": "basic",
     "name": "Y12 Strength for Your Final Season",
-    "description": "Your final school year of HPV racing and we want your body to be at its absolute best. This basic floor plan builds functional strength and mobility across four weekly sessions — enough to make a real difference in your race performance without overwhelming you during a busy Year 12 school schedule. Smart training, consistent effort, real results.",
+    "description": "Your final school year of HPR racing and we want your body to be at its absolute best. This basic floor plan builds functional strength and mobility across four weekly sessions — enough to make a real difference in your race performance without overwhelming you during a busy Year 12 school schedule. Smart training, consistent effort, real results.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
@@ -1903,7 +1903,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "Core and Stability Foundation",
-        "description": "Warm up 7 minutes. Complete 4 rounds of: 45-second Plank, 15 Hollow Body holds for 3 seconds each, 12 Bicycle Crunches each side, 30-second Side Plank each side, 12 Dead Bugs each side. Rest 50 seconds between rounds. Year 12 is about peak performance and this core work directly underpins everything. Each of these exercises has been selected specifically because it develops the core strength patterns most relevant to sustaining power output throughout a long HPV race event.",
+        "description": "Warm up 7 minutes. Complete 4 rounds of: 45-second Plank, 15 Hollow Body holds for 3 seconds each, 12 Bicycle Crunches each side, 30-second Side Plank each side, 12 Dead Bugs each side. Rest 50 seconds between rounds. Year 12 is about peak performance and this core work directly underpins everything. Each of these exercises has been selected specifically because it develops the core strength patterns most relevant to sustaining power output throughout a long HPR race event.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=44ScXWFaVBs"
@@ -1912,7 +1912,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Leg Strength and Power",
-        "description": "Warm up 7 minutes with leg swings. Complete 4 rounds of: 20 Deep Squats, 12 Split Squats each leg with 2-second bottom hold, 15 Glute Bridges with single-leg hold for final 6 reps, 15 Calf Raises each leg with 3-second hold, 55-second Wall Sit. Between rounds: 15 Fire Hydrants each side. Rest 50 seconds between rounds. These are your core HPV strength exercises — every movement pattern has been chosen to strengthen the exact muscles that drive the HPV faster and sustain that pace for longer. This is your most important strength session of the week.",
+        "description": "Warm up 7 minutes with leg swings. Complete 4 rounds of: 20 Deep Squats, 12 Split Squats each leg with 2-second bottom hold, 15 Glute Bridges with single-leg hold for final 6 reps, 15 Calf Raises each leg with 3-second hold, 55-second Wall Sit. Between rounds: 15 Fire Hydrants each side. Rest 50 seconds between rounds. These are your core HPR strength exercises — every movement pattern has been chosen to strengthen the exact muscles that drive the HPR faster and sustain that pace for longer. This is your most important strength session of the week.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=eVL0dIj8y0E"
@@ -1921,7 +1921,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Sat",
         "name": "Upper Body and Mobility",
-        "description": "Complete 4 rounds of: 12 Push Ups, 12 Superman holds for 3 seconds each, 45-second Plank, 12 Thoracic Rotations each side. Rest 50 seconds between rounds. Follow immediately with a full 15-minute mobility routine: Pigeon 55 seconds each side, Hip Flexor 50 seconds each side, Hamstring 45 seconds each side, Downward Dog 30 seconds for 3 reps, Warrior Pose 30 seconds each side, Childs Pose 60 seconds. This combined session strengthens your upper body and thoroughly addresses the chronic tightness that can develop from regular HPV riding. Your body will feel amazing after this one.",
+        "description": "Complete 4 rounds of: 12 Push Ups, 12 Superman holds for 3 seconds each, 45-second Plank, 12 Thoracic Rotations each side. Rest 50 seconds between rounds. Follow immediately with a full 15-minute mobility routine: Pigeon 55 seconds each side, Hip Flexor 50 seconds each side, Hamstring 45 seconds each side, Downward Dog 30 seconds for 3 reps, Warrior Pose 30 seconds each side, Childs Pose 60 seconds. This combined session strengthens your upper body and thoroughly addresses the chronic tightness that can develop from regular HPR riding. Your body will feel amazing after this one.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=IODxDxX7oi4"
@@ -1952,7 +1952,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y12",
     "tier": "average",
     "name": "Y12 Championship Strength Plan",
-    "description": "Championship-level floor training for your final year. Five sessions a week developing explosive power, advanced core stability, high-intensity conditioning, and comprehensive mobility. Every session in this plan has been deliberately designed to maximise your HPV race performance at the most important competitions of your school career. Make every rep count.",
+    "description": "Championship-level floor training for your final year. Five sessions a week developing explosive power, advanced core stability, high-intensity conditioning, and comprehensive mobility. Every session in this plan has been deliberately designed to maximise your HPR race performance at the most important competitions of your school career. Make every rep count.",
     "durationWeeks": 2,
     "sessionsPerWeek": 5,
     "workouts": [
@@ -1960,7 +1960,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "Elite Core Complex",
-        "description": "Warm up 8 minutes. Complete 5 rounds of: 60-second Plank, 15 Hollow Body holds for 4 seconds each, 20 Flutter Kicks for 30 seconds, 15 Bicycle Crunches each side, 40-second Side Plank each side, 15 V-Ups. Rest 40 seconds between rounds. This volume of advanced core work is exactly what elite competitive cyclists do in their floor training. Your core is your foundation — invest in it every single week. These five rounds build the kind of trunk stability that turns leg power directly into HPV speed with zero energy wasted.",
+        "description": "Warm up 8 minutes. Complete 5 rounds of: 60-second Plank, 15 Hollow Body holds for 4 seconds each, 20 Flutter Kicks for 30 seconds, 15 Bicycle Crunches each side, 40-second Side Plank each side, 15 V-Ups. Rest 40 seconds between rounds. This volume of advanced core work is exactly what elite competitive cyclists do in their floor training. Your core is your foundation — invest in it every single week. These five rounds build the kind of trunk stability that turns leg power directly into HPR speed with zero energy wasted.",
         "duration": 45,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=44ScXWFaVBs"
@@ -1969,7 +1969,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Strength and Power Lower Body",
-        "description": "Warm up 8 minutes. Complete 5 rounds of: 20 Deep Squats (slow down, explosive up), 15 Split Squats each leg, 15 Glute Bridges single-leg with 4-second hold, 15 Calf Raises each leg with 3-second hold, 60-second Wall Sit. Between rounds: 15 Squat Jumps. Rest 45 seconds between rounds. This is your most important strength session of the week — the exercises are precisely those that develop HPV-specific leg power. When you are 3 hours into a race and your competitors' legs are fading, this session is the reason yours are not.",
+        "description": "Warm up 8 minutes. Complete 5 rounds of: 20 Deep Squats (slow down, explosive up), 15 Split Squats each leg, 15 Glute Bridges single-leg with 4-second hold, 15 Calf Raises each leg with 3-second hold, 60-second Wall Sit. Between rounds: 15 Squat Jumps. Rest 45 seconds between rounds. This is your most important strength session of the week — the exercises are precisely those that develop HPR-specific leg power. When you are 3 hours into a race and your competitors' legs are fading, this session is the reason yours are not.",
         "duration": 30,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=CVaEhXotL7M"
@@ -1978,7 +1978,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Fri",
         "name": "Plyometric Power Training",
-        "description": "Explosive power development. Warm up 10 minutes with progressive plyometric preparation. Complete 5 rounds of: 12 Box Jumps or Squat Jumps, 12 Broad Jumps (measure your distance — try to beat it each round), 12 Tuck Jumps, 15 Split Squats at speed. Rest 60 seconds between rounds — critical for maintaining quality. After 5 rounds, complete full mobility. Plyometric training is your secret weapon for race performance — the explosive power it builds is directly transferable to HPV acceleration and pace surges. Jump with maximum intent, land with complete control.",
+        "description": "Explosive power development. Warm up 10 minutes with progressive plyometric preparation. Complete 5 rounds of: 12 Box Jumps or Squat Jumps, 12 Broad Jumps (measure your distance — try to beat it each round), 12 Tuck Jumps, 15 Split Squats at speed. Rest 60 seconds between rounds — critical for maintaining quality. After 5 rounds, complete full mobility. Plyometric training is your secret weapon for race performance — the explosive power it builds is directly transferable to HPR acceleration and pace surges. Jump with maximum intent, land with complete control.",
         "duration": 30,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=52r_Ul5k03g"
@@ -1987,7 +1987,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Upper Body Power and Core",
-        "description": "Upper body and posterior chain focus. Complete 5 rounds of: 15 Push Ups with 4-second descent, 60-second Plank, 15 Dead Bugs each side, 15 V-Ups, 12 Superman holds for 3 seconds each, 10 Thoracic Rotations each side. Between rounds: 10 Squat Jumps. Rest 40 seconds between rounds. Your upper back and shoulders provide the control and stability that makes you a precise HPV racer at speed. Strong upper body means less energy wasted, better aerodynamics, and the ability to maintain form throughout an entire race event — even in the final stage.",
+        "description": "Upper body and posterior chain focus. Complete 5 rounds of: 15 Push Ups with 4-second descent, 60-second Plank, 15 Dead Bugs each side, 15 V-Ups, 12 Superman holds for 3 seconds each, 10 Thoracic Rotations each side. Between rounds: 10 Squat Jumps. Rest 40 seconds between rounds. Your upper back and shoulders provide the control and stability that makes you a precise HPR racer at speed. Strong upper body means less energy wasted, better aerodynamics, and the ability to maintain form throughout an entire race event — even in the final stage.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=cc6UVRS7PaE"
@@ -2009,7 +2009,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y12",
     "tier": "intense",
     "name": "Y12 Elite Race Season Peak",
-    "description": "The ultimate floor training program for elite Year 12 HPV athletes. Six demanding sessions per week spanning every training modality — advanced core, plyometric power, maximum cardio conditioning, heavy strength work, and comprehensive mobility. This plan is for athletes who want to finish their school career at the very peak of their physical capabilities. Everything we do here is in service of your final season. Give it everything.",
+    "description": "The ultimate floor training program for elite Year 12 HPR athletes. Six demanding sessions per week spanning every training modality — advanced core, plyometric power, maximum cardio conditioning, heavy strength work, and comprehensive mobility. This plan is for athletes who want to finish their school career at the very peak of their physical capabilities. Everything we do here is in service of your final season. Give it everything.",
     "durationWeeks": 2,
     "sessionsPerWeek": 6,
     "workouts": [
@@ -2053,7 +2053,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Wed",
         "name": "Advanced Upper Body and Core",
-        "description": "Upper body and posterior chain at maximum training load. Complete 5 rounds of: 15 Push Ups (4 seconds down, explosive up), 60-second Plank, 15 Dead Bugs each side (perfect form — no compromise), 15 V-Ups, 12 Superman holds for 3 seconds each. Between rounds: 10 Thoracic Rotations each side and 15 Squat Jumps. Rest 40 seconds between rounds. After 5 rounds, complete a full Foam Rolling session if available (or substitute with a comprehensive 15-minute stretch). Every rep of this session strengthens the body control and stability systems that make you a precise, powerful HPV racer.",
+        "description": "Upper body and posterior chain at maximum training load. Complete 5 rounds of: 15 Push Ups (4 seconds down, explosive up), 60-second Plank, 15 Dead Bugs each side (perfect form — no compromise), 15 V-Ups, 12 Superman holds for 3 seconds each. Between rounds: 10 Thoracic Rotations each side and 15 Squat Jumps. Rest 40 seconds between rounds. After 5 rounds, complete a full Foam Rolling session if available (or substitute with a comprehensive 15-minute stretch). Every rep of this session strengthens the body control and stability systems that make you a precise, powerful HPR racer.",
         "duration": 30,
         "intensity": "moderate",
         "videoUrl": "https://www.youtube.com/watch?v=SsFM4Oc0RVE"
@@ -2062,7 +2062,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Fri",
         "name": "Elite Year 12 Finale",
-        "description": "This is it — your final elite training session of the fortnight and the peak of your school HPV athletic career. Complete 5 rounds of: 25 Squats, 15 Push Ups, 15 Glute Bridges single-leg, 20 Flutter Kicks for 35 seconds, 60-second Plank, 15 Split Squats each leg, 15 Calf Raises each leg, 15 V-Ups, 12 Tuck Jumps, 10 Burpees. Active rest: 65-second Wall Sit. Rest 75 seconds. Finish with 3 maximum-effort rounds of 50-second Burpees and 50-second rest. Then a thorough 15-minute stretch. When you finish this session, know that you have prepared as well as any school HPV athlete in Victoria. What you built in this room — right here, on this floor — is what carries you across that finish line first. Go get it.",
+        "description": "This is it — your final elite training session of the fortnight and the peak of your school HPR athletic career. Complete 5 rounds of: 25 Squats, 15 Push Ups, 15 Glute Bridges single-leg, 20 Flutter Kicks for 35 seconds, 60-second Plank, 15 Split Squats each leg, 15 Calf Raises each leg, 15 V-Ups, 12 Tuck Jumps, 10 Burpees. Active rest: 65-second Wall Sit. Rest 75 seconds. Finish with 3 maximum-effort rounds of 50-second Burpees and 50-second rest. Then a thorough 15-minute stretch. When you finish this session, know that you have prepared as well as any school HPR athlete in Victoria. What you built in this room — right here, on this floor — is what carries you across that finish line first. Go get it.",
         "duration": 45,
         "intensity": "hard",
         "videoUrl": "https://www.youtube.com/watch?v=TU8QYVW0gDU"
@@ -2118,7 +2118,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "Rowing Machine Basics",
-        "description": "The rowing machine is one of the best tools for HPV racers - it builds leg power and back strength at the same time. Today we focus on the catch-drive-finish-recover sequence, keeping your strokes smooth and controlled. Start with your legs, then lean back, then pull the handle to your lower ribs.",
+        "description": "The rowing machine is one of the best tools for HPR racers - it builds leg power and back strength at the same time. Today we focus on the catch-drive-finish-recover sequence, keeping your strokes smooth and controlled. Start with your legs, then lean back, then pull the handle to your lower ribs.",
         "duration": 30,
         "intensity": "easy",
         "exercises": [
@@ -2144,7 +2144,7 @@ export const ALL_PLANS = [
             "reps": "12",
             "duration": null,
             "resistance": "Bodyweight only",
-            "notes": "Hold a wall for balance. Rise up slowly, lower slowly. Great for ankle strength on the HPV."
+            "notes": "Hold a wall for balance. Rise up slowly, lower slowly. Great for ankle strength on the HPR."
           },
           {
             "name": "Hip Flexor Stretch",
@@ -2161,7 +2161,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Spin Bike: Cadence Focus",
-        "description": "Welcome back! This week we add a little more time and start playing with cadence - that is how fast your legs spin. Faster cadence with low resistance trains the same leg speed you use inside the HPV. Keep the resistance light and focus on spinning smoothly without bouncing in the seat.",
+        "description": "Welcome back! This week we add a little more time and start playing with cadence - that is how fast your legs spin. Faster cadence with low resistance trains the same leg speed you use inside the HPR. Keep the resistance light and focus on spinning smoothly without bouncing in the seat.",
         "duration": 30,
         "intensity": "easy",
         "exercises": [
@@ -2278,7 +2278,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y7",
     "tier": "average",
     "name": "Machine Room Foundations",
-    "description": "Ready to build some real HPV race fitness, team? This plan introduces you to the key machines you will use all season and starts building the leg strength and cardio base that wins races. We keep the effort easy-to-moderate so you are always safe and always improving.",
+    "description": "Ready to build some real HPR race fitness, team? This plan introduces you to the key machines you will use all season and starts building the leg strength and cardio base that wins races. We keep the effort easy-to-moderate so you are always safe and always improving.",
     "durationWeeks": 2,
     "sessionsPerWeek": 3,
     "workouts": [
@@ -2321,7 +2321,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Rowing + Leg Press Combo",
-        "description": "Today we pair two of the best HPV-specific exercises together. The rowing machine trains your whole-body power and your leg press builds the quad strength you need to push hard in the vehicle. Use controlled form on every rep - good technique now means better results and fewer injuries all season.",
+        "description": "Today we pair two of the best HPR-specific exercises together. The rowing machine trains your whole-body power and your leg press builds the quad strength you need to push hard in the vehicle. Use controlled form on every rep - good technique now means better results and fewer injuries all season.",
         "duration": 40,
         "intensity": "easy",
         "exercises": [
@@ -2364,7 +2364,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Fri",
         "name": "Elliptical and Core Circuit",
-        "description": "The elliptical is a great low-impact machine that mimics the cycling motion without any jarring on your joints. Today we pair it with a short core circuit because a strong core is what keeps you stable and powerful inside the HPV. Keep the elliptical effort easy and the core work slow and controlled.",
+        "description": "The elliptical is a great low-impact machine that mimics the cycling motion without any jarring on your joints. Today we pair it with a short core circuit because a strong core is what keeps you stable and powerful inside the HPR. Keep the elliptical effort easy and the core work slow and controlled.",
         "duration": 30,
         "intensity": "easy",
         "exercises": [
@@ -2524,7 +2524,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Rowing + Lower Body Strength",
-        "description": "This is our strength-focus day and we are going to work both the rower and the leg machines. The leg press and leg extension together cover the full quad-push pattern you use constantly in the HPV. Focus on tempo - slow down, push up - and never sacrifice form for more weight.",
+        "description": "This is our strength-focus day and we are going to work both the rower and the leg machines. The leg press and leg extension together cover the full quad-push pattern you use constantly in the HPR. Focus on tempo - slow down, push up - and never sacrifice form for more weight.",
         "duration": 45,
         "intensity": "moderate",
         "exercises": [
@@ -2743,7 +2743,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "Leg Press and Calf Raise",
-        "description": "Building leg strength is one of the most important things we can do for HPV racing performance. Today we start with the leg press - the machine version of a squat - using very light weight to learn the pattern. Every rep should be slow and controlled, and you should feel it in your quads and glutes.",
+        "description": "Building leg strength is one of the most important things we can do for HPR racing performance. Today we start with the leg press - the machine version of a squat - using very light weight to learn the pattern. Every rep should be slow and controlled, and you should feel it in your quads and glutes.",
         "duration": 30,
         "intensity": "easy",
         "exercises": [
@@ -2786,7 +2786,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Longer Spin Bike Ride",
-        "description": "This week we extend our spin bike session and start getting more comfortable riding at a consistent pace. Aerobic fitness is your most important asset as an HPV racer - the longer you can sustain a strong pace without blowing up, the better you perform on race day. Keep it steady and breathe.",
+        "description": "This week we extend our spin bike session and start getting more comfortable riding at a consistent pace. Aerobic fitness is your most important asset as an HPR racer - the longer you can sustain a strong pace without blowing up, the better you perform on race day. Keep it steady and breathe.",
         "duration": 40,
         "intensity": "easy",
         "exercises": [
@@ -2911,7 +2911,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y8",
     "tier": "average",
     "name": "Machine Fitness Builder",
-    "description": "Year 8, this plan is built to give you a proper fitness challenge while keeping everything sensible and safe. We are adding more machine variety and starting to build real HPV-specific strength and endurance. Stick to the plan, trust the process, and you will be flying by race day.",
+    "description": "Year 8, this plan is built to give you a proper fitness challenge while keeping everything sensible and safe. We are adding more machine variety and starting to build real HPR-specific strength and endurance. Stick to the plan, trust the process, and you will be flying by race day.",
     "durationWeeks": 2,
     "sessionsPerWeek": 3,
     "workouts": [
@@ -2997,7 +2997,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Sat",
         "name": "Elliptical Endurance + Step Ups",
-        "description": "The weekend session is our aerobic builder - a longer elliptical ride to keep pushing that cardio base up. Follow it with some step-ups to develop single-leg strength which directly translates to power delivery in the HPV. Keep everything steady and comfortable - no need to rush.",
+        "description": "The weekend session is our aerobic builder - a longer elliptical ride to keep pushing that cardio base up. Follow it with some step-ups to develop single-leg strength which directly translates to power delivery in the HPR. Keep everything steady and comfortable - no need to rush.",
         "duration": 30,
         "intensity": "easy",
         "exercises": [
@@ -3032,7 +3032,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Rowing Power Focus",
-        "description": "This week we go deeper on rowing - one of the most HPV-specific exercises you can do. We are adding structured intervals on the rower to train your power output. Each work interval should feel like you are driving out of a slow corner, and the rest gives you time to recover before you do it again.",
+        "description": "This week we go deeper on rowing - one of the most HPR-specific exercises you can do. We are adding structured intervals on the rower to train your power output. Each work interval should feel like you are driving out of a slow corner, and the rest gives you time to recover before you do it again.",
         "duration": 30,
         "intensity": "moderate",
         "exercises": [
@@ -3165,7 +3165,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Full Lower Body Machine Session",
-        "description": "Today is all about the legs - the most important thing in HPV racing. We work through leg press, leg extension, and leg curl in a circuit to hit the quads, hamstrings, and glutes from every angle. Use moderate weight, keep rest short, and stay focused on technique for all four rounds.",
+        "description": "Today is all about the legs - the most important thing in HPR racing. We work through leg press, leg extension, and leg curl in a circuit to hit the quads, hamstrings, and glutes from every angle. Use moderate weight, keep rest short, and stay focused on technique for all four rounds.",
         "duration": 45,
         "intensity": "moderate",
         "exercises": [
@@ -3216,7 +3216,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Fri",
         "name": "Rowing Intervals + Cable Woodchop",
-        "description": "Rowing intervals are one of the most powerful fitness tools we have, and today we pair them with cable woodchops to build the rotational core strength that keeps you stable and powerful in the HPV. On the rower, rate goes up during work periods - really drive those legs into the footplate.",
+        "description": "Rowing intervals are one of the most powerful fitness tools we have, and today we pair them with cable woodchops to build the rotational core strength that keeps you stable and powerful in the HPR. On the rower, rate goes up during work periods - really drive those legs into the footplate.",
         "duration": 30,
         "intensity": "moderate",
         "exercises": [
@@ -3384,7 +3384,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Rowing + Leg Press Combo",
-        "description": "This combo session is a classic for HPV racers. Rowing trains the full-body power you need for acceleration and the leg press builds the sustained quad strength for maintaining speed. Focus on a smooth rowing technique and a slow, controlled leg press movement - no bouncing at the bottom of the press.",
+        "description": "This combo session is a classic for HPR racers. Rowing trains the full-body power you need for acceleration and the leg press builds the sustained quad strength for maintaining speed. Focus on a smooth rowing technique and a slow, controlled leg press movement - no bouncing at the bottom of the press.",
         "duration": 45,
         "intensity": "moderate",
         "exercises": [
@@ -3427,7 +3427,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Fri",
         "name": "Elliptical and Core",
-        "description": "We end the week with an elliptical session to top up the aerobic work plus some core exercises that improve your stability in the HPV. The cable woodchop especially mimics the rotational forces you feel when steering - a strong core means you can put more power into pedaling and less into fighting the vehicle.",
+        "description": "We end the week with an elliptical session to top up the aerobic work plus some core exercises that improve your stability in the HPR. The cable woodchop especially mimics the rotational forces you feel when steering - a strong core means you can put more power into pedaling and less into fighting the vehicle.",
         "duration": 30,
         "intensity": "easy",
         "exercises": [
@@ -3462,7 +3462,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Mon",
         "name": "Spin Bike Tempo Effort",
-        "description": "This week we introduce a small tempo block on the bike - a period where you ride at a comfortably hard effort. Tempo riding is a key training tool for HPV racers because it trains your body to sustain a higher pace for longer. The resistance goes up slightly but so does the reward.",
+        "description": "This week we introduce a small tempo block on the bike - a period where you ride at a comfortably hard effort. Tempo riding is a key training tool for HPR racers because it trains your body to sustain a higher pace for longer. The resistance goes up slightly but so does the reward.",
         "duration": 30,
         "intensity": "moderate",
         "exercises": [
@@ -3505,7 +3505,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Thu",
         "name": "Leg Strength + Rowing Finish",
-        "description": "A great strength session to close out the fortnight. We add a bit more variety with leg curl alongside the leg press - balanced strength through the front and back of the leg is essential for healthy knees and optimal power output in the HPV. Finish with a solid rowing block to put the whole body to work.",
+        "description": "A great strength session to close out the fortnight. We add a bit more variety with leg curl alongside the leg press - balanced strength through the front and back of the leg is essential for healthy knees and optimal power output in the HPR. Finish with a solid rowing block to put the whole body to work.",
         "duration": 45,
         "intensity": "moderate",
         "exercises": [
@@ -3654,7 +3654,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Sat",
         "name": "Hard Day - Rowing Power Intervals",
-        "description": "This is our one hard session of the week and the rower is the perfect tool for it. Rowing intervals at race-level effort train your cardiovascular system and leg muscles to handle high-intensity demands. On each work interval, imagine you are in the HPV and the driver in front has just made a gap - push hard and close it!",
+        "description": "This is our one hard session of the week and the rower is the perfect tool for it. Rowing intervals at race-level effort train your cardiovascular system and leg muscles to handle high-intensity demands. On each work interval, imagine you are in the HPR and the driver in front has just made a gap - push hard and close it!",
         "duration": 30,
         "intensity": "hard",
         "exercises": [
@@ -3932,7 +3932,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Spin Bike Race Simulation",
-        "description": "Today we do a race simulation workout on the spin bike - structured to mimic the demands of an actual HPV race. We build through warm-up, steady race pace, a few race-pace surges, and a cool-down. Focus on maintaining cadence during the hard sections and recovering quickly during the easier parts.",
+        "description": "Today we do a race simulation workout on the spin bike - structured to mimic the demands of an actual HPR race. We build through warm-up, steady race pace, a few race-pace surges, and a cool-down. Focus on maintaining cadence during the hard sections and recovering quickly during the easier parts.",
         "duration": 45,
         "intensity": "hard",
         "exercises": [
@@ -3983,7 +3983,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Thu",
         "name": "Strength Progression + Cable Core",
-        "description": "We are finishing the fortnight with our strongest leg session yet. The loads go up, the reps stay the same - this is progressive overload, the foundation of all strength training. We add cable woodchops to finish, because a powerful core is what stops you wasting energy in the HPV vehicle. Form first, always.",
+        "description": "We are finishing the fortnight with our strongest leg session yet. The loads go up, the reps stay the same - this is progressive overload, the foundation of all strength training. We add cable woodchops to finish, because a powerful core is what stops you wasting energy in the HPR vehicle. Form first, always.",
         "duration": 30,
         "intensity": "moderate",
         "exercises": [
@@ -4089,7 +4089,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "Leg Strength Foundation",
-        "description": "A focused strength session targeting the major leg muscle groups used in HPV racing. We are progressing the loads at Year 10 - the leg press should feel genuinely challenging by the last set. Take the full rest periods between sets to ensure you can maintain quality on every rep.",
+        "description": "A focused strength session targeting the major leg muscle groups used in HPR racing. We are progressing the loads at Year 10 - the leg press should feel genuinely challenging by the last set. Take the full rest periods between sets to ensure you can maintain quality on every rep.",
         "duration": 45,
         "intensity": "moderate",
         "exercises": [
@@ -4140,7 +4140,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Sat",
         "name": "Elliptical and Core Power",
-        "description": "End the week with a quality aerobic session on the elliptical and some core work that specifically benefits HPV performance. The cable woodchop trains exactly the rotational stability you need when the vehicle wants to veer on a bend. Push the pace a little on the elliptical - you are Year 10 now!",
+        "description": "End the week with a quality aerobic session on the elliptical and some core work that specifically benefits HPR performance. The cable woodchop trains exactly the rotational stability you need when the vehicle wants to veer on a bend. Push the pace a little on the elliptical - you are Year 10 now!",
         "duration": 30,
         "intensity": "moderate",
         "exercises": [
@@ -4332,7 +4332,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Rowing + Full Leg Strength",
-        "description": "Wednesday is strength day and we come to play. The leg press, leg extension, and leg curl build the quad-hamstring power balance that is critical for both performance and injury prevention. The rowing intervals at the start train you to push hard under fatigue - exactly what the last lap of an HPV race demands.",
+        "description": "Wednesday is strength day and we come to play. The leg press, leg extension, and leg curl build the quad-hamstring power balance that is critical for both performance and injury prevention. The rowing intervals at the start train you to push hard under fatigue - exactly what the last lap of an HPR race demands.",
         "duration": 45,
         "intensity": "moderate",
         "exercises": [
@@ -4426,7 +4426,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Spin Bike Race Simulation",
-        "description": "Week 2 Tuesday is race simulation day - one of the most important sessions in this fortnight. We structure the ride to mimic actual HPV race demands: a hard sustained effort punctuated by acceleration surges when you are already at race pace. This is the session that directly prepares your body for competition.",
+        "description": "Week 2 Tuesday is race simulation day - one of the most important sessions in this fortnight. We structure the ride to mimic actual HPR race demands: a hard sustained effort punctuated by acceleration surges when you are already at race pace. This is the session that directly prepares your body for competition.",
         "duration": 30,
         "intensity": "hard",
         "exercises": [
@@ -4532,7 +4532,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y10",
     "tier": "intense",
     "name": "Machine Performance Y10",
-    "description": "This is where serious HPV athletes train. Year 10 Intense brings near-adult training volumes, progressive overload on all strength work, two genuinely hard sessions per week, and specific race-simulation protocols. You will need to manage your recovery carefully - sleep, nutrition, and rest days all count.",
+    "description": "This is where serious HPR athletes train. Year 10 Intense brings near-adult training volumes, progressive overload on all strength work, two genuinely hard sessions per week, and specific race-simulation protocols. You will need to manage your recovery carefully - sleep, nutrition, and rest days all count.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
@@ -4669,7 +4669,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Spin Bike Race Simulation - Advanced",
-        "description": "The most race-specific session in this plan. We build through a structured warm-up, hold race pace for a long sustained block, then unleash a series of race-level surges. Every component mirrors what your body goes through in an actual HPV race. Stay mentally strong when it gets hard - that is where the gains are.",
+        "description": "The most race-specific session in this plan. We build through a structured warm-up, hold race pace for a long sustained block, then unleash a series of race-level surges. Every component mirrors what your body goes through in an actual HPR race. Stay mentally strong when it gets hard - that is where the gains are.",
         "duration": 45,
         "intensity": "hard",
         "exercises": [
@@ -4869,7 +4869,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Fri",
         "name": "Elliptical + Core Power",
-        "description": "A solid aerobic session on the elliptical followed by targeted core work. At Year 11 the cable woodchop is a staple - we do more volume and at higher loads than lower year groups. A strong, stable core means all the power from your legs goes directly into the HPV pedals, not into twisting and fighting the vehicle.",
+        "description": "A solid aerobic session on the elliptical followed by targeted core work. At Year 11 the cable woodchop is a staple - we do more volume and at higher loads than lower year groups. A strong, stable core means all the power from your legs goes directly into the HPR pedals, not into twisting and fighting the vehicle.",
         "duration": 30,
         "intensity": "moderate",
         "exercises": [
@@ -4994,7 +4994,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y11",
     "tier": "average",
     "name": "Senior Machine Performance Y11",
-    "description": "Year 11 average tier is where most competitive HPV racers should be training. This plan features four sessions per week, near-adult training loads, one max-effort session per week, and specific periodization concepts that teach your body to perform when it counts. This is the real deal.",
+    "description": "Year 11 average tier is where most competitive HPR racers should be training. This plan features four sessions per week, near-adult training loads, one max-effort session per week, and specific periodization concepts that teach your body to perform when it counts. This is the real deal.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
@@ -5037,7 +5037,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Full Leg Power Session",
-        "description": "Maximum-quality leg training session today. We use the leg press, leg extension, leg curl, and calf raise at challenging weights with focused technique. The step-ups at the end train single-leg power which is critical for your individual contribution inside the HPV team. Every rep needs to be executed with intent.",
+        "description": "Maximum-quality leg training session today. We use the leg press, leg extension, leg curl, and calf raise at challenging weights with focused technique. The step-ups at the end train single-leg power which is critical for your individual contribution inside the HPR team. Every rep needs to be executed with intent.",
         "duration": 45,
         "intensity": "moderate",
         "exercises": [
@@ -5131,7 +5131,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Tue",
         "name": "Race Simulation Spin Bike",
-        "description": "Week 2 and we simulate a full race day on the spin bike. This session is structured to match the intensity profile of an HPV race: build-up, sustained race pace, acceleration surges, and a hard finish. Every element of this session has a purpose. Stay mentally engaged and treat every interval like it matters - because it does.",
+        "description": "Week 2 and we simulate a full race day on the spin bike. This session is structured to match the intensity profile of an HPR race: build-up, sustained race pace, acceleration surges, and a hard finish. Every element of this session has a purpose. Stay mentally engaged and treat every interval like it matters - because it does.",
         "duration": 45,
         "intensity": "hard",
         "exercises": [
@@ -5245,7 +5245,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y11",
     "tier": "intense",
     "name": "Elite Machine Training Y11",
-    "description": "This is elite-level training for Year 11 competitive HPV athletes. Five sessions per week, maximum training loads, two hard sessions weekly, and advanced periodization concepts including training blocks, overload weeks, and race-simulation protocols. Manage your recovery like a professional - sleep 8-9 hours and eat to fuel this volume.",
+    "description": "This is elite-level training for Year 11 competitive HPR athletes. Five sessions per week, maximum training loads, two hard sessions weekly, and advanced periodization concepts including training blocks, overload weeks, and race-simulation protocols. Manage your recovery like a professional - sleep 8-9 hours and eat to fuel this volume.",
     "durationWeeks": 2,
     "sessionsPerWeek": 5,
     "workouts": [
@@ -5347,7 +5347,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Thu",
         "name": "VO2max Rowing Intervals",
-        "description": "Thursday is VO2max day - the session that raises your oxygen ceiling and turns you into a faster, stronger HPV racer. These intervals hurt. They are supposed to hurt. Each one should be the highest effort you can sustain for 3 minutes. Track your split times on the rower display - they should stay consistent across all intervals.",
+        "description": "Thursday is VO2max day - the session that raises your oxygen ceiling and turns you into a faster, stronger HPR racer. These intervals hurt. They are supposed to hurt. Each one should be the highest effort you can sustain for 3 minutes. Track your split times on the rower display - they should stay consistent across all intervals.",
         "duration": 30,
         "intensity": "hard",
         "exercises": [
@@ -5409,7 +5409,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Wed",
         "name": "Race Simulation - Full Protocol",
-        "description": "Week 2 brings our full race simulation protocol - the most specific session in this entire plan. We build through every phase of a race: warm-up, early race pace, mid-race surges, late-race fatigue management, and a finish sprint. Every element has been designed to match HPV race demands. Execute it with race-day intensity.",
+        "description": "Week 2 brings our full race simulation protocol - the most specific session in this entire plan. We build through every phase of a race: warm-up, early race pace, mid-race surges, late-race fatigue management, and a finish sprint. Every element has been designed to match HPR race demands. Execute it with race-day intensity.",
         "duration": 45,
         "intensity": "hard",
         "exercises": [
@@ -5472,7 +5472,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y12",
     "tier": "basic",
     "name": "Final Year Machine Foundation Y12",
-    "description": "Year 12 - your final year of Victorian HPV racing and it is time to make it count. Even the basic tier at Year 12 uses full adult training loads and volumes. This plan builds a structured aerobic and strength base with progressive overload and race-specific work. Consistency this year equals results on race day.",
+    "description": "Year 12 - your final year of Victorian HPR racing and it is time to make it count. Even the basic tier at Year 12 uses full adult training loads and volumes. This plan builds a structured aerobic and strength base with progressive overload and race-specific work. Consistency this year equals results on race day.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
@@ -5515,7 +5515,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Wed",
         "name": "Full Leg Strength Session",
-        "description": "Strength day at Year 12 basic means real weights and real work. The leg press should feel genuinely challenging by the last set of every exercise. We train all the major leg muscle groups used in HPV racing: quads, hamstrings, calves, and hip flexors. Record your weights to track progression across the season.",
+        "description": "Strength day at Year 12 basic means real weights and real work. The leg press should feel genuinely challenging by the last set of every exercise. We train all the major leg muscle groups used in HPR racing: quads, hamstrings, calves, and hip flexors. Record your weights to track progression across the season.",
         "duration": 45,
         "intensity": "moderate",
         "exercises": [
@@ -5566,7 +5566,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Fri",
         "name": "Rowing Intervals + Core",
-        "description": "Friday brings rowing intervals to build your power and aerobic fitness together, plus a focused core circuit that directly supports HPV performance. The cable woodchop in particular builds the rotational stability that keeps you fast and efficient when you are fatigued. Quality reps over rushed reps every time.",
+        "description": "Friday brings rowing intervals to build your power and aerobic fitness together, plus a focused core circuit that directly supports HPR performance. The cable woodchop in particular builds the rotational stability that keeps you fast and efficient when you are fatigued. Quality reps over rushed reps every time.",
         "duration": 30,
         "intensity": "moderate",
         "exercises": [
@@ -5707,7 +5707,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y12",
     "tier": "average",
     "name": "Senior Race Machine Y12",
-    "description": "Year 12 average is full adult competitive training. Five sessions per week, maximum strength loads, two hard sessions weekly, and advanced race-simulation protocols. This is the plan that builds championship-level HPV fitness. Every session has a specific purpose in the training structure - execute each one as written.",
+    "description": "Year 12 average is full adult competitive training. Five sessions per week, maximum strength loads, two hard sessions weekly, and advanced race-simulation protocols. This is the plan that builds championship-level HPR fitness. Every session has a specific purpose in the training structure - execute each one as written.",
     "durationWeeks": 2,
     "sessionsPerWeek": 5,
     "workouts": [
@@ -5715,7 +5715,7 @@ export const ALL_PLANS = [
         "week": 1,
         "day": "Mon",
         "name": "Threshold Intervals - Spin Bike",
-        "description": "Monday begins with threshold intervals - the single most important aerobic training tool for HPV racing. We do four rounds of 10-minute blocks at your lactate threshold. Consistent effort on every interval builds a consistent race pace. Set the resistance so that each interval challenges you from the first pedal stroke to the last.",
+        "description": "Monday begins with threshold intervals - the single most important aerobic training tool for HPR racing. We do four rounds of 10-minute blocks at your lactate threshold. Consistent effort on every interval builds a consistent race pace. Set the resistance so that each interval challenges you from the first pedal stroke to the last.",
         "duration": 30,
         "intensity": "hard",
         "exercises": [
@@ -5843,8 +5843,8 @@ export const ALL_PLANS = [
       {
         "week": 2,
         "day": "Tue",
-        "name": "Race Simulation - Full HPV Protocol",
-        "description": "The most important session in this fortnight. We execute a complete race simulation on the spin bike that mirrors every phase of an HPV event. From the rolling start through race pace, tactical surges, late-race fatigue, and a full sprint finish. Treat this exactly like a race day - warm up properly, race smart, and give everything in the final two minutes.",
+        "name": "Race Simulation - Full HPR Protocol",
+        "description": "The most important session in this fortnight. We execute a complete race simulation on the spin bike that mirrors every phase of an HPR event. From the rolling start through race pace, tactical surges, late-race fatigue, and a full sprint finish. Treat this exactly like a race day - warm up properly, race smart, and give everything in the final two minutes.",
         "duration": 45,
         "intensity": "hard",
         "exercises": [
@@ -5966,7 +5966,7 @@ export const ALL_PLANS = [
     "yearLevel": "Y12",
     "tier": "intense",
     "name": "Championship Machine Training Y12",
-    "description": "This is championship-level HPV fitness training. Six sessions per week, full adult training loads, two max-effort sessions weekly, advanced periodization with overload and recovery weeks built into the structure, and the most sophisticated race-simulation protocol in the program. This plan is designed for athletes who want to win. Manage your recovery like a professional - it is half the training.",
+    "description": "This is championship-level HPR fitness training. Six sessions per week, full adult training loads, two max-effort sessions weekly, advanced periodization with overload and recovery weeks built into the structure, and the most sophisticated race-simulation protocol in the program. This plan is designed for athletes who want to win. Manage your recovery like a professional - it is half the training.",
     "durationWeeks": 2,
     "sessionsPerWeek": 5,
     "workouts": [
@@ -6130,7 +6130,7 @@ export const ALL_PLANS = [
         "week": 2,
         "day": "Wed",
         "name": "Race Simulation - Championship Protocol",
-        "description": "The pinnacle session of this entire training plan. A full championship-level race simulation on the spin bike that includes every element of an elite HPV race performance. Structured build-up, sustained race pace at the highest intensity, tactical attacking surges, fatigue management, and a race-finish sprint. Execute this with everything you have - this is your dress rehearsal for race day.",
+        "description": "The pinnacle session of this entire training plan. A full championship-level race simulation on the spin bike that includes every element of an elite HPR race performance. Structured build-up, sustained race pace at the highest intensity, tactical attacking surges, fatigue management, and a race-finish sprint. Execute this with everything you have - this is your dress rehearsal for race day.",
         "duration": 45,
         "intensity": "hard",
         "exercises": [

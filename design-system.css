@@ -298,20 +298,29 @@ button.user-avatar {
   flex-shrink: 0;
 }
 
-/* Avatar sizing — explicit so it can't inherit a stretched height from its
-   flex parent. */
+/* Avatar sizing — explicit dimensions on every axis so neither flex
+   stretching nor user-agent button styles can deform it into an oval.
+   width/height/min/max all locked, padding 0, line-height 1, overflow
+   hidden so any pseudo-content is clipped to the circle. */
 .user-avatar {
   width: 36px !important;
   height: 36px !important;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   font-weight: 700;
   font-size: 14px;
+  line-height: 1 !important;
   color: var(--primary-fg);
   background: var(--primary);
   border: none;
-  padding: 0;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden;
 }
 
 /* Sub-tab overflow guard — Race Day was clipping in the Coach tab because
