@@ -16,6 +16,11 @@
 //                           (developer.apple.com/account → Membership).
 //   APNS_BUNDLE_ID        — com.403productions.turboprep
 //   APNS_ENV              — "development" (sandbox) or "production".
+//   FIREBASE_PROJECT_ID   — already set; reused for admin SDK.
+//   FIREBASE_CLIENT_EMAIL — service-account email from the admin SDK JSON.
+//   FIREBASE_PRIVATE_KEY  — service-account private key. Newlines are stored
+//                           as literal "\n" (env vars can't hold raw newlines)
+//                           and unescaped at runtime.
 //
 // Once those are set, this function pulls the device tokens from
 // users/{uid}/devices/* and posts to Apple's APNs HTTP/2 endpoint.
@@ -25,12 +30,14 @@ const http2 = require('node:http2');
 const crypto = require('node:crypto');
 
 if (!admin.apps.length) {
-  // FIREBASE_SERVICE_ACCOUNT is the base-64-encoded service account JSON.
-  // Set it once in Netlify alongside the other env vars below.
-  const sa = process.env.FIREBASE_SERVICE_ACCOUNT
-    ? JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, 'base64').toString('utf8'))
-    : null;
-  if (sa) admin.initializeApp({ credential: admin.credential.cert(sa) });
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+  if (projectId && clientEmail && privateKey) {
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+    });
+  }
 }
 
 function makeApnsJwt() {

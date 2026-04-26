@@ -70,6 +70,9 @@ node_modules/
 # dotenv environment variables file
 .env
 
+# Netlify CLI local cache (functions bundle, plugin cache, link state)
+.netlify/
+
 # dataconnect generated files
 .dataconnect
 
