@@ -1041,34 +1041,36 @@ export function renderAdminTraining() {
   const past = sessions.filter(s => s.date < todayStr).sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time));
 
   let html = '';
-  // Create session form
-  html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px">
-    <div style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:10px">Schedule a Session</div>
-    <input class="input" id="ts-title" type="text" placeholder="Session title (e.g. After School Training)" value="" style="margin-bottom:6px;width:100%;font-size:13px">
-    <div style="display:flex;gap:6px;margin-bottom:6px">
-      <input class="input" id="ts-date" type="date" value="${todayStr}" style="flex:1;font-size:13px">
+  // Create session form — uses design-system inputs (16px font, full width,
+  // dark surface, borders) so nothing collides on narrow phones.
+  html += `<div class="card card-pad" style="margin-bottom:14px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:14px;font-weight:700;color:var(--fg)">Schedule a Session</div>
+    <input class="input" id="ts-title" type="text" placeholder="Session title (e.g. After School Training)">
+    <input class="input" id="ts-date" type="date" value="${todayStr}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div>
+        <label style="font-size:11px;color:var(--muted-fg);display:block;margin-bottom:4px">Start</label>
+        <input class="input" id="ts-time" type="time" value="15:45">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--muted-fg);display:block;margin-bottom:4px">End</label>
+        <input class="input" id="ts-end-time" type="time" value="17:00">
+      </div>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:6px">
-      <div style="flex:1"><label style="font-size:10px;color:var(--muted-fg)">Start</label><input class="input" id="ts-time" type="time" value="15:45" style="width:100%;font-size:13px"></div>
-      <div style="flex:1"><label style="font-size:10px;color:var(--muted-fg)">End</label><input class="input" id="ts-end-time" type="time" value="17:00" style="width:100%;font-size:13px"></div>
-    </div>
-    <input class="input" id="ts-location" type="text" placeholder="Location (e.g. School Oval, Gym)" value="" style="margin-bottom:6px;width:100%;font-size:13px">
-    <textarea class="input" id="ts-notes" placeholder="Notes for students (e.g. Bring helmet, floor session if raining)" style="margin-bottom:8px;width:100%;min-height:50px;resize:vertical;font-size:13px"></textarea>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-fg);cursor:pointer;flex:1">
-        <input type="checkbox" id="ts-repeat"> Repeat weekly
-      </label>
-      <select class="input" id="ts-repeat-weeks" style="width:auto;font-size:12px;padding:4px 8px">
-        <option value="4">4 weeks</option>
-        <option value="8" selected>8 weeks</option>
-        <option value="10">10 weeks (term)</option>
-        <option value="12">12 weeks</option>
-        <option value="20">20 weeks (semester)</option>
-      </select>
-    </div>
-    <div style="display:flex;gap:6px">
-      <button id="ts-save-btn" class="btn btn-primary" style="flex:1;font-size:13px;padding:10px">Add Session</button>
-    </div>
+    <input class="input" id="ts-location" type="text" placeholder="Location (e.g. School Oval, Gym)">
+    <textarea class="input" id="ts-notes" placeholder="Notes for students (e.g. Bring helmet, floor session if raining)"></textarea>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--fg);cursor:pointer">
+      <input type="checkbox" id="ts-repeat" style="width:18px;height:18px;accent-color:var(--primary)">
+      <span>Repeat weekly</span>
+    </label>
+    <select class="input" id="ts-repeat-weeks">
+      <option value="4">4 weeks</option>
+      <option value="8" selected>8 weeks</option>
+      <option value="10">10 weeks (term)</option>
+      <option value="12">12 weeks</option>
+      <option value="20">20 weeks (semester)</option>
+    </select>
+    <button id="ts-save-btn" class="btn btn-primary" style="margin-top:4px">Add Session</button>
   </div>`;
 
   // Upcoming sessions

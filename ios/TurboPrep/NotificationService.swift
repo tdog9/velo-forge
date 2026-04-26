@@ -19,6 +19,28 @@ import FirebaseFirestore
 ///     in Signing & Capabilities (Xcode adds entitlement aps-environment).
 ///   - You're running on a real device (simulators don't get APNs tokens).
 ///   - You have a paid Apple Developer account + APNs auth key.
+/// Foreground delegate so notifications display as banner+sound+badge
+/// even while the user is inside the app. Without this iOS swallows
+/// foreground pushes silently (background/lock-screen still work).
+final class TurboPrepNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = TurboPrepNotificationDelegate()
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .badge, .list])
+    }
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        // Tapping the notification clears the badge — opening the app means
+        // they've "seen" their alerts.
+        Task { @MainActor in
+            UIApplication.shared.applicationIconBadgeNumber = 0
+        }
+        completionHandler()
+    }
+}
+
 @MainActor
 enum NotificationService {
 
@@ -26,6 +48,7 @@ enum NotificationService {
     /// Safe to call multiple times — iOS only prompts once.
     static func requestAuthorization() async {
         let center = UNUserNotificationCenter.current()
+        center.delegate = TurboPrepNotificationDelegate.shared
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .badge, .sound])
             guard granted else {
@@ -36,6 +59,12 @@ enum NotificationService {
         } catch {
             print("⚠️ Notification authorization error: \(error.localizedDescription)")
         }
+    }
+
+    /// Clear the app icon badge — call when the user opens the in-app
+    /// announcements list / inbox so the count resets.
+    static func clearBadge() {
+        UIApplication.shared.applicationIconBadgeNumber = 0
     }
 
     /// Called from AppDelegate

@@ -5781,6 +5781,7 @@ function renderTeamTab(c) {
             ${renderCoachFeatureToggles()}
           </div>
         </div>
+        <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-add-cocoach-btn">Add Co-Coach</button>
         <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-manage-sub-btn">Manage Subteams</button>
         <button class="btn" style="width:100%;margin-bottom:8px;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" id="team-delete-btn">Delete Team</button>
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
@@ -5819,6 +5820,7 @@ function renderTeamTab(c) {
         } catch(e) { console.warn('feature toggle:', e); }
       });
     });
+    $('coach-add-cocoach-btn')?.addEventListener('click', openAddCoCoachSheet);
     $('coach-manage-sub-btn')?.addEventListener('click', openManageSubteamsSheet);
     $('team-delete-btn')?.addEventListener('click', deleteTeam);
     $('coach-start-rd')?.addEventListener('click', async () => {
@@ -6551,6 +6553,78 @@ function renderCoachFeatureToggles() {
 }
 
 // --- Manage Subteams ---
+function openAddCoCoachSheet() {
+  if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">Add Co-Coach</div>
+    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:12px">
+      Promote an existing team member to co-coach. They will get access to
+      Coach tabs and can manage students, but cannot delete the team.
+    </p>
+    <input class="input" id="cocoach-search" type="text" placeholder="Search by name or email…" autocomplete="off" style="margin-bottom:10px">
+    <div id="cocoach-results" style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto"></div>
+  `;
+  openSheet();
+  const renderResults = (q) => {
+    const ql = (q || '').toLowerCase().trim();
+    const candidates = teamMembers
+      .filter(m => m.uid !== currentUser?.uid)
+      .filter(m => !ql || (m.displayName || '').toLowerCase().includes(ql) || (m.email || '').toLowerCase().includes(ql))
+      .slice(0, 30);
+    const list = $('cocoach-results');
+    if (!list) return;
+    if (candidates.length === 0) {
+      list.innerHTML = `<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:12px">${ql ? 'No matches.' : 'No members in your team yet.'}</div>`;
+      return;
+    }
+    list.innerHTML = candidates.map(m => {
+      const already = m.isCoach || m.role === 'coach';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:10px">
+        <div class="user-avatar" style="background:var(--primary);color:var(--primary-fg);font-size:12px">${escHtml((m.displayName || m.email || '?').slice(0,1).toUpperCase())}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.displayName || 'Unknown')}</div>
+          <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.email || '')}</div>
+        </div>
+        ${already
+          ? '<span style="font-size:11px;font-weight:700;color:var(--primary);padding:6px 10px;border:1px solid rgba(249,115,22,.4);border-radius:999px">COACH</span>'
+          : `<button class="btn btn-primary cocoach-promote" data-uid="${m.uid}" style="padding:6px 12px;font-size:12px">Promote</button>`
+        }
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.cocoach-promote').forEach(btn => {
+      btn.addEventListener('click', () => promoteToCoach(btn.dataset.uid, btn));
+    });
+  };
+  renderResults('');
+  $('cocoach-search')?.addEventListener('input', e => renderResults(e.target.value));
+}
+
+async function promoteToCoach(uid, btn) {
+  if (!uid || !teamData?.id) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    if (!demoMode && db) {
+      await updateDoc(doc(db, 'users', uid), { isCoach: true });
+      const coaches = Array.isArray(teamData.coaches) ? teamData.coaches : [];
+      if (!coaches.includes(uid)) {
+        coaches.push(uid);
+        await updateDoc(doc(db, 'teams', teamData.id), { coaches });
+        teamData.coaches = coaches;
+      }
+    }
+    const member = teamMembers.find(m => m.uid === uid);
+    if (member) member.isCoach = true;
+    showToast('Promoted to coach.', 'success');
+    btn.replaceWith(Object.assign(document.createElement('span'), {
+      style: 'font-size:11px;font-weight:700;color:var(--primary);padding:6px 10px;border:1px solid rgba(249,115,22,.4);border-radius:999px',
+      textContent: 'COACH',
+    }));
+  } catch (e) {
+    showToast('Failed: ' + (e.message || e), 'error');
+    btn.disabled = false; btn.textContent = 'Promote';
+  }
+}
+
 function openManageSubteamsSheet() {
   const subteams = teamData?.subteams || [];
   $('sheet-content').innerHTML = `
@@ -7638,7 +7712,7 @@ function showInAppAnnouncementBanner(title, message) {
     setTimeout(() => b.remove(), 300);
   };
   b.querySelector('.tp-ann-banner-close').addEventListener('click', close);
-  setTimeout(close, 12000);
+  setTimeout(close, 8000);
 }
 
 function showAnnouncementNotification(title, message) {

@@ -138,12 +138,18 @@ exports.handler = async (event) => {
   if (tokens.length === 0) {
     return { statusCode: 200, body: JSON.stringify({ delivered: 0, reason: 'no devices' }) };
   }
-  // Construct APNs payload.
+  // Construct APNs payload. interruption-level "active" guarantees the
+  // notification appears on the lock screen (default lock-screen routing).
+  // badge:1 puts a red dot on the app icon — iOS shows the count when the
+  // user has unread alerts. The native NotificationService delegate on
+  // iOS increments/clears it as the user opens the app.
   const apnsPayload = {
     aps: {
       alert: { title, body },
       sound: 'default',
+      badge: 1,
       'mutable-content': 1,
+      'interruption-level': 'active',
     },
     ...data,
   };

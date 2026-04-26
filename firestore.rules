@@ -44,6 +44,15 @@ service cloud.firestore {
           'coachProActive', 'coachProExempt', 'coachProRequestStatus',
           'coachProGrantedAt', 'coachProGrantedBy', 'coachProRevokedAt'
         ])
+      ) || (
+        // Head coach of a team may flip isCoach on a member of that same
+        // team — the only field they can touch on someone else's profile.
+        // "Head coach" = the user who created the team document.
+        isSignedIn()
+        && resource.data.teamId is string
+        && request.auth.uid == get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.createdBy
+        && userId in get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.members
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isCoach'])
       );
 
       match /workouts/{workoutId} {
