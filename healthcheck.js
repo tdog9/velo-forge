@@ -40,7 +40,10 @@ function runUIChecks() {
     const s = getComputedStyle(el);
     return s.position==='fixed' && s.display!=='none' && el.offsetHeight>0 && el.offsetWidth>0;
   });
-  if (fixedVisible.length > 8) issues.push({ type:'z_stack_overflow', detail:`${fixedVisible.length} fixed elements visible` });
+  // App legitimately has ~12-15 fixed overlays (tab-bar, header, sheet,
+  // modal, profile, AI, timer, tracker, toast, loading, user menu, refresh,
+  // banner). Bumped from 8 to 18 — only flag truly excessive stacks.
+  if (fixedVisible.length > 18) issues.push({ type:'z_stack_overflow', detail:`${fixedVisible.length} fixed elements visible` });
 
   // Critical IDs missing
   ['main-app','content','tab-bar'].forEach(id => {
