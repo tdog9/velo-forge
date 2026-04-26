@@ -80,7 +80,7 @@ struct TodayPhaseEntry: TimelineEntry {
 
 // MARK: – Views
 
-private func accentColor(_ hex: String) -> Color {
+private func phaseColor(_ hex: String) -> Color {
     let h = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
     guard h.count == 6, let v = UInt32(h, radix: 16) else { return .orange }
     let r = Double((v >> 16) & 0xff) / 255
@@ -122,12 +122,12 @@ struct RectangularView: View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 4) {
                 Circle()
-                    .fill(accentColor(entry.snapshot.phaseAccent))
+                    .fill(phaseColor(entry.snapshot.phaseAccent))
                     .frame(width: 6, height: 6)
                 Text(entry.snapshot.phaseLabel)
                     .font(.system(size: 11, weight: .heavy))
                     .tracking(0.4)
-                    .foregroundStyle(accentColor(entry.snapshot.phaseAccent))
+                    .foregroundStyle(phaseColor(entry.snapshot.phaseAccent))
             }
             Text("\(entry.snapshot.daysOut)d to \(entry.snapshot.raceShortName)")
                 .font(.system(.body, weight: .heavy))

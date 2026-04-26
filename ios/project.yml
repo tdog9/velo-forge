@@ -100,7 +100,7 @@ targets:
       - path: TurboPrepWatchComplication
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.403productions.turboprep.watchkitapp.complication
+        PRODUCT_BUNDLE_IDENTIFIER: com.403productions.turboprep.watchkitapp.tpwidget
         SKIP_INSTALL: YES
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: TurboPrepWatchComplication/Info.plist

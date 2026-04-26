@@ -375,6 +375,7 @@ input,select,textarea{
   -webkit-tap-highlight-color:transparent;
 }
 .admin-section{display:none}
+.admin-section.active{display:block}
 
 /* ===== Toggle Switch ===== */
 .admin-toggle{
