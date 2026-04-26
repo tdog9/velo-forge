@@ -132,16 +132,54 @@
  * 2. PATCHES — bring legacy components into the system.
  * ========================================================================= */
 
-/* Auth screens — reduce vertical stretch with login down to 3 fields. The
-   identity block sits at the top of the visible area instead of being
-   centered, so the form doesn't float in negative space on iPhone Pro Max. */
+/* Auth screens — login is 3 fields after removing club select, so we no
+   longer need to center vertically (left lots of empty space). Identity
+   block sits at top, card sits just below, switch link at bottom. */
 .auth-screen {
   justify-content: flex-start;
-  padding-top: max(var(--ds-space-12), env(safe-area-inset-top));
-  gap: var(--ds-space-6);
+  padding: max(var(--ds-space-10), env(safe-area-inset-top))
+           var(--ds-space-5)
+           var(--ds-space-6);
+  gap: var(--ds-space-5);
 }
-.auth-card  { padding: var(--ds-space-5); }
-.form-group { margin-bottom: var(--ds-space-3); }
+/* Both .auth-form (legacy) and .auth-card (current) target the same widget
+   in different parts of the codebase. Patch both so refactor risk is zero. */
+.auth-form,
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  padding: var(--ds-space-5);
+  border-radius: var(--ds-radius-lg);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+}
+/* Form-group margin pre-existed; now we use the card's flex gap instead so
+   spacing is uniform top-to-bottom and the last child has no trailing space. */
+.auth-card .form-group,
+.auth-form .form-group { margin-bottom: 0; }
+.auth-card .input,
+.auth-form .input,
+.input { box-sizing: border-box; width: 100%; }
+/* Identity sits centred above the card. Tighten gap so wordmark + tagline
+   feel like one unit instead of two stacked elements. */
+.auth-identity { gap: var(--ds-space-1); margin-bottom: 0; }
+.auth-logo, .auth-logo-mark { display: none; }  /* wordmark carries brand */
+.auth-wordmark, .auth-wordmark-2 {
+  font-size: var(--ds-text-2xl);
+  letter-spacing: .08em;
+}
+.auth-tagline {
+  font-size: var(--ds-text-sm);
+  color: var(--muted-fg);
+  letter-spacing: .02em;
+}
+/* Auth switch link — nudge spacing so it visually belongs to the card group. */
+.auth-switch { margin-top: 0; padding-top: var(--ds-space-1); }
+/* Login/signup primary button always full width inside the card. */
+.auth-card .btn-primary,
+.auth-form .btn-primary { width: 100%; margin-top: var(--ds-space-1); }
 
 /* Inputs — 16px font (already set globally for iOS zoom) plus uniform
    border + transition so focus is visibly snappy. */
