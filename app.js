@@ -7650,7 +7650,37 @@ async function requestNotificationPermission() {
   const result = await Notification.requestPermission();
   return result === 'granted';
 }
+function showInAppAnnouncementBanner(title, message) {
+  let b = document.getElementById('tp-ann-banner');
+  if (b) b.remove();
+  b = document.createElement('div');
+  b.id = 'tp-ann-banner';
+  b.setAttribute('role', 'alert');
+  b.setAttribute('aria-live', 'assertive');
+  b.innerHTML = `
+    <div class="tp-ann-banner-inner">
+      <div class="tp-ann-banner-icon">📣</div>
+      <div class="tp-ann-banner-text">
+        <div class="tp-ann-banner-title">${escHtml(title || 'Announcement')}</div>
+        <div class="tp-ann-banner-msg">${escHtml(message || '')}</div>
+      </div>
+      <button class="tp-ann-banner-close" aria-label="Dismiss">×</button>
+    </div>`;
+  document.body.appendChild(b);
+  requestAnimationFrame(() => b.classList.add('show'));
+  const close = () => {
+    b.classList.remove('show');
+    setTimeout(() => b.remove(), 300);
+  };
+  b.querySelector('.tp-ann-banner-close').addEventListener('click', close);
+  setTimeout(close, 12000);
+}
+
 function showAnnouncementNotification(title, message) {
+  // Always render an in-app banner (works inside WKWebView where the
+  // Notification API is stripped). Try haptic so it feels like a real ping.
+  showInAppAnnouncementBanner(title, message);
+  try { window.tpNative?.haptic?.('medium'); } catch(e) {}
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   // Prefer service worker showNotification (required for iOS PWA)
   if (navigator.serviceWorker && navigator.serviceWorker.ready) {

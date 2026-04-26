@@ -183,12 +183,98 @@
 .auth-card .btn-primary,
 .auth-form .btn-primary { width: 100%; margin-top: var(--ds-space-1); }
 
-/* Inputs — 16px font (already set globally for iOS zoom) plus uniform
-   border + transition so focus is visibly snappy. */
-.input {
+/* Inputs — baseline so every .input (and bare textarea/select) reads
+   correctly. Sizing/border-radius applies in any theme; the dark-theme
+   surface fill is scoped to body:not(.light-theme) so light-theme inputs
+   keep their native white background instead of being forced to dark. */
+.input,
+input.input,
+textarea.input,
+select.input {
   border-radius: var(--ds-radius-sm);
+  padding: 10px 12px;
+  font-size: 16px;
+  width: 100%;
+  box-sizing: border-box;
   transition: border-color var(--ds-dur-fast) var(--ds-ease-out),
               background-color var(--ds-dur-fast) var(--ds-ease-out);
+}
+body:not(.light-theme) .input,
+body:not(.light-theme) input.input,
+body:not(.light-theme) textarea.input,
+body:not(.light-theme) select.input {
+  background-color: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border-strong);
+}
+body:not(.light-theme) .input::placeholder,
+body:not(.light-theme) input.input::placeholder,
+body:not(.light-theme) textarea.input::placeholder { color: var(--muted-fg); opacity: .8; }
+.input:focus,
+input.input:focus,
+textarea.input:focus,
+select.input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+textarea.input { min-height: 72px; resize: vertical; line-height: 1.4; }
+
+/* Sub-tab strips — edge masking so off-screen tabs fade out instead of
+   hard-clipping at the gutter. Page gutter is 16px (#main-app > #content
+   padding) so the strip's first/last tab sit flush against that edge.
+   mask-image keeps the gradient on the visible scroll area only. */
+.fitness-sub-bar,
+.admin-tabs,
+.lb-sub-tabs {
+  padding-left: 0;
+  padding-right: 0;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+}
+
+/* In-app announcement banner — slides down from the top with a bright
+   primary-tinted card so a new announcement is impossible to miss. */
+#tp-ann-banner {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  left: 50%;
+  transform: translate(-50%, -120%);
+  width: min(94vw, 460px);
+  z-index: 9999;
+  pointer-events: none;
+  transition: transform .32s var(--ds-ease-out, cubic-bezier(.2,.8,.2,1));
+}
+#tp-ann-banner.show { transform: translate(-50%, 0); pointer-events: auto; }
+#tp-ann-banner .tp-ann-banner-inner {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 12px 14px 14px;
+  background: linear-gradient(135deg, rgba(249,115,22,.18), rgba(234,106,10,.10)), var(--card);
+  border: 1px solid rgba(249,115,22,.55);
+  border-radius: var(--ds-radius-md);
+  box-shadow: 0 12px 32px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
+}
+#tp-ann-banner .tp-ann-banner-icon {
+  font-size: 22px; line-height: 1; flex-shrink: 0;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(249,115,22,.18);
+}
+#tp-ann-banner .tp-ann-banner-text { flex: 1; min-width: 0; }
+#tp-ann-banner .tp-ann-banner-title {
+  font-size: 14px; font-weight: 800; color: var(--primary);
+  margin-bottom: 2px; letter-spacing: .01em;
+}
+#tp-ann-banner .tp-ann-banner-msg {
+  font-size: 13px; line-height: 1.4; color: var(--fg);
+  word-break: break-word;
+}
+#tp-ann-banner .tp-ann-banner-close {
+  flex-shrink: 0; width: 28px; height: 28px;
+  border-radius: 50%; border: none;
+  background: rgba(0,0,0,.18); color: var(--fg);
+  font-size: 18px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: -2px;
 }
 
 /* Cards — soften the shadow and sync the radius to one of the 3 tokens. */

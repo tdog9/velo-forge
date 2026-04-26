@@ -20,7 +20,19 @@ struct TurboPrepApp: App {
                 .environmentObject(auth)
                 .task {
                     WatchWorkoutReceiver.install()
+                    // Prompt for push permission once at launch — system
+                    // remembers the answer so re-prompting on every launch
+                    // is safe (no double-sheet). Without this call iOS
+                    // never registers for remote notifications and no APNs
+                    // token ever lands in Firestore, so admin pushes go
+                    // nowhere.
+                    await NotificationService.requestAuthorization()
                     await NotificationService.flushPendingToken()
+                }
+                .onChange(of: auth.currentUser?.uid) { _, _ in
+                    // Re-flush whenever sign-in state flips, in case the
+                    // APNs token landed before the user authenticated.
+                    Task { await NotificationService.flushPendingToken() }
                 }
         }
     }
