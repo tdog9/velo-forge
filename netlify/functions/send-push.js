@@ -99,25 +99,41 @@ exports.handler = async (event) => {
   const isGodAdmin = decoded.email === 'hearn.tenny@icloud.com';
   let payload = {};
   try { payload = JSON.parse(event.body || '{}'); } catch (e) {}
-  const targetUid = String(payload.uid || '').trim();
-  if (!targetUid) return { statusCode: 400, body: 'Missing uid' };
-  if (!isGodAdmin && targetUid !== decoded.uid) {
-    return { statusCode: 403, body: 'Forbidden' };
-  }
+  const broadcast = payload.broadcast === true;
   const title = String(payload.title || 'TurboPrep').slice(0, 80);
   const body  = String(payload.body  || '').slice(0, 240);
   const data  = (payload.data && typeof payload.data === 'object') ? payload.data : {};
   if (!body) return { statusCode: 400, body: 'Missing body' };
-  // Look up the user's APNs tokens.
+
+  // Resolve target tokens. Broadcast mode (god-admin only) collects every
+  // iOS token across users/*/devices. Single-user mode targets one uid.
   let tokens = [];
-  try {
-    const snap = await admin.firestore().collection('users').doc(targetUid).collection('devices').get();
-    tokens = snap.docs
-      .map(d => d.data())
-      .filter(d => d.platform === 'ios' && d.apnsToken)
-      .map(d => d.apnsToken);
-  } catch (e) {
-    return { statusCode: 500, body: 'Token lookup failed: ' + e.message };
+  if (broadcast) {
+    if (!isGodAdmin) return { statusCode: 403, body: 'Broadcast forbidden' };
+    try {
+      const snap = await admin.firestore().collectionGroup('devices').get();
+      tokens = snap.docs
+        .map(d => d.data())
+        .filter(d => d.platform === 'ios' && d.apnsToken)
+        .map(d => d.apnsToken);
+    } catch (e) {
+      return { statusCode: 500, body: 'Broadcast token lookup failed: ' + e.message };
+    }
+  } else {
+    const targetUid = String(payload.uid || '').trim();
+    if (!targetUid) return { statusCode: 400, body: 'Missing uid' };
+    if (!isGodAdmin && targetUid !== decoded.uid) {
+      return { statusCode: 403, body: 'Forbidden' };
+    }
+    try {
+      const snap = await admin.firestore().collection('users').doc(targetUid).collection('devices').get();
+      tokens = snap.docs
+        .map(d => d.data())
+        .filter(d => d.platform === 'ios' && d.apnsToken)
+        .map(d => d.apnsToken);
+    } catch (e) {
+      return { statusCode: 500, body: 'Token lookup failed: ' + e.message };
+    }
   }
   if (tokens.length === 0) {
     return { statusCode: 200, body: JSON.stringify({ delivered: 0, reason: 'no devices' }) };

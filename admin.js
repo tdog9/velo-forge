@@ -909,6 +909,9 @@ export function renderAdminAnnouncements() {
     if (!message) { A.showToast('Enter a message.', 'warn'); return; }
     A.adminAnnouncements.unshift({ id: 'ann-' + Date.now(), title, message, active: true, createdAt: new Date().toISOString() });
     await saveAnnouncements();
+    // Fan out a push notification to every device. Best-effort — swallow
+    // errors so a failed broadcast doesn't block the announcement itself.
+    broadcastAnnouncementPush(title, message).catch(e => console.warn('broadcast push failed:', e));
     renderAdminAnnouncements();
   });
 
@@ -942,6 +945,27 @@ async function saveAnnouncements() {
     console.error('Save announcements error:', e);
     A.showToast('Failed to save.', 'error');
   }
+}
+
+// Broadcast a push notification to every user who has registered an iOS
+// device token. Calls the send-push Netlify function in broadcast mode;
+// the function itself enforces god-admin auth.
+async function broadcastAnnouncementPush(title, body) {
+  if (A.demoMode) return;
+  const auth = A.auth || (window.firebaseAuth);
+  const user = auth?.currentUser;
+  if (!user) return;
+  const idToken = await user.getIdToken();
+  await fetch('/.netlify/functions/send-push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+    body: JSON.stringify({
+      broadcast: true,
+      title: title || 'TurboPrep',
+      body: body || '',
+      data: { kind: 'announcement' },
+    }),
+  });
 }
 
 // --- TRAINING SESSIONS ---
