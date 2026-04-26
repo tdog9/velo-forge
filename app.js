@@ -5966,24 +5966,9 @@ async function renderProfile() {
     Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
   </div>
   <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--fg)">Option 2: Apple Shortcut (live HR during workouts)</strong><br>
-    Your coach shares a Shortcut link. Tap to add it, paste your token below. It auto-runs when you start an Apple Watch workout and syncs heart rate every 5 seconds. Steps and sleep sync daily at 8am.
+    <strong style="color:var(--fg)">Option 2: Apple Watch (built-in)</strong><br>
+    The TurboPrep iPhone app reads heart rate, steps, and sleep directly from HealthKit. Open the iOS app once and grant Health permission — the watch app picks it up automatically.
   </div>`;
-  if (syncToken) {
-    html += `<div style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
-      <div style="font-size:11px;font-weight:600;color:var(--fg);margin-bottom:4px">Your Sync Token</div>
-      <div style="font-size:11px;font-family:monospace;color:var(--primary);word-break:break-all;margin-bottom:4px">${escHtml(syncToken)}</div>
-      <div style="font-size:10px;color:var(--muted-fg);margin-bottom:6px">Paste this into your Apple Shortcut when prompted.</div>
-      <div style="display:flex;gap:6px;margin-bottom:6px">
-        <button id="copy-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--fg);cursor:pointer">Copy Token</button>
-        <button id="test-sync-token" style="flex:1;font-size:11px;padding:6px 10px;border-radius:6px;border:1px solid var(--primary);background:rgba(249,115,22,.1);color:var(--primary);cursor:pointer">Test Sync</button>
-      </div>
-      <button id="install-shortcut-workout" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#ef4444,#f87171);color:#fff;cursor:pointer;margin-bottom:6px">❤️ Install Workout Shortcut (live HR)</button>
-      <button id="install-shortcut-daily" style="width:100%;font-size:12px;font-weight:600;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;cursor:pointer">😴 Install Daily Sync (steps + sleep)</button>
-    </div>`;
-  } else {
-    html += `<button id="generate-sync-token" style="width:100%;padding:10px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);cursor:pointer;margin-bottom:8px">Generate Sync Token</button>`;
-  }
   // Show latest health data if available
   const health = userProfile?.health;
   if (health) {
@@ -6184,26 +6169,6 @@ async function renderProfile() {
       btn.style.color = '#ef4444';
     }
     setTimeout(() => { btn.textContent = 'Test Sync'; btn.disabled = false; btn.style.color = ''; btn.style.borderColor = ''; }, 5000);
-  });
-  $('install-shortcut-workout')?.addEventListener('click', () => {
-    const token = userProfile?.syncToken;
-    if (!token) return showToast('Generate a sync token first.', 'warn');
-    navigator.clipboard?.writeText(token).then(() => {
-      showToast('Token copied! Paste when the Shortcut asks for it.', 'success');
-    }).catch(() => {});
-    setTimeout(() => {
-      window.open('https://www.icloud.com/shortcuts/88fcd11cf7f5473eaf74d111df3b3d8c', '_blank');
-    }, 800);
-  });
-  $('install-shortcut-daily')?.addEventListener('click', () => {
-    const token = userProfile?.syncToken;
-    if (!token) return showToast('Generate a sync token first.', 'warn');
-    navigator.clipboard?.writeText(token).then(() => {
-      showToast('Token copied! Paste when the Shortcut asks for it.', 'success');
-    }).catch(() => {});
-    setTimeout(() => {
-      window.open('https://www.icloud.com/shortcuts/b38cfdbdd64f4aecbc495776cfe355ed', '_blank');
-    }, 800);
   });
   $('profile-redo-tutorial')?.addEventListener('click', () => {
     closeProfile();
@@ -7891,7 +7856,7 @@ function renderHealthTab() {
       <div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:12px">Connect your wearable to see heart rate, steps, and sleep data here with charts and trends.</div>
       <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;text-align:left;padding:10px;background:var(--bg);border-radius:8px;margin-bottom:8px">
         <strong style="color:var(--fg)">Option 1:</strong> Connect Strava in Profile — auto-imports workouts with heart rate<br><br>
-        <strong style="color:var(--fg)">Option 2:</strong> Apple Shortcut — ask your coach for the setup link. Syncs heart rate, steps, and sleep automatically.
+        <strong style="color:var(--fg)">Option 2:</strong> Open the TurboPrep iPhone app and grant Health permission — heart rate, steps, and sleep sync automatically from HealthKit.
       </div>
       <button class="btn btn-primary" id="health-go-profile" style="padding:10px 20px;font-size:13px">Go to Profile → Health Sync</button>
     </div>`;
@@ -8005,8 +7970,7 @@ function openHealthDashboard() {
   html += '<div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:6px">How to Sync</div>';
   html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px">
     <strong style="color:var(--fg)">Strava:</strong> Profile → Connect Strava<br>
-    <strong style="color:var(--fg)">Apple Watch:</strong> Coach shares a Shortcut link. Tap to add → paste your sync token → heart rate syncs automatically during workouts.<br>
-    <strong style="color:var(--fg)">Token:</strong> ${userProfile?.syncToken ? '<span style="font-family:monospace;color:var(--primary)">' + escHtml(userProfile.syncToken.substring(0, 12)) + '...</span>' : 'Generate in Profile → Health Sync'}
+    <strong style="color:var(--fg)">Apple Watch:</strong> Open the TurboPrep iPhone app once and grant Health permission. Heart rate, steps, and sleep sync automatically from HealthKit during workouts.
   </div>`;
   if (h.lastSync) html += `<div style="font-size:10px;color:var(--muted-fg)">Last sync: ${timeAgo(new Date(h.lastSync))}</div>`;
   $('sheet-content').innerHTML = html;
@@ -8368,7 +8332,7 @@ const TUTORIAL_STEPS = [
   {
     icon: '❤️', bg: 'linear-gradient(135deg,#ef4444,#f87171)',
     title: 'Health Sync — Apple Watch',
-    desc: 'For live heart rate during workouts: your coach shares an Apple Shortcut link. Tap to add it, paste your sync token from Profile → Health Sync. It auto-runs when you start an Apple Watch workout and sends heart rate every 5 seconds. Steps and sleep sync daily.',
+    desc: 'Open the TurboPrep iPhone app once and tap "Allow" when iOS asks for Health permission. The watch app then reads heart rate, steps, and sleep directly from HealthKit during your workouts — no extra setup.',
     highlight: null
   },
   {
