@@ -1,0 +1,245 @@
+/* TurboPrep Design System
+ *
+ * Loaded AFTER styles.css so tokens here override anything inconsistent
+ * upstream. Goal: every spacing/radius/elevation/transition value in
+ * the app maps to one of these tokens, so the UI looks like a single
+ * coherent product instead of a stack of one-off inline styles.
+ *
+ * Three layers:
+ *   1. Tokens (custom properties) — the design vocabulary
+ *   2. Primitives (.ds-*)        — bare building blocks (cards, rows,
+ *                                  buttons) that consume tokens
+ *   3. Patches                    — targeted overrides of legacy classes
+ *                                  to bring them in line with the system
+ *
+ * Anything in this file is the source of truth. If something else fights
+ * it, fix the upstream rule rather than weaken the token.
+ */
+
+:root {
+  /* ── Spacing scale: every margin, padding, and gap maps to 4px units */
+  --ds-space-0: 0;
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+  --ds-space-10: 40px;
+  --ds-space-12: 48px;
+
+  /* ── Radii: 3 levels, plus pill */
+  --ds-radius-sm: 8px;
+  --ds-radius-md: 12px;
+  --ds-radius-lg: 16px;
+  --ds-radius-pill: 999px;
+
+  /* ── Type scale */
+  --ds-text-xs:   11px;
+  --ds-text-sm:   13px;
+  --ds-text-base: 15px;
+  --ds-text-lg:   17px;
+  --ds-text-xl:   20px;
+  --ds-text-2xl:  24px;
+  --ds-text-3xl:  32px;
+  --ds-leading-tight: 1.2;
+  --ds-leading-snug:  1.35;
+  --ds-leading-normal:1.5;
+
+  /* ── Elevation: scrim → card → sheet → dialog */
+  --ds-elev-1: 0 1px 2px rgba(0,0,0,.18);
+  --ds-elev-2: 0 4px 12px rgba(0,0,0,.22);
+  --ds-elev-3: 0 12px 32px rgba(0,0,0,.34);
+  --ds-elev-pop: 0 8px 24px rgba(249,115,22,.18);
+
+  /* ── Motion: 3 standard durations + one easing */
+  --ds-dur-fast: 120ms;
+  --ds-dur-base: 180ms;
+  --ds-dur-slow: 280ms;
+  --ds-ease-out: cubic-bezier(.2,.8,.2,1);
+
+  /* ── Borders */
+  --ds-border-thin: 1px solid var(--border);
+  --ds-border-strong: 1px solid var(--border-strong);
+
+  /* ── Tap target floor (iOS HIG) */
+  --ds-touch: 44px;
+}
+
+/* ===========================================================================
+ * 1. PRIMITIVES — use these directly in templates.
+ * ========================================================================= */
+
+/* .ds-stack: vertical flow with consistent gap. */
+.ds-stack    { display: flex; flex-direction: column; gap: var(--ds-space-3); }
+.ds-stack-2  { gap: var(--ds-space-2); }
+.ds-stack-4  { gap: var(--ds-space-4); }
+.ds-stack-6  { gap: var(--ds-space-6); }
+
+/* .ds-row: horizontal flow, wraps on narrow viewports. */
+.ds-row      { display: flex; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; }
+.ds-row-tight{ gap: var(--ds-space-2); }
+.ds-row-end  { justify-content: flex-end; }
+.ds-spacer   { flex: 1; }
+
+/* .ds-surface: any content container — card-like, but unstyled by default. */
+.ds-surface {
+  background: var(--card);
+  border: var(--ds-border-thin);
+  border-radius: var(--ds-radius-md);
+  padding: var(--ds-space-4);
+}
+.ds-surface-lg { padding: var(--ds-space-5); border-radius: var(--ds-radius-lg); }
+
+/* .ds-pressable: any tap target. Hits the 44px floor, kills double-tap zoom,
+   and applies a quick scale-down on press for tactile feedback. */
+.ds-pressable {
+  min-height: var(--ds-touch);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--ds-dur-fast) var(--ds-ease-out),
+              opacity var(--ds-dur-fast) var(--ds-ease-out),
+              background-color var(--ds-dur-fast) var(--ds-ease-out);
+}
+.ds-pressable:active { transform: scale(.97); opacity: .9; }
+
+/* .ds-divider: a thin rule that respects safe spacing on either side. */
+.ds-divider { height: 1px; background: var(--border); margin: var(--ds-space-3) 0; }
+
+/* .ds-meta: muted secondary text — labels, timestamps, helpers. */
+.ds-meta {
+  font-size: var(--ds-text-xs);
+  color: var(--muted-fg);
+  line-height: var(--ds-leading-snug);
+}
+
+/* .ds-title-row: page-section heading paired with optional action. */
+.ds-title-row {
+  display: flex; align-items: baseline; gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-3);
+}
+.ds-title-row .ds-title {
+  font-size: var(--ds-text-xs); font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--muted-fg);
+}
+.ds-title-row .ds-spacer + .ds-action {
+  font-size: var(--ds-text-sm); font-weight: 600; color: var(--primary);
+}
+
+/* ===========================================================================
+ * 2. PATCHES — bring legacy components into the system.
+ * ========================================================================= */
+
+/* Auth screens — reduce vertical stretch with login down to 3 fields. The
+   identity block sits at the top of the visible area instead of being
+   centered, so the form doesn't float in negative space on iPhone Pro Max. */
+.auth-screen {
+  justify-content: flex-start;
+  padding-top: max(var(--ds-space-12), env(safe-area-inset-top));
+  gap: var(--ds-space-6);
+}
+.auth-card  { padding: var(--ds-space-5); }
+.form-group { margin-bottom: var(--ds-space-3); }
+
+/* Inputs — 16px font (already set globally for iOS zoom) plus uniform
+   border + transition so focus is visibly snappy. */
+.input {
+  border-radius: var(--ds-radius-sm);
+  transition: border-color var(--ds-dur-fast) var(--ds-ease-out),
+              background-color var(--ds-dur-fast) var(--ds-ease-out);
+}
+
+/* Cards — soften the shadow and sync the radius to one of the 3 tokens. */
+.card {
+  border-radius: var(--ds-radius-md);
+  transition: border-color var(--ds-dur-fast) var(--ds-ease-out);
+}
+.card-pad { padding: var(--ds-space-4); }
+
+/* Buttons — guarantee the touch floor and consistent radius. */
+.btn {
+  border-radius: var(--ds-radius-sm);
+  min-height: var(--ds-touch);
+  transition: transform var(--ds-dur-fast) var(--ds-ease-out),
+              background-color var(--ds-dur-fast) var(--ds-ease-out),
+              opacity var(--ds-dur-fast) var(--ds-ease-out);
+}
+.btn:active { transform: scale(.97); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* Modal scrim — lighter than before so the page behind is still legible.
+   This is the single source of truth for modal backgrounds; older inline
+   rgba(0,0,0,.6) styles in JS templates should migrate to .modal-overlay. */
+.modal-overlay {
+  background: rgba(0, 0, 0, .35);
+  animation: ds-fade-in var(--ds-dur-base) var(--ds-ease-out);
+}
+.modal-card {
+  border-radius: var(--ds-radius-lg);
+  padding: var(--ds-space-5);
+  box-shadow: var(--ds-elev-3);
+  animation: ds-pop-in var(--ds-dur-base) var(--ds-ease-out);
+}
+.tutorial-overlay { background: rgba(0, 0, 0, .5); }
+
+@keyframes ds-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ds-pop-in {
+  from { opacity: 0; transform: scale(.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0);  }
+}
+
+/* Sheets — same easing language as modals so transitions feel related. */
+.sheet { transition: transform var(--ds-dur-base) var(--ds-ease-out); }
+
+/* Empty-state — one canonical look anywhere it appears. */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: var(--ds-space-8) var(--ds-space-5); gap: var(--ds-space-2);
+}
+.empty-state-title {
+  font-size: var(--ds-text-base); font-weight: 700; color: var(--fg);
+  line-height: var(--ds-leading-snug);
+}
+.empty-state-desc {
+  font-size: var(--ds-text-sm); color: var(--muted-fg);
+  line-height: var(--ds-leading-normal); max-width: 320px;
+}
+
+/* Tab bar — slightly tighter padding on small phones so labels never wrap.
+   The icon + label stack still hits 44px touch through the icon's margin. */
+.tab-btn { min-height: var(--ds-touch); padding: 4px 2px; }
+.tab-btn-label {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+
+/* Sub-tab bar (fitness/coach/admin tab strips) — make active state read more
+   clearly, and tighten the inactive button so they don't compete. */
+.fitness-sub-tab.active {
+  background: var(--primary) !important;
+  color: var(--primary-fg) !important;
+}
+.fitness-sub-tab {
+  transition: background-color var(--ds-dur-fast) var(--ds-ease-out),
+              color var(--ds-dur-fast) var(--ds-ease-out);
+}
+
+/* Toasts — softer shadow, snappier enter. */
+.toast {
+  border-radius: var(--ds-radius-md);
+  box-shadow: var(--ds-elev-2);
+  animation: ds-toast-in var(--ds-dur-base) var(--ds-ease-out);
+}
+@keyframes ds-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduce motion — honor the system preference everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

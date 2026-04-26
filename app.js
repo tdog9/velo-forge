@@ -1731,13 +1731,28 @@ function renderCurrentPage() {
   try { initTimer(_ctx); }      catch(e) { console.warn('re-init timer:', e); }
   try { initAiFeatures(_ctx); } catch(e) { console.warn('re-init aifeatures:', e); }
   try { initRaceDay(_ctx); }    catch(e) { console.warn('re-init raceday:', e); }
+  // Each page render is wrapped so a thrown error in one tab can't blank the
+  // page silently — the user sees the failure and can screenshot it.
+  function safeRender(name, fn) {
+    try { fn(); }
+    catch(e) {
+      logError('render-' + name, e);
+      const target = $(name === 'admin' ? 'admin-content' : name === 'coach' ? 'coach-content' : 'content');
+      if (target) target.innerHTML = `<div class="empty-state" style="padding:32px 20px"><div class="empty-state-title">Couldn't load ${name}</div><div class="empty-state-desc" style="font-family:var(--font-mono);font-size:11px;color:#ef4444;margin-top:8px;word-break:break-word">${escHtml(e.message || String(e))}</div></div>`;
+    }
+  }
   switch(currentPage) {
-    case 'today': renderToday(); loadWeather(); break;
-    case 'fitness': renderFitness(); break;
-    case 'races': renderRaces(); renderRaceLog(); renderRaceDayHistory().catch(e => console.warn('raceday history:', e)); break;
-    case 'team': renderTeam(); break;
-    case 'admin': if (isAdmin) renderAdmin(); break;
-    case 'coach': renderCoachPage(); break;
+    case 'today': safeRender('today', () => { renderToday(); loadWeather(); }); break;
+    case 'fitness': safeRender('fitness', renderFitness); break;
+    case 'races': safeRender('races', () => { renderRaces(); renderRaceLog(); renderRaceDayHistory().catch(e => console.warn('raceday history:', e)); }); break;
+    case 'team': safeRender('team', renderTeam); break;
+    case 'admin':
+      if (!isAdmin) {
+        const ac = $('admin-content');
+        if (ac) ac.innerHTML = '<div class="empty-state" style="padding:32px 20px"><div class="empty-state-title">Admin Access Required</div><div class="empty-state-desc">Sign in with an admin account to view this tab.</div></div>';
+      } else safeRender('admin', renderAdmin);
+      break;
+    case 'coach': safeRender('coach', renderCoachPage); break;
   }
 }
 function renderFitness() {

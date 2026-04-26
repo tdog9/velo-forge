@@ -39,6 +39,10 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_NSHealthShareUsageDescription: "TurboPrep reads workouts and heart rate to personalise your training."
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: "TurboPrep logs completed HPV sessions to Apple Health."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "TurboPrep uses your location to log GPS workouts and verify race-day stints."
+        INFOPLIST_KEY_NSCameraUsageDescription: "Take a profile photo or attach an image to a race log."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Choose a profile photo or attach images to your race logs."
+        INFOPLIST_KEY_NSMotionUsageDescription: "Detect ride starts so workouts can auto-log."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: TurboPrep/TurboPrep.entitlements
     dependencies:

@@ -119,7 +119,10 @@ struct WebViewContainer: UIViewRepresentable {
             }
         }
 
-        // Open external links (mailto, tel, App Store) in Safari/system handler.
+        // Route navigation: same-origin stays in-app, system schemes open via
+        // UIApplication, external HTTP(S) links (race results, YouTube,
+        // Strava, etc.) open in Safari so the user has full browser chrome
+        // (back, share, AirDrop) instead of a captive WebView.
         func webView(_ webView: WKWebView,
                      decidePolicyFor navigationAction: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -131,7 +134,30 @@ struct WebViewContainer: UIViewRepresentable {
                 decisionHandler(.cancel)
                 return
             }
+            // External http(s) links — anything outside turboprep.app — open
+            // in Safari. Triggered by user taps (.linkActivated). Programmatic
+            // navigations and same-origin navs stay in-app.
+            if navigationAction.navigationType == .linkActivated,
+               let host = url.host?.lowercased(),
+               !host.contains("turboprep.app"),
+               (url.scheme == "http" || url.scheme == "https") {
+                UIApplication.shared.open(url)
+                decisionHandler(.cancel)
+                return
+            }
             decisionHandler(.allow)
+        }
+
+        // WKWebView creates new windows for target=_blank and window.open. Without
+        // this handler, those clicks silently do nothing. Route them through Safari.
+        func webView(_ webView: WKWebView,
+                     createWebViewWith configuration: WKWebViewConfiguration,
+                     for navigationAction: WKNavigationAction,
+                     windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if let url = navigationAction.request.url {
+                UIApplication.shared.open(url)
+            }
+            return nil
         }
 
         // Surface JS alerts as native iOS alerts so they look right on iPhone.
@@ -141,6 +167,37 @@ struct WebViewContainer: UIViewRepresentable {
                      completionHandler: @escaping () -> Void) {
             let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler() })
+            present(alert)
+        }
+
+        // confirm() — without this, JS confirm() calls return false silently
+        // and admin/coach actions that gate behind confirmation fail.
+        func webView(_ webView: WKWebView,
+                     runJavaScriptConfirmPanelWithMessage message: String,
+                     initiatedByFrame frame: WKFrameInfo,
+                     completionHandler: @escaping (Bool) -> Void) {
+            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(false) })
+            alert.addAction(UIAlertAction(title: "OK",     style: .default) { _ in completionHandler(true)  })
+            present(alert)
+        }
+
+        // prompt() — same idea, with a text field. Used by AI plan editor.
+        func webView(_ webView: WKWebView,
+                     runJavaScriptTextInputPanelWithPrompt prompt: String,
+                     defaultText: String?,
+                     initiatedByFrame frame: WKFrameInfo,
+                     completionHandler: @escaping (String?) -> Void) {
+            let alert = UIAlertController(title: nil, message: prompt, preferredStyle: .alert)
+            alert.addTextField { tf in tf.text = defaultText }
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(nil) })
+            alert.addAction(UIAlertAction(title: "OK",     style: .default) { _ in
+                completionHandler(alert.textFields?.first?.text)
+            })
+            present(alert)
+        }
+
+        private func present(_ alert: UIAlertController) {
             UIApplication.shared.connectedScenes
                 .compactMap { ($0 as? UIWindowScene)?.keyWindow?.rootViewController }
                 .first?.present(alert, animated: true)
