@@ -32,9 +32,19 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Any signed-in user may read profiles (leaderboards, team views).
-      // Writes are owner-only.
+      // Owner has full write. Admins may only update the coachPro*
+      // entitlement fields — used by the Pro Requests admin tab to grant
+      // or revoke Coach Pro on a specific user without the user having to
+      // re-sign-in for the change to take effect.
       allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      allow create, delete: if isOwner(userId);
+      allow update: if isOwner(userId) || (
+        isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'coachProActive', 'coachProExempt', 'coachProRequestStatus',
+          'coachProGrantedAt', 'coachProGrantedBy', 'coachProRevokedAt'
+        ])
+      );
 
       match /workouts/{workoutId} {
         allow read: if isSignedIn();
@@ -99,6 +109,14 @@ service cloud.firestore {
     match /global_settings/{docId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /coach_pro_requests/{uid} {
+      // Coach Pro upgrade requests. Doc ID = user uid so each user has at
+      // most one outstanding request. User creates/reads their own; admin
+      // reads all + flips status (approved/exempt/denied) on review.
+      allow read, create: if isOwner(uid);
+      allow read, update, delete: if isAdmin();
     }
   }
 }

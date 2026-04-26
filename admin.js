@@ -2329,12 +2329,18 @@ async function renderAdminRequests() {
     requests.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   } catch(e) { el.innerHTML = '<div style="padding:20px;color:#ef4444">Failed to load requests.</div>'; return; }
 
+  // Coach Pro requests render in the same admin tab. Render section first
+  // (its DOM is replaced by renderAdminCoachProRequests below) so admins
+  // see both queues stacked.
+  let proSectionHtml = '<div id="admin-coach-pro-requests"></div>';
+
   if (requests.length === 0) {
-    el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-state-title">No Requests</div><div class="empty-state-desc">No team creation requests yet.</div></div>';
+    el.innerHTML = '<div class="empty-state" style="padding:24px"><div class="empty-state-title">No Team Requests</div><div class="empty-state-desc">No team creation requests yet.</div></div>' + proSectionHtml;
+    renderAdminCoachProRequests();
     return;
   }
 
-  let html = '';
+  let html = '<div style="font-size:13px;font-weight:700;color:var(--muted-fg);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Team Requests</div>';
   requests.forEach(r => {
     const isPending = r.status === 'pending' || !r.status;
     const isApproved = r.status === 'approved';
@@ -2400,4 +2406,118 @@ async function renderAdminRequests() {
       }
     });
   });
+  // Inject Pro requests section *after* team requests render so they stack.
+  el.insertAdjacentHTML('beforeend', '<div id="admin-coach-pro-requests" style="margin-top:24px"></div>');
+  renderAdminCoachProRequests();
+}
+
+// ── Coach Pro Requests (admin sub-section inside Requests tab) ──────────────
+async function renderAdminCoachProRequests() {
+  const el = A.$('admin-coach-pro-requests');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:16px"><div class="spinner"></div></div>';
+  let reqs = [];
+  try {
+    const snap = await A.getDocs(A.collection(A.db, 'coach_pro_requests'));
+    reqs = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    // Pending first, then by request time desc.
+    const order = { pending: 0, approved_pending_payment: 1, exempt: 2, denied: 3 };
+    reqs.sort((a, b) => {
+      const oa = order[a.status] ?? 9;
+      const ob = order[b.status] ?? 9;
+      if (oa !== ob) return oa - ob;
+      const ta = a.requestedAt?.toMillis ? a.requestedAt.toMillis() : 0;
+      const tb = b.requestedAt?.toMillis ? b.requestedAt.toMillis() : 0;
+      return tb - ta;
+    });
+  } catch(e) {
+    el.innerHTML = '<div style="padding:16px;color:#ef4444;font-size:13px">Failed to load Coach Pro requests: ' + (e.message || '') + '</div>';
+    return;
+  }
+
+  let html = '<div style="font-size:13px;font-weight:700;color:var(--muted-fg);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Coach Pro Requests</div>';
+  if (reqs.length === 0) {
+    html += '<div class="empty-state" style="padding:24px"><div class="empty-state-desc">No Coach Pro requests yet.</div></div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  reqs.forEach(r => {
+    const status = r.status || 'pending';
+    const statusInfo = {
+      pending:                   { label: 'Pending',           color: '#f97316', bg: 'rgba(249,115,22,.15)' },
+      approved_pending_payment:  { label: 'Approved (billing)', color: '#3b82f6', bg: 'rgba(59,130,246,.15)' },
+      exempt:                    { label: 'Free (exempt)',     color: '#22c55e', bg: 'rgba(34,197,94,.15)' },
+      denied:                    { label: 'Denied',            color: '#9ca3af', bg: 'rgba(156,163,175,.15)' },
+    }[status] || { label: status, color: '#9ca3af', bg: 'rgba(156,163,175,.15)' };
+    const isPending = status === 'pending';
+    const requestedDate = r.requestedAt?.toDate ? r.requestedAt.toDate().toLocaleDateString() : '';
+    html += `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:15px;font-weight:700">${A.escHtml(r.displayName || r.email || r._id)}</div>
+            <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${A.escHtml(r.email || '')}${r.teamName ? ' · ' + A.escHtml(r.teamName) : ''}</div>
+            ${requestedDate ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Requested ${requestedDate}</div>` : ''}
+          </div>
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${statusInfo.bg};color:${statusInfo.color};white-space:nowrap">${statusInfo.label}</span>
+        </div>
+        ${isPending ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-primary" style="flex:1;min-width:140px;font-size:12px;padding:8px 10px" data-pro-approve-bill="${r._id}">Approve & Bill ($2.99/mo)</button>
+            <button class="btn" style="flex:1;min-width:100px;font-size:12px;padding:8px 10px;background:rgba(34,197,94,.18);color:#22c55e;border:1px solid rgba(34,197,94,.4)" data-pro-grant-free="${r._id}">Grant Free</button>
+            <button class="btn" style="flex:1;min-width:80px;font-size:12px;padding:8px 10px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)" data-pro-deny="${r._id}">Deny</button>
+          </div>
+        ` : (status === 'exempt' || status === 'approved_pending_payment') ? `
+          <button class="btn" style="width:100%;font-size:12px;padding:8px;background:var(--surface);color:#ef4444;border:1px solid var(--border)" data-pro-revoke="${r._id}">Revoke Coach Pro</button>
+        ` : ''}
+      </div>
+    `;
+  });
+  el.innerHTML = html;
+
+  el.querySelectorAll('[data-pro-approve-bill]').forEach(btn => {
+    btn.addEventListener('click', () => updateCoachProRequest(btn.dataset.proApproveBill, 'approved_pending_payment', { active: false }));
+  });
+  el.querySelectorAll('[data-pro-grant-free]').forEach(btn => {
+    btn.addEventListener('click', () => updateCoachProRequest(btn.dataset.proGrantFree, 'exempt', { active: true, exempt: true }));
+  });
+  el.querySelectorAll('[data-pro-deny]').forEach(btn => {
+    btn.addEventListener('click', () => updateCoachProRequest(btn.dataset.proDeny, 'denied', { active: false }));
+  });
+  el.querySelectorAll('[data-pro-revoke]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('Revoke Coach Pro for this user? They will lose access to Pro features.')) return;
+      updateCoachProRequest(btn.dataset.proRevoke, 'denied', { active: false, revoke: true });
+    });
+  });
+}
+
+// Apply the admin's decision to both /coach_pro_requests/{uid} (status) and
+// /users/{uid} (entitlement flags so isCoachPro() flips immediately on the
+// user's next render). Permitted by firestore.rules:isAdmin().
+async function updateCoachProRequest(uid, status, opts) {
+  const wantsActive = !!opts?.active;
+  const wantsExempt = !!opts?.exempt;
+  const wantsRevoke = !!opts?.revoke;
+  try {
+    await A.updateDoc(A.doc(A.db, 'coach_pro_requests', uid), {
+      status,
+      reviewedAt: A.serverTimestamp(),
+    });
+    const userPatch = { coachProRequestStatus: status };
+    if (wantsActive) {
+      userPatch.coachProActive = true;
+      userPatch.coachProGrantedAt = A.serverTimestamp();
+      if (wantsExempt) userPatch.coachProExempt = true;
+    } else {
+      userPatch.coachProActive = false;
+      if (wantsRevoke) userPatch.coachProRevokedAt = A.serverTimestamp();
+    }
+    await A.updateDoc(A.doc(A.db, 'users', uid), userPatch);
+    A.showToast('Coach Pro: ' + status.replace(/_/g, ' '), 'success');
+    renderAdminCoachProRequests();
+  } catch(e) {
+    A.showToast('Update failed: ' + (e.message || 'unknown'), 'error');
+  }
 }
