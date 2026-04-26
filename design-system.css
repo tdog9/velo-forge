@@ -132,23 +132,25 @@
  * 2. PATCHES — bring legacy components into the system.
  * ========================================================================= */
 
-/* Auth screens — login is 3 fields after removing club select, so we no
-   longer need to center vertically (left lots of empty space). Identity
-   block sits at top, card sits just below, switch link at bottom. */
+/* Auth screens — vertically centred so the card sits in the middle of the
+   viewport instead of pinned to the top. min-height is the dynamic viewport
+   so it still scrolls if the signup form is tall. */
 .auth-screen {
-  justify-content: flex-start;
-  padding: max(var(--ds-space-10), env(safe-area-inset-top))
+  justify-content: center;
+  padding: max(var(--ds-space-6), env(safe-area-inset-top))
            var(--ds-space-5)
-           var(--ds-space-6);
+           max(var(--ds-space-6), env(safe-area-inset-bottom));
   gap: var(--ds-space-5);
 }
 /* Both .auth-form (legacy) and .auth-card (current) target the same widget
-   in different parts of the codebase. Patch both so refactor risk is zero. */
+   in different parts of the codebase. Patch both so refactor risk is zero.
+   Slightly larger max-width + roomier padding so the card feels solid on
+   modern phones (Pro/Plus/Ultra) without overflowing the smallest screens. */
 .auth-form,
 .auth-card {
   width: 100%;
-  max-width: 380px;
-  padding: var(--ds-space-5);
+  max-width: 440px;
+  padding: var(--ds-space-6) var(--ds-space-5);
   border-radius: var(--ds-radius-lg);
   box-sizing: border-box;
   display: flex;
