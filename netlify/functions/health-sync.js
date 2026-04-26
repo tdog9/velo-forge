@@ -1,18 +1,28 @@
 // Health Sync Webhook — writes via firebase-admin (bypasses Firestore rules).
 // ENV VARS:
-//   FIREBASE_SERVICE_ACCOUNT — JSON service account key (single-line, full JSON)
-//   HEALTH_SYNC_SECRET        — shared secret sent by client/Shortcut in request body
+//   FIREBASE_PROJECT_ID    — service-account project_id
+//   FIREBASE_CLIENT_EMAIL  — service-account client_email
+//   FIREBASE_PRIVATE_KEY   — service-account private_key (literal \n escaped)
+//   HEALTH_SYNC_SECRET     — shared secret sent by client in request body
 //
-// NOTE: the client currently hardcodes HEALTH_SYNC_SECRET in app.js, so this
-// secret is effectively public. Firestore security does NOT rely on it — rules
-// deny all unauthenticated access. The secret is only a cheap spam filter.
+// NOTE: HEALTH_SYNC_SECRET is hardcoded client-side, so it's effectively public.
+// Firestore security rules deny all unauthenticated access regardless; this
+// secret is only a cheap spam filter on the webhook.
 
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (raw) {
-    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+  if (projectId && clientEmail && privateKey) {
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+    });
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    admin.initializeApp({
+      credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+    });
   }
 }
 
@@ -36,7 +46,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'POST only' }) };
 
   if (!admin.apps.length) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase Admin not configured (set FIREBASE_SERVICE_ACCOUNT)' }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase Admin not configured (set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)' }) };
   }
 
   try {

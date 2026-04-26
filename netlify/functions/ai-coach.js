@@ -2,15 +2,30 @@
 // Uses Anthropic Claude API to answer training questions and generate plans.
 //
 // ENV VARS:
-//   ANTHROPIC_API_KEY         — Anthropic API key
-//   FIREBASE_SERVICE_ACCOUNT  — Firebase Admin service account JSON (for token verify + rate limits)
+//   ANTHROPIC_API_KEY      — Anthropic API key
+//   FIREBASE_PROJECT_ID    — service-account project_id
+//   FIREBASE_CLIENT_EMAIL  — service-account client_email
+//   FIREBASE_PRIVATE_KEY   — service-account private_key (newlines as literal \n,
+//                            unescaped at runtime). Split into 3 fields so the
+//                            combined env stays under AWS Lambda's 4KB limit
+//                            (the old single FIREBASE_SERVICE_ACCOUNT blob was
+//                            ~3.1KB on its own and broke deploys).
 
 const admin = require('firebase-admin');
 
 if (!admin.apps.length) {
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (raw) {
-    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+  if (projectId && clientEmail && privateKey) {
+    admin.initializeApp({
+      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+    });
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // Backwards-compat path for the legacy single-blob env var.
+    admin.initializeApp({
+      credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+    });
   }
 }
 
@@ -71,7 +86,7 @@ exports.handler = async (event) => {
 
   const API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!API_KEY) return { statusCode: 500, headers, body: JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }) };
-  if (!admin.apps.length) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase Admin not configured (set FIREBASE_SERVICE_ACCOUNT)' }) };
+  if (!admin.apps.length) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase Admin not configured (set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)' }) };
 
   const decoded = await verifyIdToken(event);
   if (!decoded) return { statusCode: 401, headers, body: JSON.stringify({ error: 'Sign in required' }) };
