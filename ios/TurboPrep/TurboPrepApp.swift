@@ -1,8 +1,10 @@
 import SwiftUI
+import UIKit
 
 @main
 struct TurboPrepApp: App {
     @StateObject private var auth = AuthService()
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
         FirebaseBootstrap.configure()
@@ -18,7 +20,26 @@ struct TurboPrepApp: App {
                 .environmentObject(auth)
                 .task {
                     WatchWorkoutReceiver.install()
+                    await NotificationService.flushPendingToken()
                 }
+        }
+    }
+}
+
+/// Routes APNs callbacks into NotificationService. Activated automatically
+/// when @UIApplicationDelegateAdaptor adopts it.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { @MainActor in
+            await NotificationService.handleRegistration(token: deviceToken)
+        }
+    }
+
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        Task { @MainActor in
+            NotificationService.handleRegistrationError(error)
         }
     }
 }

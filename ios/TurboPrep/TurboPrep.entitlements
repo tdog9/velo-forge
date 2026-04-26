@@ -14,5 +14,13 @@
 	<array>
 		<string>$(AppIdentifierPrefix)com.403productions.turboprep</string>
 	</array>
+	<!-- Push notifications. Flip to "production" once shipping via TestFlight
+	     or App Store. "development" works with the paid Dev account against
+	     APNs sandbox endpoint api.development.push.apple.com. -->
+	<key>aps-environment</key>
+	<string>development</string>
+	<!-- StoreKit / In-App Purchase doesn't need a separate entitlement; the
+	     capability is enabled automatically once the app is signed by a team
+	     enrolled in the Apple Developer Program. -->
 </dict>
 </plist>
