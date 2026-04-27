@@ -1071,8 +1071,9 @@ let plansTier = 'basic';
 let plansSearch = '';
 let customPlans = []; // user-created AI plans [{id, ...planData, createdBy, createdByName, shared}]
 // Team state
-let teamData = null; // {id, name, code, members:[]}
+let teamData = null; // {id, name, code, members:[], coaches, createdBy, subteams, features}
 let teamMembers = []; // [{uid, displayName, yearLevel, fitnessLevel, activePlanId, totalWorkouts, streak, checklistPct}]
+let teamUnsubscribe = null;  // onSnapshot disposer for live team updates
 let isAdmin = false;
 const ADMIN_EMAIL = 'hearn.tenny@icloud.com';
 // Coach Pro entitlement check. The god-admin always has Pro; everyone else
@@ -1397,6 +1398,7 @@ $('logout-btn')?.addEventListener('click', async () => {
     if (checklistUnsubscribe) { checklistUnsubscribe(); checklistUnsubscribe = null; }
     if (planOverridesUnsubscribe) { planOverridesUnsubscribe(); planOverridesUnsubscribe = null; }
     if (profileUnsubscribe) { clearInterval(profileUnsubscribe); profileUnsubscribe = null; }
+    if (teamUnsubscribe) { teamUnsubscribe(); teamUnsubscribe = null; }
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
     await signOut(auth);
     currentUser = null;
@@ -7003,6 +7005,7 @@ async function deleteTeam() {
   if (demoMode) {
     teamData = null; teamMembers = []; userProfile.teamId = null; userProfile.teamName = null;
     window._teamLbFilter = undefined;
+    if (teamUnsubscribe) { try { teamUnsubscribe(); } catch(e) {} teamUnsubscribe = null; }
     showToast('Team deleted.', 'info'); renderTeam(); return;
   }
   if (!db) return;
@@ -7117,7 +7120,21 @@ async function loadTeamData(forceRefresh=false) {
       teamData = null; teamMembers = []; return;
     }
     const td = teamSnap.data();
-    teamData = { id: teamSnap.id, name: td.name, code: td.code, members: td.members || [] };
+    // Include EVERY field the rest of the app reads — previously only
+    // {id,name,code,members} were spread, so on every page load we lost
+    // subteams/coaches/createdBy/features and the head-coach-only UI
+    // (Manage Subteams, Add Co-Coach, Race-Day controls) silently
+    // disappeared until the next manual write put them back in memory.
+    teamData = {
+      id: teamSnap.id,
+      name: td.name,
+      code: td.code,
+      members: td.members || [],
+      coaches: td.coaches || [],
+      createdBy: td.createdBy || null,
+      subteams: td.subteams || [],
+      features: td.features || {},
+    };
     // Load each member's data
     const today = new Date();
     const dateKey = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
@@ -7183,6 +7200,43 @@ async function loadTeamData(forceRefresh=false) {
     teamData = null;
     teamMembers = [];
   }
+  // Subscribe to live team-doc updates so new joiners + subteam changes +
+  // coach promotions show up in real time. Without this, the head coach
+  // only sees new members after the 5-min cache expires or a hard reload.
+  attachTeamLiveListener();
+}
+
+/// Attach (or re-attach) the live snapshot listener on teams/{teamId}.
+/// Reacts to `members[]` growth, subteam edits, coach promotions, etc.
+/// Drops the local cache so changes propagate immediately and re-renders
+/// the Team page if the user is viewing it.
+function attachTeamLiveListener() {
+  if (teamUnsubscribe) { try { teamUnsubscribe(); } catch(e) {} teamUnsubscribe = null; }
+  if (!db || !userProfile?.teamId) return;
+  try {
+    teamUnsubscribe = onSnapshot(doc(db, 'teams', userProfile.teamId), async (snap) => {
+      if (!snap.exists()) return;
+      const td = snap.data();
+      const prevMemberIds = new Set((teamData?.members) || []);
+      const nextMemberIds = td.members || [];
+      const newJoiners = nextMemberIds.filter(uid => !prevMemberIds.has(uid));
+      // Refresh the team-data shape (keeps subteams/coaches/etc. fresh).
+      teamData = {
+        id: snap.id, name: td.name, code: td.code,
+        members: nextMemberIds, coaches: td.coaches || [],
+        createdBy: td.createdBy || null, subteams: td.subteams || [],
+        features: td.features || {},
+      };
+      // If members actually changed, re-fetch member metadata + bust cache.
+      if (newJoiners.length > 0 || nextMemberIds.length !== prevMemberIds.size) {
+        try { localStorage.removeItem('tp_team_ts_' + snap.id); } catch(e) {}
+        try { await loadTeamData(true); } catch(e) {}
+      }
+      if (currentPage === 'team') renderTeam();
+    }, (err) => {
+      console.warn('team listener:', err);
+    });
+  } catch(e) { console.warn('attachTeamLiveListener:', e); }
 }
 // Utilities (escHtml, capitalize imported from state.js)
 // Find a plan by ID from built-in + custom plans

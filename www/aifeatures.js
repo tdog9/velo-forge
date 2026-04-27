@@ -161,7 +161,7 @@ export function startAiRacePrep() {
   aiMsg.className = 'ai-msg ai';
 
   if (upcoming.length === 0) {
-    aiMsg.textContent = 'No upcoming races found in your calendar. Ask your coach to add race dates, or tell me a date and I\'ll build a taper plan for it.';
+    aiMsg.textContent = 'No upcoming races found in your calendar. Ask your coach to add race dates, or tell me a date and I\'ll build a race prep plan for it.';
     messagesEl.appendChild(aiMsg);
     A.$('ai-input').dataset.racePrepMode = 'true';
     return;
@@ -210,8 +210,8 @@ export function generateRacePrepPlan(raceName, daysUntil) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      message: `Create a race preparation and taper plan for ${raceName} which is ${daysUntil} days away.`,
-      context: `RACE_PREP_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Race: ${raceName}, ${daysUntil} days away. Total workouts logged: ${A.userWorkouts.length}. Give a day-by-day taper plan that: 1) Reduces volume progressively 2) Maintains some intensity 3) Includes rest days before race 4) Gives race-day nutrition and warm-up advice. Be specific with exercises and durations.`
+      message: `Create a race preparation plan for ${raceName} which is ${daysUntil} days away.`,
+      context: `RACE_PREP_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Race: ${raceName}, ${daysUntil} days away. Total workouts logged: ${A.userWorkouts.length}. Give a day-by-day race prep plan that: 1) Reduces volume progressively in the final week 2) Maintains some intensity 3) Includes rest days before race 4) Gives race-day nutrition and warm-up advice. Be specific with exercises and durations.`
     })
   }).then(r => r.json()).then(data => {
     typingMsg.innerHTML = data.reply || 'Sorry, couldn\'t generate a race prep plan.';
@@ -390,7 +390,7 @@ export function renderSeasonPhase() {
     { name: 'Base Phase', months: [1, 2], color: '#3b82f6', icon: '🧱', desc: 'Build your aerobic foundation with steady, easy-moderate sessions.' },
     { name: 'Build Phase', months: [3, 4, 5], color: '#22c55e', icon: '📈', desc: 'Increase intensity. Add harder intervals and strength work.' },
     { name: 'Peak Phase', months: [6, 7, 8], color: '#f59e0b', icon: '⚡', desc: 'Highest training loads. Race-specific sessions and time trials.' },
-    { name: 'Race Phase', months: [9, 10], color: '#ef4444', icon: '🏁', desc: 'Taper for races. Maintain intensity but reduce volume.' }
+    { name: 'Race Phase', months: [9, 10], color: '#ef4444', icon: '🏁', desc: 'Race prep mode — maintain intensity, reduce volume the week before each race.' }
   ];
   const current = phases.find(p => p.months.includes(month)) || phases[0];
   const allPhaseNames = ['Off-Season', 'Base Phase', 'Build Phase', 'Peak Phase', 'Race Phase'];
