@@ -78,6 +78,7 @@ export async function activateRaceDay(raceId) {
     await ctx.setDoc(ctx.doc(ctx.db,'race_day',todayKey()),data);
     rdd={...rdd,...data};
     try { ctx.pushWatchState?.(); } catch(e) {}
+    try { updateRaceDayTabBar(true); } catch(e) {}
     return true;
   } catch(e) { console.warn('activateRaceDay:',e); return false; }
 }
@@ -387,6 +388,9 @@ function bindOverlay(ov) {
 }
 function showRdTab(ov,tab) {
   const c=ov.querySelector('#rd-content');
+  // Switching tabs invalidates the previous tab's polling intervals.
+  // Without this, stacking 10 tab-switches stacks 10 spectator polls.
+  if (spectatorInterval) { clearInterval(spectatorInterval); spectatorInterval=null; }
   if (tab==='roster') renderRoster(c);
   else if (tab==='stint') renderStintTab(c);
   else if (tab==='setup') renderSetup(c);
@@ -751,8 +755,8 @@ function onPos(pos) {
     const timeSinceLast=lastLapTime ? now-lastLapTime : now-stintStartTime;
     if (dist<LAP_THRESHOLD_M && timeSinceLast>20000) {
       const dur=lastLapTime ? now-lastLapTime : now-stintStartTime;
-      hapticFeedback('heavy');
-    stintLaps.push({time:now,duration:dur,lat,lng});
+      try { ctx.haptic?.('heavy'); } catch(e) {}
+      stintLaps.push({time:now,duration:dur,lat,lng});
       lastLapTime=now;
       ctx.showToast('🏁 Lap '+stintLaps.length+' — '+fmtMs(dur),'success');
       updateActive();

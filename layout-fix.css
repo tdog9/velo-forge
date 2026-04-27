@@ -860,8 +860,9 @@ body{
    ============================================================ */
 .modal-backdrop{
   background:rgba(0,0,0,.6) !important;
-  backdrop-filter:blur(6px);
-  -webkit-backdrop-filter:blur(6px);
+  /* Removed backdrop-filter — fullscreen blur was crashing iOS Safari
+     WKWebView (compositing the whole tree blew GPU memory on older
+     iPhones). Solid scrim already darkens the background enough. */
 }
 .modal-card{
   border-radius:16px !important;

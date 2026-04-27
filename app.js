@@ -548,7 +548,7 @@ async function generateAiWidget(extraContext) {
     };
     const triggerLine = extraContext?.reason ? `\nTrigger: ${extraContext.reason}` : '';
     const userMsg = `Generate ONE bespoke widget for my Today page. Reply with a SHORT message (1-2 sentences) AND a JSON tail like:\n<<WIDGET>>{ "kind": "tip|metric|warning|praise", "title": "5-7 word headline", "body": "1-2 sentence insight" }<<END>>${triggerLine}\nMy state:\n${JSON.stringify(promptContext)}`;
-    const resp = await aiCoachFetch({ messages: [{ role: 'user', content: userMsg }] });
+    const resp = await aiCoachFetch({ message: userMsg, context: 'WIDGET_GENERATION' });
     if (!resp.ok) throw new Error('AI coach unavailable');
     const data = await resp.json();
     const reply = (data.reply || data.text || data.message || '').toString();
@@ -5327,18 +5327,30 @@ function bindPlanSearchAndCards(c) {
       e.stopPropagation();
       const planId = btn.dataset.planId;
       if (!currentUser) return;
-      if (demoMode) { userProfile.activePlanId = planId; renderPlans(); renderToday(); return; }
+      const plan = findPlan(planId);
+      const planName = plan?.name || 'Plan';
+      if (demoMode) {
+        userProfile.activePlanId = planId;
+        renderPlans();
+        renderToday();
+        showToast('"' + planName + '" started — see Today.', 'success');
+        return;
+      }
       if (!db) return;
-      showLoading('Activating plan...');
+      showLoading('Starting plan...');
       try {
         await updateDoc(doc(db, 'users', currentUser.uid), { activePlanId: planId });
         userProfile.activePlanId = planId;
         hideLoading();
+        showToast('"' + planName + '" started — see Today.', 'success');
         renderPlans();
+        // Today shows the active plan card; refresh so the user sees the
+        // change immediately even if they're not on the Today tab right now.
+        try { renderToday(); } catch(e) {}
       } catch(e) {
         hideLoading();
         console.error('Activate plan error:', e);
-        showError('Failed to activate plan', 'plan', e, { action: 'activate' });
+        showError('Failed to start plan', 'plan', e, { action: 'activate' });
       }
     });
   });
@@ -5705,6 +5717,10 @@ async function loadGlobalLeaderboard() {
     const entries = [];
     for (const d of usersSnap.docs) {
       const u = d.data();
+      // Skip legacy VeloForge-era accounts that never joined a TurboPrep
+      // team — they crufted up the global leaderboard. Active TurboPrep
+      // users always have a teamId (or are admin/coach with intent).
+      if (!u.teamId && !u.isCoach && !u.isAdmin) continue;
       let wCount = 0;
       try {
         const wSnap = await getDocs(collection(db, 'users', d.id, 'workouts'));
@@ -6547,6 +6563,7 @@ async function createTeam() {
     userProfile.teamId = teamRef.id;
     userProfile.teamName = name;
     await loadTeamData();
+    try { attachTeamLiveListener(); } catch(e) {}
     hideLoading();
     showToast('Team "' + name + '" created! Share code: ' + code, 'success');
     lbSubTab = 'team';
@@ -6590,6 +6607,7 @@ async function joinTeam() {
     userProfile.teamId = tid;
     userProfile.teamName = tData.name;
     await loadTeamData();
+    try { attachTeamLiveListener(); } catch(e) {}
     hideLoading();
     showToast('Joined "' + tData.name + '"!', 'success');
     lbSubTab = 'team';
@@ -6760,6 +6778,7 @@ async function renderTeamSearchResults(container, query) {
         userProfile.teamId = teamId;
         userProfile.teamName = teamDoc.data().name;
         await loadTeamData();
+        try { attachTeamLiveListener(); } catch(e) {}
         hideLoading();
         showToast('Joined ' + teamDoc.data().name + '!', 'success');
         lbSubTab = 'team';
@@ -7200,10 +7219,6 @@ async function loadTeamData(forceRefresh=false) {
     teamData = null;
     teamMembers = [];
   }
-  // Subscribe to live team-doc updates so new joiners + subteam changes +
-  // coach promotions show up in real time. Without this, the head coach
-  // only sees new members after the 5-min cache expires or a hard reload.
-  attachTeamLiveListener();
 }
 
 /// Attach (or re-attach) the live snapshot listener on teams/{teamId}.
@@ -7702,7 +7717,13 @@ function startApp() {
       };
       const refresh = () => { try { (currentPageNeeds[currentPage] || (() => {}))(); } catch(e) {} };
       loadAnnouncements().then(refresh).catch(() => {});
-      loadTeamData().then(refresh).catch(() => {});
+      loadTeamData().then(() => {
+        // Attach the team live listener exactly once after the initial load,
+        // not from inside loadTeamData (which used to cause an attach→load→
+        // re-attach loop, racing the renderTeam call).
+        try { attachTeamLiveListener(); } catch(e) {}
+        refresh();
+      }).catch(() => {});
       loadUserRaceLogs().then(refresh).catch(() => {});
       if (isAdmin) loadAdminData().then(refresh).catch(() => {});
       // Non-critical bulk loads — defer 500ms, then refresh once when all done.
