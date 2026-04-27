@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Fitness tab — two sub-tabs (Today's plan, Done). Visually mirrors the
-/// web's Fitness page sub-tab pattern. Page-style swipe between sub-tabs
-/// keeps it native-feeling on the Watch.
+/// Fitness tab — sub-tabs (Today's plan, Done, Race-Day stints). Visually
+/// mirrors the web's Fitness page sub-tab pattern. Page-style swipe between
+/// sub-tabs keeps it native-feeling on the Watch. The Stints page shows
+/// completed race-day stints saved on-watch (works in standalone mode).
 struct WatchFitnessView: View {
     var body: some View {
         TabView {
@@ -10,8 +11,144 @@ struct WatchFitnessView: View {
                 .containerBackground(Theme.bg.gradient, for: .tabView)
             FitnessDoneView()
                 .containerBackground(Theme.bg.gradient, for: .tabView)
+            FitnessStintsView()
+                .containerBackground(Theme.bg.gradient, for: .tabView)
         }
         .tabViewStyle(.page)
+    }
+}
+
+private struct FitnessStintsView: View {
+    @EnvironmentObject private var state: WatchAppState
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("STINTS")
+                        .font(.system(size: 9, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.mutedFg)
+                    Spacer()
+                    if !state.pastStints.isEmpty {
+                        Button("Clear") { state.clearPastStints() }
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Theme.mutedFg)
+                            .buttonStyle(.plain)
+                    }
+                }
+                .padding(.top, 4)
+                .padding(.horizontal, 4)
+
+                if state.pastStints.isEmpty {
+                    ThemeCard {
+                        Text("Past stints appear here after you finish a race-day session.")
+                            .font(.system(.caption2))
+                            .foregroundStyle(Theme.mutedFg)
+                    }
+                } else {
+                    ForEach(state.pastStints) { stint in
+                        PastStintCard(stint: stint)
+                    }
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.bottom, 12)
+        }
+    }
+}
+
+private struct PastStintCard: View {
+    let stint: WatchPastStint
+    @State private var expanded: Bool = false
+
+    private static let dateFormat: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_AU")
+        f.dateFormat = "d MMM, h:mma"
+        return f
+    }()
+
+    var body: some View {
+        Button { expanded.toggle() } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(Self.dateFormat.string(from: stint.startedAt))
+                        .font(.system(.caption2, weight: .semibold))
+                        .foregroundStyle(Theme.fg)
+                    Spacer()
+                    Text("\(stint.laps.count) laps")
+                        .font(.system(.caption2))
+                        .foregroundStyle(Theme.mutedFg)
+                }
+                HStack(spacing: 6) {
+                    if let best = stint.bestLapSeconds {
+                        statPill(label: "BEST", value: format(best), color: Theme.primary)
+                    }
+                    if let avg = stint.avgLapSeconds {
+                        statPill(label: "AVG", value: format(avg), color: Theme.mutedFg)
+                    }
+                    statPill(label: "TOTAL", value: format(stint.durationSeconds), color: Theme.mutedFg)
+                }
+                if expanded {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(stint.laps) { lap in
+                            HStack {
+                                Text("L\(lap.number)")
+                                    .font(.system(.caption2, weight: .bold))
+                                    .foregroundStyle(Theme.mutedFg)
+                                    .frame(width: 26, alignment: .leading)
+                                Text(format(lap.durationSeconds))
+                                    .font(.system(.caption2, design: .rounded))
+                                    .monospacedDigit()
+                                    .foregroundStyle(Theme.fg)
+                                Spacer()
+                                if lap.durationSeconds == stint.bestLapSeconds {
+                                    Text("BEST")
+                                        .font(.system(size: 8, weight: .heavy))
+                                        .foregroundStyle(Theme.primary)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+            }
+            .padding(8)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                    .stroke(Theme.border, lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func statPill(label: String, value: String, color: Color) -> some View {
+        HStack(spacing: 3) {
+            Text(label)
+                .font(.system(size: 8, weight: .heavy))
+                .tracking(0.4)
+                .foregroundStyle(Theme.mutedFg)
+            Text(value)
+                .font(.system(.caption2, design: .rounded, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(color)
+        }
+        .padding(.vertical, 2)
+        .padding(.horizontal, 6)
+        .background(color.opacity(0.10))
+        .clipShape(Capsule())
+    }
+
+    private func format(_ s: TimeInterval) -> String {
+        let total = Int(s)
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let sec = total % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, sec) }
+        return String(format: "%d:%02d", m, sec)
     }
 }
 

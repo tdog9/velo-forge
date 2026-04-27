@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 
 /// Center "Record" tab. Behaviour:
 /// - Race-day mode active → big lap timer with tap-to-lap and live BPM.
@@ -114,6 +115,18 @@ struct RaceDayLapView: View {
     @State private var lapStartedAt: Date = Date()
     @State private var now: Date = Date()
     private let tick = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
+
+    /// When the most recent lap was recorded — used to anchor the current-lap
+    /// timer to either the stint start (lap 1) or the last completed lap.
+    private var lapAnchor: Date {
+        // If we have a recorded lap, the current lap started right after the
+        // last recorded lap's `recordedAt`. Otherwise it starts at the stint
+        // start (so lap 1's timer counts from when race-day activated).
+        if let mostRecent = state.raceDayLaps.first {
+            return mostRecent.recordedAt
+        }
+        return state.raceDayStartedAt ?? Date()
+    }
 
     var body: some View {
         ScrollView {
@@ -241,12 +254,16 @@ struct RaceDayLapView: View {
     }
 
     private func recordLap() {
-        let dur = Date().timeIntervalSince(lapStartedAt)
+        let dur = Date().timeIntervalSince(lapAnchor)
         state.recordLap(durationSeconds: dur)
-        lapStartedAt = Date()
+        WKInterfaceDevice.current().play(.success)
     }
 
     private func finishStint() {
+        // Always archive locally first so the athlete can review the laps
+        // afterwards even in standalone mode (no iPhone listening).
+        state.archiveCurrentStint()
+        // Best-effort upstream push — only delivers if iPhone bridge is up.
         let payload: [String: Any] = [
             "stintEndedAt": Date().timeIntervalSince1970,
             "stintStartedAt": (state.raceDayStartedAt ?? Date()).timeIntervalSince1970,
@@ -259,12 +276,14 @@ struct RaceDayLapView: View {
             },
         ]
         ConnectivityService.shared.sendRaceDayLaps(payload)
+        // Clear in-progress stint state (history is preserved in pastStints).
         state.raceDayLaps.removeAll()
-        lapStartedAt = Date()
+        state.raceDayActive = false
+        state.raceDayStartedAt = nil
     }
 
     private var currentLapText: String {
-        format(now.timeIntervalSince(lapStartedAt))
+        format(now.timeIntervalSince(lapAnchor))
     }
 
     private var bestLapSeconds: TimeInterval? {

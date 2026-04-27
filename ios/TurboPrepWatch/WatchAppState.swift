@@ -20,10 +20,14 @@ final class WatchAppState: ObservableObject {
     /// Race-day live state. When `active`, the Record tab swaps to a lap
     /// timer; the iPhone's race-day controller is the authority and pushes
     /// this state to the Watch.
-    @Published var raceDayActive: Bool = false
-    @Published var raceDayLaps: [WatchLap] = []
-    @Published var raceDayStartedAt: Date?
+    @Published var raceDayActive: Bool = false { didSet { saveRaceDayState() } }
+    @Published var raceDayLaps: [WatchLap] = [] { didSet { saveRaceDayState() } }
+    @Published var raceDayStartedAt: Date? { didSet { saveRaceDayState() } }
     @Published var raceDayLeaderboard: [WatchLeaderboardEntry] = []
+
+    /// Finished stints kept on the Watch so the athlete can review laps
+    /// after the test — survives app restart via UserDefaults. Newest first.
+    @Published var pastStints: [WatchPastStint] = []
     /// iPhone-side auth state mirrored into the Watch. The Watch can't read
     /// Firebase Firestore directly (no watchOS support) and keychain auth
     /// sharing requires paid-team signing, so the iPhone is the source of
@@ -32,11 +36,22 @@ final class WatchAppState: ObservableObject {
     @Published var iPhoneUserEmail: String?
     @Published var iPhoneUserDisplayName: String?
 
-    private init() {}
+    private static let kRaceDayActive  = "tp_watch_rd_active"
+    private static let kRaceDayStarted = "tp_watch_rd_started"
+    private static let kRaceDayLaps    = "tp_watch_rd_laps"
+    private static let kPastStints     = "tp_watch_past_stints"
 
-    /// Simulator/dev convenience — flip race-day mode without the iPhone bridge.
+    private init() {
+        loadRaceDayState()
+        loadPastStints()
+    }
+
+    /// Long-press the wordmark — start or end a race-day stint locally.
+    /// Ending records the stint into pastStints (keeps lap data for review)
+    /// rather than wiping it.
     func toggleRaceDayForDev() {
         if raceDayActive {
+            archiveCurrentStint()
             raceDayActive = false
             raceDayStartedAt = nil
             raceDayLaps.removeAll()
@@ -54,6 +69,68 @@ final class WatchAppState: ObservableObject {
             recordedAt: Date()
         )
         raceDayLaps.insert(lap, at: 0)
+    }
+
+    /// Move the in-progress stint into pastStints. Called when the user
+    /// finishes a stint or toggles race-day off. Safe to call with no laps.
+    func archiveCurrentStint() {
+        guard let started = raceDayStartedAt, !raceDayLaps.isEmpty else { return }
+        let stint = WatchPastStint(
+            id: UUID(),
+            startedAt: started,
+            endedAt: Date(),
+            // Stored chronologically (lap 1 first) so post-test exports read naturally
+            laps: raceDayLaps.sorted(by: { $0.number < $1.number })
+        )
+        pastStints.insert(stint, at: 0)
+        // Cap at 20 to keep UserDefaults small
+        if pastStints.count > 20 { pastStints.removeLast(pastStints.count - 20) }
+        savePastStints()
+    }
+
+    func clearPastStints() {
+        pastStints.removeAll()
+        savePastStints()
+    }
+
+    // MARK: - Persistence
+
+    private func saveRaceDayState() {
+        let d = UserDefaults.standard
+        d.set(raceDayActive, forKey: Self.kRaceDayActive)
+        if let started = raceDayStartedAt {
+            d.set(started.timeIntervalSince1970, forKey: Self.kRaceDayStarted)
+        } else {
+            d.removeObject(forKey: Self.kRaceDayStarted)
+        }
+        if let data = try? JSONEncoder().encode(raceDayLaps) {
+            d.set(data, forKey: Self.kRaceDayLaps)
+        }
+    }
+
+    private func loadRaceDayState() {
+        let d = UserDefaults.standard
+        raceDayActive = d.bool(forKey: Self.kRaceDayActive)
+        if let ts = d.object(forKey: Self.kRaceDayStarted) as? TimeInterval {
+            raceDayStartedAt = Date(timeIntervalSince1970: ts)
+        }
+        if let data = d.data(forKey: Self.kRaceDayLaps),
+           let laps = try? JSONDecoder().decode([WatchLap].self, from: data) {
+            raceDayLaps = laps
+        }
+    }
+
+    private func savePastStints() {
+        if let data = try? JSONEncoder().encode(pastStints) {
+            UserDefaults.standard.set(data, forKey: Self.kPastStints)
+        }
+    }
+
+    private func loadPastStints() {
+        if let data = UserDefaults.standard.data(forKey: Self.kPastStints),
+           let stints = try? JSONDecoder().decode([WatchPastStint].self, from: data) {
+            pastStints = stints
+        }
     }
 
     func markPlanWorkoutDone(_ workout: WatchPlanWorkout) {
@@ -292,11 +369,28 @@ struct WatchLoggedWorkout: Identifiable, Equatable {
     ]
 }
 
-struct WatchLap: Identifiable, Equatable {
+struct WatchLap: Identifiable, Equatable, Codable {
     var id: Int { number }
     let number: Int
     let durationSeconds: TimeInterval
     let recordedAt: Date
+}
+
+/// A completed stint kept on-watch so the athlete can review laps after
+/// finishing — even in standalone mode where there's no iPhone bridge to
+/// send the laps to. Persisted in UserDefaults.
+struct WatchPastStint: Identifiable, Equatable, Codable {
+    let id: UUID
+    let startedAt: Date
+    let endedAt: Date
+    let laps: [WatchLap]
+
+    var durationSeconds: TimeInterval { endedAt.timeIntervalSince(startedAt) }
+    var bestLapSeconds: TimeInterval? { laps.map(\.durationSeconds).min() }
+    var avgLapSeconds: TimeInterval? {
+        guard !laps.isEmpty else { return nil }
+        return laps.map(\.durationSeconds).reduce(0, +) / Double(laps.count)
+    }
 }
 
 struct WatchLeaderboardEntry: Identifiable, Equatable {
