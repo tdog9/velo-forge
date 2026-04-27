@@ -80,7 +80,11 @@ async function renderAdminOverview() {
     const usersSnap = await A.getDocs(A.collection(A.db,'users'));
     users = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
     totalCoaches = users.filter(u => u.isCoach).length;
-    const todayKey = new Date().toISOString().split('T')[0];
+    // LOCAL-time date key — must match raceday.js's todayKey() and the
+    // app.js stint write path. UTC-based ISO would split-shift around
+    // midnight Sydney time and look up the wrong race_day/{date} doc.
+    const _d = new Date();
+    const todayKey = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
     // Active today: any user with a workout dated today (limit scan to first 50 users to stay light)
     const checks = await Promise.all(users.slice(0,50).map(async u => {
       try {
@@ -383,7 +387,8 @@ function renderAdminMaintenance() {
     el.querySelector('#rd-reset-map')?.addEventListener('click', async () => {
       if (!confirm('Reset the start/finish point? The next rider to move will set a new one.')) return;
       try {
-        const dk = new Date().toISOString().split('T')[0];
+        const _dkD = new Date();
+        const dk = `${_dkD.getFullYear()}-${String(_dkD.getMonth()+1).padStart(2,'0')}-${String(_dkD.getDate()).padStart(2,'0')}`;
         await A.updateDoc(A.doc(A.db,'race_day',dk),{startPoint:null,startPointSet:false});
         A.showToast('Map reset — first rider will set new start point.','success');
         renderAdminMaintenance();
@@ -396,7 +401,8 @@ function renderAdminMaintenance() {
 
     el.querySelector('#rd-view-stints')?.addEventListener('click', async () => {
       try {
-        const dk = new Date().toISOString().split('T')[0];
+        const _dkD = new Date();
+        const dk = `${_dkD.getFullYear()}-${String(_dkD.getMonth()+1).padStart(2,'0')}-${String(_dkD.getDate()).padStart(2,'0')}`;
         const snap = await A.getDocs(A.collection(A.db,'race_day',dk,'stints'));
         const stints = snap.docs.map(d=>({uid:d.id,...d.data()}));
         if (stints.length===0) { A.showToast('No stints yet today.','info'); return; }

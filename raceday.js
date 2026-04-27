@@ -214,8 +214,21 @@ async function saveSetupFields() {
   try { await ctx.setDoc(ctx.doc(ctx.db,'race_day',rdd.date,'setup',tid),{fields:setupFields,updatedAt:ctx.serverTimestamp()}); } catch(e){}
 }
 async function saveStint(record) {
-  if (!ctx?.db||!rdd.date||!ctx.currentUser) return;
-  try { await ctx.setDoc(ctx.doc(ctx.db,'race_day',rdd.date,'stints',ctx.currentUser.uid),record); } catch(e){}
+  if (!ctx?.db || !ctx.currentUser) return;
+  // Audit found: rdd.date can be null if the user opens race-day mode
+  // before loadRaceDayState() has resolved (race condition on cold start).
+  // Fall back to today's local date so the stint actually saves instead of
+  // silently disappearing. Same key format as todayKey() above.
+  const dk = rdd.date || (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  })();
+  try {
+    await ctx.setDoc(ctx.doc(ctx.db,'race_day',dk,'stints',ctx.currentUser.uid), record);
+  } catch(e) {
+    console.warn('saveStint failed:', e);
+    try { ctx.showToast?.('Couldn\'t sync stint — your laps are saved locally.', 'warn'); } catch(e2) {}
+  }
 }
 async function loadTodayStints() {
   if (!ctx?.db||!rdd.date) return;
@@ -899,13 +912,29 @@ function emailStint(stint) {
   const lapLines=stint.laps.length>0 ? stint.laps.map((l,i)=>`Lap ${i+1}: ${fmtMs(l.duration)}`).join('\n') : 'No laps recorded.';
   const best=stint.laps.length>0?fmtMs(Math.min(...stint.laps.map(l=>l.duration))):'--';
   const avg=stint.laps.length>0?fmtMs(stint.laps.reduce((s,l)=>s+l.duration,0)/stint.laps.length):'--';
-  const subj=encodeURIComponent(`Race Day Stint — ${stint.displayName||'Driver'} — ${date}`);
-  const body=encodeURIComponent(
+  const subject = `Race Day Stint — ${stint.displayName||'Driver'} — ${date}`;
+  const text =
     `TURBOPREP RACE DAY STINT REPORT\nDate: ${date}\nDriver: ${stint.displayName||'Unknown'}\n`+
     `Stint Time: ${fmtTime(stint.duration)}\nLaps: ${stint.laps.length}\nBest Lap: ${best}\nAvg Lap: ${avg}\n\n`+
-    `LAP TIMES\n---------\n${lapLines}\n\n--- Sent from TurboPrep ---`
-  );
-  window.open('mailto:?subject='+subj+'&body='+body);
+    `LAP TIMES\n---------\n${lapLines}\n\n--- Sent from TurboPrep ---`;
+  shareReport(subject, text);
+}
+
+// Tries the share sheet (iOS native), then mailto:, then clipboard copy.
+// On iOS WKWebView the mailto: link is often silently blocked; the
+// previous implementation gave the user no feedback so reports felt
+// broken. Now the worst case is "copied to clipboard" + a clear toast.
+async function shareReport(subject, body) {
+  if (typeof navigator !== 'undefined' && navigator.share) {
+    try { await navigator.share({ title: subject, text: body }); return; } catch(e) {}
+  }
+  try { window.open('mailto:?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)); } catch(e) {}
+  try {
+    await navigator.clipboard?.writeText(subject + '\n\n' + body);
+    ctx.showToast?.('Report copied to clipboard — paste into Mail / Messages.', 'success');
+  } catch(e) {
+    ctx.showToast?.('Couldn\'t copy report — try again.', 'warn');
+  }
 }
 
 function emailTeamReport() {
@@ -922,13 +951,12 @@ function emailTeamReport() {
     const cb=curr.laps?.length>0?Math.min(...curr.laps.map(l=>l.duration)):Infinity;
     return cb<pb?curr:prev;
   }) : null;
-  const subj=encodeURIComponent(`Race Day Team Report — ${date}`);
-  const body=encodeURIComponent(
+  const subject = `Race Day Team Report — ${date}`;
+  const text =
     `TURBOPREP RACE DAY TEAM REPORT\nDate: ${date}\nTotal Drivers: ${todayStints.length}\nTotal Laps: ${totalLaps}`+
     (fastestDriver?`\nFastest Driver: ${fastestDriver.displayName||fastestDriver.uid}`:'') +
-    `\n\nDRIVER BREAKDOWN\n----------------\n${lines||'No stints recorded.'}\n\n--- Sent from TurboPrep ---`
-  );
-  window.open('mailto:?subject='+subj+'&body='+body);
+    `\n\nDRIVER BREAKDOWN\n----------------\n${lines||'No stints recorded.'}\n\n--- Sent from TurboPrep ---`;
+  shareReport(subject, text);
 }
 
 // ── Tab Bar Control (called from app.js) ─────────────────────────────────────
