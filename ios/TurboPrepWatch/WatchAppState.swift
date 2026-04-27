@@ -32,30 +32,7 @@ final class WatchAppState: ObservableObject {
     @Published var iPhoneUserEmail: String?
     @Published var iPhoneUserDisplayName: String?
 
-    /// Preview / standalone mode — lets the Watch UI run without the iPhone
-    /// bridge ever establishing. Flips the sign-in gate open and surfaces the
-    /// demo seed data baked into WatchAppState. Persisted in UserDefaults so
-    /// it survives reboots; flip from the signed-out screen with a long-press
-    /// or the "Continue offline" button.
-    @Published var previewMode: Bool {
-        didSet {
-            UserDefaults.standard.set(previewMode, forKey: "tp_watch_preview_mode")
-        }
-    }
-
-    private init() {
-        self.previewMode = UserDefaults.standard.bool(forKey: "tp_watch_preview_mode")
-    }
-
-    /// Convenience — UI treats the user as authed if real auth landed OR if
-    /// the iPhone bridge says so OR if preview mode was opted into.
-    var isUnlocked: Bool {
-        iPhoneSignedIn || previewMode
-    }
-
-    func togglePreviewMode() {
-        previewMode.toggle()
-    }
+    private init() {}
 
     /// Simulator/dev convenience — flip race-day mode without the iPhone bridge.
     func toggleRaceDayForDev() {
