@@ -76,7 +76,9 @@ export async function activateRaceDay(raceId) {
   };
   try {
     await ctx.setDoc(ctx.doc(ctx.db,'race_day',todayKey()),data);
-    rdd={...rdd,...data}; return true;
+    rdd={...rdd,...data};
+    try { ctx.pushWatchState?.(); } catch(e) {}
+    return true;
   } catch(e) { console.warn('activateRaceDay:',e); return false; }
 }
 
@@ -158,6 +160,7 @@ export async function checkRaceDaySchedule() {
       if (shouldEnd) {
         await ctx.updateDoc(ctx.doc(ctx.db,'race_day',today), {active:false, autoEnded:true, autoEndedAt:ctx.serverTimestamp()});
         rdd.active = false;
+        try { ctx.pushWatchState?.(); } catch(e) {}
       }
     }
   } catch(e) { console.warn('checkRaceDaySchedule:', e); }
@@ -167,7 +170,9 @@ export async function deactivateRaceDay() {
   if (!ctx?.userProfile?.isCoach && !isMaster) return false;
   try {
     await ctx.updateDoc(ctx.doc(ctx.db,'race_day',todayKey()),{active:false});
-    rdd.active=false; return true;
+    rdd.active=false;
+    try { ctx.pushWatchState?.(); } catch(e) {}
+    return true;
   } catch(e) { return false; }
 }
 async function setStartPoint(lat,lng) {

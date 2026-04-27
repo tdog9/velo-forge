@@ -7125,6 +7125,7 @@ function buildModuleCtx() {
     get globalSettings() { return globalSettings; },
     activateRaceDay, deactivateRaceDay, openRaceDayOverlay, checkRaceDaySchedule,
     getActiveRaces,
+    pushWatchState,
     // Firebase refs (getters for fresh values)
     get db() { return db; },
     get currentUser() { return currentUser; },
