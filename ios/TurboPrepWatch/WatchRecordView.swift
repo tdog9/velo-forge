@@ -1,5 +1,8 @@
 import SwiftUI
 import WatchKit
+import Combine
+import MapKit
+import CoreLocation
 
 /// Center "Record" tab. Behaviour:
 /// - Race-day mode active → big lap timer with tap-to-lap and live BPM.
@@ -115,7 +118,9 @@ struct RaceDayLapView: View {
     @StateObject private var locator = WatchLocationService()
     @State private var lapStartedAt: Date = Date()
     @State private var now: Date = Date()
-    private let tick = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
+    // Timer is connected only while the view is visible; .autoconnect() on
+    // a module-level publisher would tick forever and drain battery.
+    @State private var tickCancellable: AnyCancellable?
 
     /// When the most recent lap was recorded — used to anchor the current-lap
     /// timer to either the stint start (lap 1) or the last completed lap.
@@ -218,6 +223,31 @@ struct RaceDayLapView: View {
                 }
                 .buttonStyle(.plain)
 
+                // Mini map — current position + start/finish pin + breadcrumb
+                MiniMapView(
+                    track: locator.track,
+                    current: locator.currentCoord,
+                    startFinish: locator.startFinishCoord
+                )
+                .frame(height: 90)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                // Start/finish state badge — auto-set after 7m30s of motion
+                // OR when the athlete returns to the first sampled point.
+                HStack(spacing: 6) {
+                    Image(systemName: locator.startFinishCoord == nil ? "scope" : "flag.checkered")
+                        .font(.system(size: 9))
+                        .foregroundStyle(locator.startFinishCoord == nil ? Theme.mutedFg : Theme.primary)
+                    Text(locator.startFinishCoord == nil
+                         ? "Auto-pin start in 7m30s of motion"
+                         : "Start/finish pinned · auto-lap on")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Theme.mutedFg)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Spacer(minLength: 0)
+                }
+
                 if !state.raceDayLaps.isEmpty {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("LAPS")
@@ -254,7 +284,18 @@ struct RaceDayLapView: View {
             .padding(.horizontal, 4)
             .padding(.bottom, 12)
         }
-        .onReceive(tick) { now = $0 }
+        .onAppear {
+            // Connect the tick publisher only while visible. Stops on disappear.
+            tickCancellable = Timer.publish(every: 0.1, on: .main, in: .common)
+                .autoconnect()
+                .sink { now = $0 }
+        }
+        // Auto-lap detection: every time the location service updates the
+        // current coord, check whether we've crossed the start/finish point.
+        // Throttle: only fire when within 30m AND >20s since the last lap.
+        .onChange(of: locator.currentCoord?.latitude) { _, _ in
+            tryAutoLap()
+        }
         .task {
             if health.authorization == .notRequested {
                 await health.requestAuthorization()
@@ -266,6 +307,8 @@ struct RaceDayLapView: View {
             locator.start()
         }
         .onDisappear {
+            tickCancellable?.cancel()
+            tickCancellable = nil
             health.stopHeartRateStreaming()
             locator.stop()
         }
@@ -325,6 +368,19 @@ struct RaceDayLapView: View {
         WKInterfaceDevice.current().play(kind)
     }
 
+    /// Auto-lap when the athlete's GPS position crosses the start/finish line.
+    /// Mirrors raceday.js logic: within 30m AND at least 20s since the last
+    /// lap (or stint start). The manual TAP TO LAP button still works either
+    /// way — auto-lap is additive.
+    private func tryAutoLap() {
+        guard let dist = locator.distanceToStartFinishM(), dist < 30 else { return }
+        let lastLapAt: Date = state.raceDayLaps.first?.recordedAt
+            ?? state.raceDayStartedAt
+            ?? Date()
+        guard Date().timeIntervalSince(lastLapAt) >= 20 else { return }
+        recordLap()
+    }
+
     private func finishStint() {
         // Archive locally first so the athlete can review laps afterwards
         // even if the iPhone bridge isn't reachable. Then auto-sync the
@@ -374,5 +430,57 @@ struct RaceDayLapView: View {
         let s = total % 60
         let ms = Int((t - TimeInterval(total)) * 10)
         return String(format: "%d:%02d.%d", m, s, ms)
+    }
+}
+
+// ── Mini Map ────────────────────────────────────────────────────────────────
+/// SwiftUI Map showing the rider's recent track + current dot + start/finish
+/// pin. Uses `Map(position:)` with a derived camera region so the view
+/// follows the rider naturally as they move.
+struct MiniMapView: View {
+    let track: [CLLocationCoordinate2D]
+    let current: CLLocationCoordinate2D?
+    let startFinish: CLLocationCoordinate2D?
+
+    @State private var position: MapCameraPosition = .automatic
+
+    var body: some View {
+        Map(position: $position) {
+            if let sf = startFinish {
+                Annotation("S/F", coordinate: sf) {
+                    Image(systemName: "flag.checkered")
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .padding(4)
+                        .background(Theme.primary)
+                        .clipShape(Circle())
+                }
+            }
+            if !track.isEmpty {
+                MapPolyline(coordinates: track)
+                    .stroke(Theme.primary, lineWidth: 3)
+            }
+            if let here = current {
+                Annotation("", coordinate: here) {
+                    ZStack {
+                        Circle().fill(Color.white).frame(width: 12, height: 12)
+                        Circle().fill(Theme.primary).frame(width: 8, height: 8)
+                    }
+                    .shadow(radius: 2)
+                }
+            }
+        }
+        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        .onChange(of: current?.latitude) { _, _ in recenter() }
+        .onAppear { recenter() }
+    }
+
+    private func recenter() {
+        guard let here = current else { return }
+        position = .region(MKCoordinateRegion(
+            center: here,
+            latitudinalMeters: 400,
+            longitudinalMeters: 400
+        ))
     }
 }

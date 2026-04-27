@@ -84,7 +84,12 @@ export async function sendAiPlanEdit(instruction, plan) {
     typingMsg.innerHTML = data.reply || 'Sorry, I couldn\'t process that edit.';
     typingMsg.classList.remove('ai-typing');
   } catch(e) {
-    typingMsg.textContent = 'Failed to get AI response. Try again.';
+    const msg = String(e?.message || '');
+    if (msg.includes('Sign in')) typingMsg.textContent = 'Session expired — sign in again.';
+    else if (/429|rate|limit/i.test(msg)) typingMsg.textContent = 'Too many AI requests — wait a few minutes.';
+    else if (/network|fetch|offline/i.test(msg)) typingMsg.textContent = 'Network issue — check your connection.';
+    else typingMsg.textContent = 'AI coach error: ' + (msg || 'unknown');
+    console.error('AI plan-edit:', e);
   }
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
@@ -137,8 +142,9 @@ export function startAiWeeklyReview() {
     context: `WEEKLY_REVIEW. Student: ${A.userProfile?.displayName || 'student'}, ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. This week: ${weekWorkouts.length} sessions, ${totalMins} total minutes, ${totalDist.toFixed(1)}km distance${avgRpe ? ', avg RPE ' + avgRpe : ''}. Sessions: ${summary}. Active plan: ${A.userProfile?.activePlanId ? A.findPlan(A.userProfile.activePlanId)?.name || 'unknown' : 'none'}. Give a structured weekly review with: 1) What went well 2) Areas to improve 3) Next week\'s focus. Be specific to their actual data.`
   }).then(r => r.json()).then(data => {
     typingMsg.innerHTML = data.reply || 'Sorry, couldn\'t generate a review.';
-  }).catch(() => {
-    typingMsg.textContent = 'Failed to generate review. Try again.';
+  }).catch((e) => {
+    console.error('AI weekly review:', e);
+    typingMsg.textContent = 'Couldn\'t generate review — ' + (e?.message || 'try again').slice(0, 80);
   }).finally(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
 }
 
@@ -204,8 +210,9 @@ export function generateRacePrepPlan(raceName, daysUntil) {
     context: `RACE_PREP_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Race: ${raceName}, ${daysUntil} days away. Total workouts logged: ${(A.userWorkouts||[]).length}. Give a day-by-day race prep plan that: 1) Reduces volume progressively in the final week 2) Maintains some intensity 3) Includes rest days before race 4) Gives race-day nutrition and warm-up advice. Be specific with exercises and durations.`
   }).then(r => r.json()).then(data => {
     typingMsg.innerHTML = data.reply || 'Sorry, couldn\'t generate a race prep plan.';
-  }).catch(() => {
-    typingMsg.textContent = 'Failed to generate plan. Try again.';
+  }).catch((e) => {
+    console.error('AI race prep:', e);
+    typingMsg.textContent = 'Couldn\'t generate race prep — ' + (e?.message || 'try again').slice(0, 80);
   }).finally(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
 }
 
@@ -266,8 +273,9 @@ export function sendInjuryModification(injuryArea, plan) {
     context: `INJURY_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'}. ${planInfo}. Injury area: ${injuryArea}. Give: 1) What to AVOID (specific exercises) 2) Safe alternatives that maintain fitness 3) Recovery suggestions 4) When to return to normal training. Always remind them to see a coach or doctor if pain is severe. Be specific and practical.`
   }).then(r => r.json()).then(data => {
     typingMsg.innerHTML = data.reply || 'Sorry, couldn\'t generate modifications.';
-  }).catch(() => {
-    typingMsg.textContent = 'Failed to get AI response. Try again.';
+  }).catch((e) => {
+    console.error('AI injury mod:', e);
+    typingMsg.textContent = 'Couldn\'t generate modifications — ' + (e?.message || 'try again').slice(0, 80);
   }).finally(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
 }
 

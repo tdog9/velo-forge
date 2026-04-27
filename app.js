@@ -39,7 +39,7 @@ let ALL_PLANS = [];
 let initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword,
     createUserWithEmailAndPassword, signOut, updateProfile,
     getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-    doc, getDoc, setDoc, updateDoc, collection, query, orderBy,
+    doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit,
     onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs,
     arrayUnion, arrayRemove;
 let firebaseImportFailed = false;
@@ -128,7 +128,7 @@ Promise.allSettled([
 if (fbAppRes.status === 'fulfilled' && fbAuthRes.status === 'fulfilled' && fbFsRes.status === 'fulfilled') {
   initializeApp = fbAppRes.value.initializeApp;
   ({ getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } = fbAuthRes.value);
-  ({ getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs, arrayUnion, arrayRemove } = fbFsRes.value);
+  ({ getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs, arrayUnion, arrayRemove } = fbFsRes.value);
 } else {
   console.error('Firebase SDK failed:', fbAppRes.reason || fbAuthRes.reason || fbFsRes.reason);
   firebaseImportFailed = true;
@@ -4600,38 +4600,38 @@ async function loadTeamFeed() {
   teamFeedCache = [];
   if (demoMode || !db || !currentUser || !userProfile?.teamId) return;
   try {
-    // Get team members
     const teamSnap = await getDoc(doc(db, 'teams', userProfile.teamId));
     if (!teamSnap.exists()) return;
     const team = teamSnap.data();
-    const memberIds = team.members || [];
+    const memberIds = (team.members || []).filter(uid => uid !== currentUser.uid).slice(0, 15);
     if (memberIds.length === 0) return;
-    // Load recent workouts from each member (limited)
+    // Parallelise — was 30 sequential round-trips at ~50ms each (~1.5s).
+    // Now 2 batches of 15 in parallel ≈ 100-150ms total.
+    const [workoutsResults, profileResults] = await Promise.all([
+      Promise.all(memberIds.map(uid =>
+        getDocs(query(collection(db, 'users', uid, 'workouts'), orderBy('date', 'desc'), limit(3)))
+          .catch(() => null)
+      )),
+      Promise.all(memberIds.map(uid => getDoc(doc(db, 'users', uid)).catch(() => null))),
+    ]);
     const feed = [];
-    const limit8 = memberIds.slice(0, 15); // cap at 15 members
-    for (const uid of limit8) {
-      if (uid === currentUser.uid) continue; // skip self
-      try {
-        const wSnap = await getDocs(query(collection(db, 'users', uid, 'workouts'), orderBy('date', 'desc')));
-        const docs = wSnap.docs.slice(0, 3); // latest 3 per member
-        const profileSnap = await getDoc(doc(db, 'users', uid));
-        const profile = profileSnap.exists() ? profileSnap.data() : {};
-        const name = profile.displayName || 'Unknown';
-        docs.forEach(d => {
-          const w = d.data();
-          const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
-          feed.push({
-            name,
-            uid,
-            workoutId: d.id,
-            dateKey: date.toISOString().split('T')[0],
-            action: 'Logged ' + (w.name || 'a workout') + ' · ' + (w.duration || '?') + 'min',
-            date,
-            timeAgo: timeAgo(date)
-          });
+    memberIds.forEach((uid, i) => {
+      const wSnap = workoutsResults[i];
+      const profileSnap = profileResults[i];
+      if (!wSnap) return;
+      const profile = profileSnap?.exists?.() ? profileSnap.data() : {};
+      const name = profile.displayName || 'Unknown';
+      wSnap.docs.forEach(d => {
+        const w = d.data();
+        const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
+        feed.push({
+          name, uid, workoutId: d.id,
+          dateKey: date.toISOString().split('T')[0],
+          action: 'Logged ' + (w.name || 'a workout') + ' · ' + (w.duration || '?') + 'min',
+          date, timeAgo: timeAgo(date),
         });
-      } catch(e) {}
-    }
+      });
+    });
     feed.sort((a, b) => b.date - a.date);
     teamFeedCache = feed.slice(0, 10);
   } catch(e) { console.error('Load team feed error:', e); }
@@ -5889,21 +5889,53 @@ function renderTeamTab(c) {
       <div class="team-hero-members">${teamMembers.length} member${teamMembers.length !== 1 ? 's' : ''}</div>
     </div>
   `;
-  // Team leaderboard table
-  const sorted = [...teamMembers].sort((a, b) => (b.totalWorkouts || 0) - (a.totalWorkouts || 0));
+  // Subteam filter — head coach can switch between whole team and any
+  // subteam; everyone else sees the subteam they belong to by default
+  // (with a "Whole team" toggle if they want the broader picture).
+  const subteams = Array.isArray(teamData.subteams) ? teamData.subteams : [];
+  const myUid = currentUser?.uid;
+  const mySubteam = subteams.find(s => Array.isArray(s.members) && s.members.includes(myUid));
+  const isHeadCoach = userProfile?.isCoach && teamData?.createdBy === myUid;
+  // Default: show "my subteam" if I'm in one; head coach defaults to whole team.
+  if (window._teamLbFilter === undefined) {
+    window._teamLbFilter = (mySubteam && !isHeadCoach) ? mySubteam.id : 'all';
+  }
+  const activeFilter = window._teamLbFilter;
+  if (subteams.length > 0) {
+    const tabHtml = (label, key) => `<button class="lb-filter-tab${activeFilter === key ? ' active' : ''}" data-lb-filter="${escHtml(key)}" style="padding:6px 12px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid ${activeFilter === key ? 'var(--primary)' : 'var(--border)'};background:${activeFilter === key ? 'rgba(249,115,22,.12)' : 'transparent'};color:${activeFilter === key ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer;white-space:nowrap">${escHtml(label)}</button>`;
+    const tabs = [tabHtml('Whole team', 'all')]
+      .concat(subteams.map(s => tabHtml(s.name, s.id)));
+    html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:4px 0;margin-bottom:10px;-webkit-overflow-scrolling:touch">${tabs.join('')}</div>`;
+  }
+  // Apply filter
+  let visibleMembers = teamMembers;
+  if (activeFilter !== 'all') {
+    const sub = subteams.find(s => s.id === activeFilter);
+    if (sub) {
+      const memberIds = new Set(sub.members || []);
+      // Sub-coach is always included even if not in members[].
+      if (sub.subCoachUid) memberIds.add(sub.subCoachUid);
+      visibleMembers = teamMembers.filter(m => memberIds.has(m.uid));
+    }
+  }
+  const sorted = [...visibleMembers].sort((a, b) => (b.totalWorkouts || 0) - (a.totalWorkouts || 0));
   html += '<div class="card" style="overflow:hidden"><table class="lb-table">';
   html += '<thead><tr><th class="lb-rank">#</th><th>Name</th><th>Year</th><th style="text-align:right">Workouts</th><th style="text-align:right">Streak</th></tr></thead><tbody>';
-  sorted.forEach((m, i) => {
-    const isMe = m.uid === currentUser?.uid;
-    const rankClass = i === 0 ? ' lb-rank-1' : '';
-    html += `<tr class="${isMe ? 'lb-me' : ''}">
-      <td class="lb-rank${rankClass}">${i + 1}</td>
-      <td class="lb-name">${escHtml(m.displayName || 'Unknown')}</td>
-      <td class="lb-year">${m.yearLevel || '—'}</td>
-      <td class="lb-stat" style="text-align:right">${m.totalWorkouts || 0}</td>
-      <td class="lb-stat" style="text-align:right">${m.streak || 0}d</td>
-    </tr>`;
-  });
+  if (sorted.length === 0) {
+    html += '<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--muted-fg);font-size:12px">No members in this subteam yet.</td></tr>';
+  } else {
+    sorted.forEach((m, i) => {
+      const isMe = m.uid === myUid;
+      const rankClass = i === 0 ? ' lb-rank-1' : '';
+      html += `<tr class="${isMe ? 'lb-me' : ''}">
+        <td class="lb-rank${rankClass}">${i + 1}</td>
+        <td class="lb-name">${escHtml(m.displayName || 'Unknown')}</td>
+        <td class="lb-year">${m.yearLevel || '—'}</td>
+        <td class="lb-stat" style="text-align:right">${m.totalWorkouts || 0}</td>
+        <td class="lb-stat" style="text-align:right">${m.streak || 0}d</td>
+      </tr>`;
+    });
+  }
   html += '</tbody></table></div>';
   // Coach settings panel
   if (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid) {
@@ -5940,6 +5972,14 @@ function renderTeamTab(c) {
   });
   // Bind leave
   $('leave-team-btn').addEventListener('click', leaveTeam);
+  // Subteam leaderboard filter — re-render team tab with new filter.
+  // Available to all members (not just head coach).
+  document.querySelectorAll('.lb-filter-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window._teamLbFilter = btn.dataset.lbFilter;
+      renderTeam();
+    });
+  });
   // Bind coach features
   if (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid) {
     c.querySelectorAll('.coach-feat-toggle').forEach(btn => {
@@ -6827,23 +6867,29 @@ function openManageSubteamsSheet() {
   const subteams = teamData?.subteams || [];
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Manage Subteams</div>
-    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px">Create subteams within your club and assign members to them.</p>
-    <div id="subteams-list" style="margin-bottom:14px">
+    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px">Create subteams within your club (e.g. "Venom"). Tap a subteam to assign members and set a sub-coach.</p>
+    <div id="subteams-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
       ${subteams.length === 0
         ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:12px">No subteams yet.</div>'
-        : subteams.map((s, i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-            <span style="flex:1;font-size:14px;font-weight:600">${escHtml(s.name)}</span>
-            <span style="font-size:11px;color:var(--muted-fg)">${(s.members || []).length} members</span>
-          </div>`).join('')
+        : subteams.map(s => {
+            const sc = s.subCoachUid ? teamMembers.find(m => m.uid === s.subCoachUid) : null;
+            return `<button class="subteam-row" data-sub-id="${escHtml(s.id)}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;text-align:left;width:100%">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:700;color:var(--fg)">${escHtml(s.name)}</div>
+                <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${(s.members || []).length} members${sc ? ' · sub-coach ' + escHtml(sc.displayName || sc.email || '?') : ''}</div>
+              </div>
+              <span style="color:var(--muted-fg);font-size:14px">›</span>
+            </button>`;
+          }).join('')
       }
     </div>
     <div class="form-group">
       <label class="label" for="new-subteam-name">New Subteam Name</label>
-      <input class="input" type="text" id="new-subteam-name" placeholder="e.g. Year 9 Squad" maxlength="40">
+      <input class="input" type="text" id="new-subteam-name" placeholder="e.g. Venom" maxlength="40">
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="btn btn-secondary" style="flex:1" id="subteam-cancel-btn">Cancel</button>
-      <button class="btn btn-primary" style="flex:1" id="subteam-create-btn">Create Subteam</button>
+      <button class="btn btn-secondary" style="flex:1" id="subteam-cancel-btn">Done</button>
+      <button class="btn btn-primary" style="flex:1" id="subteam-create-btn">+ Create</button>
     </div>
   `;
   openSheet();
@@ -6851,15 +6897,96 @@ function openManageSubteamsSheet() {
   $('subteam-create-btn').addEventListener('click', async () => {
     const name = $('new-subteam-name').value.trim();
     if (!name) { showToast('Enter a subteam name.', 'warn'); return; }
-    const newSub = { id: 'sub_' + Date.now(), name, members: [], createdAt: new Date().toISOString() };
+    const newSub = { id: 'sub_' + Date.now(), name, members: [], subCoachUid: null, createdAt: new Date().toISOString() };
     const updated = [...(teamData.subteams || []), newSub];
     try {
       await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updated });
       teamData.subteams = updated;
-      closeSheet();
+      openManageSubteamsSheet();  // reopen so the new row shows + form clears
       showToast('Subteam "' + name + '" created.', 'success');
-      renderTeam();
-    } catch(e) { showToast('Failed to create subteam.', 'error'); }
+    } catch(e) { showToast('Failed: ' + (e.message || e), 'error'); }
+  });
+  document.querySelectorAll('.subteam-row').forEach(btn => {
+    btn.addEventListener('click', () => openSubteamDetailSheet(btn.dataset.subId));
+  });
+}
+
+/// Detail sheet — head coach can edit a subteam's members + sub-coach + delete.
+function openSubteamDetailSheet(subId) {
+  const subteams = teamData?.subteams || [];
+  const sub = subteams.find(s => s.id === subId);
+  if (!sub) { showToast('Subteam not found.', 'warn'); return; }
+  const memberSet = new Set(sub.members || []);
+  const renderMemberRow = (m) => {
+    const inSub = memberSet.has(m.uid);
+    const isSubCoach = sub.subCoachUid === m.uid;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:10px">
+      <div class="user-avatar" style="background:var(--primary);color:var(--primary-fg);font-size:12px">${escHtml((m.displayName || m.email || '?').slice(0,1).toUpperCase())}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.displayName || 'Unknown')}${isSubCoach ? ' · <span style="color:var(--primary)">SUB-COACH</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.email || '')}</div>
+      </div>
+      <button class="sub-toggle" data-uid="${m.uid}" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid ${inSub ? 'rgba(34,197,94,.4)' : 'var(--border)'};background:${inSub ? 'rgba(34,197,94,.10)' : 'transparent'};color:${inSub ? '#22c55e' : 'var(--muted-fg)'};cursor:pointer">${inSub ? '✓ In' : '+ Add'}</button>
+      ${inSub && !isSubCoach ? `<button class="sub-promote" data-uid="${m.uid}" title="Make sub-coach" style="padding:6px 8px;font-size:11px;border:1px solid var(--border);background:transparent;border-radius:8px;cursor:pointer;color:var(--muted-fg)">★</button>` : ''}
+    </div>`;
+  };
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">${escHtml(sub.name)}</div>
+    <p style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">${(sub.members||[]).length} members${sub.subCoachUid ? ' · ★ marks sub-coach' : ''}</p>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto;margin-bottom:14px">
+      ${teamMembers.filter(m => m.uid !== currentUser?.uid).map(renderMemberRow).join('') || '<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:12px">No team members to assign yet.</div>'}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" id="subteam-delete-btn">Delete</button>
+      <button class="btn btn-primary" style="flex:1" id="subteam-back-btn">Done</button>
+    </div>
+  `;
+  // Member toggle
+  document.querySelectorAll('.sub-toggle').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const uid = btn.dataset.uid;
+      const cur = memberSet.has(uid);
+      cur ? memberSet.delete(uid) : memberSet.add(uid);
+      const updatedSubs = subteams.map(s => s.id === subId
+        ? { ...s, members: Array.from(memberSet), updatedAt: new Date().toISOString() }
+        : s);
+      try {
+        await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updatedSubs });
+        teamData.subteams = updatedSubs;
+        sub.members = Array.from(memberSet);
+        openSubteamDetailSheet(subId);
+      } catch(e) {
+        showToast('Failed: ' + (e.message || e), 'error');
+        cur ? memberSet.add(uid) : memberSet.delete(uid);
+      }
+    });
+  });
+  // Sub-coach assign
+  document.querySelectorAll('.sub-promote').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const uid = btn.dataset.uid;
+      const updatedSubs = subteams.map(s => s.id === subId
+        ? { ...s, subCoachUid: uid, updatedAt: new Date().toISOString() }
+        : s);
+      try {
+        await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updatedSubs });
+        teamData.subteams = updatedSubs;
+        showToast('Sub-coach set.', 'success');
+        openSubteamDetailSheet(subId);
+      } catch(e) { showToast('Failed: ' + (e.message || e), 'error'); }
+    });
+  });
+  $('subteam-back-btn').addEventListener('click', openManageSubteamsSheet);
+  $('subteam-delete-btn').addEventListener('click', async () => {
+    const ok = await confirmModal('Delete subteam?', 'Members keep team membership but lose this subteam grouping.');
+    if (!ok) return;
+    const updatedSubs = subteams.filter(s => s.id !== subId);
+    try {
+      await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updatedSubs });
+      teamData.subteams = updatedSubs;
+      showToast('Subteam deleted.', 'info');
+      openManageSubteamsSheet();
+    } catch(e) { showToast('Failed: ' + (e.message || e), 'error'); }
   });
 }
 
@@ -6875,6 +7002,7 @@ async function deleteTeam() {
   if (!currentUser || !tid) return;
   if (demoMode) {
     teamData = null; teamMembers = []; userProfile.teamId = null; userProfile.teamName = null;
+    window._teamLbFilter = undefined;
     showToast('Team deleted.', 'info'); renderTeam(); return;
   }
   if (!db) return;

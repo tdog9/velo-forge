@@ -159,9 +159,16 @@ function buildDynamicSystem(context, persona) {
 }
 
 function buildSystemBlocks(context, persona, modeOverride) {
-  // Special modes pass their own full system prompt — preserve that path.
+  // Always include the cached CORE_SYSTEM block so plan/race/injury/etc.
+  // modes still amortise the prompt cost across requests. The prior code
+  // path replaced the entire system in special modes, blowing away the
+  // cache hit on the most expensive (max_tokens 2000) requests. Now both
+  // the core voice/protocol AND the mode-specific instructions ship.
   if (modeOverride) {
-    return [{ type: 'text', text: modeOverride }];
+    return [
+      { type: 'text', text: CORE_SYSTEM, cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: modeOverride },
+    ];
   }
   return [
     { type: 'text', text: CORE_SYSTEM, cache_control: { type: 'ephemeral' } },
@@ -208,11 +215,13 @@ exports.handler = async (event) => {
   const isSpecialMode = context && typeof context === 'string' && specialPrefixes.some(p => context.startsWith(p));
 
   let modeOverride = null;
-  let maxTokens = 600;
+  // Bumped budgets — multi-turn chats were truncating around turn 3 with
+  // the old 600/1200 limits.
+  let maxTokens = 1000;
 
   if (isPlanMode) {
     modeOverride = context.replace('PLAN_GENERATION_MODE: ', '');
-    maxTokens = 2000;
+    maxTokens = 2500;
   } else if (isSpecialMode) {
     modeOverride = `You are the TurboPrep AI Coach — a sports-science expert for a school HPV racing team in Victoria, Australia. Students aged 12–18 pedal recumbent vehicles in endurance and sprint events.
 
@@ -224,7 +233,7 @@ Rules:
 - For workout modifications, give specific exercises with sets, reps, and rest times
 
 ${context}`;
-    maxTokens = 1200;
+    maxTokens = 1500;
   }
 
   const systemBlocks = buildSystemBlocks(context, persona, modeOverride);
