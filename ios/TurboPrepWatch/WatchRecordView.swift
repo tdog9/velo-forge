@@ -153,8 +153,9 @@ struct RaceDayLapView: View {
                     }
                 }
 
-                // BIG TAP-LAP button — fills the screen, contentShape ensures
-                // every pixel of the rounded rect responds to taps.
+                // BIG TAP-LAP button — fills width, minHeight ensures a
+                // generous 90pt tap target. Plain Button so the entire
+                // gradient rectangle is the hit area.
                 Button(action: recordLap) {
                     VStack(spacing: 4) {
                         Text(currentLapText)
@@ -168,7 +169,7 @@ struct RaceDayLapView: View {
                             .tracking(1.0)
                             .foregroundStyle(.white)
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 90)
                     .padding(.vertical, 18)
                     .background(
                         LinearGradient(
@@ -290,23 +291,28 @@ struct RaceDayLapView: View {
     }
 
     private func finishStint() {
-        // Always archive locally first so the athlete can review the laps
-        // afterwards even in standalone mode (no iPhone listening).
+        // Archive locally first so the athlete can review laps afterwards
+        // even if the iPhone bridge isn't reachable. Then auto-sync the
+        // freshly-archived stint upstream — WCSession queues via
+        // transferUserInfo when the iPhone is asleep, so delivery is
+        // best-effort but durable.
         state.archiveCurrentStint()
-        // Best-effort upstream push — only delivers if iPhone bridge is up.
-        let payload: [String: Any] = [
-            "stintEndedAt": Date().timeIntervalSince1970,
-            "stintStartedAt": (state.raceDayStartedAt ?? Date()).timeIntervalSince1970,
-            "laps": state.raceDayLaps.map { lap in
-                [
-                    "number": lap.number,
-                    "duration": Int(lap.durationSeconds * 1000),  // ms
-                    "recordedAt": lap.recordedAt.timeIntervalSince1970,
-                ] as [String: Any]
-            },
-        ]
-        ConnectivityService.shared.sendRaceDayLaps(payload)
-        // Clear in-progress stint state (history is preserved in pastStints).
+        if let last = state.pastStints.first, !last.synced {
+            let payload: [String: Any] = [
+                "stintId":        last.id.uuidString,
+                "stintStartedAt": last.startedAt.timeIntervalSince1970,
+                "stintEndedAt":   last.endedAt.timeIntervalSince1970,
+                "laps": last.laps.map { lap in
+                    [
+                        "number":     lap.number,
+                        "duration":   Int(lap.durationSeconds * 1000),
+                        "recordedAt": lap.recordedAt.timeIntervalSince1970,
+                    ] as [String: Any]
+                },
+            ]
+            ConnectivityService.shared.sendRaceDayLaps(payload)
+            state.markAllStintsSynced()
+        }
         state.raceDayLaps.removeAll()
         state.raceDayActive = false
         state.raceDayStartedAt = nil

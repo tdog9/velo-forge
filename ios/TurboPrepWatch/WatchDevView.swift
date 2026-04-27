@@ -39,32 +39,6 @@ struct WatchDevView: View {
                     }
                     .buttonStyle(.plain)
                 }
-
-                Divider().padding(.vertical, 2)
-
-                Text("SYNC")
-                    .font(.system(size: 9, weight: .heavy))
-                    .tracking(0.6)
-                    .foregroundStyle(Theme.mutedFg)
-
-                Button(action: syncStintsToPhone) {
-                    smallButtonLabel(icon: "arrow.up.arrow.down", text: state.pastStints.isEmpty ? "Nothing to sync" : "Sync \(state.pastStints.count) stint\(state.pastStints.count == 1 ? "" : "s") to phone")
-                }
-                .buttonStyle(.plain)
-                .disabled(state.pastStints.isEmpty)
-
-                Divider().padding(.vertical, 2)
-
-                Text("RESET")
-                    .font(.system(size: 9, weight: .heavy))
-                    .tracking(0.6)
-                    .foregroundStyle(Theme.mutedFg)
-
-                Button(role: .destructive, action: { state.clearPastStints() }) {
-                    smallButtonLabel(icon: "trash", text: "Clear stint history")
-                }
-                .buttonStyle(.plain)
-                .disabled(state.pastStints.isEmpty)
             }
             .padding(.horizontal, 4)
             .padding(.bottom, 12)
@@ -113,27 +87,6 @@ struct WatchDevView: View {
         .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    private func smallButtonLabel(icon: String, text: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 12))
-            Text(text)
-                .font(.system(.caption, weight: .semibold))
-            Spacer(minLength: 0)
-        }
-        .foregroundStyle(Theme.fg)
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity)
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Theme.border, lineWidth: 0.5)
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-
     // MARK: - Actions
 
     private func startStint() {
@@ -145,6 +98,12 @@ struct WatchDevView: View {
 
     private func endStint() {
         state.archiveCurrentStint()
+        // Auto-sync newly archived stint to iPhone (best-effort; queues if
+        // not reachable). Then clear in-progress state.
+        if let last = state.pastStints.first, !last.synced {
+            sendStintToPhone(last)
+            state.markAllStintsSynced()
+        }
         state.raceDayLaps.removeAll()
         state.raceDayActive = false
         state.raceDayStartedAt = nil
@@ -160,34 +119,19 @@ struct WatchDevView: View {
         WKInterfaceDevice.current().play(.click)
     }
 
-    private func syncStintsToPhone() {
-        // Best-effort: send each past stint via WCSession. iPhone-side
-        // WatchWorkoutReceiver / tpNative.onRaceDayLaps will pick them up
-        // and write to Firestore. This works only when the watch is paired
-        // with the iPhone and the iPhone app has run at least once.
-        var sent = 0
-        for stint in state.pastStints where !stint.synced {
-            let payload: [String: Any] = [
-                "stintId":      stint.id.uuidString,
-                "stintStartedAt": stint.startedAt.timeIntervalSince1970,
-                "stintEndedAt":   stint.endedAt.timeIntervalSince1970,
-                "laps": stint.laps.map { lap in
-                    [
-                        "number":     lap.number,
-                        "duration":   Int(lap.durationSeconds * 1000),
-                        "recordedAt": lap.recordedAt.timeIntervalSince1970,
-                    ] as [String: Any]
-                },
-            ]
-            ConnectivityService.shared.sendRaceDayLaps(payload)
-            sent += 1
-        }
-        // Optimistically mark them synced — if delivery fails the tester
-        // can re-trigger from this same screen (toggle a fresh stint to
-        // reset the flag, or use the iPhone's race-day admin to re-pull).
-        state.markAllStintsSynced()
-        if sent > 0 {
-            WKInterfaceDevice.current().play(.success)
-        }
+    private func sendStintToPhone(_ stint: WatchPastStint) {
+        let payload: [String: Any] = [
+            "stintId":      stint.id.uuidString,
+            "stintStartedAt": stint.startedAt.timeIntervalSince1970,
+            "stintEndedAt":   stint.endedAt.timeIntervalSince1970,
+            "laps": stint.laps.map { lap in
+                [
+                    "number":     lap.number,
+                    "duration":   Int(lap.durationSeconds * 1000),
+                    "recordedAt": lap.recordedAt.timeIntervalSince1970,
+                ] as [String: Any]
+            },
+        ]
+        ConnectivityService.shared.sendRaceDayLaps(payload)
     }
 }

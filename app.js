@@ -2465,7 +2465,7 @@ function renderTeamChallenge() {
   html += '<div class="challenge-meta">' + (daysLeft > 0 ? daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' remaining' : 'Challenge ended!') + ' · Mins + XP</div>';
   teams.sort((a, b) => b.score - a.score);
   teams.forEach((t, i) => {
-    const pct = maxScore > 0 ? (t.score / maxScore) * 100 : 0;
+    const pct = maxScore > 0 ? Math.min(100, (t.score / maxScore) * 100) : 0;
     html += '<div class="challenge-team">';
     html += '<div class="challenge-team-name">' + (i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '') + escHtml(t.name) + '</div>';
     html += '<div class="challenge-team-bar"><div class="challenge-team-fill" style="width:' + pct + '%;background:' + (colors[i] || colors[4]) + '"></div></div>';
@@ -2790,7 +2790,7 @@ function renderToday() {
       const k = activePlanId + '-' + w.week + '-' + w.day + '-' + (activePlan.workouts.filter((ww, ii) => ii < i && ww.week === w.week && ww.day === w.day).length);
       if (userChecklist && userChecklist[k]) completedPlanWorkouts++;
     });
-    const progressPct = totalPlanWorkouts > 0 ? Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100) : 0;
+    const progressPct = totalPlanWorkouts > 0 ? Math.min(100, Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100)) : 0;
     html += `<div class="plan-progress"><div class="plan-progress-text"><span>${escHtml(pdData.name)}</span><span>${completedPlanWorkouts}/${totalPlanWorkouts} · ${progressPct}%</span></div><div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div></div>`;
     // Duration selector
     const selectedDur = parseInt(localStorage.getItem('tp_session_duration') || '15');
