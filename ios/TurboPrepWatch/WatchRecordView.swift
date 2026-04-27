@@ -135,91 +135,95 @@ struct RaceDayLapView: View {
                     Circle()
                         .fill(Theme.phasePeak)
                         .frame(width: 6, height: 6)
-                    Text("RACE DAY LIVE")
+                    Text("RACE DAY · LAP \(state.raceDayLaps.count + 1)")
                         .font(.system(size: 10, weight: .heavy))
                         .tracking(0.6)
                         .foregroundStyle(Theme.phasePeak)
                     Spacer(minLength: 0)
-                    Text("Lap \(state.raceDayLaps.count + 1)")
-                        .font(.system(.caption2))
-                        .foregroundStyle(Theme.mutedFg)
+                    if let hr = health.latestHeartRate {
+                        HStack(spacing: 2) {
+                            Image(systemName: "heart.fill")
+                                .foregroundStyle(Theme.heartRateColor)
+                                .font(.system(size: 9))
+                            Text("\(hr)")
+                                .font(.system(.caption2, design: .rounded, weight: .heavy))
+                                .foregroundStyle(Theme.fg)
+                                .monospacedDigit()
+                        }
+                    }
                 }
 
+                // BIG TAP-LAP button — fills the screen, contentShape ensures
+                // every pixel of the rounded rect responds to taps.
                 Button(action: recordLap) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("CURRENT LAP")
-                            .font(.system(size: 9, weight: .heavy))
-                            .tracking(0.6)
-                            .foregroundStyle(Theme.mutedFg)
+                    VStack(spacing: 4) {
                         Text(currentLapText)
-                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .font(.system(size: 40, weight: .black, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(Theme.fg)
-                        Text("Tap to lap")
-                            .font(.system(.caption2))
-                            .foregroundStyle(Theme.primary)
+                            .minimumScaleFactor(0.6)
+                            .lineLimit(1)
+                        Text("TAP TO LAP")
+                            .font(.system(size: 11, weight: .heavy))
+                            .tracking(1.0)
+                            .foregroundStyle(.white)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(Theme.card)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
-                            .stroke(Theme.primary.opacity(0.4), lineWidth: 1)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+                    .background(
+                        LinearGradient(
+                            colors: [Theme.primary, Theme.primary.opacity(0.78)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .buttonStyle(.plain)
 
-                ThemeCard {
-                    HStack(spacing: 4) {
-                        Image(systemName: "heart.fill")
-                            .foregroundStyle(Theme.heartRateColor)
-                            .font(.caption2)
-                        Text(health.latestHeartRate.map { "\($0) bpm" } ?? "— bpm")
-                            .font(.system(.caption, weight: .semibold))
-                            .foregroundStyle(Theme.fg)
-                            .monospacedDigit()
-                        Spacer(minLength: 0)
-                        if let best = bestLapText {
-                            Text("Best \(best)")
-                                .font(.system(.caption2))
-                                .foregroundStyle(Theme.mutedFg)
-                        }
+                HStack(spacing: 6) {
+                    if let best = bestLapText {
+                        statPill(label: "BEST", value: best, color: Theme.primary)
                     }
+                    statPill(label: "TOTAL", value: format(now.timeIntervalSince(state.raceDayStartedAt ?? now)), color: Theme.mutedFg)
                 }
 
-                if !state.raceDayLaps.isEmpty {
-                    Button(role: .destructive) {
-                        finishStint()
-                    } label: {
-                        HStack {
-                            Image(systemName: "stop.fill").font(.headline)
-                            Text("Finish stint")
-                                .font(.system(.body, weight: .bold))
-                            Spacer(minLength: 0)
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 12)
-                        .frame(maxWidth: .infinity)
-                        .background(Theme.phasePeak)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+                Button(role: .destructive) {
+                    finishStint()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "stop.fill").font(.system(size: 12))
+                        Text("Finish stint")
+                            .font(.system(.caption, weight: .heavy))
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(.plain)
-                    VStack(alignment: .leading, spacing: 4) {
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
+                    .background(Theme.phasePeak)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                if !state.raceDayLaps.isEmpty {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text("LAPS")
                             .font(.system(size: 9, weight: .heavy))
                             .tracking(0.6)
                             .foregroundStyle(Theme.mutedFg)
                             .padding(.horizontal, 4)
-                        ForEach(state.raceDayLaps.prefix(5)) { lap in
+                            .padding(.top, 4)
+                        ForEach(state.raceDayLaps.prefix(6)) { lap in
                             HStack {
                                 Text("L\(lap.number)")
                                     .font(.system(.caption2, weight: .bold))
                                     .foregroundStyle(Theme.mutedFg)
                                     .frame(width: 26, alignment: .leading)
                                 Text(format(lap.durationSeconds))
-                                    .font(.system(.caption2, design: .rounded, weight: .semibold))
+                                    .font(.system(.caption, design: .rounded, weight: .semibold))
                                     .monospacedDigit()
                                     .foregroundStyle(Theme.fg)
                                 Spacer(minLength: 0)
@@ -253,10 +257,36 @@ struct RaceDayLapView: View {
         .onDisappear { health.stopHeartRateStreaming() }
     }
 
+    private func statPill(label: String, value: String, color: Color) -> some View {
+        HStack(spacing: 3) {
+            Text(label)
+                .font(.system(size: 8, weight: .heavy))
+                .tracking(0.4)
+                .foregroundStyle(Theme.mutedFg)
+            Text(value)
+                .font(.system(.caption2, design: .rounded, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(color)
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, 8)
+        .background(color.opacity(0.10))
+        .clipShape(Capsule())
+    }
+
     private func recordLap() {
         let dur = Date().timeIntervalSince(lapAnchor)
+        // Defensive: ignore any double-tap inside 250ms — accidental finger
+        // bounce on the watch was eating laps as zero-duration before.
+        guard dur >= 0.25 else { return }
         state.recordLap(durationSeconds: dur)
-        WKInterfaceDevice.current().play(.success)
+        // Haptic — `.click` is the most reliable across watchOS versions.
+        // Wrap in a do block so a haptic outage never blocks lap recording.
+        playHaptic(.click)
+    }
+
+    private func playHaptic(_ kind: WKHapticType) {
+        WKInterfaceDevice.current().play(kind)
     }
 
     private func finishStint() {

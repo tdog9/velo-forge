@@ -93,6 +93,16 @@ final class WatchAppState: ObservableObject {
         savePastStints()
     }
 
+    /// Mark every stint as having been dispatched to the iPhone. Called by
+    /// the Dev tab's Sync button after firing each stint via WCSession.
+    func markAllStintsSynced() {
+        guard !pastStints.isEmpty else { return }
+        pastStints = pastStints.map { stint in
+            var s = stint; s.synced = true; return s
+        }
+        savePastStints()
+    }
+
     // MARK: - Persistence
 
     private func saveRaceDayState() {
@@ -384,12 +394,33 @@ struct WatchPastStint: Identifiable, Equatable, Codable {
     let startedAt: Date
     let endedAt: Date
     let laps: [WatchLap]
+    /// Set once the stint has been pushed to the iPhone successfully (or at
+    /// least dispatched via WCSession — we trust the queue if delivery
+    /// fails). Lets the Dev tab show "Sync N stints" only when there's
+    /// genuinely unsynced data.
+    var synced: Bool = false
 
     var durationSeconds: TimeInterval { endedAt.timeIntervalSince(startedAt) }
     var bestLapSeconds: TimeInterval? { laps.map(\.durationSeconds).min() }
     var avgLapSeconds: TimeInterval? {
         guard !laps.isEmpty else { return nil }
         return laps.map(\.durationSeconds).reduce(0, +) / Double(laps.count)
+    }
+
+    enum CodingKeys: String, CodingKey { case id, startedAt, endedAt, laps, synced }
+
+    init(id: UUID, startedAt: Date, endedAt: Date, laps: [WatchLap], synced: Bool = false) {
+        self.id = id; self.startedAt = startedAt; self.endedAt = endedAt
+        self.laps = laps; self.synced = synced
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        endedAt = try c.decode(Date.self, forKey: .endedAt)
+        laps = try c.decode([WatchLap].self, forKey: .laps)
+        synced = (try? c.decode(Bool.self, forKey: .synced)) ?? false
     }
 }
 

@@ -19,6 +19,8 @@ struct WatchRootView: View {
                     .containerBackground(Theme.bg.gradient, for: .tabView)
                 WatchFitnessView()
                     .containerBackground(Theme.bg.gradient, for: .tabView)
+                WatchDevView()
+                    .containerBackground(Theme.bg.gradient, for: .tabView)
             }
             .tabViewStyle(.verticalPage)
         }
