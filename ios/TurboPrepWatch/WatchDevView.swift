@@ -98,11 +98,14 @@ struct WatchDevView: View {
 
     private func endStint() {
         state.archiveCurrentStint()
-        // Auto-sync newly archived stint to iPhone (best-effort; queues if
-        // not reachable). Then clear in-progress state.
+        // Auto-sync newly archived stint — only flip the synced flag once
+        // WCSession has accepted the payload. transferUserInfo queues
+        // durably when the iPhone isn't reachable, so a successful
+        // dispatch is enough to consider the stint "in flight."
         if let last = state.pastStints.first, !last.synced {
-            sendStintToPhone(last)
-            state.markAllStintsSynced()
+            sendStintToPhone(last) { success in
+                if success { WatchAppState.shared.markAllStintsSynced() }
+            }
         }
         state.raceDayLaps.removeAll()
         state.raceDayActive = false
@@ -119,7 +122,7 @@ struct WatchDevView: View {
         WKInterfaceDevice.current().play(.click)
     }
 
-    private func sendStintToPhone(_ stint: WatchPastStint) {
+    private func sendStintToPhone(_ stint: WatchPastStint, onSent: @escaping @MainActor (Bool) -> Void) {
         let payload: [String: Any] = [
             "stintId":      stint.id.uuidString,
             "stintStartedAt": stint.startedAt.timeIntervalSince1970,
@@ -132,6 +135,6 @@ struct WatchDevView: View {
                 ] as [String: Any]
             },
         ]
-        ConnectivityService.shared.sendRaceDayLaps(payload)
+        ConnectivityService.shared.sendRaceDayLaps(payload, onSent: onSent)
     }
 }

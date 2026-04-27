@@ -126,6 +126,40 @@ service cloud.firestore {
         allow write: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
       }
+
+      // Lightweight broadcast notifications written by coaches (e.g. roster
+      // updates during race day). Any team member can read; only members
+      // can write. Audit found writes were silently failing — now allowed.
+      match /alerts/{alertId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
+      }
+
+      // Subteam hierarchy: a head coach (the team's createdBy user) can
+      // carve their team into named subteams (e.g. "Venom") and assign a
+      // sub-coach. Athletes only see their own subteam's leaderboard.
+      // Schema:
+      //   teams/{teamId}/subteams/{subteamId}
+      //     name: string
+      //     subCoachUid: string (optional)
+      //     members: [uid, ...]
+      //     createdAt, updatedAt: serverTimestamp
+      match /subteams/{subteamId} {
+        // Everyone signed in can read so the leaderboard knows where each
+        // member sits — filter UI does the visibility cut. (Cross-subteam
+        // read is the same scope as cross-team-member read today.)
+        allow read: if isSignedIn();
+        // Only the head coach (team creator) OR an admin can write subteams.
+        // Sub-coaches can update their own subteam (members + name) but
+        // cannot create new subteams or reassign the sub-coach role.
+        allow create, delete: if isAdmin()
+          || (isSignedIn() && request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy);
+        allow update: if isAdmin()
+          || (isSignedIn() && request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy)
+          || (isSignedIn() && resource.data.subCoachUid is string && request.auth.uid == resource.data.subCoachUid
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'members', 'updatedAt']));
+      }
     }
 
     match /config/{docId} {
@@ -144,6 +178,18 @@ service cloud.firestore {
       // reads all + flips status (approved/exempt/denied) on review.
       allow read, create: if isOwner(uid);
       allow read, update, delete: if isAdmin();
+    }
+
+    match /league_requests/{requestId} {
+      // Submitted by a coach when they want to start a new league. Admin
+      // approves manually by creating the corresponding leagues/{id} doc.
+      // Audit found this collection had no rules at all — writes were
+      // silently denied.
+      allow create: if isSignedIn()
+        && request.resource.data.requestedBy == request.auth.uid;
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.requestedBy == request.auth.uid);
+      allow update, delete: if isAdmin();
     }
 
     match /approved_clubs/{clubId} {
@@ -166,9 +212,13 @@ service cloud.firestore {
 
     match /leagues/{leagueId} {
       // Cross-team / cross-school leagues. Anyone signed in reads to
-      // see standings; admin manages.
+      // see standings. Admin can do anything; the league creator can
+      // update or delete their own league (audit found these were
+      // silently failing).
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isAdmin()
+        || (isSignedIn() && resource.data.createdBy == request.auth.uid);
     }
 
     match /race_day/{date} {

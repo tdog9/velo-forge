@@ -20,9 +20,9 @@ final class WatchAppState: ObservableObject {
     /// Race-day live state. When `active`, the Record tab swaps to a lap
     /// timer; the iPhone's race-day controller is the authority and pushes
     /// this state to the Watch.
-    @Published var raceDayActive: Bool = false { didSet { saveRaceDayState() } }
-    @Published var raceDayLaps: [WatchLap] = [] { didSet { saveRaceDayState() } }
-    @Published var raceDayStartedAt: Date? { didSet { saveRaceDayState() } }
+    @Published var raceDayActive: Bool = false { didSet { scheduleRaceDaySave() } }
+    @Published var raceDayLaps: [WatchLap] = [] { didSet { scheduleRaceDaySave() } }
+    @Published var raceDayStartedAt: Date? { didSet { scheduleRaceDaySave() } }
     @Published var raceDayLeaderboard: [WatchLeaderboardEntry] = []
 
     /// Finished stints kept on the Watch so the athlete can review laps
@@ -40,6 +40,10 @@ final class WatchAppState: ObservableObject {
     private static let kRaceDayStarted = "tp_watch_rd_started"
     private static let kRaceDayLaps    = "tp_watch_rd_laps"
     private static let kPastStints     = "tp_watch_past_stints"
+
+    /// Coalesces back-to-back didSet writes so a flurry of laps doesn't
+    /// hammer UserDefaults (audit found 3 writes per single lap tap).
+    private var raceDaySaveTask: DispatchWorkItem?
 
     private init() {
         loadRaceDayState()
@@ -104,6 +108,17 @@ final class WatchAppState: ObservableObject {
     }
 
     // MARK: - Persistence
+
+    /// Debounce — schedule a save 200ms out, cancelling any pending save.
+    /// Multiple property updates within the window collapse to one write.
+    private func scheduleRaceDaySave() {
+        raceDaySaveTask?.cancel()
+        let task = DispatchWorkItem { [weak self] in
+            Task { @MainActor in self?.saveRaceDayState() }
+        }
+        raceDaySaveTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(200), execute: task)
+    }
 
     private func saveRaceDayState() {
         let d = UserDefaults.standard

@@ -330,7 +330,9 @@ struct RaceDayLapView: View {
         // even if the iPhone bridge isn't reachable. Then auto-sync the
         // freshly-archived stint upstream — WCSession queues via
         // transferUserInfo when the iPhone is asleep, so delivery is
-        // best-effort but durable.
+        // best-effort but durable. Critically: only mark the stint as
+        // synced once WCSession has accepted the payload; otherwise a
+        // failed dispatch would silently lose data.
         state.archiveCurrentStint()
         if let last = state.pastStints.first, !last.synced {
             let payload: [String: Any] = [
@@ -345,8 +347,9 @@ struct RaceDayLapView: View {
                     ] as [String: Any]
                 },
             ]
-            ConnectivityService.shared.sendRaceDayLaps(payload)
-            state.markAllStintsSynced()
+            ConnectivityService.shared.sendRaceDayLaps(payload, onSent: { @MainActor success in
+                if success { WatchAppState.shared.markAllStintsSynced() }
+            })
         }
         state.raceDayLaps.removeAll()
         state.raceDayActive = false

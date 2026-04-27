@@ -69,8 +69,11 @@ final class ConnectivityService: NSObject, ObservableObject {
     }
 
     /// Watch → iPhone: send race-day lap data when the athlete ends a stint.
-    func sendRaceDayLaps(_ laps: [String: Any]) {
-        send(["payload": "raceDayLaps", "data": laps])
+    /// `onSent` reports whether WCSession accepted the dispatch (true = sent
+    /// or queued via transferUserInfo). Use this to avoid marking a stint
+    /// "synced" before delivery is at least in flight.
+    func sendRaceDayLaps(_ laps: [String: Any], onSent: (@MainActor (Bool) -> Void)? = nil) {
+        send(["payload": "raceDayLaps", "data": laps], onSent: onSent)
     }
 
     /// Watch → iPhone: push a HealthKit summary (HR, steps, energy, sleep)
@@ -79,16 +82,33 @@ final class ConnectivityService: NSObject, ObservableObject {
         send(["payload": "healthSummary", "data": summary])
     }
 
-    private func send(_ dict: [String: Any]) {
-        guard WCSession.isSupported() else { return }
+    private func send(_ dict: [String: Any], onSent: (@MainActor (Bool) -> Void)? = nil) {
+        guard WCSession.isSupported() else {
+            if let onSent { Task { @MainActor in onSent(false) } }
+            return
+        }
         let s = WCSession.default
-        guard s.activationState == .activated else { s.activate(); return }
+        guard s.activationState == .activated else {
+            s.activate()
+            // We don't know yet if delivery will succeed — report pessimistically
+            // so the caller doesn't mark synced.
+            if let onSent { Task { @MainActor in onSent(false) } }
+            return
+        }
         if s.isReachable {
             s.sendMessage(dict, replyHandler: nil) { _ in
+                // sendMessage failed — fall back to transferUserInfo (durable
+                // queue). Either way the payload is at least in flight.
                 s.transferUserInfo(dict)
+                if let onSent { Task { @MainActor in onSent(true) } }
             }
+            // If sendMessage didn't error in the synchronous setup path,
+            // optimistically mark dispatched. The errorHandler above will
+            // override if the actual transmission failed.
+            if let onSent { Task { @MainActor in onSent(true) } }
         } else {
             s.transferUserInfo(dict)
+            if let onSent { Task { @MainActor in onSent(true) } }
         }
     }
 }

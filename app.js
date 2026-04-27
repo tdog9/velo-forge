@@ -401,18 +401,30 @@ if (typeof window !== 'undefined') {
           } catch(e) {}
           // 3. Save the stint as a workout entry so it shows up in fitness
           //    history, contributes to XP, and feeds the weekly chart.
+          //    Watch sends lap.duration in milliseconds (see WatchRecordView
+          //    finishStint: Int(lap.durationSeconds * 1000)). Don't double-
+          //    convert. Validate timestamps so a missing payload field never
+          //    produces an epoch-1970-dated workout.
           if (lapCount > 0) {
             try {
+              const nowMs = Date.now();
               const startMs = (payload.stintStartedAt || 0) * 1000;
               const endMs = (payload.stintEndedAt || 0) * 1000;
-              const durMin = (startMs && endMs) ? Math.max(1, Math.round((endMs - startMs) / 60000)) : 0;
-              const bestMs = laps.length > 0 ? Math.min(...laps.map(l => l.duration || 0)) : 0;
+              // Both timestamps must be (a) present, (b) reasonable (after
+              // the year 2000), and (c) end after start. Otherwise fall back
+              // to "now" rather than 1970.
+              const validStart = startMs > 946684800000 && startMs <= nowMs + 60000;
+              const validEnd   = endMs   > 946684800000 && endMs   >= startMs;
+              const durMin = (validStart && validEnd)
+                ? Math.max(1, Math.round((endMs - startMs) / 60000))
+                : 1;
+              const bestMs = Math.min(...laps.map(l => l.duration || 0));  // already ms from watch
               await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
                 name: 'Race-day stint',
                 type: 'hpv',
                 kind: 'race_stint',
                 duration: durMin,
-                date: startMs ? Timestamp.fromDate(new Date(startMs)) : Timestamp.now(),
+                date: validStart ? Timestamp.fromDate(new Date(startMs)) : Timestamp.now(),
                 lapCount,
                 bestLapMs: bestMs,
                 source: 'watch',
@@ -4213,13 +4225,28 @@ async function logAiWorkout(w) {
 
 function setAiGoal(g) {
   if (!g || typeof g !== 'object') throw new Error('No goal payload');
-  const allowedTypes = new Set(['weekly_workouts', 'weekly_mins', 'monthly_km', 'streak_days']);
-  const type = allowedTypes.has(g.type) ? g.type : null;
+  // Audit found three names for "this week's workout count" floating around:
+  // - UI template chips: workouts_week
+  // - AI coach prompt examples: workouts_week / workouts_month
+  // - This whitelist (until now): weekly_workouts
+  // Normalise legacy aliases so the AI can use either form without
+  // silently dropping the action.
+  const aliases = {
+    weekly_workouts: 'workouts_week',
+    monthly_workouts: 'workouts_month',
+    monthly_minutes: 'minutes_month',
+    weekly_mins: 'minutes_month',  // best-fit; UI doesn't have weekly mins
+    monthly_km: 'minutes_month',   // legacy — coerce to closest active type
+    streak_days: 'streak',
+  };
+  const rawType = g.type;
+  const type = aliases[rawType] || rawType;
+  const allowedTypes = new Set(['workouts_week', 'workouts_month', 'minutes_month', 'beat_last_week', 'streak', 'workouts', 'minutes']);
+  if (!allowedTypes.has(type)) throw new Error('Unknown goal type: ' + rawType);
   const target = parseFloat(g.target);
-  if (!type) throw new Error('Unknown goal type');
-  if (!isFinite(target) || target <= 0) throw new Error('Bad target');
+  if (type !== 'beat_last_week' && (!isFinite(target) || target <= 0)) throw new Error('Bad target');
   const label = g.label ? String(g.label).trim() : (target + ' ' + type.replace(/_/g, ' '));
-  userGoals.push({ id: Date.now().toString(), type, target, label, createdAt: new Date().toISOString() });
+  userGoals.push({ id: Date.now().toString(), type, target: target || 0, label, createdAt: new Date().toISOString() });
   saveGoals();
   if (currentPage === 'today') renderToday();
 }
