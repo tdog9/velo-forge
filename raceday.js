@@ -15,6 +15,8 @@ let stintPositions    = [];
 let stintLaps         = [];
 let stintWatchId      = null;
 let stintInterval     = null;
+let stintLiveInterval = null;
+let spectatorInterval = null;
 let moveContinuousStart = null;
 let lastLapTime       = null;
 let stintMap          = null;
@@ -161,7 +163,8 @@ export async function checkRaceDaySchedule() {
   } catch(e) { console.warn('checkRaceDaySchedule:', e); }
 }
 export async function deactivateRaceDay() {
-  if (!ctx?.userProfile?.isCoach) return false;
+  const isMaster = ctx.currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+  if (!ctx?.userProfile?.isCoach && !isMaster) return false;
   try {
     await ctx.updateDoc(ctx.doc(ctx.db,'race_day',todayKey()),{active:false});
     rdd.active=false; return true;
@@ -339,6 +342,7 @@ function bindOverlay(ov) {
     document.getElementById('rd-responsive-style')?.remove();
     ov.remove(); // removes full overlay including backdrop
     document.getElementById('rd-roster-fab')?.remove();
+    if (spectatorInterval) { clearInterval(spectatorInterval); spectatorInterval=null; }
     if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
     const ma=document.getElementById('main-app');
     if (ma) ma.style.display='flex';
@@ -541,6 +545,48 @@ function openAddField(c) {
 }
 
 // ── Stint Tab ─────────────────────────────────────────────────────────────────
+async function loadLiveStints() {
+  if (!ctx?.db || !rdd.date) return [];
+  try {
+    const s = await ctx.getDocs(ctx.collection(ctx.db,'race_day',rdd.date,'live'));
+    const cutoff = Date.now() - 90*1000; // anything not updated in 90s = stale
+    return s.docs.map(d=>d.data())
+      .filter(d => d.live && d.updatedAt && (d.updatedAt.toMillis ? d.updatedAt.toMillis() : 0) > cutoff);
+  } catch(e) { return []; }
+}
+
+function renderLivePanel(live) {
+  if (!live || live.length === 0) return '';
+  return `<div style="background:linear-gradient(135deg,rgba(239,68,68,.10),rgba(239,68,68,.04));border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:12px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+      <div style="width:7px;height:7px;border-radius:50%;background:#ef4444;animation:rdPulse 1.4s ease infinite"></div>
+      <span style="font-size:11px;font-weight:700;color:#ef4444;letter-spacing:.05em;text-transform:uppercase">Live on track</span>
+    </div>
+    ${live.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(239,68,68,.12);font-size:13px">
+      <span style="flex:1;font-weight:700">${esc(l.displayName||'Driver')}</span>
+      <span style="color:var(--muted-fg);font-size:11px">${l.lapCount||0} laps</span>
+      <span style="font-family:var(--font-mono);font-weight:700;color:var(--fg)">${fmtTime(l.elapsed||0)}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderUpNextPanel() {
+  if (!rosterData || rosterData.length === 0) return '';
+  // Pick driver who hasn't ridden today, in roster order
+  const completedUids = new Set(todayStints.map(s => s.uid));
+  const next = rosterData.find(d => !completedUids.has(d.id) && d.id !== ctx.currentUser?.uid);
+  if (!next) return '';
+  const mins = Math.round((next.duration||3600)/60);
+  return `<div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.22);border-radius:12px;padding:11px 13px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+    <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">Up next</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14px;font-weight:700;color:var(--fg)">${esc(next.name)}</div>
+      ${next.notes?`<div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${esc(next.notes)}</div>`:''}
+    </div>
+    <div style="font-size:12px;color:var(--muted-fg);white-space:nowrap">${mins}m</div>
+  </div>`;
+}
+
 function renderStintTab(c) {
   if (stintActive) { renderActiveStint(c); return; }
 
@@ -569,6 +615,8 @@ function renderStintTab(c) {
   }
 
   c.innerHTML=`
+    <div id="rd-live-panel"></div>
+    ${renderUpNextPanel()}
     ${spInfo}
     <div id="rd-pre-map" style="width:100%;height:200px;border-radius:12px;overflow:hidden;background:#0a1628;margin-bottom:14px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
@@ -589,6 +637,19 @@ function renderStintTab(c) {
   c.querySelectorAll('.rd-email-btn').forEach(btn=>btn.addEventListener('click',()=>{
     const s=todayStints.find(x=>x.uid===btn.dataset.uid); if(s) emailStint(s);
   }));
+
+  // Spectator polling — refresh live drivers every 20s while pre-stint screen is visible
+  if (spectatorInterval) { clearInterval(spectatorInterval); spectatorInterval=null; }
+  const refreshLive = async () => {
+    const live = await loadLiveStints();
+    const panel = document.getElementById('rd-live-panel');
+    if (panel) panel.innerHTML = renderLivePanel(live);
+    if (!document.getElementById('rd-start-btn')) {
+      clearInterval(spectatorInterval); spectatorInterval=null;
+    }
+  };
+  refreshLive();
+  spectatorInterval = setInterval(refreshLive, 20000);
 }
 
 function initPreMap() {
@@ -612,10 +673,40 @@ function startStint(c) {
   stintMap=null; stintPolyline=null; stintMarker=null;
   renderActiveStint(c);
   stintInterval=setInterval(()=>updateActive(),1000);
+  // Live progress publish — every 15s push current state so teammates see live laps/elapsed
+  stintLiveInterval=setInterval(()=>publishLiveStint(),15000);
+  publishLiveStint(); // initial
   if (navigator.geolocation) {
     stintWatchId=navigator.geolocation.watchPosition(onPos,e=>console.warn('GPS:',e.message),{enableHighAccuracy:true,maximumAge:1000,timeout:10000});
   }
   try { if(navigator.wakeLock) navigator.wakeLock.request('screen').catch(()=>{}); } catch(e){}
+}
+
+async function publishLiveStint() {
+  if (!ctx?.db || !rdd.date || !ctx.currentUser) return;
+  try {
+    const best = stintLaps.length ? Math.min(...stintLaps.map(l=>l.duration)) : null;
+    await ctx.setDoc(ctx.doc(ctx.db,'race_day',rdd.date,'live',ctx.currentUser.uid), {
+      uid: ctx.currentUser.uid,
+      displayName: ctx.userProfile?.displayName || 'Driver',
+      live: true,
+      startTime: stintStartTime,
+      elapsed: Date.now() - stintStartTime,
+      lapCount: stintLaps.length,
+      bestLap: best,
+      lastLap: stintLaps.length ? stintLaps[stintLaps.length-1].duration : null,
+      updatedAt: ctx.serverTimestamp(),
+    });
+  } catch(e) {}
+}
+
+async function clearLiveStint() {
+  if (!ctx?.db || !rdd.date || !ctx.currentUser) return;
+  try {
+    await ctx.setDoc(ctx.doc(ctx.db,'race_day',rdd.date,'live',ctx.currentUser.uid), {
+      uid: ctx.currentUser.uid, live: false, updatedAt: ctx.serverTimestamp(),
+    });
+  } catch(e) {}
 }
 
 function onPos(pos) {
@@ -745,7 +836,9 @@ function updateActive() {
 async function endStint(c) {
   stintActive=false;
   clearInterval(stintInterval); stintInterval=null;
+  clearInterval(stintLiveInterval); stintLiveInterval=null;
   if (stintWatchId!==null){ navigator.geolocation.clearWatch(stintWatchId); stintWatchId=null; }
+  await clearLiveStint();
   const record={
     uid:ctx.currentUser?.uid, displayName:ctx.userProfile?.displayName||'Unknown',
     startTime:stintStartTime, endTime:Date.now(), duration:Date.now()-stintStartTime,

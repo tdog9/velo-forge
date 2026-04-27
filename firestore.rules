@@ -176,6 +176,23 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow write: if isOwner(uid);
       }
+
+      match /live/{uid} {
+        // Live in-progress stint progress (every 15s while riding) so
+        // teammates can spectate live laps/elapsed without the Watch.
+        allow read: if isSignedIn();
+        allow write: if isOwner(uid);
+      }
+
+      match /roster/{rosterId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+
+      match /setup/{teamId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
     }
   }
 }

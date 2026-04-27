@@ -159,7 +159,6 @@ function computeRacePhase(fromDate) {
   const weeksOut = Math.floor(daysOut / 7);
   let phase, label, description;
   if (daysOut <= 7)       { phase = 'race-week'; label = 'RACE WEEK'; description = 'Keep it light. Stay sharp. Trust your prep.'; }
-  else if (daysOut <= 14) { phase = 'taper';     label = 'TAPER';     description = 'Back off volume — your body absorbs the work now.'; }
   else if (daysOut <= 42) { phase = 'peak';      label = 'PEAK';      description = 'Race-pace intervals. Sharpen your top gear.'; }
   else if (daysOut <= 84) { phase = 'build';     label = 'BUILD';     description = 'Ramp intensity. Build race-pace capacity.'; }
   else                    { phase = 'base';      label = 'BASE';      description = 'Aerobic engine building. Consistency over effort.'; }
@@ -169,13 +168,12 @@ function computeRacePhase(fromDate) {
 // Each phase occupies 20% of the bar; within a segment the marker advances
 // linearly from start → end of that phase as daysOut shrinks.
 function phaseArcProgress(phase, daysOut) {
-  const seg = 0.2;
+  const seg = 0.25;
   switch (phase) {
     case 'base':      return Math.max(0, seg - Math.min(84, daysOut - 84) / 84 * seg);
     case 'build':     return seg   + ((84 - daysOut) / 42) * seg;
-    case 'peak':      return 2*seg + ((42 - daysOut) / 28) * seg;
-    case 'taper':     return 3*seg + ((14 - daysOut) / 7)  * seg;
-    case 'race-week': return 4*seg + ((7  - daysOut) / 7)  * seg;
+    case 'peak':      return 2*seg + ((42 - daysOut) / 35) * seg;
+    case 'race-week': return 3*seg + ((7  - daysOut) / 7)  * seg;
     default: return 0;
   }
 }
@@ -187,14 +185,13 @@ function renderPhaseTimeline(racePhase) {
     { id: 'base',      label: 'BASE',  color: '#22c55e' },
     { id: 'build',     label: 'BUILD', color: '#f59e0b' },
     { id: 'peak',      label: 'PEAK',  color: '#ef4444' },
-    { id: 'taper',     label: 'TAPER', color: '#3b82f6' },
     { id: 'race-week', label: 'RACE',  color: '#8b5cf6' },
   ];
   const pct = Math.max(0, Math.min(1, phaseArcProgress(racePhase.phase, racePhase.daysOut))) * 100;
   const segRects = segments.map((s, i) => {
     const isCurrent = s.id === racePhase.phase;
     const opacity = isCurrent ? '0.35' : '0.12';
-    return `<rect x="${i * 20}" y="0" width="20" height="12" fill="${s.color}" fill-opacity="${opacity}"/>`;
+    return `<rect x="${i * 25}" y="0" width="25" height="12" fill="${s.color}" fill-opacity="${opacity}"/>`;
   }).join('');
   const labels = segments.map((s, i) => {
     const isCurrent = s.id === racePhase.phase;
@@ -543,10 +540,15 @@ async function aiCoachFetch(payload) {
   const headers = { 'Content-Type': 'application/json' };
   const token = await auth?.currentUser?.getIdToken?.().catch(() => null);
   if (token) headers.Authorization = 'Bearer ' + token;
+  // Inject coach persona from local profile setting (supportive/no_nonsense/drill_sergeant)
+  let body = payload || {};
+  if (!body.persona) {
+    try { body = { ...body, persona: localStorage.getItem('tp_coach_persona') || 'supportive' }; } catch(e) {}
+  }
   return fetch('/.netlify/functions/ai-coach', {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 }
 
@@ -2352,11 +2354,19 @@ function renderGoals() {
   loadGoals();
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">My Goals</div>';
   if (userGoals.length === 0) {
-    html += '<div style="font-size:12px;color:var(--muted-fg);padding:4px 0">Set a goal to stay motivated!</div>';
+    html += '<div style="font-size:12px;color:var(--muted-fg);padding:4px 0;margin-bottom:8px">Pick a goal to stay on track:</div>';
+    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+      <button class="goal-tpl-btn" data-tpl="weekly_workouts" data-target="4" data-label="4 workouts this week" data-type="workouts_week">📅 4 / week</button>
+      <button class="goal-tpl-btn" data-tpl="month_workouts" data-target="12" data-label="12 workouts this month" data-type="workouts_month">🎯 12 / month</button>
+      <button class="goal-tpl-btn" data-tpl="month_minutes" data-target="600" data-label="10 hours this month" data-type="minutes_month">⏱️ 10 hr / month</button>
+      <button class="goal-tpl-btn" data-tpl="beat_last_week" data-target="0" data-label="Beat last week" data-type="beat_last_week">🚀 Beat last week</button>
+    </div>`;
   }
   userGoals.forEach((g, idx) => {
     // Calculate current progress
     let current = 0;
+    let displayTarget = g.target;
+    let unitLabel = g.type;
     if (g.type === 'workouts') current = userWorkouts.length;
     else if (g.type === 'streak') {
       const dates = [...new Set(userWorkouts.map(w => {
@@ -2374,10 +2384,30 @@ function renderGoals() {
       current = s;
     } else if (g.type === 'minutes') {
       current = userWorkouts.reduce((sum, w) => sum + (w.duration || 0), 0);
+    } else if (g.type === 'workouts_week') {
+      const wkStart = new Date(); wkStart.setDate(wkStart.getDate() - wkStart.getDay()); wkStart.setHours(0,0,0,0);
+      current = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d >= wkStart; }).length;
+      unitLabel = 'this week';
+    } else if (g.type === 'workouts_month') {
+      const mStart = new Date(); mStart.setDate(1); mStart.setHours(0,0,0,0);
+      current = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d >= mStart; }).length;
+      unitLabel = 'this month';
+    } else if (g.type === 'minutes_month') {
+      const mStart = new Date(); mStart.setDate(1); mStart.setHours(0,0,0,0);
+      current = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d >= mStart; }).reduce((sum, w) => sum + (w.duration || 0), 0);
+      unitLabel = 'min this month';
+    } else if (g.type === 'beat_last_week') {
+      const wkStart = new Date(); wkStart.setDate(wkStart.getDate() - wkStart.getDay()); wkStart.setHours(0,0,0,0);
+      const lastStart = new Date(wkStart); lastStart.setDate(lastStart.getDate() - 7);
+      const thisCnt = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d >= wkStart; }).length;
+      const lastCnt = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d >= lastStart && d < wkStart; }).length;
+      displayTarget = Math.max(1, lastCnt + 1);
+      current = thisCnt;
+      unitLabel = `(last week: ${lastCnt})`;
     }
-    const pct = g.target > 0 ? Math.min(100, (current / g.target) * 100) : 0;
+    const pct = displayTarget > 0 ? Math.min(100, (current / displayTarget) * 100) : 0;
     const radius = 22, circ = 2 * Math.PI * radius, offset = circ - (pct / 100) * circ;
-    const done = current >= g.target;
+    const done = current >= displayTarget;
     html += '<div class="goal-card">';
     html += '<div class="goal-ring-wrap">';
     html += '<div class="goal-ring"><svg viewBox="0 0 56 56" width="56" height="56">';
@@ -2385,7 +2415,7 @@ function renderGoals() {
     html += '<circle cx="28" cy="28" r="' + radius + '" fill="none" stroke="' + (done ? '#22c55e' : 'var(--primary)') + '" stroke-width="4" stroke-dasharray="' + circ + '" stroke-dashoffset="' + offset + '" stroke-linecap="round"/>';
     html += '</svg><div class="goal-ring-text">' + (done ? '✓' : Math.round(pct) + '%') + '</div></div>';
     html += '<div class="goal-info"><div class="goal-label">' + (done ? '🎉 ' : '') + escHtml(g.label) + '</div>';
-    html += '<div class="goal-progress">' + current + ' / ' + g.target + ' ' + g.type + '</div></div></div>';
+    html += '<div class="goal-progress">' + current + ' / ' + displayTarget + ' ' + escHtml(unitLabel) + '</div></div></div>';
     html += '<div class="goal-actions"><button class="goal-del" data-goal-del="' + idx + '">Remove</button></div>';
     html += '</div>';
   });
@@ -2480,7 +2510,7 @@ function renderTeamFeed() {
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Team Activity</div>';
   teamFeedCache.slice(0, 8).forEach((item, idx) => {
     const initials = (item.name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
-    const reactKey = 'tp_react_' + (item.uid || idx) + '_' + (item.dateKey || idx);
+    const reactKey = 'tp_react_' + (item.uid || 'u') + '_' + (item.workoutId || item.dateKey || idx);
     let myReaction = '';
     try { myReaction = localStorage.getItem(reactKey) || ''; } catch(e) {}
     html += `<div class="feed-item">
@@ -2491,7 +2521,7 @@ function renderTeamFeed() {
         <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
           <div class="feed-time">${item.timeAgo}</div>
           <div class="feed-reactions" style="display:flex;gap:2px;margin-left:auto">
-            ${['🔥','💪','👏'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? 'rgba(249,115,22,.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? 'var(--primary)' : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
+            ${['🔥','💪','👏','⚡'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? 'rgba(249,115,22,.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? 'var(--primary)' : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
           </div>
         </div>
       </div>
@@ -2549,7 +2579,6 @@ function renderToday() {
   html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
     <div class="today-date" style="margin:0">${dateStr}</div>
     <div style="display:flex;align-items:center;gap:8px">
-      ${streak > 0 ? `<span style="font-size:12px;font-weight:700;color:#f59e0b">🔥 ${streak}d</span>` : ''}
       <span style="font-size:12px;font-weight:700;color:var(--primary)">${lvl.icon} ${xp} XP</span>
       <button id="today-customize" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:2px;font-size:14px" title="Customize widgets">⚙️</button>
     </div>
@@ -2677,11 +2706,11 @@ function renderToday() {
   // (no-op if one was already auto-generated today, or there's no signal yet).
   maybeAutoGenerateAiWidget();
   // Race-week trigger: once-per-day specialist coaching when the athlete
-  // crosses into taper or race-week so the AI has a chance to give a focused
+  // crosses into race-week so the AI has a chance to give a focused
   // peaking/recovery message ahead of competition.
   try {
     const phaseNow = computeRacePhase(now);
-    if (phaseNow && (phaseNow.phase === 'taper' || phaseNow.phase === 'race-week')) {
+    if (phaseNow && phaseNow.phase === 'race-week') {
       triggerCoachInsight('race_week', { phase: phaseNow.phase, days_out: phaseNow.daysOut });
     }
   } catch(e) {}
@@ -2700,7 +2729,6 @@ function renderToday() {
       'base':      { bg: 'rgba(34,197,94,.10)',  border: 'rgba(34,197,94,.25)',  fg: '#22c55e' },
       'build':     { bg: 'rgba(245,158,11,.10)', border: 'rgba(245,158,11,.25)', fg: '#f59e0b' },
       'peak':      { bg: 'rgba(239,68,68,.10)',  border: 'rgba(239,68,68,.25)',  fg: '#ef4444' },
-      'taper':     { bg: 'rgba(59,130,246,.10)', border: 'rgba(59,130,246,.25)', fg: '#3b82f6' },
       'race-week': { bg: 'rgba(139,92,246,.12)', border: 'rgba(139,92,246,.30)', fg: '#8b5cf6' },
     };
     const pc = phaseColors[phase];
@@ -2963,12 +2991,12 @@ function renderToday() {
   html += `<div style="margin-top:14px"><div id="extras-toggle" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none;color:var(--muted-fg);font-size:13px;font-weight:600">Stats & Goals <span style="font-size:14px;transition:transform .2s;transform:rotate(${extrasOpen ? '0' : '-90'}deg)">▾</span></div>
   <div id="extras-body" style="${extrasOpen ? '' : 'display:none'}">`;
   // Stats row
-  html += `<div class="today-stats-row" style="margin-bottom:8px"><div class="today-stat"><span class="today-stat-val">${streak}</span><span class="today-stat-lbl">streak</span></div><div class="today-stat-sep"></div><div class="today-stat"><span class="today-stat-val">${workoutsThisWeek}</span><span class="today-stat-lbl">this week</span></div><div class="today-stat-sep"></div><div class="today-stat"><span class="today-stat-val">${totalWorkouts}</span><span class="today-stat-lbl">total</span></div></div>`;
+  html += `<div class="today-stats-row" style="margin-bottom:8px"><div class="today-stat"><span class="today-stat-val">${workoutsThisWeek}</span><span class="today-stat-lbl">this week</span></div><div class="today-stat-sep"></div><div class="today-stat"><span class="today-stat-val">${totalWorkouts}</span><span class="today-stat-lbl">total</span></div></div>`;
   html += renderSeasonPhase();
   html += renderGoals();
   const earned = getEarnedBadges();
   if (earned.length > 0 || userWorkouts.length > 0) {
-    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px">Badges · ${earned.length}/${BADGES.length}</div>`;
+    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px;text-align:center">Badges · ${earned.length}/${BADGES.length}</div>`;
     html += renderBadges();
     html += '</div>';
   }
@@ -2980,9 +3008,15 @@ function renderToday() {
       const count = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d >= wStart2 && d < wEnd; }).length;
       weeks.push({ count, label: wStart2.getDate() + '/' + (wStart2.getMonth()+1), isCurrent: i === 0 });
     }
-    const maxCount = Math.max(...weeks.map(w => w.count), 1);
-    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px">Weekly Activity</div>
-    <div class="chart-row">${weeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? 'var(--primary)' : 'var(--muted)'}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
+    // Trim trailing empty weeks but always keep the current week as the rightmost anchor
+    const currentIdx = weeks.findIndex(w => w.isCurrent);
+    let lastNonZero = -1;
+    weeks.forEach((w, i) => { if (w.count > 0) lastNonZero = i; });
+    const cutIdx = Math.max(lastNonZero, currentIdx);
+    const visibleWeeks = weeks.slice(0, cutIdx + 1);
+    const maxCount = Math.max(...visibleWeeks.map(w => w.count), 1);
+    html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px;text-align:center">Weekly Activity</div>
+    <div class="chart-row">${visibleWeeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? 'var(--primary)' : 'var(--muted)'}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
   }
   html += renderWorkoutCalendar(now);
   html += renderTeamFeed();
@@ -3086,6 +3120,19 @@ function renderToday() {
       userGoals.splice(idx, 1);
       saveGoals();
       renderToday();
+    });
+  });
+  // Bind goal template chips — one-tap goal creation
+  c.querySelectorAll('.goal-tpl-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      haptic('light');
+      const type = btn.dataset.type;
+      const target = parseInt(btn.dataset.target) || 0;
+      const label = btn.dataset.label;
+      userGoals.push({ id: Date.now().toString(), type, target, label, createdAt: new Date().toISOString() });
+      saveGoals();
+      renderToday();
+      showToast('Goal set: ' + label, 'success');
     });
   });
   // Bind goal add button
@@ -3683,7 +3730,6 @@ function completionToastMsg(activePlan, key) {
   const d = phase.daysOut;
   switch (phase.phase) {
     case 'race-week': return `✓ ${durStr} logged. ${d}d to ${raceShort} — stay sharp.`;
-    case 'taper':     return `✓ ${durStr} logged. Trust the taper — ${d}d to ${raceShort}.`;
     case 'peak':      return `✓ ${durStr} banked toward ${raceShort}. Every interval counts.`;
     case 'build':     return `✓ ${durStr} banked. ${d}d to ${raceShort} — keep building.`;
     default:          return `✓ ${durStr} banked. Laying the base — ${d}d to ${raceShort}.`;
@@ -4217,9 +4263,8 @@ async function skipTodaysWorkouts() {
   const mins = skippedMinutes ? ' (' + skippedMinutes + ' min)' : '';
   let msg = 'Rescheduled to ' + target.dayName + mins + '.';
   if (phase && raceShort) {
-    if (phase.phase === 'race-week')  msg += ' ' + phase.daysOut + 'd to ' + raceShort + ' — recovery is training.';
-    else if (phase.phase === 'taper') msg += ' ' + phase.daysOut + 'd to ' + raceShort + ' — rest serves you.';
-    else                              msg += ' ' + phase.daysOut + 'd to ' + raceShort + '.';
+    if (phase.phase === 'race-week') msg += ' ' + phase.daysOut + 'd to ' + raceShort + ' — recovery is training.';
+    else                             msg += ' ' + phase.daysOut + 'd to ' + raceShort + '.';
   } else {
     msg += ' Back at it then.';
   }
@@ -4490,6 +4535,9 @@ async function loadTeamFeed() {
           const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
           feed.push({
             name,
+            uid,
+            workoutId: d.id,
+            dateKey: date.toISOString().split('T')[0],
             action: 'Logged ' + (w.name || 'a workout') + ' · ' + (w.duration || '?') + 'min',
             date,
             timeAgo: timeAgo(date)
@@ -5907,6 +5955,20 @@ async function renderProfile() {
     </div>
   </div>`;
   html += '</div>';
+  // Coach Personality
+  const persona = localStorage.getItem('tp_coach_persona') || 'supportive';
+  html += '<div class="profile-section"><div class="profile-section-title">Coach Personality</div>';
+  html += `<div class="profile-row" style="flex-direction:column;align-items:stretch;gap:8px">
+    <div style="font-size:12px;color:var(--muted-fg)">How the AI Coach talks to you.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${[
+        { id: 'supportive',     label: '🤗 Supportive', desc: 'Default — warm, encouraging' },
+        { id: 'no_nonsense',    label: '🎯 No-Nonsense', desc: 'Direct, blunt' },
+        { id: 'drill_sergeant', label: '🪖 Drill Sergeant', desc: 'Gruff, demanding' },
+      ].map(p => `<button class="persona-pick${persona === p.id ? ' active' : ''}" data-persona="${p.id}" title="${p.desc}">${p.label}</button>`).join('')}
+    </div>
+  </div>`;
+  html += '</div>';
   // Admin Demo Mode (only visible to admins)
   if (isAdmin) {
     const studentView = localStorage.getItem('tp_student_view') === 'true';
@@ -6015,6 +6077,15 @@ async function renderProfile() {
   }
   // Bindings
   $('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+  document.querySelectorAll('.persona-pick').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.persona;
+      localStorage.setItem('tp_coach_persona', id);
+      haptic('light');
+      document.querySelectorAll('.persona-pick').forEach(b => b.classList.toggle('active', b.dataset.persona === id));
+      showToast('Coach personality: ' + (btn.textContent || '').trim(), 'success');
+    });
+  });
   $('student-view-toggle')?.addEventListener('click', () => {
     const current = localStorage.getItem('tp_student_view') === 'true';
     const newVal = !current;
@@ -7097,6 +7168,19 @@ function applyGlobalSettings(s) {
   window._globalAnnouncement = s.globalAnnouncement || null;
   window._globalAnnouncementStyle = s.announcementStyle || 'info';
   if (currentPage === 'today') renderToday();
+  // Force-refresh broadcast — admin can bump this in Firestore to make every
+  // active client reload (clears cache + service worker via index.html VER bump).
+  // Each client tracks the last-applied stamp in localStorage to avoid loops.
+  if (s.forceRefreshAt) {
+    try {
+      const last = parseInt(localStorage.getItem('tp_force_refresh_last') || '0');
+      if (s.forceRefreshAt > last) {
+        localStorage.setItem('tp_force_refresh_last', String(s.forceRefreshAt));
+        // Skip the very first apply on cold start so a stale stamp doesn't loop us.
+        if (last !== 0) location.reload();
+      }
+    } catch(e) {}
+  }
 }
 
 // God admin panel section — only rendered for ADMIN_EMAIL

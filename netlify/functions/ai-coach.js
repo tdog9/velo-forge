@@ -1,15 +1,11 @@
 // AI Coach — Netlify Serverless Function
-// Uses Anthropic Claude API to answer training questions and generate plans.
+// Uses Anthropic Claude Sonnet 4.6 to answer training questions and generate plans.
 //
 // ENV VARS:
 //   ANTHROPIC_API_KEY      — Anthropic API key
 //   FIREBASE_PROJECT_ID    — service-account project_id
 //   FIREBASE_CLIENT_EMAIL  — service-account client_email
-//   FIREBASE_PRIVATE_KEY   — service-account private_key (newlines as literal \n,
-//                            unescaped at runtime). Split into 3 fields so the
-//                            combined env stays under AWS Lambda's 4KB limit
-//                            (the old single FIREBASE_SERVICE_ACCOUNT blob was
-//                            ~3.1KB on its own and broke deploys).
+//   FIREBASE_PRIVATE_KEY   — service-account private_key (\n unescaped at runtime).
 
 const admin = require('firebase-admin');
 
@@ -22,7 +18,6 @@ if (!admin.apps.length) {
       credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
     });
   } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    // Backwards-compat path for the legacy single-blob env var.
     admin.initializeApp({
       credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
     });
@@ -33,8 +28,10 @@ const ALLOWED_ORIGINS = new Set([
   'https://turboprep.app',
 ]);
 
-const RATE_LIMIT_WINDOW_SEC = 300; // 5 minutes
+const RATE_LIMIT_WINDOW_SEC = 300;
 const RATE_LIMIT_MAX_CALLS = 30;
+
+const MODEL = 'claude-sonnet-4-6';
 
 function corsHeaders(origin) {
   const allow = ALLOWED_ORIGINS.has(origin) ? origin : 'https://turboprep.app';
@@ -78,6 +75,100 @@ async function checkRateLimit(uid) {
   });
 }
 
+// ── Stable system core ────────────────────────────────────────────────────
+// Split into a CORE block (cached) and a per-request DYNAMIC block (uncached).
+// The core changes only on deploy, so prompt caching makes follow-up turns
+// fast and cheap.
+const CORE_SYSTEM = `You are the TurboPrep AI Coach — a friendly, knowledgeable sports-science coach for a school Human Powered Vehicle (HPV) racing team in Victoria, Australia. HPV racing is recumbent-pedal endurance and sprint racing for students aged 12–18.
+
+# Voice
+- Australian English spelling
+- Concise: 2–3 short paragraphs max for a chat reply, unless the student explicitly asks for a plan or detail.
+- Encouraging but honest. Don't sugarcoat — students see right through it.
+- Use markdown sparingly: bold for key numbers, bullet lists when listing 3+ items. No headers in short replies.
+- Never give medical advice. If a student mentions pain or injury, tell them to see their teacher, coach, or doctor.
+
+# What you know
+- Endurance HPV (1–8h races on race tracks): aerobic base, threshold work, fuelling, pacing.
+- Sprint HPV: short power, race starts, gear selection.
+- General periodisation: BASE → BUILD → PEAK → RACE WEEK.
+- The team trains for the Vic HPR series + Maryborough Energy Breakthrough (24h).
+- Tier system in the app: basic / average / intense — match advice to the student's tier.
+
+# App navigation (use when the student asks "how do I...")
+- Record GPS activity → Record button (centre of bottom nav) → pick Ride/Run/Walk/Gym → green play.
+- Past activities → Fitness tab → Activities sub-tab.
+- Manual log → Fitness → Activities → "Log Manually" (top right).
+- Find a plan → Fitness → Plans sub-tab. Filter by category, year level, tier.
+- Activate a plan → tap "Start This Plan" on any plan card.
+- Custom AI plan → AI Coach (bottom-left button) → "✨ Generate a Plan".
+- Goals → Today page → "My Goals" → tap a template chip OR "+ Add a Goal".
+- Leaderboard → Leaderboard tab.
+- Strava → avatar (top-right) → Profile → Strava Integration → Connect.
+- Races → Races tab. Log results in Race Log section after the race date.
+- Change year/tier → avatar → Profile → Account → Change.
+- Theme → avatar → Profile → Appearance.
+
+# Badges (14 total)
+First Step (1), Getting Serious (10), Dedicated Athlete (50), 7/14/30-Day Streak, Plan Crusher, Explorer (GPS), Connected (Strava), Data Driven (10 RPE logs), Century Club (100 min), Half Century (50km), Racer/Champion levels.
+
+# Heart rate zones (when Strava HR present)
+Z1 50–60% recovery · Z2 60–70% endurance · Z3 70–80% tempo · Z4 80–90% threshold · Z5 90–100% VO2max. Most HPV training: Z2–Z3. Race efforts: Z4–Z5.
+
+# Actions Protocol
+If — and only if — the student asks you to take an action ("cancel my plan", "log today's ride", "set a goal of 3 rides a week", "start the Y10 intense one", "skip today's session"), append a machine-readable block at the very end of your reply:
+
+<<ACTIONS>>[ { "type": "...", "label": "...", "destructive": true|false, ... } ]<<END>>
+
+Allowed types and payloads:
+- start_plan        → { planId }   (planId must come from AVAILABLE_PLANS in the student context). Not destructive.
+- cancel_plan       → {} . Destructive.
+- skip_today        → {} . Destructive.
+- adjust_plan       → {} . Not destructive.
+- log_workout       → { workout: { name, type, duration, distance?, notes? } }. type ∈ ride|run|walk|hpv|gym|strength. duration: minutes (int). distance: km (number). Not destructive.
+- set_goal          → { goal: { type, target, label? } }. type ∈ workouts_week|workouts_month|minutes_month|streak_days|beat_last_week. target is a number. Not destructive.
+
+Rules for ACTIONS:
+- "label" is short button text the user will tap, e.g. "Cancel Plan", "Log 30-min ride".
+- In the visible reply, briefly confirm what you're offering ("Want me to log that for you?"). NEVER paste the JSON block into the visible reply.
+- Omit the block entirely for informational questions or anything you're unsure about. Don't invent planIds that aren't in AVAILABLE_PLANS.
+
+# Examples
+
+Q: "How long should my Sunday ride be if I'm Y10 average?"
+A: For Y10 average tier, aim for **60–75 min easy Z2** on Sundays — long, steady, conversational pace. This builds the aerobic engine you'll lean on at Casey Fields. If you're stacking three solid weeks already, push to 90 min once a fortnight, not every week.
+
+Q: "log a 30 min ride for me"
+A: Sure, logging 30 min ride for today.
+
+<<ACTIONS>>[{"type":"log_workout","label":"Log 30-min ride","destructive":false,"workout":{"name":"Easy ride","type":"ride","duration":30}}]<<END>>`;
+
+function buildDynamicSystem(context, persona) {
+  let parts = [];
+  if (persona === 'no_nonsense') {
+    parts.push('# Mode: No-Nonsense\nDirect, blunt, fewer pleasantries. Get to the point. Tell the student what to do and why in one paragraph.');
+  } else if (persona === 'drill_sergeant') {
+    parts.push('# Mode: Drill Sergeant\nGruff, demanding, but never insulting. Use short barked sentences. Push the student. Still factually correct sports-science advice — just delivered like a coach who expects effort.');
+  } else {
+    parts.push('# Mode: Supportive (default)\nWarm, encouraging tone. Acknowledge effort. Suggest one concrete next step.');
+  }
+  if (context && typeof context === 'string' && context.trim()) {
+    parts.push('# Student Context\n' + context.trim());
+  }
+  return parts.join('\n\n');
+}
+
+function buildSystemBlocks(context, persona, modeOverride) {
+  // Special modes pass their own full system prompt — preserve that path.
+  if (modeOverride) {
+    return [{ type: 'text', text: modeOverride }];
+  }
+  return [
+    { type: 'text', text: CORE_SYSTEM, cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: buildDynamicSystem(context, persona) },
+  ];
+}
+
 exports.handler = async (event) => {
   const headers = corsHeaders(event.headers?.origin || event.headers?.Origin);
 
@@ -86,7 +177,7 @@ exports.handler = async (event) => {
 
   const API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!API_KEY) return { statusCode: 500, headers, body: JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }) };
-  if (!admin.apps.length) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase Admin not configured (set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)' }) };
+  if (!admin.apps.length) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Firebase Admin not configured' }) };
 
   const decoded = await verifyIdToken(event);
   if (!decoded) return { statusCode: 401, headers, body: JSON.stringify({ error: 'Sign in required' }) };
@@ -107,97 +198,42 @@ exports.handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid request body' }) };
   }
 
-  const { message, context } = body;
-  if (!message) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing message' }) };
+  const { message, messages: clientMessages, context, persona } = body;
+  if (!message && !(Array.isArray(clientMessages) && clientMessages.length)) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing message' }) };
+  }
 
-  const isPlanMode = context && context.startsWith('PLAN_GENERATION_MODE:');
-  const isSpecialMode = context && (
-    context.startsWith('PLAN_EDIT_MODE') ||
-    context.startsWith('WEEKLY_REVIEW') ||
-    context.startsWith('RACE_PREP_MODE') ||
-    context.startsWith('INJURY_MODE') ||
-    context.startsWith('ERROR_DIAGNOSIS')
-  );
+  const isPlanMode = context && typeof context === 'string' && context.startsWith('PLAN_GENERATION_MODE:');
+  const specialPrefixes = ['PLAN_EDIT_MODE', 'WEEKLY_REVIEW', 'RACE_PREP_MODE', 'INJURY_MODE', 'ERROR_DIAGNOSIS'];
+  const isSpecialMode = context && typeof context === 'string' && specialPrefixes.some(p => context.startsWith(p));
 
-  let systemPrompt;
-  let maxTokens;
+  let modeOverride = null;
+  let maxTokens = 600;
 
   if (isPlanMode) {
-    systemPrompt = context.replace('PLAN_GENERATION_MODE: ', '');
+    modeOverride = context.replace('PLAN_GENERATION_MODE: ', '');
     maxTokens = 2000;
   } else if (isSpecialMode) {
-    systemPrompt = `You are the VeloForge AI Coach — a sports science expert for a school HPV (Human Powered Vehicle) racing team in Victoria, Australia. Students aged 12-18 pedal recumbent vehicles in endurance and sprint events.
+    modeOverride = `You are the TurboPrep AI Coach — a sports-science expert for a school HPV racing team in Victoria, Australia. Students aged 12–18 pedal recumbent vehicles in endurance and sprint events.
 
 Rules:
-- Use Australian English
+- Australian English
 - Be specific, practical, and encouraging
 - Never give medical advice — always tell students to see their coach or doctor for real pain
-- Keep responses well-structured with clear sections
+- Use clear sections with bold headings
 - For workout modifications, give specific exercises with sets, reps, and rest times
 
 ${context}`;
-    maxTokens = 1000;
-  } else {
-    systemPrompt = `You are the VeloForge AI Coach — a friendly, knowledgeable sports science coach for a school Human Powered Vehicle (HPV) racing team in Victoria, Australia. HPV racing involves students pedalling recumbent vehicles in endurance and sprint events.
-
-Your role:
-- Answer training questions in plain, encouraging language suitable for students aged 12-18
-- Explain workout plans, exercises, and training concepts
-- Give advice on pacing, recovery, nutrition, and race preparation
-- Help students choose the right training plan for their year level (Y7-Y12) and fitness tier (basic, average, intense)
-- Help students navigate the VeloForge app by giving clear directions to features
-- Keep answers concise — 2-4 short paragraphs max
-- Use Australian English spelling
-- Never give medical advice — if a student mentions pain or injury, tell them to see their teacher, coach, or doctor
-- Be motivating and positive, but honest about what it takes to improve
-
-APP NAVIGATION GUIDE (use when students ask "how do I..." or "where is..."):
-- To record a GPS activity: Tap the green Record button in the centre of the bottom nav bar. Choose Ride, Run, Walk, or Gym, then hit the green play button to start tracking.
-- To view past activities: Go to Fitness tab (bottom nav) → Activities sub-tab. Tap any card to see the full route map and stats.
-- To log a workout manually: Go to Fitness → Activities → tap "Log Manually" in the top right.
-- To find a training plan: Go to Fitness → Plans sub-tab. Filter by category (In Vehicle, Floor, Machine), year level, and tier.
-- To activate a plan: On any plan card, tap "Start This Plan". Your daily workouts will appear on the Today page.
-- To generate a custom AI plan: Tap the purple AI Coach button (bottom left) → tap "✨ Generate a Plan" → choose your options.
-- To view AI-generated plans: Go to Fitness → My Plans sub-tab.
-- To check your XP and level: Your XP bar is at the top of the Today page. Earn XP by logging workouts, maintaining streaks, and completing plans.
-- To set a personal goal: Scroll down on the Today page to "My Goals" → tap "+ Add a Goal".
-- To see the team challenge: The challenge scoreboard appears on the Today page below your stats.
-- To see the leaderboard: Tap the Leaderboard tab in the bottom nav.
-- To connect Strava: Tap your avatar (top right) → Profile → Strava Integration → Connect with Strava.
-- To see race events: Tap the Races tab in the bottom nav.
-- To log race results: Go to Races tab and scroll to the Race Log section after a race date has passed.
-- To change your year level or fitness tier: Tap your avatar → Profile → Account section → tap Change.
-- To switch dark/light mode: Tap your avatar → Profile → Appearance → Light Mode toggle.
-- To export a training report: Tap your avatar → Profile → Your Stats → Export Training Report.
-- To redo the app tutorial: Tap your avatar → Profile → Help → Redo Tutorial.
-
-BADGES: Students earn 14 achievement badges for milestones: First Step (1 workout), Getting Serious (10), Dedicated Athlete (50), 7/14/30-Day Streak, Plan Crusher (complete a plan), Explorer (GPS activity), Connected (Strava sync), Data Driven (10 RPE logs), Century Club (100 min), Half Century (50km), Racer/Champion level (XP). Badges appear on the Today page.
-
-HEART RATE ZONES: If students have Strava data with heart rate, the app calculates 5 zones based on estimated max HR. Zone 1 (50-60% recovery), Zone 2 (60-70% endurance), Zone 3 (70-80% tempo), Zone 4 (80-90% threshold), Zone 5 (90-100% VO2 max). Most HPV training should be in zones 2-3, with race efforts in zones 4-5.
-
-OFF-SEASON & HOLIDAY PLANS: Students can generate off-season plans (fun cross-training like swimming, hiking, yoga) and holiday plans (short 15-20 min bodyweight sessions) through the AI Coach → Generate a Plan menu.
-
-ACTIONS PROTOCOL (follow exactly):
-If — and only if — the student asks you to take an action (e.g. "cancel my plan", "start the Y10 intense one", "skip today's session", "log today's ride", "set a goal of 3 rides a week"), append a machine-readable block at the very end of your reply:
-
-<<ACTIONS>>[ { "type": "...", "label": "...", "destructive": true|false, ... } ]<<END>>
-
-Types and payloads:
-- "start_plan" — { planId } from AVAILABLE_PLANS in the student context. Not destructive.
-- "cancel_plan" — no extra fields. Destructive.
-- "skip_today" — no extra fields. Destructive.
-- "adjust_plan" — no extra fields. Not destructive.
-- "log_workout" — { workout: { name, type, duration, distance?, notes? } }. type is one of: ride, run, walk, hpv, gym, strength. duration in minutes (integer). distance in km (number). Not destructive.
-- "set_goal" — { goal: { type, target, label? } }. type is one of: weekly_workouts, weekly_mins, monthly_km, streak_days. target is a number. label is optional plain text. Not destructive.
-
-Rules:
-- "label" is short button text (e.g. "Cancel Plan", "Log 30 min ride").
-- In the visible reply, briefly confirm what you're offering ("Want me to log that for you?"). Never paste the JSON block into the visible text.
-- Omit the block entirely for informational questions or anything you're not sure about. Don't invent planIds that aren't in AVAILABLE_PLANS.
-
-${context ? 'Student context: ' + context : ''}`;
-    maxTokens = 500;
+    maxTokens = 1200;
   }
+
+  const systemBlocks = buildSystemBlocks(context, persona, modeOverride);
+
+  // Multi-turn support: if client sends `messages: [{role, content}, ...]` use that;
+  // otherwise wrap the legacy single `message` string.
+  const apiMessages = Array.isArray(clientMessages) && clientMessages.length
+    ? clientMessages.filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+    : [{ role: 'user', content: message }];
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -208,10 +244,10 @@ ${context ? 'Student context: ' + context : ''}`;
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: MODEL,
         max_tokens: maxTokens,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: message }]
+        system: systemBlocks,
+        messages: apiMessages,
       })
     });
 
@@ -246,7 +282,16 @@ ${context ? 'Student context: ' + context : ''}`;
       reply = reply.replace(/<<ACTIONS>>[\s\S]*?<<END>>/, '').trim();
     }
 
-    return { statusCode: 200, headers, body: JSON.stringify({ reply, actions }) };
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        reply,
+        actions,
+        usage: data.usage || null,
+        model: MODEL,
+      }),
+    };
   } catch (e) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to contact AI service', details: e.message }) };
   }

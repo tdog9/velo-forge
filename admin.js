@@ -15,6 +15,8 @@ export function renderAdmin() {
 
   // God mode tabs — hearn.tenny only
   const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'raceday', label: 'Race Day' },
     { id: 'announcements', label: 'Announce' },
     { id: 'races', label: 'Races' },
     { id: 'plans', label: 'Plans' },
@@ -56,6 +58,8 @@ export function renderAdmin() {
   });
 
   switch (A.adminActiveTab) {
+    case 'overview': renderAdminOverview(); break;
+    case 'raceday': renderAdminRaceDay(); break;
     case 'announcements': renderAdminAnnouncements(); break;
     case 'races': renderAdminRaces(); break;
     case 'plans': renderAdminPlansMerged(); break;
@@ -64,6 +68,156 @@ export function renderAdmin() {
     case 'maintenance': renderAdminMaintenance(); break;
     case 'system': renderAdminSystem(); break;
   }
+}
+
+// ── Overview tab — quick stats + critical actions ──────────────────────────
+async function renderAdminOverview() {
+  const el = A.$('admin-overview');
+  if (!el) return;
+  el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--muted-fg);font-size:13px">Loading stats…</div>`;
+  let users = [], totalWorkouts = 0, activeToday = 0, totalCoaches = 0;
+  try {
+    const usersSnap = await A.getDocs(A.collection(A.db,'users'));
+    users = usersSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    totalCoaches = users.filter(u => u.isCoach).length;
+    const todayKey = new Date().toISOString().split('T')[0];
+    // Active today: any user with a workout dated today (limit scan to first 50 users to stay light)
+    const checks = await Promise.all(users.slice(0,50).map(async u => {
+      try {
+        const ws = await A.getDocs(A.query(A.collection(A.db,'users',u.uid,'workouts'), A.orderBy('date','desc')));
+        const wsCount = ws.size;
+        const hasToday = ws.docs.some(d => {
+          const dt = d.data().date;
+          const ds = dt?.toDate ? dt.toDate().toISOString().split('T')[0] : (typeof dt === 'string' ? dt.split('T')[0] : '');
+          return ds === todayKey;
+        });
+        return { wsCount, hasToday };
+      } catch(e) { return { wsCount: 0, hasToday: false }; }
+    }));
+    totalWorkouts = checks.reduce((s,c) => s + c.wsCount, 0);
+    activeToday = checks.filter(c => c.hasToday).length;
+  } catch(e) {}
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--primary)">${users.length}</div>
+        <div style="font-size:11px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px;letter-spacing:.04em">Total Users</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:#22c55e">${activeToday}</div>
+        <div style="font-size:11px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px;letter-spacing:.04em">Active Today</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--fg)">${totalWorkouts}</div>
+        <div style="font-size:11px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px;letter-spacing:.04em">Workouts (sample)</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:#3b82f6">${totalCoaches}</div>
+        <div style="font-size:11px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px;letter-spacing:.04em">Coaches</div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Critical Actions</div>
+      <button class="btn btn-secondary" id="adm-force-refresh" style="width:100%;margin-bottom:8px">⚡ Force Refresh All Apps</button>
+      <button class="btn btn-secondary" id="adm-refresh-stats" style="width:100%">↻ Reload Stats</button>
+    </div>`;
+  el.querySelector('#adm-refresh-stats')?.addEventListener('click', () => renderAdminOverview());
+  el.querySelector('#adm-force-refresh')?.addEventListener('click', async () => {
+    if (!confirm('This bumps a global version flag, causing every active app to refresh on next interaction. Continue?')) return;
+    try {
+      await A.setDoc(A.doc(A.db,'global_settings','config'), { ...(A.globalSettings||{}), forceRefreshAt: Date.now(), updatedAt: A.serverTimestamp() });
+      A.showToast('Force refresh broadcast.','success');
+    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+  });
+}
+
+// ── Race Day admin — quick activate/deactivate + status ────────────────────
+async function renderAdminRaceDay() {
+  const el = A.$('admin-raceday');
+  if (!el) return;
+  const todayKey = new Date().toISOString().split('T')[0];
+  const races = (A.getActiveRaces ? A.getActiveRaces() : []) || [];
+  const todayRace = races.find(r => r.date === todayKey);
+  let rd = null;
+  try {
+    const snap = await A.getDoc(A.doc(A.db,'race_day',todayKey));
+    rd = snap.exists() ? snap.data() : null;
+  } catch(e) {}
+  let liveDrivers = [];
+  try {
+    const live = await A.getDocs(A.collection(A.db,'race_day',todayKey,'live'));
+    const cutoff = Date.now() - 90*1000;
+    liveDrivers = live.docs.map(d=>d.data()).filter(d => d.live && d.updatedAt && (d.updatedAt.toMillis ? d.updatedAt.toMillis() : 0) > cutoff);
+  } catch(e) {}
+  let stints = [];
+  try {
+    const ss = await A.getDocs(A.collection(A.db,'race_day',todayKey,'stints'));
+    stints = ss.docs.map(d => ({ uid: d.id, ...d.data() }));
+  } catch(e) {}
+
+  el.innerHTML = `
+    <div class="card" style="padding:14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em">Today's Status</div>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${rd?.active?'rgba(239,68,68,.12)':'rgba(255,255,255,.06)'};color:${rd?.active?'#ef4444':'var(--muted-fg)'}">${rd?.active?'● LIVE':'OFF'}</span>
+      </div>
+      <div style="font-size:13px;color:var(--fg);margin-bottom:6px">${todayRace ? '🏁 ' + A.escHtml(todayRace.name) : 'No race scheduled today.'}</div>
+      ${todayRace?.notes ? `<div style="font-size:11px;color:var(--muted-fg)">${A.escHtml(todayRace.notes)}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        ${rd?.active
+          ? `<button class="btn btn-secondary" id="adm-rd-deactivate" style="flex:1;background:rgba(239,68,68,.15);color:#ef4444">■ End Race Day</button>`
+          : `<button class="btn btn-primary" id="adm-rd-activate" style="flex:1">▶ Start Race Day${todayRace?' for '+A.escHtml(todayRace.name):''}</button>`}
+      </div>
+    </div>
+    <div class="card" style="padding:14px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Live On Track (${liveDrivers.length})</div>
+      ${liveDrivers.length === 0 ? `<div style="font-size:12px;color:var(--muted-fg)">No drivers currently riding.</div>` :
+        liveDrivers.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span style="flex:1;font-weight:600">${A.escHtml(l.displayName||'Driver')}</span>
+          <span style="color:var(--muted-fg);font-size:11px">${l.lapCount||0} laps</span>
+        </div>`).join('')}
+    </div>
+    <div class="card" style="padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Today's Stints (${stints.length})</div>
+      ${stints.length === 0 ? `<div style="font-size:12px;color:var(--muted-fg)">No completed stints yet.</div>` :
+        stints.map(s => {
+          const best = s.laps?.length>0 ? Math.min(...s.laps.map(l=>l.duration)) : null;
+          const bestStr = best ? Math.floor(best/60000)+':'+String(Math.floor((best%60000)/1000)).padStart(2,'0') : '--:--';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+            <span style="flex:1;font-weight:600">${A.escHtml(s.displayName||s.uid)}</span>
+            <span style="color:var(--muted-fg);font-size:11px">${s.laps?.length||0} laps</span>
+            <span style="font-family:var(--font-mono);color:#22c55e">${bestStr}</span>
+          </div>`;
+        }).join('')}
+      <button class="btn btn-secondary" id="adm-rd-refresh" style="width:100%;margin-top:12px">↻ Refresh</button>
+    </div>`;
+  el.querySelector('#adm-rd-activate')?.addEventListener('click', async () => {
+    if (!confirm('Start race day for the whole team? This switches every signed-in user to Race Day Mode.')) return;
+    try {
+      await A.setDoc(A.doc(A.db,'race_day',todayKey), {
+        active: true,
+        date: todayKey,
+        activatedBy: A.currentUser?.uid,
+        activatedAtMs: Date.now(),
+        teamId: A.userProfile?.teamId || null,
+        startPoint: null,
+        startPointSet: false,
+        raceId: todayRace?.id || null,
+        maxDurationMs: 25*60*60*1000,
+      });
+      A.showToast('Race day live.','success');
+      renderAdminRaceDay();
+    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+  });
+  el.querySelector('#adm-rd-deactivate')?.addEventListener('click', async () => {
+    if (!confirm('End race day for everyone?')) return;
+    try {
+      await A.updateDoc(A.doc(A.db,'race_day',todayKey), { active: false });
+      A.showToast('Race day ended.','info');
+      renderAdminRaceDay();
+    } catch(e) { A.showToast('Failed: '+e.message,'error'); }
+  });
+  el.querySelector('#adm-rd-refresh')?.addEventListener('click', () => renderAdminRaceDay());
 }
 
 // ── Maintenance tab ──────────────────────────────────────────────────────────
