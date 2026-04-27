@@ -323,11 +323,12 @@ body{
   border-color:var(--border-strong) !important;
 }
 .ai-input-bar{
-  backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px);
-  background:rgba(10,11,15,.7) !important;
+  /* backdrop-filter dropped: it stacked with .tab-bar + modal scrims and
+     OOM-crashed iOS Safari. Solid bg gives the same hierarchy without the
+     fullscreen GPU composite. */
+  background:rgba(10,11,15,.97) !important;
 }
-.light-theme .ai-input-bar{ background:rgba(244,243,239,.8) !important; }
+.light-theme .ai-input-bar{ background:rgba(244,243,239,.97) !important; }
 
 /* ============================================================
    LEADERBOARD — modernized rows
@@ -375,11 +376,13 @@ body{
    TAB BAR — subtle glass effect
    ============================================================ */
 #main-app > .tab-bar{
-  backdrop-filter:blur(16px);
-  -webkit-backdrop-filter:blur(16px);
-  background:rgba(10,11,15,.75) !important;
+  /* Solid background instead of blur. The fixed tab bar's backdrop-filter
+     was the worst offender — every modal that opened on top of it caused
+     iOS Safari to composite the modal scrim through the blurred tab bar,
+     hitting the WKWebView GPU memory ceiling on older iPhones. */
+  background:rgba(10,11,15,.97) !important;
 }
-.light-theme #main-app > .tab-bar{ background:rgba(244,243,239,.85) !important; }
+.light-theme #main-app > .tab-bar{ background:rgba(244,243,239,.97) !important; }
 
 #main-app > .tab-bar .tab-btn.active{
   color:var(--primary);
@@ -457,11 +460,10 @@ body{
   }
 }
 .ai-header{
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
-  background:rgba(10,11,15,.7) !important;
+  /* No backdrop-filter — see .tab-bar comment for why. */
+  background:rgba(10,11,15,.97) !important;
 }
-.light-theme .ai-header{ background:rgba(244,243,239,.8) !important; }
+.light-theme .ai-header{ background:rgba(244,243,239,.97) !important; }
 .ai-header-badge{
   background:linear-gradient(135deg, rgba(124,58,237,.2), rgba(168,85,247,.15)) !important;
   border:1px solid rgba(168,85,247,.3);
@@ -849,9 +851,8 @@ body{
    ============================================================ */
 .profile-header{
   padding:14px 16px !important;
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
-  background:rgba(10,11,15,.8) !important;
+  /* No backdrop-filter — see .tab-bar comment for why. */
+  background:rgba(10,11,15,.97) !important;
 }
 .light-theme .profile-header{ background:rgba(244,243,239,.85) !important; }
 
@@ -902,4 +903,19 @@ body{
   .user-menu{ right:10px !important; min-width:240px !important; }
   .lb-podium{ gap:8px; }
   .lb-podium-item{ padding:12px 6px; }
+}
+
+/* ============================================================
+   BLUR KILL SWITCH
+   Belt-and-braces — every fixed/sticky element on this app used to
+   carry a backdrop-filter, and the cumulative compositing chain
+   crashed iOS Safari WKWebView when a modal scrim laid on top.
+   This rule eliminates any stray blur the rest of the stylesheet,
+   inline styles, or third-party CSS might still apply. The visual
+   loss is minimal because every fixed element above already has a
+   solid (~97% opacity) background.
+   ============================================================ */
+*, *::before, *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
