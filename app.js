@@ -17,8 +17,12 @@ let stravaStartAuth = () => {}, stravaHandleCallback = async () => {},
     stravaFetchActivities = async () => {}, renderStravaActivities = () => {},
     stravaDisconnect = async () => {}, loadStravaTokens = () => {},
     stravaUploadActivity = async () => false,
-    
+
     initStrava = () => {};
+let initFitbit = () => {}, fitbitStartAuth = () => {}, fitbitHandleCallback = async () => false,
+    fitbitFetchActivities = async () => [], fitbitDisconnect = () => {},
+    fitbitImportActivity = async () => {}, renderFitbitActivities = () => '';
+let initGarmin = () => {}, importGarminFile = async () => {};
 let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     openRaceLogForm = () => {}, getFootageForRace = () => [],
     getStreamForRace = () => null, renderFootageLinks = () => '',
@@ -77,6 +81,13 @@ Promise.allSettled([
        renderStravaActivities, stravaDisconnect, loadStravaTokens,
        stravaUploadActivity } = m);
   }, e => console.warn('strava.js load failed:', e)),
+  importWithTimeout('./fitbit.js').then(m => {
+    ({ initFitbit, fitbitStartAuth, fitbitHandleCallback, fitbitFetchActivities,
+       fitbitDisconnect, fitbitImportActivity, renderFitbitActivities } = m);
+  }, e => console.warn('fitbit.js load failed:', e)),
+  importWithTimeout('./garmin.js').then(m => {
+    ({ initGarmin, importGarminFile } = m);
+  }, e => console.warn('garmin.js load failed:', e)),
   importWithTimeout('./raceLog.js').then(m => {
     ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
        getFootageForRace, getStreamForRace, renderFootageLinks,
@@ -562,6 +573,12 @@ const STRAVA_CLIENT_ID = '213628'; // Set your Strava API client ID here
 const STRAVA_REDIRECT_URI = 'https://turboprep.app';
 let stravaTokens = null; // { access_token, refresh_token, expires_at, athlete }
 let stravaActivities = []; // cached recent activities
+let fitbitTokens = null; // { access_token, refresh_token, expires_at, user_id, scope }
+let fitbitActivities = [];
+// Fitbit Client ID — register an app at https://dev.fitbit.com/apps and paste here.
+// Callback URL on the Fitbit app must be: https://turboprep.app/  (with trailing slash, state=fitbit query param is sent automatically)
+const FITBIT_CLIENT_ID = ''; // TODO: paste your Fitbit OAuth 2.0 Client ID
+window.FITBIT_CLIENT_ID = FITBIT_CLIENT_ID;
 let userWorkouts = [];
 let userChecklist = {}; // always an object, never undefined
 // Plan overrides = reschedules of plan workouts when the athlete skips a day.
@@ -6019,19 +6036,41 @@ async function renderProfile() {
       Export Training Report
     </button>
   </div>`;
-  // Help & Tutorial
+  // Health & Wearable Sync
   html += '<div class="profile-section"><div class="profile-section-title">Health &amp; Wearable Sync</div>';
   const syncToken = userProfile?.syncToken || null;
-  html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:8px">
-    Connect your wearable to automatically sync workouts, heart rate, steps, and sleep.
+  const isFitbitConnected = !!(fitbitTokens && fitbitTokens.access_token);
+  html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:10px">
+    Connect a service to import workouts automatically.
+  </div>`;
+  // Strava row
+  html += `<div class="wearable-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:8px">
+    <div style="width:32px;height:32px;border-radius:8px;background:#fc4c02;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">S</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">Strava</div><div style="font-size:11px;color:var(--muted-fg)">${isStravaConnected ? 'Connected — auto-imports workouts' : 'OAuth · auto-import (covers Apple Watch, Garmin, Fitbit too)'}</div></div>
+    <button class="btn ${isStravaConnected?'btn-secondary':'btn-primary'}" id="prof-strava-${isStravaConnected?'disconnect':'connect'}" style="font-size:12px;padding:6px 12px">${isStravaConnected?'Disconnect':'Connect'}</button>
+  </div>`;
+  // Fitbit row
+  html += `<div class="wearable-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:8px">
+    <div style="width:32px;height:32px;border-radius:8px;background:#00b6bf;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">F</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">Fitbit</div><div style="font-size:11px;color:var(--muted-fg)">${isFitbitConnected ? 'Connected — recent activities below' : (FITBIT_CLIENT_ID ? 'OAuth · imports from Fitbit Web API' : 'Not configured (needs FITBIT_CLIENT_ID)')}</div></div>
+    <button class="btn ${isFitbitConnected?'btn-secondary':'btn-primary'}" id="prof-fitbit-${isFitbitConnected?'disconnect':'connect'}" style="font-size:12px;padding:6px 12px"${FITBIT_CLIENT_ID?'':' disabled'}>${isFitbitConnected?'Disconnect':'Connect'}</button>
+  </div>`;
+  // Recent Fitbit activities
+  if (isFitbitConnected && (fitbitActivities||[]).length > 0) {
+    html += `<div style="font-size:11px;color:var(--muted-fg);margin:8px 4px 4px;text-transform:uppercase;letter-spacing:.04em;font-weight:700">Recent Fitbit</div>`;
+    html += '<div style="margin-bottom:8px">' + renderFitbitActivities() + '</div>';
+  }
+  // Garmin row (file upload — no public OAuth)
+  html += `<div class="wearable-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:8px">
+    <div style="width:32px;height:32px;border-radius:8px;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">G</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">Garmin</div><div style="font-size:11px;color:var(--muted-fg)">Upload .gpx / .tcx export from Garmin Connect</div></div>
+    <input type="file" id="prof-garmin-file" accept=".gpx,.tcx" style="display:none">
+    <button class="btn btn-primary" id="prof-garmin-pick" style="font-size:12px;padding:6px 12px">Upload</button>
   </div>
-  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--fg)">Option 1: Via Strava (easiest)</strong><br>
-    Apple Watch, Garmin, Fitbit all sync to Strava. Connect Strava above and workouts flow in automatically.
-  </div>
-  <div style="font-size:12px;color:var(--muted-fg);line-height:1.6;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px">
-    <strong style="color:var(--fg)">Option 2: Apple Watch (built-in)</strong><br>
-    The TurboPrep iPhone app reads heart rate, steps, and sleep directly from HealthKit. Open the iOS app once and grant Health permission — the watch app picks it up automatically.
+  <div style="font-size:11px;color:var(--muted-fg);padding:0 4px;margin-bottom:8px">In Garmin Connect: open an activity → ⚙️ → Export to GPX or TCX → upload here.</div>`;
+  // Apple Watch built-in note
+  html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px">
+    <strong style="color:var(--fg)">Apple Watch (built-in)</strong> — the TurboPrep iOS app reads heart rate, steps, and sleep from HealthKit. Open the iOS app once and grant Health permission.
   </div>`;
   // Show latest health data if available
   const health = userProfile?.health;
@@ -6077,6 +6116,24 @@ async function renderProfile() {
   }
   // Bindings
   $('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+  // Wearable / sync connect buttons
+  $('prof-strava-connect')?.addEventListener('click', () => stravaStartAuth());
+  $('prof-strava-disconnect')?.addEventListener('click', () => stravaDisconnect());
+  $('prof-fitbit-connect')?.addEventListener('click', () => fitbitStartAuth());
+  $('prof-fitbit-disconnect')?.addEventListener('click', () => fitbitDisconnect());
+  $('prof-garmin-pick')?.addEventListener('click', () => $('prof-garmin-file')?.click());
+  $('prof-garmin-file')?.addEventListener('change', async (e) => {
+    const f = e.target.files?.[0];
+    if (f) await importGarminFile(f);
+    e.target.value = '';
+  });
+  document.querySelectorAll('.fitbit-import-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.fbId;
+      const a = (fitbitActivities||[]).find(x => String(x.logId) === String(id));
+      if (a) fitbitImportActivity(a);
+    });
+  });
   document.querySelectorAll('.persona-pick').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.persona;
@@ -7101,6 +7158,9 @@ function buildModuleCtx() {
     get ALL_PLANS() { return ALL_PLANS; },
     get stravaTokens() { return stravaTokens; }, set stravaTokens(v) { stravaTokens = v; },
     get stravaActivities() { return stravaActivities; }, set stravaActivities(v) { stravaActivities = v; },
+    get fitbitTokens() { return fitbitTokens; }, set fitbitTokens(v) { fitbitTokens = v; },
+    get fitbitActivities() { return fitbitActivities; }, set fitbitActivities(v) { fitbitActivities = v; },
+    FITBIT_CLIENT_ID,
     ADMIN_EMAIL, ALL_ADMIN_FEATURES,
     STRAVA_CLIENT_ID, STRAVA_REDIRECT_URI,
     // Function refs
@@ -7288,6 +7348,8 @@ function startApp() {
   // Independent try/catches so one failure doesn't skip the rest.
   try { initAdmin(buildModuleCtx()); } catch(e) { console.warn('initAdmin:', e); }
   try { initStrava(buildModuleCtx()); } catch(e) { console.warn('initStrava:', e); }
+  try { initFitbit(buildModuleCtx()); } catch(e) { console.warn('initFitbit:', e); }
+  try { initGarmin(buildModuleCtx()); } catch(e) { console.warn('initGarmin:', e); }
   try { initRaceLog(buildModuleCtx()); } catch(e) { console.warn('initRaceLog:', e); }
   try { initTimer(buildModuleCtx()); } catch(e) { console.warn('initTimer:', e); }
   try { initAiFeatures(buildModuleCtx()); } catch(e) { console.warn('initAiFeatures:', e); }
@@ -7332,7 +7394,14 @@ function startApp() {
       }
       // PHASE 2: Show the app NOW — don't wait for all data
       hideLoading();
-      if (window.location.search.includes('code=')) { try { stravaHandleCallback(); } catch(e) {} }
+      if (window.location.search.includes('code=')) {
+        const params = new URLSearchParams(window.location.search);
+        const state = params.get('state');
+        try {
+          if (state === 'fitbit') fitbitHandleCallback();
+          else stravaHandleCallback();
+        } catch(e) {}
+      }
       try {
         const savedTab = localStorage.getItem('tp_lastTab');
         if (savedTab && ['today','fitness','races','team','admin'].includes(savedTab)) currentPage = savedTab;
@@ -7417,6 +7486,7 @@ function startApp() {
         });
       }
       try { loadStravaTokens(); } catch(e) {}
+      try { if (userProfile?.fitbitTokens) fitbitTokens = userProfile.fitbitTokens; } catch(e) {}
       try { loadGoals(); } catch(e) {}
       // Show welcome/onboarding for new users with API connection options
       if (!localStorage.getItem('tp_onboarded')) {

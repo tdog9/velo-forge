@@ -61,6 +61,14 @@ service cloud.firestore {
         // Health-sync webhook writes via firebase-admin, which bypasses rules.
       }
 
+      match /workout_routes/{workoutId} {
+        // Imported route polylines (Garmin GPX/TCX, future Fitbit, etc.).
+        // Owner reads + writes; teammates can read so the team feed can
+        // render route maps.
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId);
+      }
+
       match /checklist/{dateKey} {
         allow read, write: if isOwner(userId);
       }
