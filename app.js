@@ -575,9 +575,10 @@ let stravaTokens = null; // { access_token, refresh_token, expires_at, athlete }
 let stravaActivities = []; // cached recent activities
 let fitbitTokens = null; // { access_token, refresh_token, expires_at, user_id, scope }
 let fitbitActivities = [];
-// Fitbit Client ID — register an app at https://dev.fitbit.com/apps and paste here.
-// Callback URL on the Fitbit app must be: https://turboprep.app/  (with trailing slash, state=fitbit query param is sent automatically)
-const FITBIT_CLIENT_ID = ''; // TODO: paste your Fitbit OAuth 2.0 Client ID
+// Fitbit Client ID — registered at https://dev.fitbit.com/apps
+// Callback URL on the Fitbit app: https://turboprep.app/ (state=fitbit added by the OAuth start helper).
+// Client Secret lives only in Netlify env (FITBIT_CLIENT_SECRET) — never in code.
+const FITBIT_CLIENT_ID = '23VJKV';
 window.FITBIT_CLIENT_ID = FITBIT_CLIENT_ID;
 let userWorkouts = [];
 let userChecklist = {}; // always an object, never undefined
