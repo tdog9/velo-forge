@@ -350,37 +350,79 @@ if (typeof window !== 'undefined') {
   };
   window.tpNative.onRaceDayLaps = async function(payload) {
     try {
-      // Always cache locally so the data isn't lost if Firestore is offline.
+      const today = new Date();
+      const dk = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+      const kind = payload?.kind || 'stint';
+      // ── Per-lap streaming ──────────────────────────────────────────────
+      // Watch fires { kind: 'live_lap', lapCount, lastLapMs, bestLapMs } on
+      // every tap-to-lap so teammates see the spectator panel tick up live.
+      if (kind === 'live_lap' && db && currentUser) {
+        try {
+          await setDoc(doc(db, 'race_day', dk, 'live', currentUser.uid), {
+            uid: currentUser.uid,
+            displayName: userProfile?.displayName || currentUser.email || '',
+            live: true,
+            startTime: payload.stintStartedAt ? payload.stintStartedAt * 1000 : Date.now(),
+            lapCount: payload.lapCount || 0,
+            lastLap: payload.lastLapMs || null,
+            bestLap: payload.bestLapMs || null,
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+        } catch(e) { console.warn('live-lap write:', e); }
+        return;
+      }
+      // ── Full-stint payload (sent on Finish Stint) ──────────────────────
       const log = JSON.parse(localStorage.getItem('tp_race_day_laps') || '[]');
       log.unshift({ receivedAt: Date.now(), ...(payload || {}) });
       localStorage.setItem('tp_race_day_laps', JSON.stringify(log.slice(0, 20)));
-      const lapCount = (payload && Array.isArray(payload.laps)) ? payload.laps.length : 0;
-      // Best-effort write into the race-day stints subcollection. Merges with
-      // any existing record for this user today so multiple stints accumulate.
+      const laps = Array.isArray(payload?.laps) ? payload.laps : [];
+      const lapCount = laps.length;
       try {
         if (db && currentUser) {
-          const today = new Date();
-          const dk = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-          const ref = doc(db, 'race_day', dk, 'stints', currentUser.uid);
-          const snap = await getDoc(ref).catch(() => null);
+          // 1. Append laps into race_day/{date}/stints/{uid} (leaderboard source)
+          const stintRef = doc(db, 'race_day', dk, 'stints', currentUser.uid);
+          const snap = await getDoc(stintRef).catch(() => null);
           const prior = (snap && snap.exists && snap.exists()) ? (snap.data() || {}) : {};
           const priorLaps = Array.isArray(prior.laps) ? prior.laps : [];
-          const newLaps = (payload.laps || []).map(l => ({
-            duration: l.duration,            // ms
-            number:   l.number,
-            recordedAt: l.recordedAt,
-            source: 'watch',
+          const newLaps = laps.map(l => ({
+            duration: l.duration, number: l.number, recordedAt: l.recordedAt, source: 'watch',
           }));
-          await setDoc(ref, {
+          await setDoc(stintRef, {
             displayName: userProfile?.displayName || currentUser.email || '',
             uid: currentUser.uid,
             laps: priorLaps.concat(newLaps),
             lastWatchStintAt: Date.now(),
           }, { merge: true });
+          // 2. Clear the live state — stint is over
+          try {
+            await setDoc(doc(db, 'race_day', dk, 'live', currentUser.uid), {
+              uid: currentUser.uid, live: false, updatedAt: serverTimestamp(),
+            }, { merge: true });
+          } catch(e) {}
+          // 3. Save the stint as a workout entry so it shows up in fitness
+          //    history, contributes to XP, and feeds the weekly chart.
+          if (lapCount > 0) {
+            try {
+              const startMs = (payload.stintStartedAt || 0) * 1000;
+              const endMs = (payload.stintEndedAt || 0) * 1000;
+              const durMin = (startMs && endMs) ? Math.max(1, Math.round((endMs - startMs) / 60000)) : 0;
+              const bestMs = laps.length > 0 ? Math.min(...laps.map(l => l.duration || 0)) : 0;
+              await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
+                name: 'Race-day stint',
+                type: 'hpv',
+                kind: 'race_stint',
+                duration: durMin,
+                date: startMs ? Timestamp.fromDate(new Date(startMs)) : Timestamp.now(),
+                lapCount,
+                bestLapMs: bestMs,
+                source: 'watch',
+              });
+            } catch(e) { console.warn('stint→workout write:', e); }
+          }
         }
       } catch(e) { console.warn('race-day stint Firestore write:', e); }
       if (typeof showToast === 'function') {
-        showToast(`Watch stint received — ${lapCount} laps.`, 'success');
+        showToast(`Stint saved — ${lapCount} laps logged.`, 'success');
       }
     } catch(e) {}
   };

@@ -112,6 +112,7 @@ struct RaceDayLeaderboardView: View {
 struct RaceDayLapView: View {
     @EnvironmentObject private var state: WatchAppState
     @StateObject private var health = HealthKitService()
+    @StateObject private var locator = WatchLocationService()
     @State private var lapStartedAt: Date = Date()
     @State private var now: Date = Date()
     private let tick = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
@@ -119,9 +120,6 @@ struct RaceDayLapView: View {
     /// When the most recent lap was recorded — used to anchor the current-lap
     /// timer to either the stint start (lap 1) or the last completed lap.
     private var lapAnchor: Date {
-        // If we have a recorded lap, the current lap started right after the
-        // last recorded lap's `recordedAt`. Otherwise it starts at the stint
-        // start (so lap 1's timer counts from when race-day activated).
         if let mostRecent = state.raceDayLaps.first {
             return mostRecent.recordedAt
         }
@@ -135,7 +133,7 @@ struct RaceDayLapView: View {
                     Circle()
                         .fill(Theme.phasePeak)
                         .frame(width: 6, height: 6)
-                    Text("RACE DAY · LAP \(state.raceDayLaps.count + 1)")
+                    Text("LAP \(state.raceDayLaps.count + 1)")
                         .font(.system(size: 10, weight: .heavy))
                         .tracking(0.6)
                         .foregroundStyle(Theme.phasePeak)
@@ -146,6 +144,17 @@ struct RaceDayLapView: View {
                                 .foregroundStyle(Theme.heartRateColor)
                                 .font(.system(size: 9))
                             Text("\(hr)")
+                                .font(.system(.caption2, design: .rounded, weight: .heavy))
+                                .foregroundStyle(Theme.fg)
+                                .monospacedDigit()
+                        }
+                    }
+                    if let mps = locator.currentSpeedMps, mps >= 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "speedometer")
+                                .foregroundStyle(Theme.primary)
+                                .font(.system(size: 9))
+                            Text(String(format: "%.0f", mps * 3.6))  // km/h
                                 .font(.system(.caption2, design: .rounded, weight: .heavy))
                                 .foregroundStyle(Theme.fg)
                                 .monospacedDigit()
@@ -254,8 +263,12 @@ struct RaceDayLapView: View {
                 await health.refreshLatestHeartRate()
                 health.startHeartRateStreaming()
             }
+            locator.start()
         }
-        .onDisappear { health.stopHeartRateStreaming() }
+        .onDisappear {
+            health.stopHeartRateStreaming()
+            locator.stop()
+        }
     }
 
     private func statPill(label: String, value: String, color: Color) -> some View {
@@ -276,14 +289,36 @@ struct RaceDayLapView: View {
     }
 
     private func recordLap() {
+        // Auto-recover the stint start time if it was lost (e.g. crash + load
+        // restored raceDayActive=true with raceDayStartedAt=nil). Without this
+        // the lap-anchor falls back to Date() and the 250ms guard rejects
+        // lap 1 with a "0 duration" — silently swallowing the user's tap.
+        if state.raceDayStartedAt == nil {
+            state.raceDayStartedAt = Date()
+            NSLog("📲 [Watch] lap: auto-recovered raceDayStartedAt")
+        }
         let dur = Date().timeIntervalSince(lapAnchor)
-        // Defensive: ignore any double-tap inside 250ms — accidental finger
-        // bounce on the watch was eating laps as zero-duration before.
-        guard dur >= 0.25 else { return }
+        // Defensive: ignore double-taps under 250ms (finger bounce). For the
+        // very first lap we still allow short durations because the user may
+        // intentionally tap right after starting.
+        let isFirstLap = state.raceDayLaps.isEmpty
+        if !isFirstLap && dur < 0.25 {
+            NSLog("📲 [Watch] lap: rejected dur=%.3fs (debounce)", dur)
+            return
+        }
         state.recordLap(durationSeconds: dur)
-        // Haptic — `.click` is the most reliable across watchOS versions.
-        // Wrap in a do block so a haptic outage never blocks lap recording.
+        NSLog("📲 [Watch] lap: recorded #%d dur=%.2fs (laps=%d)", state.raceDayLaps.first?.number ?? 0, dur, state.raceDayLaps.count)
         playHaptic(.click)
+        // Stream this lap upstream so the iPhone updates Firestore live state
+        // immediately — teammates see the spectator panel tick up rather than
+        // waiting until the stint ends.
+        ConnectivityService.shared.sendRaceDayLaps([
+            "kind": "live_lap",
+            "stintStartedAt": (state.raceDayStartedAt ?? Date()).timeIntervalSince1970,
+            "lapCount": state.raceDayLaps.count,
+            "lastLapMs": Int(dur * 1000),
+            "bestLapMs": Int((state.raceDayLaps.map(\.durationSeconds).min() ?? dur) * 1000),
+        ])
     }
 
     private func playHaptic(_ kind: WKHapticType) {

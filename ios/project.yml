@@ -81,6 +81,7 @@ targets:
         INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: NO
         INFOPLIST_KEY_NSHealthShareUsageDescription: "TurboPrep reads workouts and heart rate to personalise your training."
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: "TurboPrep logs completed HPV sessions to Apple Health."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "TurboPrep uses your location to show your speed during race-day stints."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: TurboPrepWatch/TurboPrepWatch.entitlements
     dependencies:
