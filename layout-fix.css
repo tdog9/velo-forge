@@ -566,8 +566,11 @@ body{
 }
 .role-selector{
   display:grid !important;
-  grid-template-columns:1fr 1fr 1fr;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:6px;
+}
+@media (max-width: 420px){
+  .role-selector{ grid-template-columns:1fr 1fr; }
 }
 .role-btn{
   padding:14px 8px !important;

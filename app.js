@@ -23,6 +23,10 @@ let initFitbit = () => {}, fitbitStartAuth = () => {}, fitbitHandleCallback = as
     fitbitFetchActivities = async () => [], fitbitDisconnect = () => {},
     fitbitImportActivity = async () => {}, renderFitbitActivities = () => '';
 let initGarmin = () => {}, importGarminFile = async () => {};
+let initTeamChat = () => {}, subscribeTeamChat = () => null, unsubscribeTeamChat = () => {},
+    getTeamChatCache = () => [], sendChatMessage = async () => false,
+    sendCoachBroadcast = async () => false, postWorkoutToTeamChat = async () => {},
+    deleteChatMessage = async () => {}, renderChatPanel = () => '', isMessageClean = () => false;
 let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     openRaceLogForm = () => {}, getFootageForRace = () => [],
     getStreamForRace = () => null, renderFootageLinks = () => '',
@@ -88,6 +92,11 @@ Promise.allSettled([
   importWithTimeout('./garmin.js').then(m => {
     ({ initGarmin, importGarminFile } = m);
   }, e => console.warn('garmin.js load failed:', e)),
+  importWithTimeout('./teamchat.js').then(m => {
+    ({ initTeamChat, subscribeTeamChat, unsubscribeTeamChat, getTeamChatCache,
+       sendChatMessage, sendCoachBroadcast, postWorkoutToTeamChat,
+       deleteChatMessage, renderChatPanel, isMessageClean } = m);
+  }, e => console.warn('teamchat.js load failed:', e)),
   importWithTimeout('./raceLog.js').then(m => {
     ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
        getFootageForRace, getStreamForRace, renderFootageLinks,
@@ -1402,6 +1411,7 @@ $('logout-btn')?.addEventListener('click', async () => {
       profileUnsubscribe = null;
     }
     if (teamUnsubscribe) { teamUnsubscribe(); teamUnsubscribe = null; }
+    try { unsubscribeTeamChat(); } catch(e) {}
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
     if (window._tpRaceDayPoll) { clearInterval(window._tpRaceDayPoll); window._tpRaceDayPoll = null; }
     await signOut(auth);
@@ -5094,6 +5104,13 @@ async function saveWorkout(rpe, photoData, workoutType) {
     hideLoading();
     const oldXp = calcXp();
     showToast('Workout logged!', 'success');
+    // Auto-post into team chat (silent — no push). Best-effort; never
+    // blocks the workout save.
+    if (userProfile?.teamId) {
+      try {
+        postWorkoutToTeamChat(userProfile.teamId, { name, type, duration, distance, gpsTrack: extra?.routeId || null });
+      } catch(e) {}
+    }
     // Estimate new XP and check for level up
     const estNewXp = oldXp + 10 + 10 + (rpeVal ? 5 : 0); // workout + daily bonus + RPE
     setTimeout(() => checkLevelUp(oldXp, estNewXp), 500);
@@ -5876,7 +5893,8 @@ function renderTeamTab(c) {
   if (!hasTeam) {
     html += `
       <div class="page-title" style="margin-bottom:4px">Your Team</div>
-      <div style="font-size:13px;color:var(--muted-fg);margin-bottom:16px">You haven't joined a team yet.</div>
+      <div style="font-size:13px;color:var(--muted-fg);margin-bottom:6px">You haven't joined a team yet.</div>
+      <div style="font-size:12px;color:var(--muted-fg);margin-bottom:16px">Got a team code from your coach? Tap <strong style="color:var(--fg)">Join Team by Code</strong> below. Or search for your club.</div>
 
       <div class="demo-search-wrap" style="margin-bottom:10px">
         <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -5911,12 +5929,52 @@ function renderTeamTab(c) {
       <div class="team-hero-code">
         <span>${teamData.code}</span>
         <button id="copy-code-btn" aria-label="Copy code">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         </button>
       </div>
       <div class="team-hero-members">${teamMembers.length} member${teamMembers.length !== 1 ? 's' : ''}</div>
     </div>
   `;
+  // Sub-tab strip — Members / Chat / Global. Sticks across renders via
+  // window._teamSubTab so navigating in/out keeps the user's view.
+  if (window._teamSubTab === undefined) window._teamSubTab = 'members';
+  const teamSubTab = window._teamSubTab;
+  const subTabBtn = (id, label, badge) => `<button class="team-subtab${teamSubTab === id ? ' active' : ''}" data-team-sub="${id}" style="flex:1;padding:10px 8px;border:none;background:none;border-bottom:2px solid ${teamSubTab === id ? 'var(--primary)' : 'transparent'};color:${teamSubTab === id ? 'var(--primary)' : 'var(--muted-fg)'};font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.02em">${label}${badge ? ' <span style="background:var(--primary);color:#fff;font-size:9px;padding:1px 5px;border-radius:99px;margin-left:2px">' + badge + '</span>' : ''}</button>`;
+  html += `<div style="display:flex;border-bottom:1px solid var(--border);margin:14px 0 10px;-webkit-overflow-scrolling:touch">
+    ${subTabBtn('members', 'Members')}
+    ${subTabBtn('chat', 'Chat')}
+    ${subTabBtn('global', 'Global')}
+  </div>`;
+  // Branch: if Chat is active, render the chat panel and skip the leaderboard
+  if (teamSubTab === 'chat') {
+    const chatMessages = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+    const isHeadCoachLocal = userProfile?.isCoach && teamData?.createdBy === currentUser?.uid;
+    html += '<div id="team-chat-panel" style="margin-bottom:14px">' + (typeof renderChatPanel === 'function' ? renderChatPanel(chatMessages, { isCoach: isHeadCoachLocal, myUid: currentUser?.uid }) : '<div style="text-align:center;padding:40px;color:var(--muted-fg)">Chat loading…</div>') + '</div>';
+    // Composer
+    const isCoachUser = !!userProfile?.isCoach;
+    html += `<div style="position:sticky;bottom:0;background:var(--bg);padding:8px 0;border-top:1px solid var(--border);margin-top:8px">
+      <div style="display:flex;gap:6px;align-items:flex-end">
+        <textarea id="team-chat-input" placeholder="Say hi to your team…" maxlength="500" rows="1" style="flex:1;resize:none;padding:10px 12px;border-radius:18px;border:1px solid var(--border);background:var(--card);color:var(--fg);font-size:14px;font-family:inherit;min-height:40px;max-height:120px"></textarea>
+        ${isCoachUser ? `<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted-fg);padding:0 4px"><input type="checkbox" id="team-chat-push" style="width:14px;height:14px">push</label>` : ''}
+        <button id="team-chat-send" class="btn btn-primary" aria-label="Send" style="padding:9px 14px;border-radius:18px;font-size:13px;font-weight:700;flex-shrink:0">Send</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted-fg);text-align:center;padding-top:4px">Be kind. ${isCoachUser ? 'Tick "push" to send as a notification.' : 'Coaches can broadcast as a notification.'}</div>
+    </div>`;
+    // Skip the rest of the leaderboard render
+    c.innerHTML = html;
+    bindTeamSubTabSwitcher(c);
+    bindTeamChatPanel(c);
+    return;
+  }
+  if (teamSubTab === 'global') {
+    html += '<div id="global-leaderboard-panel" style="margin-bottom:14px"><div style="text-align:center;padding:30px;color:var(--muted-fg);font-size:13px">Loading global leaderboard…</div></div>';
+    c.innerHTML = html;
+    bindTeamSubTabSwitcher(c);
+    // Lazy-load global leaderboard data (existing function)
+    try { renderGlobalLeaderboard(c.querySelector('#global-leaderboard-panel')); } catch(e) {}
+    return;
+  }
+  // Default Members sub-tab — falls through to existing leaderboard rendering below.
   // Subteam filter — head coach can switch between whole team and any
   // subteam; everyone else sees the subteam they belong to by default
   // (with a "Whole team" toggle if they want the broader picture).
@@ -6749,6 +6807,72 @@ async function getApprovedClubs() {
     return approvedClubsCache;
   } catch(e) { return []; }
 }
+/// Bind the team-page sub-tab strip (Members / Chat / Global). Called after
+/// renderTeamTab paints the strip; toggling a tab re-renders renderTeam().
+function bindTeamSubTabSwitcher(c) {
+  c.querySelectorAll('.team-subtab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.teamSub;
+      if (window._teamSubTab === next) return;
+      window._teamSubTab = next;
+      // Subscribe to live chat when entering chat tab; unsubscribe when leaving.
+      if (next === 'chat' && userProfile?.teamId) {
+        try { subscribeTeamChat(userProfile.teamId, () => { if (currentPage === 'team' && window._teamSubTab === 'chat') renderTeam(); }); } catch(e) {}
+      } else {
+        try { unsubscribeTeamChat(); } catch(e) {}
+      }
+      renderTeam();
+    });
+  });
+}
+
+/// Wire the chat composer + per-message delete buttons after the chat panel
+/// renders. Safe to call multiple times (re-bind on every render).
+function bindTeamChatPanel(c) {
+  const teamId = userProfile?.teamId;
+  if (!teamId) return;
+  // Auto-grow textarea
+  const ta = c.querySelector('#team-chat-input');
+  if (ta) {
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; };
+    ta.addEventListener('input', grow);
+    setTimeout(grow, 0);
+  }
+  c.querySelector('#team-chat-send')?.addEventListener('click', async () => {
+    const text = (ta?.value || '').trim();
+    if (!text) return;
+    if (!isMessageClean(text)) {
+      showToast('Message blocked — please keep it clean.', 'warn');
+      return;
+    }
+    const isCoachUser = !!userProfile?.isCoach;
+    const pushChecked = !!c.querySelector('#team-chat-push')?.checked;
+    let ok = false;
+    if (isCoachUser && pushChecked) {
+      if (!confirm('Send this as a push notification to every team member?')) return;
+      ok = await sendCoachBroadcast(teamId, text, { push: true });
+    } else if (isCoachUser) {
+      ok = await sendCoachBroadcast(teamId, text, { push: false });
+    } else {
+      ok = await sendChatMessage(teamId, text);
+    }
+    if (ok && ta) { ta.value = ''; ta.style.height = 'auto'; }
+  });
+  // Per-message delete (author or head coach only)
+  c.querySelectorAll('.chat-msg-del').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm('Delete this message?')) return;
+      const id = btn.dataset.delId;
+      if (id) await deleteChatMessage(teamId, id);
+    });
+  });
+  // Auto-subscribe if not already
+  if (typeof subscribeTeamChat === 'function' && getTeamChatCache().length === 0) {
+    subscribeTeamChat(teamId, () => { if (currentPage === 'team' && window._teamSubTab === 'chat') renderTeam(); });
+  }
+}
+
 async function renderTeamSearchResults(container, query) {
   const el = container.querySelector('#team-search-results');
   if (!el) return;
@@ -7635,6 +7759,7 @@ function startApp() {
   try { initTimer(buildModuleCtx()); } catch(e) { console.warn('initTimer:', e); }
   try { initAiFeatures(buildModuleCtx()); } catch(e) { console.warn('initAiFeatures:', e); }
   try { initRaceDay(buildModuleCtx()); } catch(e) { console.warn('initRaceDay:', e); }
+  try { initTeamChat(buildModuleCtx()); } catch(e) { console.warn('initTeamChat:', e); }
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       currentUser = user;

@@ -136,6 +136,36 @@ service cloud.firestore {
           && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
       }
 
+      // Team chat / activity feed.
+      // Schema: teams/{teamId}/chat/{messageId}
+      //   uid, displayName, text, kind, createdAt
+      //   kind: 'chat' (athlete chat), 'workout' (auto-post), 'coach' (broadcast),
+      //         'system' (joined/left)
+      //   broadcastPush: true if a coach asked iOS to push this message
+      // Rules:
+      //   - Read: any team member
+      //   - Create: any team member, but uid must be self (no impersonation)
+      //   - Update: only the author can edit their own (e.g. soft-delete)
+      //     Coaches can flag any message as moderated (kind: 'coach' updates only)
+      //   - Delete: author or head coach
+      match /chat/{messageId} {
+        allow read: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
+        allow create: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500;
+        allow update: if isSignedIn()
+          && (resource.data.uid == request.auth.uid
+              || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy);
+        allow delete: if isSignedIn()
+          && (resource.data.uid == request.auth.uid
+              || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
+              || isAdmin());
+      }
+
       // Subteam hierarchy: a head coach (the team's createdBy user) can
       // carve their team into named subteams (e.g. "Venom") and assign a
       // sub-coach. Athletes only see their own subteam's leaderboard.
