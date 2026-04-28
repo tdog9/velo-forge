@@ -326,9 +326,9 @@ body{
   /* backdrop-filter dropped: it stacked with .tab-bar + modal scrims and
      OOM-crashed iOS Safari. Solid bg gives the same hierarchy without the
      fullscreen GPU composite. */
-  background:rgba(10,11,15,.97) !important;
+  background:rgba(10,11,15,.99) !important;
 }
-.light-theme .ai-input-bar{ background:rgba(244,243,239,.97) !important; }
+.light-theme .ai-input-bar{ background:rgba(244,243,239,.99) !important; }
 
 /* ============================================================
    LEADERBOARD — modernized rows
@@ -380,9 +380,9 @@ body{
      was the worst offender — every modal that opened on top of it caused
      iOS Safari to composite the modal scrim through the blurred tab bar,
      hitting the WKWebView GPU memory ceiling on older iPhones. */
-  background:rgba(10,11,15,.97) !important;
+  background:rgba(10,11,15,.99) !important;
 }
-.light-theme #main-app > .tab-bar{ background:rgba(244,243,239,.97) !important; }
+.light-theme #main-app > .tab-bar{ background:rgba(244,243,239,.99) !important; }
 
 #main-app > .tab-bar .tab-btn.active{
   color:var(--primary);
@@ -461,9 +461,9 @@ body{
 }
 .ai-header{
   /* No backdrop-filter — see .tab-bar comment for why. */
-  background:rgba(10,11,15,.97) !important;
+  background:rgba(10,11,15,.99) !important;
 }
-.light-theme .ai-header{ background:rgba(244,243,239,.97) !important; }
+.light-theme .ai-header{ background:rgba(244,243,239,.99) !important; }
 .ai-header-badge{
   background:linear-gradient(135deg, rgba(124,58,237,.2), rgba(168,85,247,.15)) !important;
   border:1px solid rgba(168,85,247,.3);
@@ -852,7 +852,7 @@ body{
 .profile-header{
   padding:14px 16px !important;
   /* No backdrop-filter — see .tab-bar comment for why. */
-  background:rgba(10,11,15,.97) !important;
+  background:rgba(10,11,15,.99) !important;
 }
 .light-theme .profile-header{ background:rgba(244,243,239,.85) !important; }
 

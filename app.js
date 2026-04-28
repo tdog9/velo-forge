@@ -1397,7 +1397,10 @@ $('logout-btn')?.addEventListener('click', async () => {
     if (workoutsUnsubscribe) { workoutsUnsubscribe(); workoutsUnsubscribe = null; }
     if (checklistUnsubscribe) { checklistUnsubscribe(); checklistUnsubscribe = null; }
     if (planOverridesUnsubscribe) { planOverridesUnsubscribe(); planOverridesUnsubscribe = null; }
-    if (profileUnsubscribe) { clearInterval(profileUnsubscribe); profileUnsubscribe = null; }
+    if (profileUnsubscribe) {
+      try { typeof profileUnsubscribe === 'function' ? profileUnsubscribe() : clearInterval(profileUnsubscribe); } catch(e) {}
+      profileUnsubscribe = null;
+    }
     if (teamUnsubscribe) { teamUnsubscribe(); teamUnsubscribe = null; }
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
     await signOut(auth);
@@ -7355,22 +7358,26 @@ async function loadUserProfile(uid) {
       };
       await setDoc(doc(db, 'users', uid), userProfile);
     }
-    // Refresh health data every 30 seconds for live updates
-    if (profileUnsubscribe) clearInterval(profileUnsubscribe);
-    profileUnsubscribe = setInterval(async () => {
-      try {
-        const refreshSnap = await getDoc(doc(db, 'users', uid));
-        if (refreshSnap.exists()) {
-          const oldHealth = JSON.stringify(userProfile?.health || {});
-          const newData = refreshSnap.data();
-          const newHealth = JSON.stringify(newData?.health || {});
-          if (oldHealth !== newHealth) {
-            userProfile = newData;
-            if (currentPage === 'today') renderCurrentPage();
-          }
-        }
-      } catch(e) {}
-    }, 30000);
+    // Live profile updates via onSnapshot — was a 30s setInterval that
+    // burned ~120 reads/hour per user and needed clearInterval semantics
+    // hidden inside profileUnsubscribe (a misnomer for setInterval handle).
+    // Now: real-time, free, and stops on signOut via the same handle.
+    if (profileUnsubscribe) {
+      // Could be either an interval id (legacy) or an unsubscribe fn (new) —
+      // try both shapes safely.
+      try { typeof profileUnsubscribe === 'function' ? profileUnsubscribe() : clearInterval(profileUnsubscribe); } catch(e) {}
+      profileUnsubscribe = null;
+    }
+    profileUnsubscribe = onSnapshot(doc(db, 'users', uid), (refreshSnap) => {
+      if (!refreshSnap.exists()) return;
+      const oldHealth = JSON.stringify(userProfile?.health || {});
+      const newData = refreshSnap.data();
+      const newHealth = JSON.stringify(newData?.health || {});
+      if (oldHealth !== newHealth) {
+        userProfile = newData;
+        if (currentPage === 'today') renderCurrentPage();
+      }
+    }, (err) => { console.warn('profile listener:', err); });
   } catch(e) {
     console.error('Load profile error:', e);
     userProfile = {
