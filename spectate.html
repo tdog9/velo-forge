@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0a0b0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Race Day Spectate · TurboPrep</title>
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --card: #16181f;
+    --fg: #f4f4f5;
+    --muted-fg: #7a7d88;
+    --primary: #f97316;
+    --primary-fg: #0d0e12;
+    --border: rgba(255,255,255,.08);
+    --pulse: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); -webkit-text-size-adjust: 100%; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; min-height: 100vh; }
+  .wrap { max-width: 540px; margin: 0 auto; padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  header { display: flex; align-items: center; gap: 10px; padding: 12px 0 16px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .logo { width: 36px; height: 36px; border-radius: 9px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
+  .brand { display: flex; flex-direction: column; min-width: 0; }
+  .brand-name { font-size: 13px; font-weight: 800; letter-spacing: .08em; color: var(--primary); }
+  .brand-sub { font-size: 11px; color: var(--muted-fg); }
+  .live-badge { margin-left: auto; display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; background: rgba(239,68,68,.12); color: var(--pulse); }
+  .live-badge.idle { background: var(--card); color: var(--muted-fg); }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pulse); animation: pulse 1.4s ease infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(1.4); } }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .section-title { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-fg); margin-bottom: 10px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .row:last-child { border-bottom: none; }
+  .rank { width: 24px; font-weight: 800; color: var(--muted-fg); font-variant-numeric: tabular-nums; }
+  .rank.top { color: var(--primary); }
+  .name { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .laps { font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .best { color: var(--muted-fg); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 50px; text-align: right; }
+  .live-row { background: rgba(239,68,68,.06); border-left: 2px solid var(--pulse); padding: 8px 10px; margin: 6px 0; border-radius: 8px; display: flex; align-items: center; gap: 10px; }
+  .live-row .name { font-weight: 700; }
+  .live-row .lap-elapsed { color: var(--pulse); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .empty { text-align: center; padding: 30px 16px; color: var(--muted-fg); font-size: 13px; }
+  .footer-note { text-align: center; padding: 14px 0; color: var(--muted-fg); font-size: 11px; }
+  a { color: var(--primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .race-name { font-size: 16px; font-weight: 700; color: var(--fg); }
+  .team-name { font-size: 12px; color: var(--muted-fg); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">T</div>
+    <div class="brand">
+      <div class="brand-name">TURBOPREP</div>
+      <div class="brand-sub">Spectator view</div>
+    </div>
+    <div class="live-badge idle" id="live-status">OFFLINE</div>
+  </header>
+
+  <div id="content" class="empty">Loading…</div>
+
+  <div class="footer-note">
+    Refreshes every 5 seconds.<br>
+    Want your own race tracking? Visit <a href="https://turboprep.app">turboprep.app</a>.
+  </div>
+</div>
+
+<script>
+(function() {
+  const params = new URLSearchParams(location.search);
+  const teamId = params.get('team') || '';
+  const date = params.get('date') || '';
+  const content = document.getElementById('content');
+  const liveBadge = document.getElementById('live-status');
+
+  function fmtMs(ms) {
+    if (ms == null || isNaN(ms)) return '—';
+    const s = Math.floor(ms / 1000);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+  function fmtElapsed(ms) {
+    if (!ms) return '0:00';
+    const s = Math.floor(ms / 1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    return h > 0 ? h + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0') : m + ':' + String(sec).padStart(2,'0');
+  }
+  function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function refresh() {
+    try {
+      const url = '/.netlify/functions/race-day-public' + (teamId ? '?teamId=' + encodeURIComponent(teamId) : '') + (date ? (teamId ? '&' : '?') + 'date=' + encodeURIComponent(date) : '');
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        content.innerHTML = '<div class="empty">Couldn\'t reach race-day server.</div>';
+        return;
+      }
+      const data = await resp.json();
+      if (!data.active) {
+        liveBadge.classList.add('idle');
+        liveBadge.innerHTML = 'OFFLINE';
+        content.innerHTML = '<div class="empty"><div style="font-size:32px;margin-bottom:8px">🏁</div>No race day in progress.<br><small>Check back when the team kicks off.</small></div>';
+        return;
+      }
+      liveBadge.classList.remove('idle');
+      liveBadge.innerHTML = '<span class="live-dot"></span>LIVE';
+
+      let html = '';
+      if (data.raceName || data.teamName) {
+        html += '<div class="card" style="text-align:center">';
+        if (data.raceName) html += '<div class="race-name">🏁 ' + escHtml(data.raceName) + '</div>';
+        if (data.teamName) html += '<div class="team-name">' + escHtml(data.teamName) + '</div>';
+        html += '</div>';
+      }
+
+      // Live now
+      if (data.live && data.live.length > 0) {
+        html += '<div class="card"><div class="section-title">Live on track</div>';
+        data.live.forEach(l => {
+          html += '<div class="live-row">' +
+            '<span class="name">' + escHtml(l.displayName) + '</span>' +
+            '<span class="laps">' + l.lapCount + ' lap' + (l.lapCount === 1 ? '' : 's') + '</span>' +
+            '<span class="lap-elapsed">' + fmtElapsed(l.elapsed) + '</span>' +
+          '</div>';
+        });
+        html += '</div>';
+      }
+
+      // Leaderboard
+      if (data.leaderboard && data.leaderboard.length > 0) {
+        html += '<div class="card"><div class="section-title">Leaderboard</div>';
+        data.leaderboard.forEach((row, i) => {
+          html += '<div class="row">' +
+            '<span class="rank' + (i < 3 ? ' top' : '') + '">' + (i + 1) + '</span>' +
+            '<span class="name">' + escHtml(row.displayName) + '</span>' +
+            '<span class="laps">' + row.lapCount + '</span>' +
+            '<span class="best">' + (row.bestMs ? fmtMs(row.bestMs) : '—') + '</span>' +
+          '</div>';
+        });
+        html += '</div>';
+      } else {
+        html += '<div class="empty"><div style="font-size:32px;margin-bottom:8px">⏳</div>Waiting for first lap…</div>';
+      }
+
+      content.innerHTML = html;
+    } catch(e) {
+      content.innerHTML = '<div class="empty">Network error — retrying…</div>';
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 5000);
+})();
+</script>
+</body>
+</html>

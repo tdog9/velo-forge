@@ -53,6 +53,14 @@ service cloud.firestore {
         && request.auth.uid == get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.createdBy
         && userId in get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.members
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isCoach'])
+      ) || (
+        // Head coach can also assign / change a team member's active plan.
+        // Only `activePlanId` is writeable through this path.
+        isSignedIn()
+        && resource.data.teamId is string
+        && request.auth.uid == get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.createdBy
+        && userId in get(/databases/$(database)/documents/teams/$(resource.data.teamId)).data.members
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activePlanId'])
       );
 
       match /workouts/{workoutId} {

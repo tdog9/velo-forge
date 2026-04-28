@@ -328,6 +328,7 @@ function buildOverlayHTML() {
     <div style="width:7px;height:7px;border-radius:50%;background:#ef4444;animation:rdPulse 1.4s ease infinite"></div>
     <span style="font-size:11px;font-weight:700;color:#ef4444">LIVE</span>
   </div>
+  <button id="rd-share-btn" aria-label="Share spectator link" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-weight:700;cursor:pointer;margin-left:4px">Share</button>
   ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
 </header>
 
@@ -372,6 +373,22 @@ function bindOverlay(ov) {
   }
 
   // Only coaches/admin can end race day — no close for regular users
+  // Share spectator link — anyone can open this URL to follow the race
+  // without signing in. Build with the team id so it's filtered to this
+  // team's drivers.
+  ov.querySelector('#rd-share-btn')?.addEventListener('click', async () => {
+    const tid = ctx.userProfile?.teamId || '';
+    const url = location.origin + '/spectate.html' + (tid ? '?team=' + encodeURIComponent(tid) : '');
+    if (navigator.share) {
+      try { await navigator.share({ title: 'TurboPrep — Spectator link', url }); return; } catch(e) {}
+    }
+    try {
+      await navigator.clipboard?.writeText(url);
+      ctx.showToast?.('Spectator link copied — share it with families.', 'success');
+    } catch(e) {
+      ctx.showToast?.('Link: ' + url, 'info');
+    }
+  });
   ov.querySelector('#rd-end-btn')?.addEventListener('click',async()=>{
     if (!confirm('End race day mode for all users?')) return;
     await deactivateRaceDay();

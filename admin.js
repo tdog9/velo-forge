@@ -565,9 +565,24 @@ export async function renderCoachDashboard() {
         { name: 'Pat H.', year: 'Y11', tier: 'basic', workouts: 12, lastActive: new Date(Date.now() - 86400000 * 12), streak: 0, avgRpe: 6.0 },
       ];
     } else if (A.db) {
-      // Only load team members, not all users
-    const memberUids = A.teamData?.members || [];
-    if (!memberUids.length) { el.innerHTML = '<div class="admin-empty" style="padding:20px">No team members yet.</div>'; return; }
+      // Sub-coach scoping: if the current user is a sub-coach (not the head
+      // coach), filter the member list to just their own subteam. Head
+      // coach + delegated admins still see everyone.
+      const myUid = A.currentUser?.uid;
+      const isHeadCoach = A.userProfile?.isCoach && A.teamData?.createdBy === myUid;
+      const isMaster = A.currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+      let memberUids = A.teamData?.members || [];
+      if (!isHeadCoach && !isMaster) {
+        const subteams = Array.isArray(A.teamData?.subteams) ? A.teamData.subteams : [];
+        const mySub = subteams.find(s => s.subCoachUid === myUid);
+        if (mySub) {
+          const subSet = new Set([...(mySub.members || []), mySub.subCoachUid].filter(Boolean));
+          memberUids = memberUids.filter(uid => subSet.has(uid));
+          // Add a small banner so the sub-coach knows their view is scoped.
+          el.innerHTML = '<div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:10px;padding:8px 12px;font-size:11px;color:#3b82f6;margin-bottom:10px">Sub-coach view — showing your "' + (mySub.name || 'subteam') + '" only.</div>';
+        }
+      }
+      if (!memberUids.length) { el.innerHTML = (el.innerHTML || '') + '<div class="admin-empty" style="padding:20px">No team members yet.</div>'; return; }
     const usersSnap = { docs: (await Promise.all(memberUids.map(uid => A.getDoc(A.doc(A.db,'users',uid)).catch(()=>null)))).filter(d=>d?.exists()).map(d=>({id:d.id,data:()=>d.data()})) };
       for (const d of usersSnap.docs) {
         const u = d.data();

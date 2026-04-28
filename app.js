@@ -547,6 +547,65 @@ function renderMilestoneCard(totalWorkouts, streak, lvl, xp) {
   return html;
 }
 
+// ── Recovery scoring ──────────────────────────────────────────────────────
+// Lightweight derived signal — doesn't try to be Whoop. Combines:
+//   - sleep last night (if HealthKit / Strava / Fitbit synced it)
+//   - workout volume in the last 3 days
+//   - hard sessions (RPE>=8) in the last 3 days
+// Returns a card recommending an easy/rest day when the signal is loud.
+// Silent when there's not enough data to be useful.
+function renderRecoveryCard(workouts, healthData) {
+  if (!healthData) return '';
+  const sleep = typeof healthData.latestSleep === 'number' ? healthData.latestSleep : null;
+  const lastSync = healthData.lastSync ? new Date(healthData.lastSync) : null;
+  const sleepFresh = sleep != null && lastSync && (Date.now() - lastSync.getTime()) < 36 * 3600 * 1000;
+  // 3-day rolling volume
+  const cutoff = Date.now() - 3 * 24 * 3600 * 1000;
+  const recent = (workouts || []).filter(w => {
+    const d = w.date?.toDate ? w.date.toDate() : (w.date ? new Date(w.date) : null);
+    return d && d.getTime() >= cutoff;
+  });
+  const recentCount = recent.length;
+  const hardCount = recent.filter(w => typeof w.rpe === 'number' && w.rpe >= 8).length;
+  // Score 0..100 — higher = better recovery.
+  // Sleep contributes 0 (no data) up to 50 pts (8h+).
+  // Volume penalty: -10 per session in last 3 days.
+  // Hard penalty: extra -10 per RPE-8+ session.
+  let score = 60;
+  if (sleepFresh) {
+    score = Math.min(100, score + Math.max(0, (sleep - 4) * 12));  // 4h = 0 bonus, 8h = +48
+  }
+  score -= Math.min(40, recentCount * 8 + hardCount * 8);
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  // Decide whether to surface a card. Quiet bands (50-79) don't show.
+  const today = new Date().toISOString().split('T')[0];
+  let lastDismissed = '';
+  try { lastDismissed = localStorage.getItem('tp_recovery_dismissed') || ''; } catch(e) {}
+  if (lastDismissed === today) return '';
+  let kind = null, message = '';
+  if (score < 35) {
+    kind = 'rest';
+    message = sleepFresh
+      ? `Score ${score}/100. ${sleep.toFixed(1)}h sleep + ${recentCount} session${recentCount === 1 ? '' : 's'} in 3 days${hardCount ? ' (' + hardCount + ' hard)' : ''}. Rest or active recovery today.`
+      : `Score ${score}/100. ${recentCount} session${recentCount === 1 ? '' : 's'} in 3 days${hardCount ? ' (' + hardCount + ' hard)' : ''}. Easy day recommended.`;
+  } else if (score >= 80 && recentCount === 0) {
+    kind = 'fresh';
+    message = `Score ${score}/100. ${sleepFresh ? sleep.toFixed(1) + 'h sleep, ' : ''}you're fresh — good day to push.`;
+  }
+  if (!kind) return '';
+  const colors = kind === 'rest'
+    ? { bg: 'rgba(245,158,11,.10)', border: 'rgba(245,158,11,.35)', fg: '#f59e0b', icon: '😴', title: 'Recovery first' }
+    : { bg: 'rgba(34,197,94,.10)',  border: 'rgba(34,197,94,.35)',  fg: '#22c55e', icon: '⚡', title: 'You\'re fresh' };
+  return `<div class="recovery-card" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:${colors.bg};border:1px solid ${colors.border}">
+    <div style="font-size:24px;flex-shrink:0">${colors.icon}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:800;color:${colors.fg};margin-bottom:2px">${colors.title}</div>
+      <div style="font-size:12px;color:var(--fg);line-height:1.4">${escHtml(message)}</div>
+    </div>
+    <button class="recovery-dismiss" aria-label="Dismiss" style="background:none;border:none;color:var(--muted-fg);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
+  </div>`;
+}
+
 // ── RPE burnout warning ──────────────────────────────────────────────────
 // "5 of the last 7 sessions ≥ 8/10 RPE" → suggest an easy day. Soft
 // recommendation, not a block.
@@ -2906,6 +2965,9 @@ function renderToday() {
   // 7/14/30 day streak, or XP level-up. localStorage tracks "last
   // celebrated" so we don't spam the same milestone on every render.
   html += renderMilestoneCard(totalWorkouts, streak, lvl, xp);
+  // Recovery card — recommends rest if recent volume is high or sleep is
+  // poor. Only shows when signal is loud; dismissible per day.
+  html += renderRecoveryCard(userWorkouts, userProfile?.health);
   // RPE burnout warning — if 5 of the last 7 sessions were RPE >= 8, show
   // a soft "your last few have been hard, consider easy today" card.
   html += renderRpeBurnoutCard(userWorkouts);
@@ -3268,6 +3330,14 @@ function renderToday() {
       haptic('light');
       try { localStorage.setItem('tp_rpe_warn', new Date().toISOString().split('T')[0]); } catch(e) {}
       btn.closest('.rpe-burnout-card')?.remove();
+    });
+  });
+  // Recovery card dismiss — same per-day mute pattern.
+  document.querySelectorAll('.recovery-dismiss').forEach(btn => {
+    btn.addEventListener('click', () => {
+      haptic('light');
+      try { localStorage.setItem('tp_recovery_dismissed', new Date().toISOString().split('T')[0]); } catch(e) {}
+      btn.closest('.recovery-card')?.remove();
     });
   });
   // Bind "More Stats" toggle
@@ -7113,10 +7183,65 @@ async function openCoachAthleteSheet(uid) {
       }
     }, 100);
   });
-  $('coach-athlete-assign')?.addEventListener('click', async () => {
-    closeSheet();
-    showToast('Plan assignment per-athlete coming next round — for now, ask the athlete to start a plan from Fitness > Plans.', 'info');
+  $('coach-athlete-assign')?.addEventListener('click', () => openPlanPickerForAthlete(uid, member));
+}
+
+/// Plan picker — shows visible plans grouped by category. Tapping one
+/// writes activePlanId onto the athlete's user doc (allowed by Firestore
+/// rule for the team's head coach). Sheet stays open until they confirm.
+function openPlanPickerForAthlete(uid, member) {
+  const visible = (typeof getVisiblePlans === 'function') ? getVisiblePlans() : (ALL_PLANS || []);
+  const yearMatch = visible.filter(p => p.yearLevel === member.yearLevel);
+  const tierMatch = visible.filter(p => p.tier === member.fitnessLevel);
+  const recommended = (yearMatch.length && tierMatch.length)
+    ? yearMatch.filter(p => p.tier === member.fitnessLevel)
+    : (yearMatch.length ? yearMatch : tierMatch).slice(0, 6);
+  const others = visible.filter(p => !recommended.includes(p)).slice(0, 30);
+  const renderCard = (p, recommended = false) => `<button class="coach-plan-pick" data-plan-id="${escHtml(p.id)}" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:${recommended ? 'rgba(249,115,22,.06)' : 'var(--card)'};border:1px solid ${recommended ? 'rgba(249,115,22,.30)' : 'var(--border)'};border-radius:10px;cursor:pointer">
+    <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(p.name || 'Plan')}${member.activePlanId === p.id ? ' <span style="font-size:9px;color:#22c55e;font-weight:800;letter-spacing:.05em">CURRENT</span>' : ''}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${escHtml(p.category || '')}${p.yearLevel ? ' · ' + escHtml(p.yearLevel) : ''}${p.tier ? ' · ' + escHtml(p.tier) : ''}</div>
+  </button>`;
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">Assign Plan</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">For ${escHtml(member.displayName || 'athlete')}. Their active plan switches immediately.</div>
+    ${recommended.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Recommended</div>' + recommended.map(p => renderCard(p, true)).join('') : ''}
+    ${others.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">All Plans</div><div style="max-height:340px;overflow-y:auto">' + others.map(p => renderCard(p, false)).join('') + '</div>' : ''}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      ${member.activePlanId ? '<button class="btn" id="coach-plan-clear" style="flex:1;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)">Cancel current plan</button>' : ''}
+      <button class="btn btn-secondary" style="flex:1" id="coach-plan-back">Back</button>
+    </div>
+  `;
+  document.querySelectorAll('.coach-plan-pick').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const planId = btn.dataset.planId;
+      const plan = findPlan(planId);
+      if (!plan) return;
+      btn.disabled = true; btn.style.opacity = '0.6';
+      try {
+        await updateDoc(doc(db, 'users', uid), { activePlanId: planId });
+        const target = teamMembers.find(m => m.uid === uid);
+        if (target) target.activePlanId = planId;
+        showToast('Assigned "' + (plan.name || 'plan') + '" to ' + (member.displayName || 'athlete'), 'success');
+        closeSheet();
+        renderTeam();
+      } catch(e) {
+        showToast('Failed: ' + (e?.message || 'try again'), 'error');
+        btn.disabled = false; btn.style.opacity = '';
+      }
+    });
   });
+  $('coach-plan-clear')?.addEventListener('click', async () => {
+    if (!confirm('Cancel ' + (member.displayName || 'this athlete') + '’s plan?')) return;
+    try {
+      await updateDoc(doc(db, 'users', uid), { activePlanId: null });
+      const target = teamMembers.find(m => m.uid === uid);
+      if (target) target.activePlanId = null;
+      showToast('Plan cancelled.', 'info');
+      closeSheet();
+      renderTeam();
+    } catch(e) { showToast('Failed: ' + (e?.message || 'try again'), 'error'); }
+  });
+  $('coach-plan-back')?.addEventListener('click', () => openCoachAthleteSheet(uid));
 }
 
 /// Bind the team-page sub-tab strip (Members / Chat / Global). Called after
