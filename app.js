@@ -6494,11 +6494,19 @@ async function renderProfile() {
   html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:10px">
     Connect a service to import workouts automatically.
   </div>`;
-  // Strava row
+  // Strava row — uses Strava's official "Connect with Strava" branded
+  // button per their API agreement (orange #FC4C02 + exact text + logo).
+  // Required for production API tier approval.
   html += `<div class="wearable-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:8px">
-    <div style="width:32px;height:32px;border-radius:8px;background:#fc4c02;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">S</div>
-    <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">Strava</div><div style="font-size:11px;color:var(--muted-fg)">${isStravaConnected ? 'Connected — auto-imports workouts' : 'OAuth · auto-import (covers Apple Watch, Garmin, Fitbit too)'}</div></div>
-    <button class="btn ${isStravaConnected?'btn-secondary':'btn-primary'}" id="prof-strava-${isStravaConnected?'disconnect':'connect'}" style="font-size:12px;padding:6px 12px">${isStravaConnected?'Disconnect':'Connect'}</button>
+    <div style="width:32px;height:32px;border-radius:8px;background:#fc4c02;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0" aria-hidden="true">S</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">Strava</div><div style="font-size:11px;color:var(--muted-fg)">${isStravaConnected ? 'Connected — auto-imports workouts' : 'Connect to import rides, runs, walks'}</div></div>
+    ${isStravaConnected
+      ? `<button class="btn btn-secondary" id="prof-strava-disconnect" style="font-size:12px;padding:6px 12px">Disconnect</button>`
+      : `<button id="prof-strava-connect" aria-label="Connect with Strava" style="display:inline-flex;align-items:center;gap:6px;background:#fc4c02;color:#fff;border:none;padding:7px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.01em">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+          Connect with Strava
+        </button>`
+    }
   </div>`;
   // Fitbit row
   html += `<div class="wearable-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:8px">

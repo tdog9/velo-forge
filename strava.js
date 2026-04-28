@@ -113,10 +113,10 @@ export function renderStravaActivities() {
     const isImported = importedIds.has(String(a.id));
 
     html += `<div class="strava-activity">
-      <div class="strava-activity-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg></div>
+      <div class="strava-activity-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg></div>
       <div class="strava-activity-info">
         <div class="strava-activity-name">${escHtml(a.name || 'Activity')}</div>
-        <div class="strava-activity-meta">${dateStr}${dist ? ' · ' + dist : ''}${dur ? ' · ' + dur : ''}</div>
+        <div class="strava-activity-meta">${dateStr}${dist ? ' · ' + dist : ''}${dur ? ' · ' + dur : ''} · <a href="https://www.strava.com/activities/${a.id}" target="_blank" rel="noopener" style="color:#fc4c02;text-decoration:none;font-weight:600">View on Strava</a></div>
       </div>
       ${isImported
         ? '<span class="strava-import-btn imported">Imported</span>'
@@ -124,6 +124,13 @@ export function renderStravaActivities() {
       }
     </div>`;
   });
+  // Strava API agreement requires this attribution wherever Strava data is
+  // displayed. Plain text + their orange so it's unmistakable.
+  html += `<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:8px 0 0;font-size:10px;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">
+    <span>Powered by</span>
+    <svg viewBox="0 0 24 24" fill="#fc4c02" style="width:11px;height:11px" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+    <span style="color:#fc4c02;font-weight:800">Strava</span>
+  </div>`;
   list.innerHTML = html;
 
   // Bind import buttons
