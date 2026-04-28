@@ -721,6 +721,19 @@ select.input{
 .team-hero-title{font-size:18px;font-weight:800;font-family:var(--font-sans);margin-bottom:4px}
 .team-hero-code{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;background:var(--surface);border-radius:8px;font-size:13px;font-weight:700;font-family:var(--font-mono);letter-spacing:.1em;margin:4px 0}
 .team-hero-members{font-size:12px;color:var(--muted-fg);margin-top:4px}
+.team-hero-rich{padding:18px 16px}
+.team-hero-meta{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:8px}
+.team-hero-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:99px;font-size:11px;font-weight:600;color:var(--muted-fg)}
+.team-hero-pill svg{flex-shrink:0;color:var(--muted-fg)}
+.roster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.roster-chip{display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;min-width:0;transition:transform .12s ease,border-color .12s ease}
+.roster-chip[data-coach-drill]{cursor:pointer}
+.roster-chip[data-coach-drill]:active{transform:scale(.98);border-color:var(--primary)}
+.roster-chip.is-me{border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.05)}
+.roster-chip-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;flex-shrink:0;font-family:var(--font-sans)}
+.roster-chip-info{flex:1;min-width:0}
+.roster-chip-name{font-size:12px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.roster-chip-sub{font-size:10px;color:var(--muted-fg);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ===== Auth ===== */
 .auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--app-h);padding:24px;background:var(--bg)}
@@ -1098,9 +1111,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* ===== Stats / Charts ===== */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center}
-.stat-val{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
-.stat-lbl{font-size:11px;color:var(--muted-fg);margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.stat{background:linear-gradient(180deg,rgba(255,255,255,.04),transparent);background-color:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 12px;text-align:center;position:relative;transition:transform .15s ease,border-color .15s ease}
+.stat::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(120% 60% at 50% 0%,rgba(249,115,22,.08),transparent 60%);opacity:.7}
+.stat>*{position:relative}
+.stat-val{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;font-family:var(--font-sans);letter-spacing:-.02em;background:linear-gradient(180deg,var(--fg),var(--muted-fg));-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat-lbl{font-size:10px;color:var(--muted-fg);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
 .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .bar-col{flex:1;height:8px;background:var(--muted);border-radius:4px;overflow:hidden}
 .bar-lbl{font-size:12px;color:var(--muted-fg);width:60px;text-align:right}
@@ -1117,10 +1132,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* ===== Personal Bests ===== */
 .pb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.pb-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.pb-card{background:linear-gradient(135deg,rgba(249,115,22,.10),rgba(249,115,22,.02));background-color:var(--card);border:1px solid rgba(249,115,22,.20);border-radius:var(--radius);padding:14px 10px;text-align:center;position:relative;overflow:hidden}
+.pb-card::after{content:"";position:absolute;top:-30px;right:-30px;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle,rgba(249,115,22,.10),transparent 70%);pointer-events:none}
 .pb-icon{font-size:24px;margin-bottom:4px}
-.pb-val{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--primary)}
-.pb-lbl{font-size:11px;color:var(--muted-fg)}
+.pb-val{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--primary);font-family:var(--font-sans);letter-spacing:-.02em}
+.pb-lbl{font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-top:2px}
 
 /* ===== XP / Level ===== */
 .xp-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -1156,9 +1172,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .feed-reactions{display:flex;gap:6px;margin-top:4px}
 
 /* ===== Challenge ===== */
-.challenge-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:8px}
-.challenge-title{font-size:15px;font-weight:700;margin-bottom:4px}
-.challenge-meta{font-size:12px;color:var(--muted-fg);margin-bottom:10px}
+.challenge-card{background:linear-gradient(135deg,rgba(124,58,237,.10),rgba(249,115,22,.06));background-color:var(--card);border:1px solid rgba(124,58,237,.22);border-radius:var(--radius);padding:16px;margin-bottom:8px;position:relative;overflow:hidden}
+.challenge-card::before{content:"";position:absolute;top:-40px;left:-40px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,.18),transparent 70%);pointer-events:none}
+.challenge-card>*{position:relative}
+.challenge-title{font-size:16px;font-weight:800;margin-bottom:4px;letter-spacing:-.01em}
+.challenge-meta{font-size:11px;color:var(--muted-fg);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
 .challenge-team{margin-bottom:8px}
 .challenge-team-name{font-size:13px;font-weight:600;display:flex;justify-content:space-between;margin-bottom:4px}
 .challenge-team-score{font-size:12px;color:var(--muted-fg)}
@@ -1166,13 +1184,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .challenge-team-fill{height:100%;transition:width .4s}
 
 /* ===== Goals ===== */
-.goal-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.goal-card{background:linear-gradient(135deg,rgba(34,197,94,.04),transparent);background-color:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;transition:border-color .15s ease,box-shadow .15s ease}
+.goal-card:has(.goal-ring-text:is(:not(:empty))[data-done="1"]){border-color:rgba(34,197,94,.4);box-shadow:0 4px 14px rgba(34,197,94,.10)}
 .goal-ring-wrap{flex-shrink:0}
 .goal-ring{width:52px;height:52px}
-.goal-ring-text{font-size:11px;font-weight:700;fill:var(--fg)}
+.goal-ring-text{font-size:11px;font-weight:800;fill:var(--fg)}
 .goal-info{flex:1;min-width:0}
-.goal-label{font-size:14px;font-weight:600}
-.goal-progress{font-size:12px;color:var(--muted-fg);margin-top:2px}
+.goal-label{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.goal-progress{font-size:11px;color:var(--muted-fg);margin-top:3px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .goal-actions{display:flex;gap:6px;margin-top:8px}
 .goal-add-btn{font-size:12px;padding:6px 12px;border-radius:var(--radius-sm);background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;font-weight:600}
 .goal-del{font-size:11px;color:var(--destructive);background:none;border:none;cursor:pointer;padding:2px 4px}

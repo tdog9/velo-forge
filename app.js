@@ -1055,7 +1055,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '202604240834';
+const APP_VERSION = '202604281114';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     '🎓 App tour for new users',
@@ -5010,7 +5010,10 @@ function renderWorkouts() {
                 ${w.incline ? `<span><strong>${w.incline}</strong>% incline</span>` : ''}
               </div>
               ${w.vehicle || w.location || w.bestLap ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${[w.vehicle, w.location, w.bestLap ? 'Best lap: ' + w.bestLap : ''].filter(Boolean).join(' · ')}</div>` : ''}
-              <div style="font-size:11px;color:var(--muted-fg);margin-top:3px">${dateStr} · ${timeStr}</div>
+              <div style="font-size:11px;color:var(--muted-fg);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <span>${dateStr} · ${timeStr}</span>
+                ${w.stravaId ? `<a href="https://www.strava.com/activities/${escHtml(String(w.stravaId))}" target="_blank" rel="noopener" data-stop-card="1" style="color:#fc4c02;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:3px"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width:9px;height:9px"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>View on Strava</a>` : ''}
+              </div>
             </div>
             <button class="wo-delete" data-id="${w._id}" aria-label="Delete">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -5022,6 +5025,16 @@ function renderWorkouts() {
       </div>`;
     });
     html += '</div>';
+    // Strava API agreement: show "Powered by Strava" wherever Strava data is
+    // surfaced. The Activities list mixes manual + GPS + Strava; we render
+    // attribution unconditionally when any Strava-sourced workout exists.
+    if (stravaCount > 0) {
+      html += `<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:10px 4px 0;font-size:10px;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">
+        <span>Powered by</span>
+        <svg viewBox="0 0 24 24" fill="#fc4c02" style="width:11px;height:11px" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+        <span style="color:#fc4c02;font-weight:800">Strava</span>
+      </div>`;
+    }
   }
   c.innerHTML = html;
   // Render mini maps — wait for container to have real dimensions
@@ -5089,6 +5102,7 @@ function renderWorkouts() {
     card.style.cursor = 'pointer';
     card.addEventListener('click', (e) => {
       if (e.target.closest('.wo-delete')) return; // Don't open detail when deleting
+      if (e.target.closest('[data-stop-card]')) return; // Don't intercept "View on Strava"
       const idx = parseInt(card.dataset.woIdx);
       if (!isNaN(idx)) openActivityDetail(idx);
     });
@@ -6178,8 +6192,11 @@ function renderTeamTab(c) {
     return;
   }
   // Team header
+  const coachUid = teamData?.createdBy;
+  const coachMember = teamMembers.find(m => m.uid === coachUid);
+  const coachName = coachMember?.displayName || (currentUser?.uid === coachUid ? (userProfile?.displayName || 'You') : 'Coach');
   html += `
-    <div class="team-hero">
+    <div class="team-hero team-hero-rich">
       <div class="team-hero-title">${escHtml(teamData.name)}</div>
       <div class="team-hero-code">
         <span>${teamData.code}</span>
@@ -6187,9 +6204,48 @@ function renderTeamTab(c) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         </button>
       </div>
-      <div class="team-hero-members">${teamMembers.length} member${teamMembers.length !== 1 ? 's' : ''}</div>
+      <div class="team-hero-meta">
+        <span class="team-hero-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="width:11px;height:11px"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${teamMembers.length} member${teamMembers.length !== 1 ? 's' : ''}</span>
+        <span class="team-hero-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="width:11px;height:11px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Coach: ${escHtml(coachName)}</span>
+        ${Array.isArray(teamData.subteams) && teamData.subteams.length ? `<span class="team-hero-pill">${teamData.subteams.length} subteam${teamData.subteams.length !== 1 ? 's' : ''}</span>` : ''}
+      </div>
     </div>
   `;
+  // Member roster — quick visual list of everyone on the team. Helps users
+  // confirm a teammate has actually joined (signing up alone isn't enough —
+  // they need to enter the code).
+  if (teamMembers.length > 0) {
+    const avatarColors = ['#f97316','#3b82f6','#22c55e','#a855f7','#ef4444','#06b6d4','#f59e0b','#ec4899','#14b8a6','#8b5cf6'];
+    const initials = (name) => (name || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '?';
+    const chips = teamMembers.slice().sort((a,b) => {
+      // coach first, then me, then alpha
+      if (a.uid === coachUid) return -1;
+      if (b.uid === coachUid) return 1;
+      if (a.uid === currentUser?.uid) return -1;
+      if (b.uid === currentUser?.uid) return 1;
+      return (a.displayName || '').localeCompare(b.displayName || '');
+    });
+    const chipHtml = chips.map((m, i) => {
+      const isCoach = m.uid === coachUid;
+      const isMe = m.uid === currentUser?.uid;
+      const color = avatarColors[i % avatarColors.length];
+      const drillable = userProfile?.isCoach && m.uid !== currentUser?.uid;
+      return `<div class="roster-chip${isMe ? ' is-me' : ''}"${drillable ? ` data-coach-drill="${escHtml(m.uid)}" role="button" tabindex="0"` : ''}>
+        <div class="roster-chip-av" style="background:${color}">${escHtml(initials(m.displayName))}</div>
+        <div class="roster-chip-info">
+          <div class="roster-chip-name">${escHtml(m.displayName || 'Unknown')}${isMe ? ' <span style="color:var(--muted-fg);font-weight:500">(you)</span>' : ''}</div>
+          <div class="roster-chip-sub">${isCoach ? '<span style="color:var(--primary);font-weight:700">COACH</span>' : (m.yearLevel ? 'Year ' + escHtml(String(m.yearLevel)) : 'Member')}${typeof m.totalWorkouts === 'number' ? ' · ' + m.totalWorkouts + ' workout' + (m.totalWorkouts === 1 ? '' : 's') : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+    html += `<div class="card card-pad" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Roster</div>
+        <button class="invite-hint-btn" id="team-invite-hint-btn" style="font-size:11px;font-weight:700;color:var(--primary);background:transparent;border:0;cursor:pointer;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>Invite</button>
+      </div>
+      <div class="roster-grid">${chipHtml}</div>
+    </div>`;
+  }
   // Sub-tab strip is now in index.html (page-team .team-tab-bar). The
   // dispatcher in renderTeam() routes to lb-team-content / lb-chat-content
   // / lb-global-content. This block (renderTeamTab) renders into
@@ -6276,9 +6332,25 @@ function renderTeamTab(c) {
     navigator.clipboard.writeText(teamData.code).catch(() => {});
     const btn = $('copy-code-btn');
     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    showToast('Team code copied — share with teammates', 'success');
     setTimeout(() => {
       btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     }, 1500);
+  });
+  // Invite button — share team code via native share, fall back to clipboard.
+  // Useful when a user has signed up but isn't on the team (e.g. Felix has an
+  // account with teamId=null — he needs the code to actually join).
+  $('team-invite-hint-btn')?.addEventListener('click', async () => {
+    const code = teamData.code;
+    const msg = `Join my TurboPrep team "${teamData.name}". Open the app, go to the Team tab and tap "Join Team by Code". Code: ${code}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Join my team on TurboPrep', text: msg });
+        return;
+      }
+    } catch(e) { /* user cancelled or share unsupported */ }
+    try { await navigator.clipboard.writeText(msg); showToast('Invite copied to clipboard', 'success'); }
+    catch(e) { showToast('Code: ' + code, 'info'); }
   });
   // Bind leave
   $('leave-team-btn').addEventListener('click', leaveTeam);
@@ -8211,7 +8283,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '202604240834';
+  const APP_VERSION = '202604281114';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
