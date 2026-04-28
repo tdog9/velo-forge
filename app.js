@@ -7098,16 +7098,46 @@ async function openCoachAthleteSheet(uid) {
   // Load workouts + plan progress in parallel
   let recentWorkouts = [];
   let planSummary = null;
+  let compliance = null;  // { done, scheduled, pct, weekLabel }
   try {
-    const [wSnap] = await Promise.all([
-      getDocs(query(collection(db, 'users', uid, 'workouts'), orderBy('date', 'desc'), limit(10))).catch(() => null),
-    ]);
+    const promises = [
+      getDocs(query(collection(db, 'users', uid, 'workouts'), orderBy('date', 'desc'), limit(20))).catch(() => null),
+    ];
+    if (member.activePlanId) {
+      const plan = findPlan(member.activePlanId);
+      if (plan) {
+        planSummary = { name: plan.name, category: plan.category, weeks: plan.workouts ? Math.max(...plan.workouts.map(w => w.week || 0)) : 0 };
+        // Pull last 7 days of checklist docs to compute weekly compliance.
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          days.push(d.toISOString().split('T')[0]);
+        }
+        promises.push(Promise.all(days.map(dk => getDoc(doc(db, 'users', uid, 'checklist', dk)).catch(() => null))));
+      }
+    }
+    const results = await Promise.all(promises);
+    const wSnap = results[0];
     if (wSnap) {
       recentWorkouts = wSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
-    if (member.activePlanId) {
-      const plan = findPlan(member.activePlanId);
-      if (plan) planSummary = { name: plan.name, category: plan.category, weeks: plan.workouts ? Math.max(...plan.workouts.map(w => w.week || 0)) : 0 };
+    const checklists = results[1];
+    if (planSummary && checklists) {
+      // Count scheduled vs done for the last 7 days. Each checklist doc is
+      // a per-day map of "key → bool". The keys encode plan week/day/index;
+      // we just sum the bools as "done count" and infer scheduled count
+      // from the plan's last 7 days.
+      let done = 0, scheduled = 0;
+      checklists.forEach(snap => {
+        if (snap?.exists?.()) {
+          const items = snap.data().items || {};
+          Object.values(items).forEach(v => {
+            scheduled++;
+            if (v === true) done++;
+          });
+        }
+      });
+      compliance = scheduled > 0 ? { done, scheduled, pct: Math.round((done / scheduled) * 100) } : null;
     }
   } catch(e) {}
   // Compute RPE trend from recents
@@ -7128,10 +7158,22 @@ async function openCoachAthleteSheet(uid) {
   </div>`;
   // Plan summary
   if (planSummary) {
+    const compHtml = compliance
+      ? `<div style="margin-top:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em">7-Day Compliance</span>
+            <span style="font-size:11px;font-weight:700;color:${compliance.pct >= 80 ? '#22c55e' : compliance.pct >= 50 ? '#f59e0b' : '#ef4444'}">${compliance.done}/${compliance.scheduled} · ${compliance.pct}%</span>
+          </div>
+          <div style="height:6px;background:var(--muted);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${Math.min(100, compliance.pct)}%;background:${compliance.pct >= 80 ? '#22c55e' : compliance.pct >= 50 ? '#f59e0b' : '#ef4444'};border-radius:3px 0 0 3px;transition:width .3s"></div>
+          </div>
+        </div>`
+      : '<div style="margin-top:8px;font-size:11px;color:var(--muted-fg)">No checklist data yet — compliance fills in after they tick a session.</div>';
     html += `<div class="card" style="padding:12px;margin-bottom:12px">
       <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Active Plan</div>
       <div style="font-size:14px;font-weight:700;color:var(--fg)">${escHtml(planSummary.name)}</div>
       <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${escHtml(planSummary.category || '')}${planSummary.weeks ? ' · ' + planSummary.weeks + ' weeks' : ''}</div>
+      ${compHtml}
     </div>`;
   } else {
     html += `<div class="card" style="padding:12px;margin-bottom:12px;border:1px dashed var(--border);text-align:center">

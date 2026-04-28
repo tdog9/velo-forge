@@ -78,7 +78,21 @@ service cloud.firestore {
       }
 
       match /checklist/{dateKey} {
-        allow read, write: if isOwner(userId);
+        allow write: if isOwner(userId);
+        // Coaches need to read checklist data to compute plan compliance
+        // for athletes on their team. Read is broader than write so the
+        // drill-in can show "4 of 6 sessions ticked this week."
+        allow read: if isOwner(userId)
+          || isAdmin()
+          || (
+            isSignedIn()
+            && exists(/databases/$(database)/documents/users/$(userId))
+            && get(/databases/$(database)/documents/users/$(userId)).data.teamId is string
+            && (
+              request.auth.uid == get(/databases/$(database)/documents/teams/$(get(/databases/$(database)/documents/users/$(userId)).data.teamId)).data.createdBy
+              || request.auth.uid in get(/databases/$(database)/documents/teams/$(get(/databases/$(database)/documents/users/$(userId)).data.teamId)).data.coaches
+            )
+          );
       }
 
       match /customPlans/{planId} {
