@@ -507,6 +507,73 @@ function dismissAiWidget(id) {
   saveAiWidgets(loadAiWidgets().filter(w => w.id !== id));
   if (currentPage === 'today') renderToday();
 }
+// ── Milestone celebrations ────────────────────────────────────────────────
+// Pure-derived; no Firestore writes. Shown for the first 24h after a
+// milestone is hit, then auto-collapses. localStorage stores the last
+// celebrated key per category so we don't re-show a milestone the user
+// has already dismissed.
+function renderMilestoneCard(totalWorkouts, streak, lvl, xp) {
+  let last = {};
+  try { last = JSON.parse(localStorage.getItem('tp_last_milestone') || '{}'); } catch(e) {}
+  const today = new Date().toISOString().split('T')[0];
+  // Find the highest unmet milestone for each axis.
+  const wMilestones = [10, 25, 50, 100, 250, 500];
+  const sMilestones = [7, 14, 30, 60, 100];
+  const wMatch = wMilestones.includes(totalWorkouts) ? totalWorkouts : null;
+  const sMatch = sMilestones.includes(streak) ? streak : null;
+  const lvlKey = lvl?.label || lvl?.name || '';
+
+  const cards = [];
+  if (wMatch && last.workouts !== wMatch) {
+    cards.push({ key: 'workouts', value: wMatch, icon: '🎯', title: `${wMatch} workouts logged!`, body: 'You showed up. The numbers prove it. Keep stacking.' });
+  }
+  if (sMatch && last.streak !== sMatch) {
+    cards.push({ key: 'streak', value: sMatch, icon: '🔥', title: `${sMatch}-day streak!`, body: 'Consistency is the cheat code. Don\'t break the chain.' });
+  }
+  if (lvlKey && last.level !== lvlKey && (lvl?.pct ?? 0) < 5) {
+    // Just leveled up — lvl.pct close to 0 means we're at the bottom of a new level.
+    cards.push({ key: 'level', value: lvlKey, icon: '⭐', title: `Levelled up to ${lvlKey}`, body: `${xp} XP banked. Next tier awaits.` });
+  }
+  if (cards.length === 0) return '';
+  // Render + auto-write so we don't re-celebrate on next render.
+  const html = cards.map(c => `<div class="milestone-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:linear-gradient(135deg,rgba(249,115,22,.18),rgba(168,85,247,.12));border:1px solid rgba(249,115,22,.35);box-shadow:0 4px 18px rgba(249,115,22,.15)">
+    <div style="font-size:28px;flex-shrink:0">${c.icon}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14px;font-weight:800;color:var(--fg);margin-bottom:2px">${c.title}</div>
+      <div style="font-size:12px;color:var(--muted-fg);line-height:1.35">${c.body}</div>
+    </div>
+    <button class="milestone-dismiss" data-milestone-key="${c.key}" data-milestone-value="${c.value}" aria-label="Dismiss" style="background:none;border:none;color:var(--muted-fg);font-size:20px;cursor:pointer;padding:4px 8px;line-height:1">×</button>
+  </div>`).join('');
+  return html;
+}
+
+// ── RPE burnout warning ──────────────────────────────────────────────────
+// "5 of the last 7 sessions ≥ 8/10 RPE" → suggest an easy day. Soft
+// recommendation, not a block.
+function renderRpeBurnoutCard(workouts) {
+  if (!Array.isArray(workouts) || workouts.length < 5) return '';
+  // Take the last 7 by date desc
+  const recent = workouts
+    .filter(w => typeof w.rpe === 'number' && w.rpe > 0)
+    .slice(0, 7);
+  if (recent.length < 5) return '';
+  const hardCount = recent.filter(w => w.rpe >= 8).length;
+  if (hardCount < 5) return '';
+  // Don't repeat — only show once per day.
+  let last = '';
+  try { last = localStorage.getItem('tp_rpe_warn') || ''; } catch(e) {}
+  const today = new Date().toISOString().split('T')[0];
+  if (last === today) return '';
+  return `<div class="rpe-burnout-card" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.35)">
+    <div style="font-size:24px;flex-shrink:0">⚠️</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:800;color:#f59e0b;margin-bottom:2px">Stacking hard sessions</div>
+      <div style="font-size:12px;color:var(--fg);line-height:1.4">${hardCount} of your last ${recent.length} workouts were RPE 8+. Consider an easy spin or rest day before pushing again — adaptation happens during recovery.</div>
+    </div>
+    <button class="rpe-warn-dismiss" aria-label="Dismiss" style="background:none;border:none;color:var(--muted-fg);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
+  </div>`;
+}
+
 function renderAiWidgets() {
   const widgets = loadAiWidgets();
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -844,6 +911,11 @@ function showModal(title, content, onConfirm, onCancel) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'vf-modal';
+  // a11y: declare this as a modal dialog so screen readers announce it
+  // properly and assistive tech can trap focus inside.
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', title);
   overlay.innerHTML = `<div class="modal-backdrop"></div>
     <div class="modal-card">
       <div class="modal-title">${title}</div>
@@ -857,6 +929,9 @@ function showModal(title, content, onConfirm, onCancel) {
   // Lock body scroll while modal open — without this, swiping past the modal
   // scrolls the page underneath on iOS, which breaks the dialog metaphor.
   document.body.classList.add('ds-modal-open');
+  // Remember which element had focus before the modal opened so we can
+  // restore it on close — standard a11y dialog pattern.
+  const previousFocus = document.activeElement;
   const close = (confirmed) => {
     // Call the callback BEFORE removing so callers like showEditModal /
     // showSelectModal can still read form values via overlay.querySelector.
@@ -864,20 +939,38 @@ function showModal(title, content, onConfirm, onCancel) {
       if (confirmed && onConfirm) onConfirm(overlay);
       else if (!confirmed && onCancel) onCancel();
     } finally {
+      document.removeEventListener('keydown', keyHandler, true);
       overlay.remove();
       // Only release scroll lock if no other modal is still open.
       if (!document.querySelector('.modal-overlay, .sheet-overlay:not([style*="display: none"])')) {
         document.body.classList.remove('ds-modal-open');
       }
+      // Return focus to wherever it came from.
+      if (previousFocus && typeof previousFocus.focus === 'function') {
+        try { previousFocus.focus(); } catch(e) {}
+      }
     }
   };
+  // ESC closes; Tab traps focus inside the dialog.
+  const keyHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); close(false); return; }
+    if (e.key === 'Tab') {
+      const focusable = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (focusable.length === 0) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  };
+  document.addEventListener('keydown', keyHandler, true);
   $('modal-cancel')?.addEventListener('click', () => close(false));
-  $('modal-backdrop')?.addEventListener('click', () => close(false));
+  overlay.querySelector('.modal-backdrop')?.addEventListener('click', () => close(false));
   $('modal-confirm')?.addEventListener('click', () => close(true));
-  // Focus first input if present
+  // Focus first input if present, else the cancel button (so Enter/ESC work).
   setTimeout(() => {
-    const inp = overlay.querySelector('input, select');
+    const inp = overlay.querySelector('input, select, textarea');
     if (inp) inp.focus();
+    else $('modal-cancel')?.focus();
   }, 100);
   return overlay;
 }
@@ -2808,6 +2901,14 @@ function renderToday() {
       triggerCoachInsight('race_week', { phase: phaseNow.phase, days_out: phaseNow.daysOut });
     }
   } catch(e) {}
+  // Milestone celebrations — pure-derived (no Firestore writes). Shown as
+  // a one-day card the first time the user sees a multiple-of-N workouts,
+  // 7/14/30 day streak, or XP level-up. localStorage tracks "last
+  // celebrated" so we don't spam the same milestone on every render.
+  html += renderMilestoneCard(totalWorkouts, streak, lvl, xp);
+  // RPE burnout warning — if 5 of the last 7 sessions were RPE >= 8, show
+  // a soft "your last few have been hard, consider easy today" card.
+  html += renderRpeBurnoutCard(userWorkouts);
   // AI Coach widgets — bespoke insight cards generated by the AI coach using
   // the athlete's recent training, race phase, and plan. Persisted in
   // localStorage so they survive reloads. Each card has a header with a
@@ -3144,6 +3245,29 @@ function renderToday() {
     btn.addEventListener('click', () => {
       haptic('light');
       dismissAiWidget(btn.dataset.aiwId);
+    });
+  });
+  // Milestone dismiss — store the milestone value so we don't re-celebrate
+  // the same one on next render.
+  document.querySelectorAll('.milestone-dismiss').forEach(btn => {
+    btn.addEventListener('click', () => {
+      haptic('light');
+      try {
+        const last = JSON.parse(localStorage.getItem('tp_last_milestone') || '{}');
+        last[btn.dataset.milestoneKey] = isNaN(+btn.dataset.milestoneValue)
+          ? btn.dataset.milestoneValue
+          : +btn.dataset.milestoneValue;
+        localStorage.setItem('tp_last_milestone', JSON.stringify(last));
+      } catch(e) {}
+      btn.closest('.milestone-card')?.remove();
+    });
+  });
+  // RPE burnout dismiss — only mute for today.
+  document.querySelectorAll('.rpe-warn-dismiss').forEach(btn => {
+    btn.addEventListener('click', () => {
+      haptic('light');
+      try { localStorage.setItem('tp_rpe_warn', new Date().toISOString().split('T')[0]); } catch(e) {}
+      btn.closest('.rpe-burnout-card')?.remove();
     });
   });
   // Bind "More Stats" toggle
@@ -5137,24 +5261,47 @@ async function saveWorkout(rpe, photoData, workoutType) {
   }
 }
 // Bottom Sheet
+let _sheetPrevFocus = null;
+let _sheetEscHandler = null;
 function openSheet() {
   try { window.webkit?.messageHandlers?.haptics?.postMessage('light'); } catch(e) {}
   const overlay = $('sheet-overlay');
   const sheet = $('sheet');
   overlay.style.display = '';
+  // a11y — declare as dialog so screen readers handle it correctly.
+  sheet?.setAttribute('role', 'dialog');
+  sheet?.setAttribute('aria-modal', 'true');
+  _sheetPrevFocus = document.activeElement;
   requestAnimationFrame(() => {
     overlay.classList.add('visible');
     sheet.classList.add('visible');
+    // Focus first interactive element in the sheet so screen-reader + kbd
+    // users land inside, not on the body.
+    setTimeout(() => {
+      const focusable = sheet?.querySelector('input, select, textarea, button:not([aria-hidden])');
+      if (focusable) try { focusable.focus(); } catch(e) {}
+    }, 100);
   });
   overlay.onclick = closeSheet;
+  // ESC closes the sheet.
+  _sheetEscHandler = (e) => { if (e.key === 'Escape') { e.preventDefault(); closeSheet(); } };
+  document.addEventListener('keydown', _sheetEscHandler, true);
 }
 function closeSheet() {
   const overlay = $('sheet-overlay');
   const sheet = $('sheet');
   overlay.classList.remove('visible');
   sheet.classList.remove('visible');
+  if (_sheetEscHandler) {
+    document.removeEventListener('keydown', _sheetEscHandler, true);
+    _sheetEscHandler = null;
+  }
   setTimeout(() => {
     overlay.style.display = 'none';
+    if (_sheetPrevFocus && typeof _sheetPrevFocus.focus === 'function') {
+      try { _sheetPrevFocus.focus(); } catch(e) {}
+    }
+    _sheetPrevFocus = null;
   }, 300);
 }
 let plansInitialized = false;
@@ -6010,12 +6157,16 @@ function renderTeamTab(c) {
   if (sorted.length === 0) {
     html += '<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--muted-fg);font-size:12px">No members in this subteam yet.</td></tr>';
   } else {
+    // Head coach + sub-coaches can drill into any athlete; everyone else
+    // sees a flat row.
+    const canDrill = userProfile?.isCoach;
     sorted.forEach((m, i) => {
       const isMe = m.uid === myUid;
       const rankClass = i === 0 ? ' lb-rank-1' : '';
-      html += `<tr class="${isMe ? 'lb-me' : ''}">
+      const drillAttr = canDrill && m.uid !== myUid ? ` data-coach-drill="${escHtml(m.uid)}" style="cursor:pointer"` : '';
+      html += `<tr class="${isMe ? 'lb-me' : ''}"${drillAttr}>
         <td class="lb-rank${rankClass}">${i + 1}</td>
-        <td class="lb-name">${escHtml(m.displayName || 'Unknown')}</td>
+        <td class="lb-name">${escHtml(m.displayName || 'Unknown')}${canDrill && m.uid !== myUid ? ' <span style="color:var(--muted-fg);font-size:10px">›</span>' : ''}</td>
         <td class="lb-year">${m.yearLevel || '—'}</td>
         <td class="lb-stat" style="text-align:right">${m.totalWorkouts || 0}</td>
         <td class="lb-stat" style="text-align:right">${m.streak || 0}d</td>
@@ -6064,6 +6215,13 @@ function renderTeamTab(c) {
     btn.addEventListener('click', () => {
       window._teamLbFilter = btn.dataset.lbFilter;
       renderTeam();
+    });
+  });
+  // Coach drill-into-athlete on row tap.
+  c.querySelectorAll('[data-coach-drill]').forEach(row => {
+    row.addEventListener('click', () => {
+      const uid = row.dataset.coachDrill;
+      if (uid) openCoachAthleteSheet(uid);
     });
   });
   // Bind coach features
@@ -6855,6 +7013,112 @@ async function getApprovedClubs() {
     return approvedClubsCache;
   } catch(e) { return []; }
 }
+/// Open a sheet showing a single athlete's detail — what plan they're on,
+/// recent workouts, streak, RPE trend. Quick actions: assign plan, send
+/// chat message, view their goals. Coach-only.
+async function openCoachAthleteSheet(uid) {
+  const member = teamMembers.find(m => m.uid === uid);
+  if (!member) { showToast('Athlete not found.', 'warn'); return; }
+  openSheet();
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">${escHtml(member.displayName || 'Athlete')}</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">${escHtml(member.email || member.yearLevel || '')}</div>
+    <div id="coach-athlete-loading" style="text-align:center;padding:30px;color:var(--muted-fg)">Loading…</div>
+  `;
+  // Load workouts + plan progress in parallel
+  let recentWorkouts = [];
+  let planSummary = null;
+  try {
+    const [wSnap] = await Promise.all([
+      getDocs(query(collection(db, 'users', uid, 'workouts'), orderBy('date', 'desc'), limit(10))).catch(() => null),
+    ]);
+    if (wSnap) {
+      recentWorkouts = wSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+    if (member.activePlanId) {
+      const plan = findPlan(member.activePlanId);
+      if (plan) planSummary = { name: plan.name, category: plan.category, weeks: plan.workouts ? Math.max(...plan.workouts.map(w => w.week || 0)) : 0 };
+    }
+  } catch(e) {}
+  // Compute RPE trend from recents
+  const rpes = recentWorkouts.map(w => w.rpe).filter(r => typeof r === 'number' && r > 0);
+  const avgRpe = rpes.length ? (rpes.reduce((s, r) => s + r, 0) / rpes.length).toFixed(1) : null;
+  const hardCount = rpes.filter(r => r >= 8).length;
+  const lastWorkout = recentWorkouts[0];
+  const lastDateStr = lastWorkout?.date
+    ? (lastWorkout.date.toDate ? lastWorkout.date.toDate() : new Date(lastWorkout.date)).toLocaleDateString('en-AU', { day:'numeric', month:'short' })
+    : '—';
+  // Compose body
+  let html = '';
+  // Stats row
+  html += `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px">
+    <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--primary)">${member.totalWorkouts || 0}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Workouts</div></div>
+    <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#22c55e">${member.streak || 0}d</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Streak</div></div>
+    <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:${hardCount >= 4 ? '#f59e0b' : 'var(--fg)'}">${avgRpe || '—'}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Avg RPE</div></div>
+  </div>`;
+  // Plan summary
+  if (planSummary) {
+    html += `<div class="card" style="padding:12px;margin-bottom:12px">
+      <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Active Plan</div>
+      <div style="font-size:14px;font-weight:700;color:var(--fg)">${escHtml(planSummary.name)}</div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${escHtml(planSummary.category || '')}${planSummary.weeks ? ' · ' + planSummary.weeks + ' weeks' : ''}</div>
+    </div>`;
+  } else {
+    html += `<div class="card" style="padding:12px;margin-bottom:12px;border:1px dashed var(--border);text-align:center">
+      <div style="font-size:12px;color:var(--muted-fg)">No active plan</div>
+    </div>`;
+  }
+  // Recent workouts
+  html += `<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 6px">Recent Workouts</div>`;
+  if (recentWorkouts.length === 0) {
+    html += '<div style="font-size:13px;color:var(--muted-fg);padding:10px 0;text-align:center">None logged yet.</div>';
+  } else {
+    html += '<div style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;margin-bottom:14px">';
+    recentWorkouts.forEach(w => {
+      const dt = w.date?.toDate ? w.date.toDate() : (w.date ? new Date(w.date) : null);
+      const dStr = dt ? dt.toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : '?';
+      const rpe = (typeof w.rpe === 'number') ? w.rpe : null;
+      const rpeColor = rpe == null ? 'var(--muted-fg)' : rpe >= 8 ? '#f59e0b' : rpe >= 5 ? '#22c55e' : 'var(--muted-fg)';
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--card);border-radius:8px;font-size:12px">
+        <span style="flex:1;min-width:0;color:var(--fg);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(w.name || 'Workout')}</span>
+        <span style="color:var(--muted-fg);white-space:nowrap">${w.duration || '?'}m</span>
+        <span style="color:${rpeColor};font-weight:700;white-space:nowrap;width:38px;text-align:right">${rpe == null ? '' : 'RPE ' + rpe}</span>
+        <span style="color:var(--muted-fg);white-space:nowrap;font-size:11px">${dStr}</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  // Quick actions
+  html += `<div style="display:flex;flex-direction:column;gap:8px">
+    <button id="coach-athlete-msg" class="btn btn-primary" style="width:100%">💬 Send chat message</button>
+    <button id="coach-athlete-assign" class="btn btn-secondary" style="width:100%">📋 Assign a plan</button>
+    <button id="coach-athlete-close" class="btn btn-secondary" style="width:100%">Close</button>
+  </div>`;
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">${escHtml(member.displayName || 'Athlete')}</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">${member.yearLevel ? 'Y' + String(member.yearLevel).replace('Y','') : ''}${member.fitnessLevel ? ' · ' + capitalize(member.fitnessLevel) : ''} · last logged ${lastDateStr}</div>
+    ${html}
+  `;
+  $('coach-athlete-close')?.addEventListener('click', closeSheet);
+  $('coach-athlete-msg')?.addEventListener('click', () => {
+    closeSheet();
+    // Switch to Chat sub-tab + prefill mention
+    window._teamSubTab = 'chat';
+    renderTeam();
+    setTimeout(() => {
+      const ta = document.getElementById('team-chat-input');
+      if (ta) {
+        ta.value = '@' + (member.displayName || 'athlete') + ' ';
+        ta.focus();
+      }
+    }, 100);
+  });
+  $('coach-athlete-assign')?.addEventListener('click', async () => {
+    closeSheet();
+    showToast('Plan assignment per-athlete coming next round — for now, ask the athlete to start a plan from Fitness > Plans.', 'info');
+  });
+}
+
 /// Bind the team-page sub-tab strip (Members / Chat / Global). Called after
 /// renderTeamTab paints the strip; toggling a tab re-renders renderTeam().
 function bindTeamSubTabSwitcher(c) {
