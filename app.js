@@ -1403,6 +1403,7 @@ $('logout-btn')?.addEventListener('click', async () => {
     }
     if (teamUnsubscribe) { teamUnsubscribe(); teamUnsubscribe = null; }
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
+    if (window._tpRaceDayPoll) { clearInterval(window._tpRaceDayPoll); window._tpRaceDayPoll = null; }
     await signOut(auth);
     currentUser = null;
     userProfile = null;
@@ -2648,10 +2649,15 @@ function renderToday() {
   // XP level inline
   const xp = calcXp();
   const lvl = getXpLevel(xp);
-  // Widget pin state
+  // Widget pin state — cached so renderToday doesn't JSON.parse on every
+  // re-render. Cache invalidated by widget customization save (see binding).
   const defaultWidgets = { weather: true, health: true, engagement: true, training: true, challenge: true, weekly: true, quickActions: true };
-  let pinnedWidgets = defaultWidgets;
-  try { pinnedWidgets = { ...defaultWidgets, ...JSON.parse(localStorage.getItem('tp_widgets') || '{}') }; } catch(e) {}
+  let pinnedWidgets = window._tpPinnedWidgetsCache;
+  if (!pinnedWidgets) {
+    pinnedWidgets = defaultWidgets;
+    try { pinnedWidgets = { ...defaultWidgets, ...JSON.parse(localStorage.getItem('tp_widgets') || '{}') }; } catch(e) {}
+    window._tpPinnedWidgetsCache = pinnedWidgets;
+  }
   const isWidgetOn = (id) => pinnedWidgets[id] !== false;
   // === BUILD HTML — simplified layout ===
   let html = '';
@@ -3361,7 +3367,7 @@ function renderToday() {
         const current = stored[id] !== false;
         stored[id] = !current;
         toggle.classList.toggle('on', !current);
-        try { localStorage.setItem('tp_widgets', JSON.stringify(stored)); } catch(e) {}
+        try { localStorage.setItem('tp_widgets', JSON.stringify(stored)); window._tpPinnedWidgetsCache = null; } catch(e) {}
       });
     });
     $('widgets-done')?.addEventListener('click', () => { closeSheet(); renderToday(); loadWeather(); });
@@ -6695,7 +6701,6 @@ async function renderLeaguesTab(el) {
   });
 
   el.querySelector('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
-  el.querySelector('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
   } catch(e) { console.warn("[renderLeaguesTab]", e); }
 }
 
@@ -7160,60 +7165,60 @@ async function loadTeamData(forceRefresh=false) {
       subteams: td.subteams || [],
       features: td.features || {},
     };
-    // Load each member's data
+    // Load each member's data — parallelised. Was 3 sequential reads
+    // per member; with 20 athletes that's 60 round-trips serially. Now
+    // 3 batches of N parallel reads ≈ 3 round-trips total.
     const today = new Date();
     const dateKey = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    const members = [];
-    for (const uid of teamData.members) {
-      try {
-        const uSnap = await getDoc(doc(db, 'users', uid));
-        const uData = uSnap.exists() ? uSnap.data() : {};
-        // Count workouts
-        const wSnap = await getDocs(collection(db, 'users', uid, 'workouts'));
-        const totalWorkouts = wSnap.size;
-        // Streak
-        let streak = 0;
-        if (totalWorkouts > 0) {
-          const workoutDates = new Set();
-          wSnap.docs.forEach(d => {
-            const wd = d.data().date;
-            const dt = wd?.toDate ? wd.toDate() : (wd ? new Date(wd) : null);
-            if (dt) workoutDates.add(dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate());
-          });
-          let check = new Date(today);
-          check.setHours(0,0,0,0);
-          let todayKey = check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate();
-          if (!workoutDates.has(todayKey)) check.setDate(check.getDate()-1);
-          while (true) {
-            const key = check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate();
-            if (workoutDates.has(key)) { streak++; check.setDate(check.getDate()-1); }
-            else break;
-          }
-        }
-        // Today checklist
-        let checklistPct = 0;
-        try {
-          const clSnap = await getDoc(doc(db, 'users', uid, 'checklist', dateKey));
-          if (clSnap.exists()) {
-            const items = clSnap.data().items || {};
-            const vals = Object.values(items);
-            if (vals.length > 0) checklistPct = (vals.filter(v => v === true).length / vals.length) * 100;
-          }
-        } catch(e) {}
-        members.push({
-          uid,
-          displayName: uData.displayName || 'Unknown',
-          yearLevel: uData.yearLevel || null,
-          fitnessLevel: uData.fitnessLevel || 'basic',
-          activePlanId: uData.activePlanId || null,
-          totalWorkouts,
-          streak,
-          checklistPct
+    const memberIds = teamData.members;
+    const [profileResults, workoutResults, checklistResults] = await Promise.all([
+      Promise.all(memberIds.map(uid => getDoc(doc(db, 'users', uid)).catch(() => null))),
+      Promise.all(memberIds.map(uid => getDocs(collection(db, 'users', uid, 'workouts')).catch(() => null))),
+      Promise.all(memberIds.map(uid => getDoc(doc(db, 'users', uid, 'checklist', dateKey)).catch(() => null))),
+    ]);
+    const members = memberIds.map((uid, i) => {
+      const uSnap = profileResults[i];
+      const wSnap = workoutResults[i];
+      const clSnap = checklistResults[i];
+      const uData = uSnap?.exists?.() ? uSnap.data() : {};
+      const totalWorkouts = wSnap?.size || 0;
+      // Streak
+      let streak = 0;
+      if (wSnap && totalWorkouts > 0) {
+        const workoutDates = new Set();
+        wSnap.docs.forEach(d => {
+          const wd = d.data().date;
+          const dt = wd?.toDate ? wd.toDate() : (wd ? new Date(wd) : null);
+          if (dt) workoutDates.add(dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate());
         });
-      } catch(e) {
-        members.push({ uid, displayName: 'Unknown', totalWorkouts: 0, streak: 0, checklistPct: 0 });
+        let check = new Date(today);
+        check.setHours(0,0,0,0);
+        let todayKey = check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate();
+        if (!workoutDates.has(todayKey)) check.setDate(check.getDate()-1);
+        while (true) {
+          const key = check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate();
+          if (workoutDates.has(key)) { streak++; check.setDate(check.getDate()-1); }
+          else break;
+        }
       }
-    }
+      // Today checklist
+      let checklistPct = 0;
+      if (clSnap?.exists?.()) {
+        const items = clSnap.data().items || {};
+        const vals = Object.values(items);
+        if (vals.length > 0) checklistPct = (vals.filter(v => v === true).length / vals.length) * 100;
+      }
+      return {
+        uid,
+        displayName: uData.displayName || 'Unknown',
+        yearLevel: uData.yearLevel || null,
+        fitnessLevel: uData.fitnessLevel || 'basic',
+        activePlanId: uData.activePlanId || null,
+        totalWorkouts,
+        streak,
+        checklistPct,
+      };
+    });
     teamMembers = members;
     // Save to cache
     try {
@@ -7655,7 +7660,10 @@ function startApp() {
       try {
         const rdActive = await loadRaceDayState();
         if (rdActive) setTimeout(() => openRaceDayOverlay(), 300);
-        setInterval(async () => {
+        // Capture the interval handle so signOut can stop it. Was previously
+        // an orphan setInterval that kept firing across sign-in sessions.
+        if (window._tpRaceDayPoll) clearInterval(window._tpRaceDayPoll);
+        window._tpRaceDayPoll = setInterval(async () => {
           await checkRaceDaySchedule();
           const stillActive = getRaceDayActive();
           if (!stillActive && document.getElementById('raceday-overlay')) {
