@@ -14,6 +14,8 @@ let stintStartTime    = null;
 let stintPositions    = [];
 let stintLaps         = [];
 let stintWatchId      = null;
+let stintGpsState     = 'idle';   // 'idle' | 'connecting' | 'live' | 'error'
+let stintGpsTimeout   = null;     // 15s timeout to surface a "GPS isn't responding" toast
 let stintInterval     = null;
 let stintLiveInterval = null;
 let spectatorInterval = null;
@@ -399,14 +401,24 @@ function bindOverlay(ov) {
     setTimeout(()=>openAddDriver(c), 100);
   });
 }
-function showRdTab(ov,tab) {
+async function showRdTab(ov,tab) {
   const c=ov.querySelector('#rd-content');
   // Switching tabs invalidates the previous tab's polling intervals.
   // Without this, stacking 10 tab-switches stacks 10 spectator polls.
   if (spectatorInterval) { clearInterval(spectatorInterval); spectatorInterval=null; }
-  if (tab==='roster') renderRoster(c);
-  else if (tab==='stint') renderStintTab(c);
-  else if (tab==='setup') renderSetup(c);
+  // Refresh the per-tab data so the user always sees current state when
+  // they switch back. Audit found todayStints + rosterData were going
+  // stale across tab switches.
+  if (tab==='roster') {
+    try { await loadRoster(); } catch(e) {}
+    renderRoster(c);
+  } else if (tab==='stint') {
+    try { await loadTodayStints(); } catch(e) {}
+    renderStintTab(c);
+  } else if (tab==='setup') {
+    try { await loadSetupFields(); } catch(e) {}
+    renderSetup(c);
+  }
 }
 
 // ── Roster Tab ────────────────────────────────────────────────────────────────
@@ -599,8 +611,11 @@ function renderUpNextPanel() {
   const next = rosterData.find(d => !completedUids.has(d.id) && d.id !== ctx.currentUser?.uid);
   if (!next) return '';
   const mins = Math.round((next.duration||3600)/60);
-  return `<div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.22);border-radius:12px;padding:11px 13px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
-    <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.04em">Up next</div>
+  // Visually distinct from the red "Live on track" panel — uses a blue
+  // accent + sharper left border so the eye doesn't conflate "who's next"
+  // with "who's currently riding."
+  return `<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.22);border-left:3px solid #3b82f6;border-radius:10px;padding:11px 13px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+    <div style="font-size:10px;font-weight:800;color:#3b82f6;text-transform:uppercase;letter-spacing:.06em">Up next</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:14px;font-weight:700;color:var(--fg)">${esc(next.name)}</div>
       ${next.notes?`<div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${esc(next.notes)}</div>`:''}
@@ -655,7 +670,16 @@ function renderStintTab(c) {
     <button id="rd-start-btn" style="width:100%;padding:16px;border-radius:14px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;margin-top:14px;box-shadow:0 4px 15px rgba(34,197,94,.35);-webkit-tap-highlight-color:transparent">▶ Start My Stint</button>`;
 
   setTimeout(()=>initPreMap(),150);
-  c.querySelector('#rd-start-btn').addEventListener('click',()=>startStint(c));
+  c.querySelector('#rd-start-btn')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    btn.textContent = 'Starting…';
+    // Brief lock — startStint replaces the DOM almost immediately, so the
+    // disable mainly guards against a double-tap during the transition.
+    setTimeout(() => startStint(c), 50);
+  });
   c.querySelectorAll('.rd-email-btn').forEach(btn=>btn.addEventListener('click',()=>{
     const s=todayStints.find(x=>x.uid===btn.dataset.uid); if(s) emailStint(s);
   }));
@@ -704,13 +728,44 @@ function startStint(c) {
   stintActive=true; stintStartTime=Date.now();
   stintPositions=[]; stintLaps=[]; moveContinuousStart=null; lastLapTime=null;
   stintMap=null; stintPolyline=null; stintMarker=null;
+  stintGpsState='connecting';
   renderActiveStint(c);
   stintInterval=setInterval(()=>updateActive(),1000);
   // Live progress publish — every 15s push current state so teammates see live laps/elapsed
   stintLiveInterval=setInterval(()=>publishLiveStint(),15000);
   publishLiveStint(); // initial
   if (navigator.geolocation) {
-    stintWatchId=navigator.geolocation.watchPosition(onPos,e=>console.warn('GPS:',e.message),{enableHighAccuracy:true,maximumAge:1000,timeout:10000});
+    stintWatchId=navigator.geolocation.watchPosition(
+      (pos) => {
+        if (stintGpsState !== 'live') {
+          stintGpsState = 'live';
+          if (stintGpsTimeout) { clearTimeout(stintGpsTimeout); stintGpsTimeout = null; }
+        }
+        onPos(pos);
+      },
+      (err) => {
+        console.warn('GPS error:', err?.message || err?.code);
+        stintGpsState = 'error';
+        try {
+          ctx.showToast?.('GPS unavailable — laps must be tapped manually. Check Location permission.', 'warn');
+        } catch(e) {}
+      },
+      { enableHighAccuracy:true, maximumAge:1000, timeout:10000 }
+    );
+    // Surface a soft warning if GPS hasn't fired in 15s — could be a permission
+    // dialog the user needs to dismiss, airplane mode, or indoor with no signal.
+    if (stintGpsTimeout) clearTimeout(stintGpsTimeout);
+    stintGpsTimeout = setTimeout(() => {
+      if (stintGpsState === 'connecting') {
+        stintGpsState = 'error';
+        try { ctx.showToast?.('GPS not responding. Tap laps manually or check Location.', 'warn'); } catch(e) {}
+        // Force a re-render so the sublabel shows the error state.
+        try { updateActive(); } catch(e) {}
+      }
+    }, 15000);
+  } else {
+    stintGpsState = 'error';
+    try { ctx.showToast?.('Location not supported — tap laps manually.', 'warn'); } catch(e) {}
   }
   try { if(navigator.wakeLock) navigator.wakeLock.request('screen').catch(()=>{}); } catch(e){}
 }
@@ -851,7 +906,19 @@ function updateActive() {
   const elapsed=Date.now()-stintStartTime;
   const t=document.getElementById('rd-timer'); if(t) t.textContent=fmtTime(elapsed);
   const sl=document.getElementById('rd-sublabel');
-  if (sl) sl.textContent=stintLaps.length>0 ? 'Lap '+(stintLaps.length)+' in progress' : (rdd.startPointSet?'Approaching start/finish...':'Waiting for start/finish point...');
+  if (sl) {
+    if (stintGpsState === 'error') {
+      sl.innerHTML = '<span style="color:#f59e0b">⚠️ GPS unavailable — tap laps manually</span>';
+    } else if (stintGpsState === 'connecting') {
+      sl.textContent = 'GPS connecting…';
+    } else if (stintLaps.length > 0) {
+      sl.textContent = 'Lap ' + (stintLaps.length) + ' in progress';
+    } else if (rdd.startPointSet) {
+      sl.textContent = 'Approaching start/finish…';
+    } else {
+      sl.textContent = 'Waiting for start/finish point…';
+    }
+  }
   const al=document.getElementById('rd-al'); if(al) al.textContent=stintLaps.length;
   if (stintLaps.length>0) {
     const last=stintLaps[stintLaps.length-1], best=[...stintLaps].sort((a,b)=>a.duration-b.duration)[0];
@@ -876,6 +943,8 @@ async function endStint(c) {
   stintActive=false;
   clearInterval(stintInterval); stintInterval=null;
   clearInterval(stintLiveInterval); stintLiveInterval=null;
+  if (stintGpsTimeout) { clearTimeout(stintGpsTimeout); stintGpsTimeout=null; }
+  stintGpsState='idle';
   if (stintWatchId!==null){ navigator.geolocation.clearWatch(stintWatchId); stintWatchId=null; }
   await clearLiveStint();
   const record={

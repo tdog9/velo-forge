@@ -6182,6 +6182,30 @@ async function renderProfile() {
     </div>
   </div>`;
   html += '</div>';
+  // Notification preferences — per-category mute switches. Server-side
+  // send-push respects these before delivering.
+  const prefs = userProfile?.notificationPrefs || {};
+  const NOTIF_CATS = [
+    { id: 'race_day',        label: '🏁 Race Day', desc: 'Race-day activations, lap milestones' },
+    { id: 'coach_broadcast', label: '📣 Coach Messages', desc: 'Broadcasts from your coach' },
+    { id: 'training',        label: '📅 Training Reminders', desc: 'Daily plan + workout nudges' },
+    { id: 'team_chat',       label: '💬 Team Chat', desc: 'New messages in your team chat' },
+  ];
+  html += '<div class="profile-section"><div class="profile-section-title">Notifications</div>';
+  html += '<div style="font-size:11px;color:var(--muted-fg);margin-bottom:8px">Mute categories you don\'t want to be notified about. You\'ll still see them in the app.</div>';
+  NOTIF_CATS.forEach(cat => {
+    const muted = prefs[cat.id] === false;
+    html += `<div class="profile-row">
+      <div>
+        <span class="profile-row-label">${cat.label}</span>
+        <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">${cat.desc}</div>
+      </div>
+      <div class="theme-toggle${muted ? '' : ' on'}" data-notif-cat="${cat.id}" role="switch" aria-checked="${!muted}" aria-label="${cat.label}">
+        <div class="theme-toggle-knob"></div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
   // Admin Demo Mode (only visible to admins)
   if (isAdmin) {
     const studentView = localStorage.getItem('tp_student_view') === 'true';
@@ -6337,6 +6361,30 @@ async function renderProfile() {
       haptic('light');
       document.querySelectorAll('.persona-pick').forEach(b => b.classList.toggle('active', b.dataset.persona === id));
       showToast('Coach personality: ' + (btn.textContent || '').trim(), 'success');
+    });
+  });
+  // Notification category toggles — flip false in userProfile.notificationPrefs.
+  document.querySelectorAll('[data-notif-cat]').forEach(toggle => {
+    toggle.addEventListener('click', async () => {
+      const cat = toggle.dataset.notifCat;
+      const prefs = { ...(userProfile?.notificationPrefs || {}) };
+      const wasOn = toggle.classList.contains('on');
+      const newOn = !wasOn;
+      prefs[cat] = newOn;
+      toggle.classList.toggle('on', newOn);
+      toggle.setAttribute('aria-checked', String(newOn));
+      try {
+        if (db && currentUser) {
+          await updateDoc(doc(db, 'users', currentUser.uid), { notificationPrefs: prefs });
+        }
+        if (userProfile) userProfile.notificationPrefs = prefs;
+        showToast(newOn ? 'On — you\'ll get these notifications.' : 'Muted.', 'info');
+      } catch(e) {
+        toggle.classList.toggle('on', wasOn);
+        toggle.setAttribute('aria-checked', String(wasOn));
+        showToast('Failed to save preference.', 'error');
+      }
+      haptic('light');
     });
   });
   $('student-view-toggle')?.addEventListener('click', () => {

@@ -118,7 +118,8 @@ export async function sendCoachBroadcast(teamId, text, { push = false } = {}) {
               uid,
               title: '👋 ' + (A.userProfile?.displayName || 'Coach'),
               body: trimmed.length > 120 ? trimmed.slice(0, 117) + '…' : trimmed,
-              data: { kind: 'coach-broadcast', teamId, threadId: 'team-chat' },
+              category: 'coach_broadcast',
+              data: { teamId, threadId: 'team-chat' },
             }),
           }).catch(() => {});
         }

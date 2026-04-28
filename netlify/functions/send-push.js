@@ -105,6 +105,63 @@ exports.handler = async (event) => {
   const data  = (payload.data && typeof payload.data === 'object') ? payload.data : {};
   if (!body) return { statusCode: 400, body: 'Missing body' };
 
+  // Category — used for iOS notification grouping (thread-id), per-user
+  // opt-out, and rate limiting. Falls back to "general" so legacy callers
+  // keep working.
+  const category = String(payload.category || data.kind || 'general')
+    .toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'general';
+  // Map category → APNs thread identifier so iOS groups them on the lock
+  // screen + Notification Center.
+  const THREAD_PREFIX = 'tp.';
+  const threadId = THREAD_PREFIX + category;
+
+  // Simple per-sender rate limit (hourly) — caps how many pushes one user
+  // can fire per hour. Doesn't apply to system / scheduled jobs that use
+  // a server credential. Stored in Firestore for cross-instance safety.
+  // Cap: 60/hour for god-admin (broadcasts), 30/hour for coaches, 10/hour
+  // for everyone else.
+  const SENDER_CAPS = { admin: 60, coach: 30, member: 10 };
+  let senderRole = 'member';
+  if (isGodAdmin) senderRole = 'admin';
+  else {
+    try {
+      const profSnap = await admin.firestore().collection('users').doc(decoded.uid).get();
+      if (profSnap.exists && profSnap.data().isCoach) senderRole = 'coach';
+    } catch (e) {}
+  }
+  try {
+    const rlRef = admin.firestore().collection('push_rate').doc(decoded.uid);
+    const result = await admin.firestore().runTransaction(async tx => {
+      const snap = await tx.get(rlRef);
+      const now = Date.now();
+      const data = snap.exists ? snap.data() : {};
+      const windowStart = data.windowStart || 0;
+      const count = data.count || 0;
+      // 1-hour rolling window — reset count if we've crossed an hour.
+      if (now - windowStart > 60 * 60 * 1000) {
+        tx.set(rlRef, { windowStart: now, count: 1 });
+        return { ok: true, remaining: SENDER_CAPS[senderRole] - 1 };
+      }
+      const cap = SENDER_CAPS[senderRole] || 10;
+      if (count >= cap) {
+        const retryAfter = Math.ceil((windowStart + 60*60*1000 - now) / 1000);
+        return { ok: false, retryAfter };
+      }
+      tx.update(rlRef, { count: count + 1 });
+      return { ok: true, remaining: cap - count - 1 };
+    });
+    if (!result.ok) {
+      return {
+        statusCode: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': String(result.retryAfter) },
+        body: JSON.stringify({ error: 'Push rate limit reached', retryAfter: result.retryAfter }),
+      };
+    }
+  } catch (e) {
+    // Rate-limit failure shouldn't block delivery — log and continue.
+    console.warn('rate-limit check error:', e.message);
+  }
+
   // Resolve target tokens. Broadcast mode (god-admin only) collects every
   // iOS token across users/*/devices. Single-user mode targets one uid.
   let tokens = [];
@@ -138,21 +195,55 @@ exports.handler = async (event) => {
   if (tokens.length === 0) {
     return { statusCode: 200, body: JSON.stringify({ delivered: 0, reason: 'no devices' }) };
   }
-  // Construct APNs payload. interruption-level "active" guarantees the
-  // notification appears on the lock screen (default lock-screen routing).
-  // badge:1 puts a red dot on the app icon — iOS shows the count when the
-  // user has unread alerts. The native NotificationService delegate on
-  // iOS increments/clears it as the user opens the app.
+  // Filter out tokens whose owner has opted out of this category. Each
+  // user doc has an optional `notificationPrefs` object: a set of category
+  // → boolean. Default-on; set false to mute. Categories: 'general',
+  // 'training', 'race_day', 'coach_broadcast', 'team_chat', 'admin-test'.
+  // Skip the filter for 'admin-test' (so god-admin can debug).
+  if (category !== 'admin-test' && tokens.length > 0) {
+    try {
+      // Resolve which uid each token belongs to (broadcast collected across
+      // users; per-user case is straightforward).
+      const filtered = [];
+      const ownerUids = broadcast
+        ? (await admin.firestore().collectionGroup('devices').get()).docs
+            .map(d => ({ uid: d.ref.parent.parent.id, apnsToken: d.data().apnsToken, platform: d.data().platform }))
+            .filter(x => x.platform === 'ios' && x.apnsToken && tokens.includes(x.apnsToken))
+        : tokens.map(t => ({ uid: payload.uid, apnsToken: t }));
+      for (const o of ownerUids) {
+        try {
+          const profSnap = await admin.firestore().collection('users').doc(o.uid).get();
+          const prefs = (profSnap.exists && profSnap.data().notificationPrefs) || {};
+          if (prefs[category] === false) continue;
+          filtered.push(o.apnsToken);
+        } catch (e) { filtered.push(o.apnsToken); }
+      }
+      tokens = filtered;
+    } catch (e) { console.warn('opt-out filter:', e.message); }
+  }
+  if (tokens.length === 0) {
+    return { statusCode: 200, body: JSON.stringify({ delivered: 0, reason: 'no opt-in devices' }) };
+  }
+  // Construct APNs payload. thread-id groups notifications under the same
+  // category in iOS Notification Center. interruption-level varies — quiet
+  // categories (training reminders, team chat) use 'passive' so they don't
+  // interrupt; race_day and coach_broadcast keep 'active' for visibility.
+  const QUIET_CATEGORIES = new Set(['training', 'team_chat', 'workout_logged']);
+  const interruption = QUIET_CATEGORIES.has(category) ? 'passive' : 'active';
   const apnsPayload = {
     aps: {
       alert: { title, body },
-      sound: 'default',
+      sound: QUIET_CATEGORIES.has(category) ? null : 'default',
       badge: 1,
       'mutable-content': 1,
-      'interruption-level': 'active',
+      'thread-id': threadId,
+      'interruption-level': interruption,
     },
     ...data,
+    category,
   };
+  // Strip null fields so APNs doesn't error.
+  if (apnsPayload.aps.sound === null) delete apnsPayload.aps.sound;
   let jwt;
   try { jwt = makeApnsJwt(); }
   catch (e) { return { statusCode: 500, body: e.message }; }
