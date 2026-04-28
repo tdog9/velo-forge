@@ -14,7 +14,7 @@
 <meta property="og:url" content="https://turboprep.app">
 <title>TurboPrep — HPR Training</title>
 <script>
-(function(){var VER='3.2.1',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
+(function(){var VER='3.3.0',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
 </script>
 <script>
 (function(){
@@ -226,16 +226,14 @@
     <div id="page-admin" class="page"><div id="admin-content"></div></div>
     <div id="page-coach" class="page"><div id="coach-content"></div></div>
     <div id="page-team" class="page">
-      <div class="fitness-sub-bar-sticky">
-        <div class="fitness-sub-bar">
-          <button class="lb-sub-tab active" data-lb-sub="global">Global</button>
-          <button class="lb-sub-tab" data-lb-sub="team">Your Team</button>
-          <button class="lb-sub-tab" data-lb-sub="leagues">Leagues</button>
-        </div>
+      <div class="team-tab-bar" style="display:flex;justify-content:center;gap:6px;padding:8px 0 12px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10">
+        <button class="lb-sub-tab active" data-lb-sub="team" style="padding:8px 18px;border:none;background:none;border-radius:99px;font-size:13px;font-weight:700;color:var(--primary);cursor:pointer;letter-spacing:.02em">Team</button>
+        <button class="lb-sub-tab" data-lb-sub="chat" style="padding:8px 18px;border:none;background:none;border-radius:99px;font-size:13px;font-weight:700;color:var(--muted-fg);cursor:pointer;letter-spacing:.02em">Chat</button>
+        <button class="lb-sub-tab" data-lb-sub="global" style="padding:8px 18px;border:none;background:none;border-radius:99px;font-size:13px;font-weight:700;color:var(--muted-fg);cursor:pointer;letter-spacing:.02em">Global</button>
       </div>
-      <div id="lb-global-content"></div>
-      <div id="lb-team-content" style="display:none"></div>
-      <div id="lb-leagues-content" style="display:none"></div>
+      <div id="lb-team-content"></div>
+      <div id="lb-chat-content" style="display:none"></div>
+      <div id="lb-global-content" style="display:none"></div>
     </div>
   </div>
 
@@ -258,9 +256,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
       <span class="tab-btn-label">Races</span>
     </button>
-    <button class="tab-btn" data-page="team" aria-label="Leaderboard">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M6 13l-2 4h16l-2-4"/><path d="M7 13V8a5 5 0 0 1 10 0v5"/><circle cx="12" cy="3" r="1"/></svg>
-      <span class="tab-btn-label">Leaderboard</span>
+    <button class="tab-btn" data-page="team" aria-label="Team">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span class="tab-btn-label">Team</span>
     </button>
     <button class="tab-btn" data-page="admin" id="admin-tab" aria-label="Admin" style="display:none">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>

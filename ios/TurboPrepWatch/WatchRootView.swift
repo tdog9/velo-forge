@@ -73,7 +73,6 @@ struct PhaseChip: View {
         case .base:      return Theme.phaseBase
         case .build:     return Theme.phaseBuild
         case .peak:      return Theme.phasePeak
-        case .taper:     return Theme.phaseTaper
         case .raceWeek:  return Theme.phaseRaceWeek
         }
     }

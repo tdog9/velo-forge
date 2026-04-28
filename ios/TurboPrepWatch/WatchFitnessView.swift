@@ -283,7 +283,7 @@ private struct CompletedWorkoutRow: View {
     private var sourceColor: Color {
         switch workout.source {
         case "watch":   return Theme.phaseRaceWeek
-        case "tracker": return Theme.phaseTaper
+        case "tracker": return Color.blue
         case "strava":  return Theme.phaseBuild
         default:        return Theme.primary
         }

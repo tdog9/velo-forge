@@ -5916,26 +5916,64 @@ function generateTeamCode() {
   return code;
 }
 function renderTeam() {
-  // Update sub-tab styling
+  // Default landing tab is Team (the user's team) — was previously
+  // "global" which made joining feel optional. Team-first.
+  if (!['team', 'chat', 'global'].includes(lbSubTab)) lbSubTab = 'team';
+  // Pill-style sub-tab strip: active gets primary bg + black text,
+  // inactive transparent + muted text.
   document.querySelectorAll('.lb-sub-tab').forEach(btn => {
     const isActive = btn.dataset.lbSub === lbSubTab;
-    btn.style.background = isActive ? 'var(--primary)' : 'var(--secondary)';
-    btn.style.color = isActive ? 'var(--primary-fg)' : 'var(--secondary-fg)';
+    btn.style.background = isActive ? 'var(--primary)' : 'transparent';
+    btn.style.color = isActive ? 'var(--primary-fg)' : 'var(--muted-fg)';
   });
-  const gc = $('lb-global-content');
   const tc = $('lb-team-content');
-  const lc = $('lb-leagues-content');
-  gc.style.display = 'none';
+  const cc = $('lb-chat-content');
+  const gc = $('lb-global-content');
   tc.style.display = 'none';
-  if (lc) lc.style.display = 'none';
+  if (cc) cc.style.display = 'none';
+  gc.style.display = 'none';
   if (lbSubTab === 'global') {
     gc.style.display = '';
     renderGlobalLeaderboard(gc);
-  } else if (lbSubTab === 'leagues') {
-    if (lc) { lc.style.display = ''; renderLeaguesTab(lc); }
+    try { unsubscribeTeamChat(); } catch(e) {}
+  } else if (lbSubTab === 'chat') {
+    if (cc) { cc.style.display = ''; renderTeamChatPanelInto(cc); }
   } else {
     tc.style.display = '';
     renderTeamTab(tc);
+    try { unsubscribeTeamChat(); } catch(e) {}
+  }
+}
+
+/// Render the chat panel into the Team page's chat container (which lives
+/// in index.html so the sub-tab strip can sit above it cleanly).
+function renderTeamChatPanelInto(el) {
+  const teamId = userProfile?.teamId;
+  if (!teamId) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted-fg)">Join a team to chat with teammates.</div>';
+    return;
+  }
+  const isHeadCoachLocal = userProfile?.isCoach && teamData?.createdBy === currentUser?.uid;
+  const isCoachUser = !!userProfile?.isCoach;
+  const messages = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+  const panel = (typeof renderChatPanel === 'function')
+    ? renderChatPanel(messages, { isCoach: isHeadCoachLocal, myUid: currentUser?.uid })
+    : '<div style="text-align:center;padding:40px;color:var(--muted-fg)">Chat loading…</div>';
+  el.innerHTML = `
+    ${panel}
+    <div style="position:sticky;bottom:0;background:var(--bg);padding:8px 0;border-top:1px solid var(--border);margin-top:8px">
+      <div style="display:flex;gap:6px;align-items:flex-end">
+        <textarea id="team-chat-input" placeholder="Say hi to your team…" maxlength="500" rows="1" style="flex:1;resize:none;padding:10px 12px;border-radius:18px;border:1px solid var(--border);background:var(--card);color:var(--fg);font-size:14px;font-family:inherit;min-height:40px;max-height:120px"></textarea>
+        ${isCoachUser ? `<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted-fg);padding:0 4px"><input type="checkbox" id="team-chat-push" style="width:14px;height:14px">push</label>` : ''}
+        <button id="team-chat-send" class="btn btn-primary" aria-label="Send" style="padding:9px 14px;border-radius:18px;font-size:13px;font-weight:700;flex-shrink:0">Send</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted-fg);text-align:center;padding-top:4px">Be kind. ${isCoachUser ? 'Tick "push" to send as a notification.' : 'Coaches can broadcast as a notification.'}</div>
+    </div>
+  `;
+  bindTeamChatPanel(el);
+  // Subscribe live updates.
+  if (typeof subscribeTeamChat === 'function') {
+    subscribeTeamChat(teamId, () => { if (currentPage === 'team' && lbSubTab === 'chat') renderTeamChatPanelInto(el); });
   }
 }
 // --- GLOBAL LEADERBOARD ---
@@ -6152,45 +6190,10 @@ function renderTeamTab(c) {
       <div class="team-hero-members">${teamMembers.length} member${teamMembers.length !== 1 ? 's' : ''}</div>
     </div>
   `;
-  // Sub-tab strip — Members / Chat / Global. Sticks across renders via
-  // window._teamSubTab so navigating in/out keeps the user's view.
-  if (window._teamSubTab === undefined) window._teamSubTab = 'members';
-  const teamSubTab = window._teamSubTab;
-  const subTabBtn = (id, label, badge) => `<button class="team-subtab${teamSubTab === id ? ' active' : ''}" data-team-sub="${id}" style="flex:1;padding:10px 8px;border:none;background:none;border-bottom:2px solid ${teamSubTab === id ? 'var(--primary)' : 'transparent'};color:${teamSubTab === id ? 'var(--primary)' : 'var(--muted-fg)'};font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.02em">${label}${badge ? ' <span style="background:var(--primary);color:#fff;font-size:9px;padding:1px 5px;border-radius:99px;margin-left:2px">' + badge + '</span>' : ''}</button>`;
-  html += `<div style="display:flex;border-bottom:1px solid var(--border);margin:14px 0 10px;-webkit-overflow-scrolling:touch">
-    ${subTabBtn('members', 'Members')}
-    ${subTabBtn('chat', 'Chat')}
-    ${subTabBtn('global', 'Global')}
-  </div>`;
-  // Branch: if Chat is active, render the chat panel and skip the leaderboard
-  if (teamSubTab === 'chat') {
-    const chatMessages = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
-    const isHeadCoachLocal = userProfile?.isCoach && teamData?.createdBy === currentUser?.uid;
-    html += '<div id="team-chat-panel" style="margin-bottom:14px">' + (typeof renderChatPanel === 'function' ? renderChatPanel(chatMessages, { isCoach: isHeadCoachLocal, myUid: currentUser?.uid }) : '<div style="text-align:center;padding:40px;color:var(--muted-fg)">Chat loading…</div>') + '</div>';
-    // Composer
-    const isCoachUser = !!userProfile?.isCoach;
-    html += `<div style="position:sticky;bottom:0;background:var(--bg);padding:8px 0;border-top:1px solid var(--border);margin-top:8px">
-      <div style="display:flex;gap:6px;align-items:flex-end">
-        <textarea id="team-chat-input" placeholder="Say hi to your team…" maxlength="500" rows="1" style="flex:1;resize:none;padding:10px 12px;border-radius:18px;border:1px solid var(--border);background:var(--card);color:var(--fg);font-size:14px;font-family:inherit;min-height:40px;max-height:120px"></textarea>
-        ${isCoachUser ? `<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted-fg);padding:0 4px"><input type="checkbox" id="team-chat-push" style="width:14px;height:14px">push</label>` : ''}
-        <button id="team-chat-send" class="btn btn-primary" aria-label="Send" style="padding:9px 14px;border-radius:18px;font-size:13px;font-weight:700;flex-shrink:0">Send</button>
-      </div>
-      <div style="font-size:10px;color:var(--muted-fg);text-align:center;padding-top:4px">Be kind. ${isCoachUser ? 'Tick "push" to send as a notification.' : 'Coaches can broadcast as a notification.'}</div>
-    </div>`;
-    // Skip the rest of the leaderboard render
-    c.innerHTML = html;
-    bindTeamSubTabSwitcher(c);
-    bindTeamChatPanel(c);
-    return;
-  }
-  if (teamSubTab === 'global') {
-    html += '<div id="global-leaderboard-panel" style="margin-bottom:14px"><div style="text-align:center;padding:30px;color:var(--muted-fg);font-size:13px">Loading global leaderboard…</div></div>';
-    c.innerHTML = html;
-    bindTeamSubTabSwitcher(c);
-    // Lazy-load global leaderboard data (existing function)
-    try { renderGlobalLeaderboard(c.querySelector('#global-leaderboard-panel')); } catch(e) {}
-    return;
-  }
+  // Sub-tab strip is now in index.html (page-team .team-tab-bar). The
+  // dispatcher in renderTeam() routes to lb-team-content / lb-chat-content
+  // / lb-global-content. This block (renderTeamTab) renders into
+  // lb-team-content only — the Members leaderboard.
   // Default Members sub-tab — falls through to existing leaderboard rendering below.
   // Subteam filter — head coach can switch between whole team and any
   // subteam; everyone else sees the subteam they belong to by default

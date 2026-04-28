@@ -13,7 +13,7 @@ import WidgetKit
 final class WatchAppState: ObservableObject {
     static let shared = WatchAppState()
 
-    @Published var racePhase: WatchRacePhase? = .demoTaper
+    @Published var racePhase: WatchRacePhase? = .demoPeak
     @Published var todayWorkouts: [WatchPlanWorkout] = WatchPlanWorkout.demoToday
     @Published var completedWorkouts: [WatchLoggedWorkout] = WatchLoggedWorkout.demoRecent
 
@@ -221,7 +221,6 @@ final class WatchAppState: ObservableObject {
             case .base?:     return "#3b82f6"
             case .build?:    return "#a855f7"
             case .peak?:     return "#ef4444"
-            case .taper?:    return "#22c55e"
             case .raceWeek?: return "#f97316"
             default:         return "#7a7d88"
             }
@@ -243,7 +242,7 @@ final class WatchAppState: ObservableObject {
 // MARK: - Models (mirror schemas/*.ts and the web app's working shapes)
 
 struct WatchRacePhase: Equatable {
-    enum Phase: String { case base, build, peak, taper, raceWeek = "race-week" }
+    enum Phase: String { case base, build, peak, raceWeek = "race-week" }
     let phase: Phase
     let label: String
     let description: String
@@ -265,12 +264,12 @@ struct WatchRacePhase: Equatable {
         self.daysOut = (dict["daysOut"] as? Int) ?? 0
     }
 
-    static let demoTaper = WatchRacePhase(
-        phase: .taper,
-        label: "TAPER",
-        description: "Back off volume — your body absorbs the work now.",
+    static let demoPeak = WatchRacePhase(
+        phase: .peak,
+        label: "PEAK",
+        description: "Race-pace intervals. Sharpen your top gear.",
         raceShortName: "Round 2 · Casey Fields",
-        daysOut: 8
+        daysOut: 21
     )
 
     static let demoRaceWeek = WatchRacePhase(
