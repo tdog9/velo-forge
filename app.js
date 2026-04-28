@@ -2195,7 +2195,7 @@ function renderDemonstration() {
   });
   html += '</div>';
   // Count + collapse-all
-  html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="demo-cat-count" style="margin-bottom:0">${filtered.length} exercise${filtered.length !== 1 ? 's' : ''}${demosSearch ? ' matching "' + escHtml(demosSearch) + '"' : ''}</div><button class="demo-collapse-all" id="demos-collapse-all">Collapse All</button></div>`;
+  html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="demo-cat-count" style="margin-bottom:0">${filtered.length} exercise${filtered.length !== 1 ? 's' : ''}</div>${filtered.length > 12 ? '<button class="demo-collapse-all" id="demos-collapse-all">Collapse All</button>' : ''}</div>`;
   html += '</div>'; // end sticky
   if (filtered.length === 0) {
     html += '<div class="empty-state" style="padding:32px 16px"><div class="empty-state-title">No Exercises Found</div><div class="empty-state-desc">Try a different search term or category filter.</div></div>';
@@ -2211,14 +2211,12 @@ function renderDemonstration() {
         <div class="demo-ex-card">
           <div class="demo-ex-header" data-demos-expand="${i}">
             <div class="demo-ex-info">
-              <div class="demo-ex-name">${escHtml(ex.name)}${hasVideo ? ' <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;vertical-align:-1px;color:var(--primary);display:inline"><polygon points="5 3 19 12 5 21 5 3"/></svg>' : ''}</div>
+              <div class="demo-ex-name">${escHtml(ex.name)}${hasVideo ? ' <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;vertical-align:-1px;color:var(--primary);display:inline" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>' : ''}</div>
               <div class="demo-ex-meta">
                 <span style="color:${typeColor}">${ex.exerciseType || ex.catLabel}</span>
-                ${planCount > 0 ? '<span>' + planCount + ' plan' + (planCount !== 1 ? 's' : '') + '</span>' : ''}
               </div>
             </div>
-            <span class="demo-ex-badge" style="background:${ex.catColor}22;color:${ex.catColor}">${ex.catLabel}</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--muted-fg);flex-shrink:0;transition:transform .15s"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--muted-fg);flex-shrink:0;transition:transform .15s" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="demo-ex-body" id="demos-body-${i}">
             ${embedUrl ? `

@@ -546,7 +546,7 @@ function renderSetup(c) {
   c.querySelectorAll('.rd-sf').forEach(inp=>inp.addEventListener('change',()=>{ setupFields[parseInt(inp.dataset.idx)].value=inp.value; }));
   c.querySelectorAll('.rd-del-field').forEach(btn=>btn.addEventListener('click',async()=>{ setupFields.splice(parseInt(btn.dataset.idx),1); await saveSetupFields(); renderSetup(c); }));
   c.querySelector('#rd-add-field')?.addEventListener('click',()=>openAddField(c));
-  c.querySelector('#rd-setup-save').addEventListener('click',async()=>{ await saveSetupFields(); ctx.showToast('Setup saved.','success'); });
+  c.querySelector('#rd-setup-save')?.addEventListener('click',async()=>{ await saveSetupFields(); ctx.showToast('Setup saved.','success'); });
 }
 
 function openAddField(c) {
@@ -671,7 +671,18 @@ function renderStintTab(c) {
     }
   };
   refreshLive();
-  spectatorInterval = setInterval(refreshLive, 20000);
+  // Faster polling when there's an active rider so teammates see live laps
+  // ticking up; slower when nobody's riding (saves Firestore reads).
+  const adaptiveDelay = () => (Array.isArray(rosterData) && (typeof getRaceDayActive === 'function' ? false : false)) ? 20000 : 20000;
+  // Re-poll: 5s while at least one rider is live, else 20s.
+  const tick = async () => {
+    await refreshLive();
+    if (!document.getElementById('rd-start-btn')) return;  // tab moved on
+    const live = await loadLiveStints();
+    const delay = (live && live.length > 0) ? 5000 : 20000;
+    spectatorInterval = setTimeout(tick, delay);
+  };
+  spectatorInterval = setTimeout(tick, 5000);
 }
 
 function initPreMap() {
@@ -793,7 +804,7 @@ function renderActiveStint(c) {
       <div id="rd-sublabel" style="font-size:12px;color:var(--muted-fg);margin-top:4px">GPS connecting...</div>
     </div>
     <div id="rd-live-map" style="width:100%;height:180px;border-radius:12px;overflow:hidden;background:#0a1628;margin-bottom:12px"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px">
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">
         <div id="rd-al" style="font-size:22px;font-weight:800;color:var(--primary)">0</div>
         <div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;margin-top:1px">Laps</div>
@@ -826,7 +837,13 @@ function renderActiveStint(c) {
     } catch(e){}
   },150);
 
-  c.querySelector('#rd-end-stint').addEventListener('click',()=>endStint(c));
+  // End Stint sits inches from the lap timer — fat-finger danger during a
+  // ride. Require a confirm so a single mis-tap doesn't kill an in-progress
+  // stint.
+  c.querySelector('#rd-end-stint')?.addEventListener('click',()=>{
+    if (!confirm('End your stint? Lap times stop now.')) return;
+    endStint(c);
+  });
   updateActive();
 }
 
@@ -880,7 +897,7 @@ function renderStintSummary(c,stint) {
       <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Stint Complete</div>
       <div style="font-size:48px;font-weight:800;font-family:var(--font-mono);color:var(--primary)">${fmtTime(stint.duration)}</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:16px">
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
         <div style="font-size:22px;font-weight:800;color:var(--primary)">${stint.laps.length}</div>
         <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">Laps</div>

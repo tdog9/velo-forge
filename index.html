@@ -14,7 +14,7 @@
 <meta property="og:url" content="https://turboprep.app">
 <title>TurboPrep — HPR Training</title>
 <script>
-(function(){var VER='2.9.6',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
+(function(){var VER='2.9.7',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
 </script>
 <script>
 (function(){
@@ -194,8 +194,8 @@
 
   <div id="profile-overlay" class="profile-overlay" style="display:none">
     <div class="profile-header">
-      <button class="profile-back" id="profile-close-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      <button class="profile-back" id="profile-close-btn" aria-label="Close profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
       <div style="font-size:16px;font-weight:600">Profile & Settings</div>
     </div>
@@ -248,9 +248,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/></svg>
       <span class="tab-btn-label">Fitness</span>
     </button>
-    <button class="tab-btn record-tab" id="record-tab-btn">
+    <button class="tab-btn record-tab" id="record-tab-btn" aria-label="Record workout">
       <div class="record-tab-circle">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>
       </div>
       <span class="tab-btn-label">Record</span>
     </button>
@@ -262,12 +262,12 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M6 13l-2 4h16l-2-4"/><path d="M7 13V8a5 5 0 0 1 10 0v5"/><circle cx="12" cy="3" r="1"/></svg>
       <span class="tab-btn-label">Leaderboard</span>
     </button>
-    <button class="tab-btn" data-page="admin" id="admin-tab" style="display:none">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <button class="tab-btn" data-page="admin" id="admin-tab" aria-label="Admin" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       <span class="tab-btn-label">Admin</span>
     </button>
-    <button class="tab-btn" data-page="coach" id="coach-tab" style="display:none">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <button class="tab-btn" data-page="coach" id="coach-tab" aria-label="Coach" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <span class="tab-btn-label">Coach</span>
     </button>
   </nav>
@@ -281,8 +281,8 @@
 
 <div id="ai-overlay" class="ai-overlay" style="display:none">
   <div class="ai-header">
-    <button class="ai-header-back" id="ai-close-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    <button class="ai-header-back" id="ai-close-btn" aria-label="Close AI Coach">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <div class="ai-header-title">AI Coach</div>
     <div class="ai-header-badge">Claude</div>
