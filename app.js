@@ -3112,20 +3112,10 @@ function renderToday() {
     const todaysWorkouts = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === roundupToday; });
     const todayMins = todaysWorkouts.reduce((s, w) => s + (w.duration || 0), 0);
     const todayXp = todaysWorkouts.length * 10 + todaysWorkouts.filter(w => w.rpe).length * 5;
-    const healthD = userProfile?.health;
-    if (todaysWorkouts.length > 0 || (healthD && healthD.latestSteps > 0)) {
-      const msgs = todaysWorkouts.length >= 2 ? 'Crushing it today!' : todaysWorkouts.length === 1 ? 'Nice session logged.' : todayMins > 60 ? 'Big training day!' : '';
-      html += `<div style="background:linear-gradient(135deg,rgba(249,115,22,.05),rgba(34,197,94,.03));border:1px solid rgba(249,115,22,.15);border-radius:12px;padding:12px 14px;margin-top:8px">
-        <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📋 Today's Roundup</div>
-        <div style="display:flex;gap:16px;flex-wrap:wrap">
-          ${todaysWorkouts.length > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--fg)">${todaysWorkouts.length}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">workout${todaysWorkouts.length > 1 ? 's' : ''}</span></div>` : ''}
-          ${todayMins > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--fg)">${todayMins}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">mins</span></div>` : ''}
-          ${todayXp > 0 ? `<div><span style="font-size:18px;font-weight:800;color:var(--primary)">+${todayXp}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">XP</span></div>` : ''}
-          ${healthD?.latestSteps ? `<div><span style="font-size:18px;font-weight:800;color:#22c55e">${healthD.latestSteps > 999 ? (healthD.latestSteps / 1000).toFixed(1) + 'k' : healthD.latestSteps}</span><span style="font-size:11px;color:var(--muted-fg);margin-left:4px">steps</span></div>` : ''}
-        </div>
-        ${msgs ? '<div style="font-size:12px;font-weight:600;color:var(--fg);margin-top:6px">' + msgs + '</div>' : ''}
-      </div>`;
-    }
+    // The earlier "Today's Roundup" card was deduplicated — the same
+    // information renders later in the page after 5pm with a dismiss
+    // button (see the roundupHour block below). Two near-identical
+    // cards on the same page felt redundant.
   }
   // ── SECTION 3: Quick actions ──
   html += `<div style="display:flex;gap:8px;margin-top:10px">
@@ -3215,10 +3205,10 @@ function renderToday() {
     else if (todayWos.length >= 2) encouragement = 'Multiple sessions in one day — that\'s dedication. Your team will notice.';
     else if (streak >= 7) encouragement = 'Streak going strong! Every day you show up, you get better.';
     else encouragement = 'Another day in the books. Consistency is what separates good from great.';
-    html += `<div style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(249,115,22,.04));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px">
+    html += `<div class="today-roundup-card" style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(249,115,22,.04));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:14px;font-weight:700;color:var(--fg)">📋 Today's Roundup</div>
-        <button id="dismiss-roundup" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px">✕</button>
+        <div style="font-size:14px;font-weight:700;color:var(--fg)">Today's Roundup</div>
+        <button id="dismiss-roundup" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px" aria-label="Dismiss">×</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(${rDist > 0 ? 4 : 3},1fr);gap:6px;margin-bottom:10px">
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
@@ -3592,7 +3582,7 @@ function renderToday() {
   // Dismiss daily roundup
   $('dismiss-roundup')?.addEventListener('click', () => {
     localStorage.setItem('tp_roundup_' + new Date().toISOString().split('T')[0], '1');
-    $('dismiss-roundup')?.closest('div[style*="background:linear-gradient"]')?.remove();
+    $('dismiss-roundup')?.closest('.today-roundup-card')?.remove();
   });
   // Health card → open detailed dashboard
   $('health-card-tap')?.addEventListener('click', () => {
@@ -6334,43 +6324,19 @@ function renderTeamTab(c) {
       <div class="team-hero-meta">
         <span class="team-hero-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="width:11px;height:11px"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${teamMembers.length} member${teamMembers.length !== 1 ? 's' : ''}</span>
         <span class="team-hero-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="width:11px;height:11px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Coach: ${escHtml(coachName)}</span>
-        ${Array.isArray(teamData.subteams) && teamData.subteams.length ? `<span class="team-hero-pill">${teamData.subteams.length} subteam${teamData.subteams.length !== 1 ? 's' : ''}</span>` : ''}
       </div>
     </div>
   `;
-  // Member roster — quick visual list of everyone on the team. Helps users
-  // confirm a teammate has actually joined (signing up alone isn't enough —
-  // they need to enter the code).
+  // The roster chip grid was removed — the Members leaderboard table
+  // below already lists every member with their workouts and streak,
+  // so duplicating the same data as a chip grid above the table
+  // doubled the vertical space and gave nothing extra. Keep the
+  // Invite button on a thin row so coaches can still share the join
+  // code one tap away.
   if (teamMembers.length > 0) {
-    const avatarColors = ['#f97316','#3b82f6','#22c55e','#a855f7','#ef4444','#06b6d4','#f59e0b','#ec4899','#14b8a6','#8b5cf6'];
-    const initials = (name) => (name || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '?';
-    const chips = teamMembers.slice().sort((a,b) => {
-      // coach first, then me, then alpha
-      if (a.uid === coachUid) return -1;
-      if (b.uid === coachUid) return 1;
-      if (a.uid === currentUser?.uid) return -1;
-      if (b.uid === currentUser?.uid) return 1;
-      return (a.displayName || '').localeCompare(b.displayName || '');
-    });
-    const chipHtml = chips.map((m, i) => {
-      const isCoach = m.uid === coachUid;
-      const isMe = m.uid === currentUser?.uid;
-      const color = avatarColors[i % avatarColors.length];
-      const drillable = userProfile?.isCoach && m.uid !== currentUser?.uid;
-      return `<div class="roster-chip${isMe ? ' is-me' : ''}"${drillable ? ` data-coach-drill="${escHtml(m.uid)}" role="button" tabindex="0"` : ''}>
-        <div class="roster-chip-av" style="background:${color}">${escHtml(initials(m.displayName))}</div>
-        <div class="roster-chip-info">
-          <div class="roster-chip-name">${escHtml(m.displayName || 'Unknown')}${isMe ? ' <span style="color:var(--muted-fg);font-weight:500">(you)</span>' : ''}</div>
-          <div class="roster-chip-sub">${isCoach ? '<span style="color:var(--primary);font-weight:700">COACH</span>' : (m.yearLevel ? 'Year ' + escHtml(String(m.yearLevel)) : 'Member')}${typeof m.totalWorkouts === 'number' ? ' · ' + m.totalWorkouts + ' workout' + (m.totalWorkouts === 1 ? '' : 's') : ''}</div>
-        </div>
-      </div>`;
-    }).join('');
-    html += `<div class="card card-pad" style="margin-bottom:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Roster</div>
-        <button class="invite-hint-btn" id="team-invite-hint-btn" style="font-size:11px;font-weight:700;color:var(--primary);background:transparent;border:0;cursor:pointer;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>Invite</button>
-      </div>
-      <div class="roster-grid">${chipHtml}</div>
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;margin:0 2px 10px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Members</div>
+      <button class="invite-hint-btn" id="team-invite-hint-btn" style="font-size:11px;font-weight:700;color:var(--primary);background:transparent;border:0;cursor:pointer;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>Invite</button>
     </div>`;
   }
   // Sub-tab strip is now in index.html (page-team .team-tab-bar). The
@@ -6430,25 +6396,19 @@ function renderTeamTab(c) {
     });
   }
   html += '</tbody></table></div>';
-  // Coach settings panel
+  // Coach settings — was 5 stacked full-width buttons + a feature
+  // toggle block. Collapsed into a single "Manage Team" button that
+  // opens a sheet, plus the Race Day toggle in-line (its state is
+  // immediate-action and useful at a glance). Feature toggles, edit
+  // details, add co-coach, manage subteams, delete team — all live in
+  // the sheet now.
   if (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid) {
     html += `
-      <div style="margin-top:20px">
-        <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Coach Settings</div>
-        <div class="card card-pad" style="margin-bottom:8px">
-          <div style="font-size:13px;font-weight:600;margin-bottom:12px">Team Feature Toggles</div>
-          <div style="display:flex;flex-direction:column;gap:10px" id="coach-feature-toggles">
-            ${renderCoachFeatureToggles()}
-          </div>
-        </div>
-        <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-edit-team-btn">Edit Team Details</button>
-        <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-add-cocoach-btn">Add Co-Coach</button>
-        <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-manage-sub-btn">Manage Subteams</button>
-        <button class="btn" style="width:100%;margin-bottom:8px;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" id="team-delete-btn">Delete Team</button>
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-          <div style="font-size:13px;font-weight:600;margin-bottom:8px">Race Day</div>
-          ${getRaceDayActive() ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:13px;cursor:pointer">End Race Day Mode</button>` : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e;font-weight:700;font-size:13px;cursor:pointer">Activate Race Day Mode</button>`}
-        </div>
+      <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-secondary" style="width:100%" id="coach-manage-team-btn">Manage Team</button>
+        ${getRaceDayActive()
+          ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:13px;cursor:pointer">End Race Day Mode</button>`
+          : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e;font-weight:700;font-size:13px;cursor:pointer">Activate Race Day Mode</button>`}
       </div>
     `;
   }
@@ -6517,10 +6477,7 @@ function renderTeamTab(c) {
         } catch(e) { console.warn('feature toggle:', e); }
       });
     });
-    $('coach-edit-team-btn')?.addEventListener('click', openEditTeamSheet);
-    $('coach-add-cocoach-btn')?.addEventListener('click', openAddCoCoachSheet);
-    $('coach-manage-sub-btn')?.addEventListener('click', openManageSubteamsSheet);
-    $('team-delete-btn')?.addEventListener('click', deleteTeam);
+    $('coach-manage-team-btn')?.addEventListener('click', openManageTeamSheet);
     $('coach-start-rd')?.addEventListener('click', async () => {
       // Pick the most-imminent active race today as the raceId so the
       // overlay header has a label. Was previously called with no arg,
@@ -7736,6 +7693,76 @@ function renderCoachFeatureToggles() {
 // Edit core team details — name, description, and the share blurb that
 // goes out with Invite. Only the head coach (createdBy) can save. Code
 // is shown read-only because it identifies the team across the app.
+// Single entry-point for all coach team-management operations. Replaces
+// the stack of 4 full-width buttons (Edit / Add Co-Coach / Manage
+// Subteams / Delete) + Feature Toggles card that used to sit on the
+// Team page. Each row routes to its existing sheet so we don't have
+// to duplicate any logic.
+function openManageTeamSheet() {
+  if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
+  if (teamData.createdBy !== currentUser?.uid) {
+    showToast('Only the head coach can manage the team.', 'warn');
+    return;
+  }
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">Manage Team</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+      <button class="btn btn-secondary mt-row" id="mt-edit" style="width:100%;text-align:left;padding:14px 14px;display:flex;align-items:center;justify-content:space-between">
+        <span><div style="font-size:14px;font-weight:700;color:var(--fg)">Edit team details</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Name, description, invite blurb</div></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="btn btn-secondary mt-row" id="mt-cocoach" style="width:100%;text-align:left;padding:14px 14px;display:flex;align-items:center;justify-content:space-between">
+        <span><div style="font-size:14px;font-weight:700;color:var(--fg)">Add a co-coach</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Promote an existing team member</div></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="btn btn-secondary mt-row" id="mt-subteams" style="width:100%;text-align:left;padding:14px 14px;display:flex;align-items:center;justify-content:space-between">
+        <span><div style="font-size:14px;font-weight:700;color:var(--fg)">Manage subteams</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Create, rename, assign athletes</div></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="btn btn-secondary mt-row" id="mt-features" style="width:100%;text-align:left;padding:14px 14px;display:flex;align-items:center;justify-content:space-between">
+        <span><div style="font-size:14px;font-weight:700;color:var(--fg)">Feature toggles</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Show / hide tabs for the team</div></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="btn mt-row" id="mt-delete" style="width:100%;margin-top:14px;text-align:left;padding:14px 14px;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);display:flex;align-items:center;justify-content:space-between">
+        <span><div style="font-size:14px;font-weight:700;color:#ef4444">Delete team</div><div style="font-size:11px;color:rgba(239,68,68,.7);margin-top:2px;font-weight:500">Removes every member's team association</div></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:#ef4444"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  `;
+  openSheet();
+  $('mt-edit')?.addEventListener('click', () => { closeSheet(); setTimeout(openEditTeamSheet, 80); });
+  $('mt-cocoach')?.addEventListener('click', () => { closeSheet(); setTimeout(openAddCoCoachSheet, 80); });
+  $('mt-subteams')?.addEventListener('click', () => { closeSheet(); setTimeout(openManageSubteamsSheet, 80); });
+  $('mt-features')?.addEventListener('click', () => { closeSheet(); setTimeout(openFeatureTogglesSheet, 80); });
+  $('mt-delete')?.addEventListener('click', () => { closeSheet(); setTimeout(deleteTeam, 80); });
+}
+
+// Feature toggles, extracted into their own sheet (was inline on the
+// Team page as a card with a list of seven on/off rows).
+function openFeatureTogglesSheet() {
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">Feature Toggles</div>
+    <p style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">Hide or show tabs for everyone on the team. Changes take effect immediately for all members.</p>
+    <div style="display:flex;flex-direction:column;gap:10px" id="ft-toggles">${renderCoachFeatureToggles()}</div>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px" id="ft-done">Done</button>
+  `;
+  openSheet();
+  document.querySelectorAll('#ft-toggles .coach-feat-toggle').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const feat = btn.dataset.feat;
+      const current = teamData.features?.[feat] !== false;
+      const newVal = !current;
+      btn.classList.toggle('on', newVal);
+      try {
+        if (db) await updateDoc(doc(db, 'teams', userProfile.teamId), { ['features.' + feat]: newVal });
+        if (!teamData.features) teamData.features = {};
+        teamData.features[feat] = newVal;
+      } catch(e) { console.warn('feature toggle:', e); }
+    });
+  });
+  $('ft-done')?.addEventListener('click', () => { closeSheet(); renderTeam(); });
+}
+
 function openEditTeamSheet() {
   if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
   if (teamData.createdBy !== currentUser?.uid) {

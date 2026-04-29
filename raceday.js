@@ -436,6 +436,11 @@ async function showRdTab(ov,tab) {
   // Switching tabs invalidates the previous tab's polling intervals.
   // Without this, stacking 10 tab-switches stacks 10 spectator polls.
   if (spectatorInterval) { clearInterval(spectatorInterval); spectatorInterval=null; }
+  // FAB is only useful on the roster tab — on stint/setup it overlaps
+  // the bottom-nav centre Stint button and gives the wrong affordance.
+  // Roster tab already has a "+ Add Driver" button in its header.
+  const fab = document.getElementById('rd-roster-fab');
+  if (fab) fab.style.display = (tab === 'roster') ? '' : 'none';
   // Refresh the per-tab data so the user always sees current state when
   // they switch back. Audit found todayStints + rosterData were going
   // stale across tab switches.
@@ -913,22 +918,15 @@ function renderActiveStint(c) {
       <div id="rd-timer" style="font-size:60px;font-weight:800;font-family:var(--font-mono);color:var(--fg);line-height:1">00:00</div>
       <div id="rd-sublabel" style="font-size:12px;color:var(--muted-fg);margin-top:4px">GPS connecting...</div>
     </div>
-    <div id="rd-live-map" style="width:100%;height:180px;border-radius:12px;overflow:hidden;background:#0a1628;margin-bottom:12px"></div>
-    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px">
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">
-        <div id="rd-al" style="font-size:22px;font-weight:800;color:var(--primary)">0</div>
-        <div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;margin-top:1px">Laps</div>
-      </div>
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">
-        <div id="rd-ll" style="font-size:22px;font-weight:800;color:var(--fg)">--:--</div>
-        <div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;margin-top:1px">Last</div>
-      </div>
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">
-        <div id="rd-bl" style="font-size:22px;font-weight:800;color:#22c55e">--:--</div>
-        <div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;margin-top:1px">Best</div>
-      </div>
+    <div id="rd-live-map" style="width:100%;height:140px;border-radius:12px;overflow:hidden;background:#0a1628;margin-bottom:10px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-around;gap:6px;margin-bottom:10px;padding:8px 10px;border:1px solid var(--border);border-radius:99px;background:var(--card)">
+      <div style="text-align:center;min-width:0"><span id="rd-al" style="font-size:14px;font-weight:800;color:var(--primary)">0</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">laps</span></div>
+      <div style="width:1px;height:14px;background:var(--border)"></div>
+      <div style="text-align:center;min-width:0"><span id="rd-ll" style="font-size:14px;font-weight:800;color:var(--fg);font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">last</span></div>
+      <div style="width:1px;height:14px;background:var(--border)"></div>
+      <div style="text-align:center;min-width:0"><span id="rd-bl" style="font-size:14px;font-weight:800;color:#22c55e;font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">best</span></div>
     </div>
-    <div id="rd-laplist" style="margin-bottom:14px;max-height:160px;overflow-y:auto"></div>
+    <div id="rd-laplist" style="margin-bottom:14px;max-height:200px;overflow-y:auto"></div>
     <button id="rd-end-stint" style="width:100%;padding:14px;border-radius:12px;background:#ef4444;color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">■ End Stint</button>`;
 
   setTimeout(()=>{
