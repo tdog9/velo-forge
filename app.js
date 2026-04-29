@@ -470,13 +470,20 @@ function maybeAutoGenerateAiWidget() {
     const todayKey = new Date().toISOString().split('T')[0];
     const lastAutoKey = localStorage.getItem('tp_ai_widget_last_auto');
     if (lastAutoKey === todayKey) return;
-    // Only auto-generate if we have signal to give the coach: a logged workout
-    // OR an active plan. New-account opens shouldn't burn an AI call.
+    // Only auto-generate if we have signal to give the coach: a logged
+    // workout OR an active plan. New-account opens shouldn't burn an AI call.
     const hasSignal = (userWorkouts && userWorkouts.length > 0) || !!userProfile?.activePlanId;
     if (!hasSignal) return;
-    localStorage.setItem('tp_ai_widget_last_auto', todayKey);
-    // Fire-and-forget. generateAiWidget handles its own toast on failure.
-    generateAiWidget();
+    // Mark today as "used" only on SUCCESS — was previously written
+    // before the request resolved, so a network failure permanently
+    // consumed today's auto slot and the user got no widget at all.
+    Promise.resolve(generateAiWidget())
+      .then((ok) => {
+        if (ok !== false) {
+          try { localStorage.setItem('tp_ai_widget_last_auto', todayKey); } catch(e) {}
+        }
+      })
+      .catch(() => {/* leave the slot open so user can retry tomorrow's open */});
   } catch(e) {}
 }
 // AI Coach v2 — event-triggered insights. Fires a contextual widget on
@@ -530,8 +537,11 @@ function renderMilestoneCard(totalWorkouts, streak, lvl, xp) {
   if (sMatch && last.streak !== sMatch) {
     cards.push({ key: 'streak', value: sMatch, icon: '🔥', title: `${sMatch}-day streak!`, body: 'Consistency is the cheat code. Don\'t break the chain.' });
   }
-  if (lvlKey && last.level !== lvlKey && (lvl?.pct ?? 0) < 5) {
-    // Just leveled up — lvl.pct close to 0 means we're at the bottom of a new level.
+  // Only celebrate a level CHANGE, not a first-ever observation. The
+  // previous (lvl.pct < 5) check fired for every brand-new account at
+  // 0 XP because last.level was undefined and lvlKey was the starting
+  // level, so undefined !== 'Beginner' looked like a level-up.
+  if (lvlKey && last.level && last.level !== lvlKey) {
     cards.push({ key: 'level', value: lvlKey, icon: '⭐', title: `Levelled up to ${lvlKey}`, body: `${xp} XP banked. Next tier awaits.` });
   }
   if (cards.length === 0) return '';
@@ -1139,8 +1149,12 @@ function showWelcomeSetup() {
   $('ws-plan')?.addEventListener('click', () => {
     const year = userProfile?.yearLevel || 'Y9';
     const tier = userProfile?.fitnessLevel || 'basic';
-    const match = ALL_PLANS.find(p => p.yearLevel === year && p.fitnessLevel === tier && p.category === 'floor')
-      || ALL_PLANS.find(p => p.yearLevel === year && p.fitnessLevel === tier)
+    // Plan objects expose `tier`, not `fitnessLevel` — the old comparison
+    // never matched and silently fell through to ALL_PLANS[0] (the Y7
+    // basic in-vehicle plan), regardless of the student's profile.
+    const match = ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier && p.category === 'floor')
+      || ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier)
+      || ALL_PLANS.find(p => p.tier === tier)
       || ALL_PLANS[0];
     if (match) {
       activatePlan(match.id);
@@ -2483,59 +2497,11 @@ function renderDemonstration() {
   }
 }
 // MY PLANS TAB (AI-generated custom plans)
-function renderMyPlans() {
-  const c = $('myplans-content');
-  const activePlanId = userProfile?.activePlanId;
-  let html = '<div class="page-title">My Plans</div>';
-  // Generate button
-  html += `<button class="strava-connect" id="myplans-generate-btn" style="background:linear-gradient(135deg,#7c3aed,#a855f7);margin-bottom:14px">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
-    Generate a New Plan with AI
-  </button>`;
-  if (customPlans.length === 0) {
-    html += `<div class="empty-state" style="padding:32px 16px">
-      <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:40px;height:40px;color:var(--muted-fg)"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2"/></svg></div>
-      <div class="empty-state-title">No Custom Plans Yet</div>
-      <div class="empty-state-desc">Tap "Generate a New Plan" above to create a personalised training plan with AI. You can also share plans with your team.</div>
-    </div>`;
-  } else {
-    html += '<div class="space-y">';
-    customPlans.forEach((plan, idx) => {
-      const isActive = plan.id === activePlanId;
-      const isMine = plan.createdBy === (currentUser?.uid || 'demo');
-      html += `<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted-fg);margin-bottom:-8px;margin-top:4px">
-        <span class="custom-plan-badge">AI Plan</span>
-        ${plan.shared ? '<span class="shared-plan-badge">Shared</span>' : ''}
-        <span style="flex:1">${isMine ? 'Created by you' : 'by ' + escHtml(plan.createdByName || 'Unknown')}</span>
-        <button class="delete-ai-plan-btn" data-plan-idx="${idx}" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:4px 6px;font-size:16px;line-height:1" title="Delete plan">✕</button>
-      </div>`;
-      html += renderPlanCard(plan, isActive);
-    });
-    html += '</div>';
-  }
-  c.innerHTML = html;
-  // Bind delete buttons
-  c.querySelectorAll('.delete-ai-plan-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const idx = parseInt(btn.dataset.planIdx);
-      if (confirm('Delete this AI plan?')) {
-        deleteCustomPlan(idx);
-      }
-    });
-  });
-  // Bind generate button
-  const genBtn = $('myplans-generate-btn');
-  if (genBtn) {
-    genBtn.addEventListener('click', () => {
-      haptic('light');
-      openAiCoach();
-      startPlanGeneration();
-    });
-  }
-  // Bind plan cards (same as Plans tab)
-  bindPlanSearchAndCards(c);
-}
+// renderMyPlans was orphaned — its container `#myplans-content` is
+// `display:none` in markup and `fitnessSubTab` has no 'myplans' value,
+// so this function was never called. The "delete AI plan" affordance
+// it carried now lives directly on renderPlanCard for plans with a
+// createdBy field, surfaced inside the live Plans tab.
 // --- Workout Calendar ---
 function renderWorkoutCalendar(now) {
   const year = calViewYear;
@@ -2973,10 +2939,10 @@ function renderToday() {
     const lwXp = lwWorkouts.length * 10;
     if (lwWorkouts.length > 0) {
       const goalText = lwWorkouts.length < 3 ? 'Push for 3 sessions this week!' : lwWorkouts.length < 5 ? 'Great week — aim for ' + (lwWorkouts.length + 1) + ' this week!' : 'Incredible consistency — keep it up!';
-      html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
+      html += `<div class="last-week-card" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-size:13px;font-weight:700;color:var(--fg)">📊 Last Week</div>
-          <button id="dismiss-weekly" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px">✕</button>
+          <div style="font-size:13px;font-weight:700;color:var(--fg)">Last Week</div>
+          <button id="dismiss-weekly" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px" aria-label="Dismiss">×</button>
         </div>
         <div style="display:flex;gap:12px;margin-bottom:8px">
           <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${lwWorkouts.length}</div><div style="font-size:10px;color:var(--muted-fg)">sessions</div></div>
@@ -3553,9 +3519,12 @@ function renderToday() {
     haptic('medium');
     const year = userProfile?.yearLevel || 'Y9';
     const tier = userProfile?.fitnessLevel || 'basic';
-    // Find matching plan — prefer floor (bodyweight, no equipment needed)
-    const match = ALL_PLANS.find(p => p.yearLevel === year && p.fitnessLevel === tier && p.category === 'floor')
-      || ALL_PLANS.find(p => p.yearLevel === year && p.fitnessLevel === tier)
+    // Find matching plan — prefer floor (bodyweight, no equipment needed).
+    // Plan objects expose `tier`, not `fitnessLevel` — old comparison
+    // never matched and always fell through to ALL_PLANS[0].
+    const match = ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier && p.category === 'floor')
+      || ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier)
+      || ALL_PLANS.find(p => p.tier === tier)
       || ALL_PLANS[0];
     if (match) {
       activatePlan(match.id);
@@ -3567,11 +3536,13 @@ function renderToday() {
       renderFitness();
     }
   });
-  // Dismiss weekly summary
+  // Dismiss weekly summary — target the explicit `.last-week-card`
+  // wrapper rather than `div[style]` (which was matching the inner
+  // header flex row, leaving stats + goal text orphaned in the DOM).
   $('dismiss-weekly')?.addEventListener('click', () => {
     const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay() + 1); ws.setHours(0,0,0,0);
     localStorage.setItem('tp_summary_week', ws.toISOString().split('T')[0]);
-    $('dismiss-weekly')?.closest('div[style]')?.remove();
+    $('dismiss-weekly')?.closest('.last-week-card')?.remove();
   });
   // Widget customization
   $('today-customize')?.addEventListener('click', () => {
@@ -5693,6 +5664,25 @@ function bindPlanSearchAndCards(c) {
       }
     });
   });
+  // Delete custom (AI-generated) plan — only rendered when plan has a
+  // createdBy and is not active.
+  c.querySelectorAll('.plan-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const planId = btn.dataset.deletePlanId;
+      if (!planId) return;
+      if (!confirm('Delete this AI plan? This can\'t be undone.')) return;
+      const idx = customPlans.findIndex(p => p.id === planId);
+      if (idx < 0) { showToast('Plan not found.', 'warn'); return; }
+      try {
+        await deleteCustomPlan(idx);
+        renderPlans();
+      } catch(e) {
+        console.error('delete plan failed:', e);
+        showToast('Couldn\'t delete: ' + (e?.message || 'try again'), 'error');
+      }
+    });
+  });
 }
 function renderPlanCard(plan, isActive) {
   const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
@@ -5736,6 +5726,16 @@ function renderPlanCard(plan, isActive) {
       `;
     });
   });
+  // Compress sessions/week + duration into a single label so the badges
+  // row stays one line on phones (was wrapping into two with 5 chips).
+  const cadenceLabel = `${pd.durationWeeks}wk · ${pd.sessionsPerWeek}×/wk`;
+  // Custom (AI-generated) plans get an inline delete affordance — was
+  // only rendered inside the orphaned renderMyPlans() and so users had
+  // no way to remove plans they generated. Active plan can't be deleted
+  // (must cancel first) and we never offer delete for the canonical
+  // shipped plans (those have no createdBy).
+  const isCustomAi = !!plan.createdBy && plan.createdBy !== 'system';
+  const canDelete = isCustomAi && !isActive;
   return `
     <div class="card plan-card${isActive?' active-plan':''}">
       <div class="plan-header" style="cursor:pointer">
@@ -5743,10 +5743,10 @@ function renderPlanCard(plan, isActive) {
           <div class="card-title">${pd.name}</div>
           <div class="card-desc">${pd.description}</div>
           <div class="plan-badges">
-            <span class="badge badge-outline">${pd.durationWeeks} weeks</span>
-            <span class="badge badge-outline">${pd.sessionsPerWeek}x/week</span>
+            <span class="badge badge-outline">${cadenceLabel}</span>
             <span class="badge" style="background:${tierColor}22;color:${tierColor}">${capitalize(plan.tier)}</span>
             ${isActive ? '<span class="badge badge-primary">Active</span>' : ''}
+            ${isCustomAi ? '<span class="badge" style="background:rgba(168,85,247,.12);color:#a855f7;border:1px solid rgba(168,85,247,.30)">AI</span>' : ''}
           </div>
           <button class="plan-explain-btn" data-explain-plan="${plan.id}" onclick="event.stopPropagation()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
@@ -5758,12 +5758,15 @@ function renderPlanCard(plan, isActive) {
         ${scheduleHtml}
         <div class="plan-activate" style="padding:0 14px 14px">
           ${isActive ? `
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-secondary" style="flex:1;pointer-events:none;opacity:0.7">✓ Active</button>
-              <button class="btn plan-cancel-btn" style="flex:1;color:#ef4444;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08)" data-plan-id="${plan.id}">Cancel Plan</button>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="badge badge-primary" style="flex:1;text-align:center;padding:8px 0;font-size:12px">✓ Active</span>
+              <button class="btn plan-cancel-btn" style="flex:1;color:#ef4444;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08)" data-plan-id="${plan.id}">Cancel</button>
             </div>
           ` : `
-            <button class="btn btn-primary plan-activate-btn" style="width:100%" data-plan-id="${plan.id}">Activate Plan</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary plan-activate-btn" style="flex:1" data-plan-id="${plan.id}">Activate Plan</button>
+              ${canDelete ? `<button class="btn plan-delete-btn" style="flex-shrink:0;padding:0 14px;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06)" data-delete-plan-id="${plan.id}" aria-label="Delete plan">Delete</button>` : ''}
+            </div>
           `}
         </div>
       </div>
@@ -6452,14 +6455,19 @@ function renderTeamTab(c) {
   // Leave team
   html += '<div style="text-align:center;margin-top:16px"><button class="leave-team-btn" id="leave-team-btn">Leave Team</button></div>';
   c.innerHTML = html;
-  // Bind copy
-  $('copy-code-btn').addEventListener('click', () => {
+  // Bind copy. Use optional chaining everywhere — a single missing
+  // element used to throw and abort the rest of the bind block,
+  // making every button below this line silently dead.
+  $('copy-code-btn')?.addEventListener('click', () => {
+    if (!teamData?.code) return;
     navigator.clipboard.writeText(teamData.code).catch(() => {});
     const btn = $('copy-code-btn');
+    if (!btn) return;
     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
     showToast('Team code copied — share with teammates', 'success');
     setTimeout(() => {
-      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      const btn2 = $('copy-code-btn');
+      if (btn2) btn2.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     }, 1500);
   });
   // Invite button — share team code via native share, fall back to clipboard.
@@ -6477,8 +6485,8 @@ function renderTeamTab(c) {
     try { await navigator.clipboard.writeText(msg); showToast('Invite copied to clipboard', 'success'); }
     catch(e) { showToast('Code: ' + code, 'info'); }
   });
-  // Bind leave
-  $('leave-team-btn').addEventListener('click', leaveTeam);
+  // Bind leave (null-guarded so a missing element doesn't kill the rest of the bind block)
+  $('leave-team-btn')?.addEventListener('click', leaveTeam);
   // Subteam leaderboard filter — re-render team tab with new filter.
   // Available to all members (not just head coach).
   document.querySelectorAll('.lb-filter-tab').forEach(btn => {
@@ -6514,11 +6522,32 @@ function renderTeamTab(c) {
     $('coach-manage-sub-btn')?.addEventListener('click', openManageSubteamsSheet);
     $('team-delete-btn')?.addEventListener('click', deleteTeam);
     $('coach-start-rd')?.addEventListener('click', async () => {
-      const ok=await activateRaceDay();
-      if(ok){ showToast('Race day mode activated!','success'); openRaceDayOverlay(); }
+      // Pick the most-imminent active race today as the raceId so the
+      // overlay header has a label. Was previously called with no arg,
+      // leaving rdd.raceId null.
+      const todayKey = new Date().toISOString().slice(0,10);
+      const races = (typeof getActiveRaces === 'function') ? (getActiveRaces() || []) : [];
+      const todayRace = races.find(r => r.date === todayKey) || null;
+      const ok = await activateRaceDay(todayRace?.id || null);
+      if (ok) {
+        showToast('Race day mode activated.', 'success');
+        try { updateRaceDayTabBar(true); } catch(e) {}
+        openRaceDayOverlay();
+      } else {
+        showToast('Could not activate race day.', 'error');
+      }
     });
     $('coach-end-rd')?.addEventListener('click', async () => {
-      await deactivateRaceDay();
+      const ok = await deactivateRaceDay();
+      // Always tear down the bottom-nav Race button + close the overlay
+      // — even on partial failure — so the user isn't stuck with a dead
+      // tab pointing at nothing.
+      try { updateRaceDayTabBar(false); } catch(e) {}
+      const ov = document.getElementById('raceday-overlay');
+      if (ov) ov.remove();
+      const ma = document.getElementById('main-app');
+      if (ma) ma.style.display = 'flex';
+      if (ok) showToast('Race day ended.', 'info');
       renderTeam();
     });
   }
@@ -7565,14 +7594,16 @@ function bindTeamChatPanel(c) {
     const pushChecked = !!c.querySelector('#team-chat-push')?.checked;
     let ok = false;
     try {
+      // Coach with push ticked → broadcast banner + push notification.
+      // Coach without push ticked → plain chat bubble (was previously
+      // posting as kind:'coach' / orange banner regardless, with no path
+      // to send a normal message). Plain athlete → chat.
       if (isCoachUser && pushChecked) {
         if (!confirm('Send this as a push notification to every team member?')) {
           ok = false;
         } else {
           ok = await sendCoachBroadcast(teamId, text, { push: true });
         }
-      } else if (isCoachUser) {
-        ok = await sendCoachBroadcast(teamId, text, { push: false });
       } else {
         ok = await sendChatMessage(teamId, text);
       }
@@ -8656,7 +8687,15 @@ function startApp() {
       try { listenGlobalSettings(); } catch(e) {}
       try {
         const rdActive = await loadRaceDayState();
-        if (rdActive) setTimeout(() => openRaceDayOverlay(), 300);
+        if (rdActive) {
+          // Inject the bottom-nav Race button so the user can re-open
+          // the overlay after closing it on cold-boot. Was previously
+          // only added by activateRaceDay() — but on cold-boot the
+          // overlay opens via loadRaceDayState() with no tab-bar update,
+          // so closing the overlay left the user stuck.
+          try { updateRaceDayTabBar(true); } catch(e) {}
+          setTimeout(() => openRaceDayOverlay(), 300);
+        }
         // Capture the interval handle so signOut can stop it. Was previously
         // an orphan setInterval that kept firing across sign-in sessions.
         if (window._tpRaceDayPoll) clearInterval(window._tpRaceDayPoll);
@@ -8985,64 +9024,28 @@ function renderCoachTraining(el) {
   } catch(e) { console.warn('renderCoachTraining:', e); }
 }
 
+// renderCoachTeam used to render a stripped-down second copy of the
+// Team page (hero, members list, feature toggles, two buttons). It
+// duplicated state with the canonical Team tab and was missing the
+// Edit Team / Add Co-Coach / Race Day controls — single source of
+// truth now lives in the Team tab's Coach Settings panel. Coach
+// bottom-tab "My Team" routes there instead.
 function renderCoachTeam(el) {
   if (!el) return;
-  const hasTeam = userProfile?.teamId && teamData;
-  if (!hasTeam) {
-    el.innerHTML = `<div class="empty-state" style="padding:32px 16px">
-      <div class="empty-state-title">No Team Yet</div>
-      <div class="empty-state-desc">Request a team from the Leaderboard tab to get started.</div>
-    </div>`;
-    return;
-  }
-  let html = `<div class="team-hero">
-    <div class="team-hero-title">${escHtml(teamData.name)}</div>
-    <div class="team-hero-code"><span>${teamData.code}</span></div>
-    <div class="team-hero-members">${teamMembers.length} member${teamMembers.length!==1?'s':''}</div>
-  </div>`;
-
-  // Members list
-  if (teamMembers.length > 0) {
-    html += `<div class="card card-pad" style="margin-bottom:10px"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Members (${teamMembers.length})</div><div style="display:flex;flex-direction:column;gap:0">`;
-    teamMembers.forEach(m => {
-      const tc = {basic:'#3b82f6',average:'#22c55e',intense:'#f97316'}[m.fitnessLevel]||'#3b82f6';
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div style="width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${escHtml((m.displayName||'?').charAt(0).toUpperCase())}</div>
-        <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(m.displayName||'Unknown')}</div>
-        <div style="font-size:11px;color:var(--muted-fg)">${m.yearLevel||'—'} · <span style="color:${tc}">${m.fitnessLevel||'basic'}</span></div></div>
-      </div>`;
-    });
-    html += '</div></div>';
-  }
-  // Feature toggles
-  html += `<div class="card card-pad" style="margin-bottom:10px">
-    <div style="font-size:13px;font-weight:600;margin-bottom:12px">Feature Toggles</div>
-    <div style="display:flex;flex-direction:column;gap:10px">${renderCoachFeatureToggles()}</div>
-  </div>`;
-
-  // Subteams
-  html += `<div style="display:flex;gap:8px;margin-bottom:8px">
-    <button class="btn btn-secondary" style="flex:1" id="coach-sub-manage">Manage Subteams</button>
-    <button class="btn" style="flex:1;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" id="coach-delete-team-btn">Delete Team</button>
-  </div>`;
-
-  el.innerHTML = html;
-  el.querySelectorAll('.coach-feat-toggle').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const feat = btn.dataset.feat;
-      const newVal = !btn.classList.contains('on');
-      btn.classList.toggle('on', newVal);
-      try {
-        if (db) await updateDoc(doc(db,'teams',userProfile.teamId),{['features.'+feat]:newVal});
-        if (!teamData.features) teamData.features = {};
-        teamData.features[feat] = newVal;
-      } catch(e) {}
-    });
-  });
-  el.querySelector('#coach-sub-manage')?.addEventListener('click', openManageSubteamsSheet);
-  el.querySelector('#coach-delete-team-btn')?.addEventListener('click', async () => {
-    await deleteTeam();
-    renderCoachPage();
+  el.innerHTML = `
+    <div class="empty-state" style="padding:32px 16px;text-align:center">
+      <div class="empty-state-title">Team management lives on the Team tab</div>
+      <div class="empty-state-desc" style="margin:8px auto 16px;max-width:320px">All your coach controls — Edit Team, Add Co-Coach, Manage Subteams, Feature Toggles, Race Day, Delete Team — are on the Team tab's Coach Settings panel.</div>
+      <button class="btn btn-primary" id="coach-go-team" style="min-width:180px">Open Team Tab</button>
+    </div>
+  `;
+  el.querySelector('#coach-go-team')?.addEventListener('click', () => {
+    currentPage = 'team';
+    lbSubTab = 'team';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === 'team'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    $('page-team')?.classList.add('active');
+    renderTeam();
   });
 }
 

@@ -564,7 +564,19 @@ function openEditDriver(idx,c) {
     rosterData[idx].notes=ctx.$('rd-enotes').value.trim();
     await saveRoster(); ctx.closeSheet(); renderRoster(c);
   });
-  ctx.$('rd-ed').addEventListener('click',async()=>{ rosterData.splice(idx,1); await saveRoster(); ctx.closeSheet(); renderRoster(c); });
+  ctx.$('rd-ed').addEventListener('click',async()=>{
+    const driverName = (rosterData[idx]?.name || 'this driver');
+    if (!confirm('Remove ' + driverName + ' from the roster? This can\'t be undone mid-race.')) return;
+    const removed = rosterData.splice(idx,1)[0];
+    const ok = await saveRoster();
+    if (!ok) {
+      // Roll back so the UI reflects truth.
+      rosterData.splice(idx, 0, removed);
+      return;
+    }
+    ctx.closeSheet();
+    renderRoster(c);
+  });
 }
 
 // ── Setup Tab ─────────────────────────────────────────────────────────────────
@@ -593,7 +605,14 @@ function renderSetup(c) {
   c.innerHTML=html;
 
   c.querySelectorAll('.rd-sf').forEach(inp=>inp.addEventListener('change',()=>{ setupFields[parseInt(inp.dataset.idx)].value=inp.value; }));
-  c.querySelectorAll('.rd-del-field').forEach(btn=>btn.addEventListener('click',async()=>{ setupFields.splice(parseInt(btn.dataset.idx),1); await saveSetupFields(); renderSetup(c); }));
+  c.querySelectorAll('.rd-del-field').forEach(btn=>btn.addEventListener('click',async()=>{
+    const i = parseInt(btn.dataset.idx);
+    const fName = setupFields[i]?.name || 'this field';
+    if (!confirm('Delete ' + fName + ' from setup?')) return;
+    const removed = setupFields.splice(i,1)[0];
+    try { await saveSetupFields(); renderSetup(c); }
+    catch(e) { setupFields.splice(i,0,removed); renderSetup(c); }
+  }));
   c.querySelector('#rd-add-field')?.addEventListener('click',()=>openAddField(c));
   c.querySelector('#rd-setup-save')?.addEventListener('click',async()=>{ await saveSetupFields(); ctx.showToast('Setup saved.','success'); });
 }
@@ -732,10 +751,9 @@ function renderStintTab(c) {
     }
   };
   refreshLive();
-  // Faster polling when there's an active rider so teammates see live laps
-  // ticking up; slower when nobody's riding (saves Firestore reads).
-  const adaptiveDelay = () => (Array.isArray(rosterData) && (typeof getRaceDayActive === 'function' ? false : false)) ? 20000 : 20000;
-  // Re-poll: 5s while at least one rider is live, else 20s.
+  // Re-poll: 5s while at least one rider is live, else 20s. (The previous
+  // adaptiveDelay helper was dead code — `false ? 20000 : 20000` always
+  // returned 20s. The real adaptive logic lives inside tick() below.)
   const tick = async () => {
     await refreshLive();
     if (!document.getElementById('rd-start-btn')) return;  // tab moved on
