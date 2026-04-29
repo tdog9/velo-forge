@@ -219,17 +219,16 @@ select.input:focus {
 }
 textarea.input { min-height: 72px; resize: vertical; line-height: 1.4; }
 
-/* Sub-tab strips — edge masking so off-screen tabs fade out instead of
-   hard-clipping at the gutter. Page gutter is 16px (#main-app > #content
-   padding) so the strip's first/last tab sit flush against that edge.
-   mask-image keeps the gradient on the visible scroll area only. */
+/* Sub-tab strips — sit flush against the page gutter. The previous edge
+   mask faded out the last visible tab label ("Pl…" instead of "Plans")
+   when the strip overflowed, which read as a UI bug. Hard clipping +
+   normal overflow-x:auto from the per-strip CSS is honest: users can
+   see the last label is partly hidden and swipe to scroll. */
 .fitness-sub-bar,
 .admin-tabs,
 .lb-sub-tabs {
   padding-left: 0;
   padding-right: 0;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
-          mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
 }
 
 /* In-app announcement toast — sits above the bottom tab bar so it never

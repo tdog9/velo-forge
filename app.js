@@ -1237,6 +1237,13 @@ let teamMembers = []; // [{uid, displayName, yearLevel, fitnessLevel, activePlan
 let teamUnsubscribe = null;  // onSnapshot disposer for live team updates
 let isAdmin = false;
 const ADMIN_EMAIL = 'hearn.tenny@icloud.com';
+// Default team that any new athlete signing in falls into when they don't
+// already belong to one. Ensures testers (Felix, Alison, etc.) and any
+// future student who signs up with no team code still see the team UI
+// instead of the empty "Join a team" state. Override at runtime via
+// globalSettings.defaultTeamId when a different team should be the
+// implicit destination.
+const DEFAULT_TEAM_ID = 'strava-club-1113130'; // Caulfield Grammar — HPR Team
 // Coach Pro entitlement check. The god-admin always has Pro; everyone else
 // must have coachProActive set true on their userProfile (the admin grants
 // this either via "Approve & Bill" once StoreKit ships, or "Grant Free" for
@@ -1609,8 +1616,21 @@ function openUserMenu() {
   overlay.classList.remove('hidden');
   overlay.style.display = '';
   if (userProfile) {
-    $('menu-name').textContent = userProfile.displayName || 'User';
-    $('menu-info').textContent = (userProfile.yearLevel || 'Y7') + ' · ' + capitalize(userProfile.fitnessLevel || 'basic') + ' tier';
+    const name = userProfile.displayName || 'User';
+    $('menu-name').textContent = name;
+    const initial = (name || currentUser?.email || 'U').trim().charAt(0).toUpperCase();
+    const av = $('menu-avatar');
+    if (av) av.textContent = initial;
+    $('menu-sub').textContent = (userProfile.yearLevel || 'Y7') + ' · ' + capitalize(userProfile.fitnessLevel || 'basic') + ' tier';
+    const teamEl = $('menu-team');
+    if (teamEl) {
+      if (userProfile.teamName) {
+        teamEl.textContent = userProfile.teamName;
+        teamEl.style.display = '';
+      } else {
+        teamEl.style.display = 'none';
+      }
+    }
   }
 }
 function closeUserMenu() {
@@ -3809,7 +3829,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
       </div>
       <button id="et-live-btn" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;border:1.5px solid var(--primary);background:rgba(249,115,22,.1);color:var(--primary);cursor:pointer">\u25b6 Live Mode</button>
     </div>
-    <div style="height:3px;background:var(--muted)"><div style="height:100%;width:${pct}%;background:var(--primary);border-radius:0 2px 2px 0;transition:width .3s"></div></div>`;
+    <div style="height:3px;background:var(--muted);border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--primary);transition:width .3s"></div></div>`;
     if (restTimerInterval && restSeconds > 0) {
       html += `<div style="padding:12px 16px;background:rgba(59,130,246,.08);border-bottom:1px solid rgba(59,130,246,.15);text-align:center">
         <div style="font-size:11px;font-weight:600;color:#3b82f6;margin-bottom:4px">REST</div>
@@ -3868,7 +3888,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
       <div style="flex:1;font-size:12px;color:var(--muted-fg)">${liveExIdx + 1} of ${exercises.length}</div>
       <div style="font-size:12px;font-weight:700;color:var(--primary)">${totalDone}/${totalS2} sets</div>
     </div>
-    <div style="height:3px;background:var(--muted)"><div style="height:100%;width:${(totalDone/totalS2)*100}%;background:var(--primary);transition:width .3s"></div></div>`;
+    <div style="height:3px;background:var(--muted);border-radius:99px;overflow:hidden"><div style="height:100%;width:${(totalDone/totalS2)*100}%;background:var(--primary);transition:width .3s"></div></div>`;
     if (restTimerInterval && restSeconds > 0) {
       html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
         <div style="font-size:14px;font-weight:600;color:#3b82f6;margin-bottom:8px">REST</div>
@@ -5027,8 +5047,12 @@ function renderWorkouts() {
     html += '</div>';
     // Strava API agreement: show "Powered by Strava" wherever Strava data is
     // surfaced. The Activities list mixes manual + GPS + Strava; we render
-    // attribution unconditionally when any Strava-sourced workout exists.
-    if (stravaCount > 0) {
+    // attribution whenever any row links to Strava — either imported from
+    // Strava (source === 'strava') or locally-tracked but synced to Strava
+    // (any workout with a stravaId), so every "View on Strava" link sits
+    // under a properly attributed list.
+    const anyStravaLinked = stravaCount > 0 || userWorkouts.some(w => w.stravaId);
+    if (anyStravaLinked) {
       html += `<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:10px 4px 0;font-size:10px;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">
         <span>Powered by</span>
         <svg viewBox="0 0 24 24" fill="#fc4c02" style="width:11px;height:11px" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
@@ -5934,11 +5958,12 @@ function renderTeam() {
   // "global" which made joining feel optional. Team-first.
   if (!['team', 'chat', 'global'].includes(lbSubTab)) lbSubTab = 'team';
   // Pill-style sub-tab strip: active gets primary bg + black text,
-  // inactive transparent + muted text.
+  // inactive transparent + muted text. Driven by .active class now —
+  // styles live in layout-fix.css, no inline overrides.
   document.querySelectorAll('.lb-sub-tab').forEach(btn => {
     const isActive = btn.dataset.lbSub === lbSubTab;
-    btn.style.background = isActive ? 'var(--primary)' : 'transparent';
-    btn.style.color = isActive ? 'var(--primary-fg)' : 'var(--muted-fg)';
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
   const tc = $('lb-team-content');
   const cc = $('lb-chat-content');
@@ -5951,7 +5976,20 @@ function renderTeam() {
     renderGlobalLeaderboard(gc);
     try { unsubscribeTeamChat(); } catch(e) {}
   } else if (lbSubTab === 'chat') {
-    if (cc) { cc.style.display = ''; renderTeamChatPanelInto(cc); }
+    if (cc) {
+      cc.style.display = '';
+      renderTeamChatPanelInto(cc);
+      // Subscribe ONCE per chat-tab entry. The callback patches the
+      // message list in place so an incoming message never wipes what
+      // the user is typing into the textarea. Was previously calling
+      // renderTeamChatPanelInto on every snapshot, which re-built the
+      // whole panel (composer included) and thrashed the input.
+      if (userProfile?.teamId && typeof subscribeTeamChat === 'function') {
+        subscribeTeamChat(userProfile.teamId, () => {
+          if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
+        });
+      }
+    }
   } else {
     tc.style.display = '';
     renderTeamTab(tc);
@@ -5975,19 +6013,83 @@ function renderTeamChatPanelInto(el) {
     : '<div style="text-align:center;padding:40px;color:var(--muted-fg)">Chat loading…</div>';
   el.innerHTML = `
     ${panel}
-    <div style="position:sticky;bottom:0;background:var(--bg);padding:8px 0;border-top:1px solid var(--border);margin-top:8px">
-      <div style="display:flex;gap:6px;align-items:flex-end">
-        <textarea id="team-chat-input" placeholder="Say hi to your team…" maxlength="500" rows="1" style="flex:1;resize:none;padding:10px 12px;border-radius:18px;border:1px solid var(--border);background:var(--card);color:var(--fg);font-size:14px;font-family:inherit;min-height:40px;max-height:120px"></textarea>
-        ${isCoachUser ? `<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted-fg);padding:0 4px"><input type="checkbox" id="team-chat-push" style="width:14px;height:14px">push</label>` : ''}
-        <button id="team-chat-send" class="btn btn-primary" aria-label="Send" style="padding:9px 14px;border-radius:18px;font-size:13px;font-weight:700;flex-shrink:0">Send</button>
+    <div class="msg-composer">
+      <div id="team-chat-error" class="msg-composer-error" hidden></div>
+      <div class="msg-composer-row">
+        <textarea id="team-chat-input" class="msg-composer-input" placeholder="Message your team…" maxlength="500" rows="1" aria-label="Type a message"></textarea>
+        ${isCoachUser ? `<label class="msg-composer-push" title="Send as push notification"><input type="checkbox" id="team-chat-push"><span>Push</span></label>` : ''}
+        <button id="team-chat-send" class="msg-composer-send" aria-label="Send" type="button">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
       </div>
-      <div style="font-size:10px;color:var(--muted-fg);text-align:center;padding-top:4px">Be kind. ${isCoachUser ? 'Tick "push" to send as a notification.' : 'Coaches can broadcast as a notification.'}</div>
+      <div class="msg-composer-hint">${isCoachUser ? 'Tick Push to also send as a notification.' : 'Coaches can broadcast as notifications.'}</div>
     </div>
   `;
   bindTeamChatPanel(el);
-  // Subscribe live updates.
-  if (typeof subscribeTeamChat === 'function') {
-    subscribeTeamChat(teamId, () => { if (currentPage === 'team' && lbSubTab === 'chat') renderTeamChatPanelInto(el); });
+  // Subscription is established by setLbSubTab when the chat tab opens.
+  // Don't subscribe here — re-subscribing on every paint causes the
+  // composer to lose focus + typed text on each new message.
+  // Auto-scroll to the newest message on first paint of the panel.
+  scrollChatToBottom();
+}
+
+// Scroll the page so the bottom of the chat thread sits just above the
+// composer. Called on initial paint and after a successful send.
+function scrollChatToBottom() {
+  const list = document.getElementById('team-chat-list');
+  if (!list) return;
+  const content = document.getElementById('content');
+  if (!content) return;
+  // The page-team layout: sub-tab bar (sticky top), chat panel below.
+  // We want the last bubble to land just above the sticky composer.
+  requestAnimationFrame(() => {
+    content.scrollTop = content.scrollHeight;
+  });
+}
+
+// Patch only the message list (`#team-chat-list`) inside the chat panel,
+// preserving the textarea, send button, and composer state. Falls back to
+// a full repaint when the list element isn't there yet (first paint or
+// empty-state transition).
+function refreshTeamChatList() {
+  const cc = document.getElementById('lb-chat-content');
+  if (!cc) return;
+  const list = cc.querySelector('#team-chat-list');
+  const messages = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+  // Empty cache: nothing to patch, and the empty-state placeholder is
+  // already painted from renderTeamChatPanelInto. Don't re-render — the
+  // textarea would lose focus + typed text every snapshot.
+  if (messages.length === 0) return;
+  // Going from empty-state → first message: no list element yet, do a
+  // single full repaint so the placeholder is replaced cleanly.
+  if (!list) { renderTeamChatPanelInto(cc); return; }
+  const isHeadCoachLocal = userProfile?.isCoach && teamData?.createdBy === currentUser?.uid;
+  const html = renderChatPanel(messages, { isCoach: isHeadCoachLocal, myUid: currentUser?.uid });
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const newList = tmp.firstElementChild;
+  if (!newList) return;
+  list.replaceWith(newList);
+  // Re-bind the per-message delete handlers that came in with the new HTML.
+  cc.querySelectorAll('.chat-msg-del').forEach(btn => {
+    if (btn._tpBound) return;
+    btn._tpBound = true;
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm('Delete this message?')) return;
+      const id = btn.dataset.delId;
+      if (id) await deleteChatMessage(userProfile?.teamId, id);
+    });
+  });
+  // Auto-scroll to newest if the user was near the bottom of the page —
+  // don't yank them up the thread mid-scroll. The page (#content) is the
+  // scroll container, not the list itself.
+  const content = document.getElementById('content');
+  if (content) {
+    const distance = content.scrollHeight - content.scrollTop - content.clientHeight;
+    if (distance < 140) {
+      requestAnimationFrame(() => { content.scrollTop = content.scrollHeight; });
+    }
   }
 }
 // --- GLOBAL LEADERBOARD ---
@@ -6314,6 +6416,7 @@ function renderTeamTab(c) {
             ${renderCoachFeatureToggles()}
           </div>
         </div>
+        <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-edit-team-btn">Edit Team Details</button>
         <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-add-cocoach-btn">Add Co-Coach</button>
         <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" id="coach-manage-sub-btn">Manage Subteams</button>
         <button class="btn" style="width:100%;margin-bottom:8px;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" id="team-delete-btn">Delete Team</button>
@@ -6384,6 +6487,7 @@ function renderTeamTab(c) {
         } catch(e) { console.warn('feature toggle:', e); }
       });
     });
+    $('coach-edit-team-btn')?.addEventListener('click', openEditTeamSheet);
     $('coach-add-cocoach-btn')?.addEventListener('click', openAddCoCoachSheet);
     $('coach-manage-sub-btn')?.addEventListener('click', openManageSubteamsSheet);
     $('team-delete-btn')?.addEventListener('click', deleteTeam);
@@ -7247,8 +7351,8 @@ async function openCoachAthleteSheet(uid) {
             <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em">7-Day Compliance</span>
             <span style="font-size:11px;font-weight:700;color:${compliance.pct >= 80 ? '#22c55e' : compliance.pct >= 50 ? '#f59e0b' : '#ef4444'}">${compliance.done}/${compliance.scheduled} · ${compliance.pct}%</span>
           </div>
-          <div style="height:6px;background:var(--muted);border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${Math.min(100, compliance.pct)}%;background:${compliance.pct >= 80 ? '#22c55e' : compliance.pct >= 50 ? '#f59e0b' : '#ef4444'};border-radius:3px 0 0 3px;transition:width .3s"></div>
+          <div style="height:6px;background:var(--muted);border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${Math.min(100, compliance.pct)}%;background:${compliance.pct >= 80 ? '#22c55e' : compliance.pct >= 50 ? '#f59e0b' : '#ef4444'};transition:width .3s"></div>
           </div>
         </div>`
       : '<div style="margin-top:8px;font-size:11px;color:var(--muted-fg)">No checklist data yet — compliance fills in after they tick a session.</div>';
@@ -7297,8 +7401,10 @@ async function openCoachAthleteSheet(uid) {
   $('coach-athlete-close')?.addEventListener('click', closeSheet);
   $('coach-athlete-msg')?.addEventListener('click', () => {
     closeSheet();
-    // Switch to Chat sub-tab + prefill mention
-    window._teamSubTab = 'chat';
+    // Switch to Chat sub-tab + prefill mention. Was setting
+    // window._teamSubTab, which renderTeam never read — clicking
+    // "Message" silently stayed on the Members tab.
+    lbSubTab = 'chat';
     renderTeam();
     setTimeout(() => {
       const ta = document.getElementById('team-chat-input');
@@ -7369,25 +7475,6 @@ function openPlanPickerForAthlete(uid, member) {
   $('coach-plan-back')?.addEventListener('click', () => openCoachAthleteSheet(uid));
 }
 
-/// Bind the team-page sub-tab strip (Members / Chat / Global). Called after
-/// renderTeamTab paints the strip; toggling a tab re-renders renderTeam().
-function bindTeamSubTabSwitcher(c) {
-  c.querySelectorAll('.team-subtab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const next = btn.dataset.teamSub;
-      if (window._teamSubTab === next) return;
-      window._teamSubTab = next;
-      // Subscribe to live chat when entering chat tab; unsubscribe when leaving.
-      if (next === 'chat' && userProfile?.teamId) {
-        try { subscribeTeamChat(userProfile.teamId, () => { if (currentPage === 'team' && window._teamSubTab === 'chat') renderTeam(); }); } catch(e) {}
-      } else {
-        try { unsubscribeTeamChat(); } catch(e) {}
-      }
-      renderTeam();
-    });
-  });
-}
-
 /// Wire the chat composer + per-message delete buttons after the chat panel
 /// renders. Safe to call multiple times (re-bind on every render).
 function bindTeamChatPanel(c) {
@@ -7400,25 +7487,96 @@ function bindTeamChatPanel(c) {
     ta.addEventListener('input', grow);
     setTimeout(grow, 0);
   }
-  c.querySelector('#team-chat-send')?.addEventListener('click', async () => {
+  const sendBtn = c.querySelector('#team-chat-send');
+  const errBox = c.querySelector('#team-chat-error');
+  const showErr = (msg) => {
+    if (!errBox) return;
+    errBox.textContent = msg;
+    errBox.hidden = false;
+  };
+  const clearErr = () => {
+    if (!errBox) return;
+    errBox.textContent = '';
+    errBox.hidden = true;
+  };
+  // Pre-flight diagnostic so a silent fail can't masquerade as "the
+  // button does nothing". We try a cheap path that exercises the same
+  // permission a chat write needs — if Firestore can't even verify
+  // membership, we surface that immediately rather than discover it on send.
+  const preflight = () => {
+    if (!currentUser) return 'Not signed in.';
+    if (!userProfile?.teamId) return 'No team yet — join or create one before chatting.';
+    if (!teamData) return 'Team data still loading — give it a second.';
+    const members = Array.isArray(teamData.members) ? teamData.members : [];
+    if (!members.includes(currentUser.uid)) {
+      return 'You are not in this team\'s members list yet. Open Team → tap your team to refresh.';
+    }
+    return null;
+  };
+  ta?.addEventListener('input', clearErr);
+  sendBtn?.addEventListener('click', async () => {
     const text = (ta?.value || '').trim();
     if (!text) return;
-    if (!isMessageClean(text)) {
-      showToast('Message blocked — please keep it clean.', 'warn');
+    clearErr();
+    const pre = preflight();
+    if (pre) { showErr(pre); console.warn('[chat] preflight blocked:', pre); return; }
+    // Coaches and admins skip the school-context profanity filter at the
+    // UI layer too — the same filter sits in the underlying send
+    // functions, but we don't want to block their tap before getting there.
+    const isCoachUser = !!userProfile?.isCoach;
+    const isAdminUser = !!isAdmin;
+    if (!isCoachUser && !isAdminUser && !isMessageClean(text)) {
+      showErr('Message blocked — keep it clean.');
       return;
     }
-    const isCoachUser = !!userProfile?.isCoach;
+    if (sendBtn.dataset.sending === '1') return; // prevent double-send
+    sendBtn.dataset.sending = '1';
+    sendBtn.disabled = true;
+    sendBtn.style.opacity = '0.55';
     const pushChecked = !!c.querySelector('#team-chat-push')?.checked;
     let ok = false;
-    if (isCoachUser && pushChecked) {
-      if (!confirm('Send this as a push notification to every team member?')) return;
-      ok = await sendCoachBroadcast(teamId, text, { push: true });
-    } else if (isCoachUser) {
-      ok = await sendCoachBroadcast(teamId, text, { push: false });
-    } else {
-      ok = await sendChatMessage(teamId, text);
+    try {
+      if (isCoachUser && pushChecked) {
+        if (!confirm('Send this as a push notification to every team member?')) {
+          ok = false;
+        } else {
+          ok = await sendCoachBroadcast(teamId, text, { push: true });
+        }
+      } else if (isCoachUser) {
+        ok = await sendCoachBroadcast(teamId, text, { push: false });
+      } else {
+        ok = await sendChatMessage(teamId, text);
+      }
+    } catch (err) {
+      console.error('[chat] send handler threw:', err);
+      showErr('Send failed: ' + (err?.message || 'unknown error'));
+      ok = false;
+    } finally {
+      sendBtn.dataset.sending = '';
+      sendBtn.disabled = false;
+      sendBtn.style.opacity = '';
     }
-    if (ok && ta) { ta.value = ''; ta.style.height = 'auto'; }
+    if (ok && ta) {
+      ta.value = '';
+      ta.style.height = 'auto';
+      clearErr();
+      // Always scroll to the freshly-sent message — user is unambiguously
+      // at the end of the thread when they send.
+      try { scrollChatToBottom(); } catch(e) {}
+    } else if (!ok && !errBox?.textContent) {
+      // sendCoachBroadcast / sendChatMessage already log + toast. Mirror
+      // the most-recent toast text into the inline error bar so the user
+      // sees the cause even if the toast scrolled off.
+      showErr('Send failed. Check your connection or try again.');
+    }
+  });
+  // Send on Enter (Shift+Enter inserts a newline). Mobile keyboards that
+  // submit on Enter feel right; long messages can use Shift+Enter.
+  ta?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      c.querySelector('#team-chat-send')?.click();
+    }
   });
   // Per-message delete (author or head coach only)
   c.querySelectorAll('.chat-msg-del').forEach(btn => {
@@ -7429,10 +7587,6 @@ function bindTeamChatPanel(c) {
       if (id) await deleteChatMessage(teamId, id);
     });
   });
-  // Auto-subscribe if not already
-  if (typeof subscribeTeamChat === 'function' && getTeamChatCache().length === 0) {
-    subscribeTeamChat(teamId, () => { if (currentPage === 'team' && window._teamSubTab === 'chat') renderTeam(); });
-  }
 }
 
 async function renderTeamSearchResults(container, query) {
@@ -7504,6 +7658,60 @@ function renderCoachFeatureToggles() {
       <button class="admin-toggle coach-feat-toggle ${enabled ? 'on' : ''}" data-feat="${f.id}" aria-label="Toggle ${f.label}"></button>
     </div>`;
   }).join('');
+}
+
+// Edit core team details — name, description, and the share blurb that
+// goes out with Invite. Only the head coach (createdBy) can save. Code
+// is shown read-only because it identifies the team across the app.
+function openEditTeamSheet() {
+  if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
+  if (teamData.createdBy !== currentUser?.uid) {
+    showToast('Only the head coach can edit team details.', 'warn');
+    return;
+  }
+  const cur = {
+    name: teamData.name || '',
+    description: teamData.description || '',
+    inviteBlurb: teamData.inviteBlurb || '',
+  };
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">Edit Team</div>
+    <p style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">Changes appear instantly for every member.</p>
+    <label style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Team name</label>
+    <input class="input" id="edit-team-name" type="text" maxlength="60" value="${escHtml(cur.name)}" style="margin:6px 0 14px">
+    <label style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Description</label>
+    <textarea class="input" id="edit-team-desc" rows="3" maxlength="240" placeholder="Short description shown on the team header (optional)" style="margin:6px 0 14px;resize:vertical;font-family:inherit">${escHtml(cur.description)}</textarea>
+    <label style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Invite blurb</label>
+    <textarea class="input" id="edit-team-blurb" rows="2" maxlength="280" placeholder="Custom message included when sharing the join code (optional)" style="margin:6px 0 14px;resize:vertical;font-family:inherit">${escHtml(cur.inviteBlurb)}</textarea>
+    <div style="font-size:11px;color:var(--muted-fg);margin-bottom:6px">Team code <span style="font-family:var(--font-mono);color:var(--fg);font-weight:700">${escHtml(teamData.code || '')}</span> · cannot be changed</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-secondary" style="flex:1" id="edit-team-cancel">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="edit-team-save">Save</button>
+    </div>
+  `;
+  openSheet();
+  $('edit-team-cancel')?.addEventListener('click', closeSheet);
+  $('edit-team-save')?.addEventListener('click', async () => {
+    const name = ($('edit-team-name')?.value || '').trim();
+    const description = ($('edit-team-desc')?.value || '').trim();
+    const inviteBlurb = ($('edit-team-blurb')?.value || '').trim();
+    if (!name || name.length < 2) { showToast('Team name is required.', 'warn'); return; }
+    try {
+      await updateDoc(doc(db, 'teams', teamData.id), { name, description, inviteBlurb });
+      teamData.name = name;
+      teamData.description = description;
+      teamData.inviteBlurb = inviteBlurb;
+      if (userProfile.teamName !== name) {
+        userProfile.teamName = name;
+        try { await updateDoc(doc(db, 'users', currentUser.uid), { teamName: name }); } catch(e) {}
+      }
+      closeSheet();
+      showToast('Team updated.', 'success');
+      renderTeam();
+    } catch(e) {
+      showError('Failed to save team', 'team', e, { action: 'edit' });
+    }
+  });
 }
 
 // --- Manage Subteams ---
@@ -8078,6 +8286,68 @@ async function loadUserProfile(uid) {
     };
   }
 }
+
+// Auto-place a signed-in athlete into the default team when they have no
+// team yet, AND self-heal the case where the user has a teamId set on
+// their profile but isn't actually in the team's `members[]` array — a
+// drift state that breaks every team-scoped Firestore rule (chat sends,
+// roster reads, etc.). Re-adding their uid is permitted by the team
+// update rule for self-join.
+async function ensureDefaultTeamMembership() {
+  if (!db || !currentUser || !userProfile) return;
+  // Path A: user has a teamId — make sure they're in members[].
+  if (userProfile.teamId) {
+    try {
+      const tref = doc(db, 'teams', userProfile.teamId);
+      const tsnap = await getDoc(tref);
+      if (!tsnap.exists()) {
+        // Team was deleted out from under them — clear their teamId so
+        // the join-team UI re-appears next render.
+        await updateDoc(doc(db, 'users', currentUser.uid), { teamId: null, teamName: null });
+        userProfile.teamId = null;
+        userProfile.teamName = null;
+        console.warn('[auto-join] team referenced by profile no longer exists; cleared teamId.');
+        return;
+      }
+      const td = tsnap.data();
+      const members = Array.isArray(td.members) ? td.members : [];
+      if (!members.includes(currentUser.uid)) {
+        console.warn('[auto-join] uid missing from team.members; adding.', { teamId: userProfile.teamId, uid: currentUser.uid });
+        await updateDoc(tref, { members: arrayUnion(currentUser.uid) });
+        // Drop the stale 5-minute team cache so the next loadTeamData
+        // pulls fresh members[] including this uid.
+        try {
+          localStorage.removeItem('tp_team_' + userProfile.teamId);
+          localStorage.removeItem('tp_team_ts_' + userProfile.teamId);
+        } catch(e) {}
+      }
+      // Mirror the team name back onto the user profile if it drifted.
+      if (td.name && td.name !== userProfile.teamName) {
+        await updateDoc(doc(db, 'users', currentUser.uid), { teamName: td.name });
+        userProfile.teamName = td.name;
+      }
+    } catch(e) { console.warn('[auto-join] members self-heal failed:', e); }
+    return;
+  }
+  // Path B: no team — drop them into the default team. Skip coach +
+  // parent accounts because they manage their own membership.
+  if (userProfile.isCoach) return;
+  if (userProfile.role === 'parent') return;
+  const tid = (globalSettings && globalSettings.defaultTeamId) || DEFAULT_TEAM_ID;
+  if (!tid) return;
+  try {
+    const teamSnap = await getDoc(doc(db, 'teams', tid));
+    if (!teamSnap.exists()) return;
+    const td = teamSnap.data();
+    await updateDoc(doc(db, 'teams', tid), { members: arrayUnion(currentUser.uid) });
+    await updateDoc(doc(db, 'users', currentUser.uid), { teamId: tid, teamName: td.name });
+    userProfile.teamId = tid;
+    userProfile.teamName = td.name;
+  } catch(e) {
+    console.warn('[auto-join] default team failed:', e);
+  }
+}
+
 // Auth State Observer
 // Build context object for sub-modules (admin.js, strava.js)
 // Uses getters so modules always read fresh state
@@ -8363,6 +8633,10 @@ function startApp() {
       if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && !userProfile?.isCoach && db) {
         try { await updateDoc(doc(db,'users',user.uid),{isCoach:true}); if(userProfile) userProfile.isCoach=true; } catch(e){ logError('set-master-coach', e, { uid: user.uid }); }
       }
+      // Auto-place teamless athletes into the default team. Runs every
+      // sign-in so testers who got their teamId stripped (or never had
+      // one) self-heal.
+      try { await ensureDefaultTeamMembership(); } catch(e) { logError('ensure-default-team', e, { uid: user.uid }); }
       // PHASE 2: Show the app NOW — don't wait for all data
       hideLoading();
       if (window.location.search.includes('code=')) {

@@ -962,7 +962,7 @@ select.input{
 /* User menu */
 .user-avatar{width:34px;height:34px;border-radius:50%;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;border:none}
 .user-menu-btn{position:relative}
-.user-menu-overlay{position:fixed;inset:0;z-index:90;background:transparent}
+.user-menu-overlay{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.32);transition:opacity .15s ease}
 .user-menu{
   position:fixed;
   top:calc(var(--header-h) + var(--safe-t) + 6px);
@@ -1125,10 +1125,16 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .persona-pick{font-size:12px;font-weight:600;padding:8px 12px;border-radius:99px;background:transparent;color:var(--fg);border:1px solid var(--border);cursor:pointer;transition:all .15s}
 .persona-pick.active{background:rgba(249,115,22,.15);color:var(--primary);border-color:var(--primary)}
 .persona-pick:active{transform:scale(.96)}
-.chart-row{display:flex;align-items:flex-end;justify-content:center;gap:6px;height:104px;margin-bottom:4px;padding:0 4px}
-.chart-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;max-width:48px;overflow:hidden}
+.chart-row{display:flex;align-items:flex-end;justify-content:center;gap:6px;height:120px;margin-bottom:4px;padding:0 4px}
+.chart-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;max-width:48px}
 .chart-label{font-size:9px;color:var(--muted-fg);margin-top:3px}
-.chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:100%;overflow:hidden}
+/* Wrap holds the value chip + bar, stacked. No overflow:hidden so the
+   chip never gets clipped when the bar reaches near full height. The bar
+   itself is the only thing that needs clipping (its top corners are
+   already rounded), so we cap bar height generously below. */
+.chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:100%;gap:2px;min-height:0}
+.chart-bar-val{font-size:9px;font-weight:700;color:var(--fg);min-height:11px;line-height:11px}
+.chart-bar{max-height:80px}
 
 /* ===== Personal Bests ===== */
 .pb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -1368,7 +1374,12 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 /* ===== Activity badge ===== */
 .activity-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap}
 
-.fitness-sub-bar-sticky{position:sticky;top:calc(var(--header-h) + var(--safe-t));z-index:20;background:var(--bg);padding:8px 0 6px;margin:-8px 0 0;}
+/* Header is outside #content (the scroll container), so sticky offset must
+   be 0 — top:header-h would leave a phantom gap below the real header and
+   let scrolling content slide under the bar. The earlier definition at the
+   top of this file already has top:0; this rule used to override it with
+   the wrong value, causing all fitness/demos sub-tabs to overlap content. */
+.fitness-sub-bar-sticky{position:sticky;top:0;z-index:20;background:var(--bg);padding:8px 0 6px;margin:-8px 0 0;}
 
 .modal-btn.primary{background:var(--primary);color:var(--primary-fg)}
 .modal-btn.secondary{background:var(--surface);color:var(--fg);border:1px solid var(--border)}

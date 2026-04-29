@@ -183,13 +183,17 @@
   </header>
 
   <div id="user-menu-overlay" class="user-menu-overlay hidden" style="display:none"></div>
-  <div id="user-menu" class="user-menu hidden" style="display:none">
-    <div class="user-menu-name" id="menu-name"></div>
-    <div class="user-menu-info" id="menu-info"></div>
-    <div class="user-menu-divider"></div>
-    <button class="user-menu-btn" id="profile-menu-btn" style="color:var(--fg)">Profile & Settings</button>
-    <div class="user-menu-divider"></div>
-    <button class="user-menu-btn" id="logout-btn">Log Out</button>
+  <div id="user-menu" class="user-menu hidden" style="display:none" role="menu" aria-label="Account menu">
+    <div class="user-menu-header">
+      <div class="user-menu-av" id="menu-avatar" aria-hidden="true">U</div>
+      <div class="user-menu-id">
+        <div class="user-menu-name" id="menu-name"></div>
+        <div class="user-menu-sub" id="menu-sub"></div>
+        <div class="user-menu-team" id="menu-team"></div>
+      </div>
+    </div>
+    <button class="user-menu-btn" id="profile-menu-btn" role="menuitem">Profile &amp; Settings</button>
+    <button class="user-menu-btn user-menu-danger" id="logout-btn" role="menuitem">Log Out</button>
   </div>
 
   <div id="profile-overlay" class="profile-overlay" style="display:none">
@@ -226,10 +230,12 @@
     <div id="page-admin" class="page"><div id="admin-content"></div></div>
     <div id="page-coach" class="page"><div id="coach-content"></div></div>
     <div id="page-team" class="page">
-      <div class="team-tab-bar" style="display:flex;justify-content:center;gap:6px;padding:8px 0 12px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10">
-        <button class="lb-sub-tab active" data-lb-sub="team" style="padding:8px 18px;border:none;background:none;border-radius:99px;font-size:13px;font-weight:700;color:var(--primary);cursor:pointer;letter-spacing:.02em">Team</button>
-        <button class="lb-sub-tab" data-lb-sub="chat" style="padding:8px 18px;border:none;background:none;border-radius:99px;font-size:13px;font-weight:700;color:var(--muted-fg);cursor:pointer;letter-spacing:.02em">Chat</button>
-        <button class="lb-sub-tab" data-lb-sub="global" style="padding:8px 18px;border:none;background:none;border-radius:99px;font-size:13px;font-weight:700;color:var(--muted-fg);cursor:pointer;letter-spacing:.02em">Global</button>
+      <div class="team-tab-bar">
+        <div class="team-tab-strip" role="tablist" aria-label="Team views">
+          <button class="lb-sub-tab active" data-lb-sub="team" role="tab" aria-selected="true">Team</button>
+          <button class="lb-sub-tab" data-lb-sub="chat" role="tab" aria-selected="false">Chat</button>
+          <button class="lb-sub-tab" data-lb-sub="global" role="tab" aria-selected="false">Global</button>
+        </div>
       </div>
       <div id="lb-team-content"></div>
       <div id="lb-chat-content" style="display:none"></div>

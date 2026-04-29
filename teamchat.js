@@ -62,9 +62,22 @@ export function getTeamChatCache() { return chatCache; }
 
 /// Athlete sends a chat message (silent — no push).
 export async function sendChatMessage(teamId, text) {
-  if (!A.db || !A.currentUser || !teamId) return false;
+  if (!A.db || !A.currentUser || !teamId) {
+    console.warn('[chat] send aborted — missing context', { hasDb: !!A.db, hasUser: !!A.currentUser, teamId });
+    A.showToast?.('Not signed in or no team yet.', 'error');
+    return false;
+  }
   const trimmed = String(text || '').trim();
-  if (!isMessageClean(trimmed)) {
+  if (trimmed.length === 0) return false;
+  if (trimmed.length > 500) {
+    A.showToast?.('Message too long (500 max).', 'warn');
+    return false;
+  }
+  // Coaches and admins skip the school-context profanity filter — they
+  // need to be able to broadcast plainly without the filter false-flagging
+  // ordinary words ("ass" inside "passion", "Scunthorpe", etc.).
+  const bypassFilter = !!A.userProfile?.isCoach || !!A.isAdmin;
+  if (!bypassFilter && !isMessageClean(trimmed)) {
     A.showToast?.('Message blocked — keep it clean.', 'warn');
     return false;
   }
@@ -78,20 +91,36 @@ export async function sendChatMessage(teamId, text) {
     });
     return true;
   } catch(e) {
-    A.showToast?.('Couldn\'t send: ' + (e?.message || 'unknown'), 'error');
-    return false;
+    console.error('[chat] sendChatMessage failed:', e);
+    const msg = (e?.code === 'permission-denied')
+      ? 'Server rejected the message — your account is not in the team\'s members list. Reload the app.'
+      : ('Couldn\'t send: ' + (e?.message || 'unknown error'));
+    A.showToast?.(msg, 'error');
+    // Throw so the click handler can surface this in the inline error bar.
+    const err = new Error(msg);
+    err.code = e?.code;
+    throw err;
   }
 }
 
 /// Coach broadcast — same path, but kind:'coach' AND optionally fires a
 /// push notification to all team members.
 export async function sendCoachBroadcast(teamId, text, { push = false } = {}) {
-  if (!A.db || !A.currentUser || !teamId) return false;
-  const trimmed = String(text || '').trim();
-  if (!isMessageClean(trimmed)) {
-    A.showToast?.('Message blocked — keep it clean.', 'warn');
+  if (!A.db || !A.currentUser || !teamId) {
+    console.warn('[chat] coach broadcast aborted — missing context', { hasDb: !!A.db, hasUser: !!A.currentUser, teamId });
+    A.showToast?.('Not signed in or no team yet.', 'error');
     return false;
   }
+  const trimmed = String(text || '').trim();
+  if (trimmed.length === 0) return false;
+  if (trimmed.length > 500) {
+    A.showToast?.('Message too long (500 max).', 'warn');
+    return false;
+  }
+  // Coaches always bypass the profanity filter — they're posting under
+  // their own name and a school context will moderate by accountability,
+  // not by automated word-list (which trips on "Scunthorpe" / "ass" in
+  // "passion" anyway).
   try {
     await A.addDoc(A.collection(A.db, 'teams', teamId, 'chat'), {
       uid: A.currentUser.uid,
@@ -127,8 +156,14 @@ export async function sendCoachBroadcast(teamId, text, { push = false } = {}) {
     }
     return true;
   } catch(e) {
-    A.showToast?.('Couldn\'t broadcast: ' + (e?.message || 'unknown'), 'error');
-    return false;
+    console.error('[chat] sendCoachBroadcast failed:', e);
+    const msg = (e?.code === 'permission-denied')
+      ? 'Firestore rejected this — your account is not in the team\'s members[] array. Reload the app to self-heal, or check rules in Firebase Console.'
+      : ('Couldn\'t broadcast: ' + (e?.message || 'unknown error'));
+    A.showToast?.(msg, 'error');
+    const err = new Error(msg);
+    err.code = e?.code;
+    throw err;
   }
 }
 
@@ -173,77 +208,131 @@ export async function deleteChatMessage(teamId, messageId) {
   catch(e) { A.showToast?.('Couldn\'t delete.', 'error'); }
 }
 
-/// Render the chat panel HTML.
+// Render the chat thread as an iOS Messages-style feed:
+// - day separators (Today / Yesterday / dated)
+// - sender-side aligned bubbles (mine right, others left, with avatar)
+// - grouping of consecutive same-sender messages within 3 min: only the
+//   first shows the author name, only the last shows the timestamp
+// - workout posts and coach broadcasts render as centered events (system
+//   messages), so they don't compete with the conversational bubbles.
 export function renderChatPanel(messages, opts = {}) {
   const isCoach = !!opts.isCoach;
   const myUid = opts.myUid || '';
   if (!messages || messages.length === 0) {
-    return `<div style="padding:30px 20px;text-align:center;color:var(--muted-fg);font-size:13px">
-      <div style="font-size:32px;margin-bottom:8px">💬</div>
-      <div style="font-weight:600;color:var(--fg);margin-bottom:4px">No messages yet</div>
-      <div>Be the first to say hi or log a workout — your team sees it here.</div>
+    return `<div class="msg-empty">
+      <div class="msg-empty-icon">💬</div>
+      <div class="msg-empty-title">No messages yet</div>
+      <div class="msg-empty-sub">Be the first to say hi — your team sees it here.</div>
     </div>`;
   }
   // Newest at the bottom — flip order for natural chat feel.
   const ordered = [...messages].reverse();
-  const html = ordered.map(m => renderChatMessage(m, { isCoach, myUid })).join('');
-  return `<div id="team-chat-list" style="display:flex;flex-direction:column;gap:6px;padding:8px 4px 4px">${html}</div>`;
+  const GROUP_WINDOW_MS = 3 * 60 * 1000;
+  let html = '';
+  let prevDayKey = null;
+  let prevUid = null;
+  let prevKind = null;
+  let prevTs = 0;
+  ordered.forEach((m, i) => {
+    const date = toDate(m.createdAt);
+    const ts = date.getTime();
+    const dayKey = isNaN(ts) ? 0 : new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    if (dayKey !== prevDayKey) {
+      html += renderDaySep(date);
+      prevDayKey = dayKey;
+      prevUid = null;
+      prevTs = 0;
+    }
+    // First in group when sender / kind changes or time gap is too big.
+    const isFirstInGroup = m.uid !== prevUid || m.kind !== prevKind || (ts - prevTs) > GROUP_WINDOW_MS;
+    // Last in group when next message breaks the group (or there is no next on this day).
+    const next = ordered[i + 1];
+    let isLastInGroup = true;
+    if (next) {
+      const nextDate = toDate(next.createdAt);
+      const sameDay = !isNaN(nextDate) && nextDate.toDateString() === date.toDateString();
+      const nextSame = sameDay && next.uid === m.uid && next.kind === m.kind
+        && (nextDate.getTime() - ts) <= GROUP_WINDOW_MS;
+      if (nextSame) isLastInGroup = false;
+    }
+    html += renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGroup });
+    prevUid = m.uid;
+    prevKind = m.kind;
+    prevTs = ts;
+  });
+  return `<div id="team-chat-list" class="msg-list">${html}</div>`;
 }
 
-function renderChatMessage(m, { isCoach, myUid }) {
-  const isMine = m.uid === myUid;
-  const date = m.createdAt?.toDate?.() || (m.createdAt ? new Date(m.createdAt) : new Date());
-  const timeStr = isNaN(date) ? '' : date.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
-  const initials = (m.displayName || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-  const canDelete = isMine || isCoach;
+function toDate(raw) {
+  if (!raw) return new Date();
+  if (typeof raw.toDate === 'function') return raw.toDate();
+  return new Date(raw);
+}
 
+function renderDaySep(date) {
+  if (isNaN(date)) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const yest = new Date(today); yest.setDate(yest.getDate() - 1);
+  const d = new Date(date); d.setHours(0,0,0,0);
+  let label;
+  if (d.getTime() === today.getTime()) label = 'Today';
+  else if (d.getTime() === yest.getTime()) label = 'Yesterday';
+  else label = date.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+  return `<div class="msg-day-sep"><span>${label}</span></div>`;
+}
+
+function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGroup }) {
+  const isMine = m.uid === myUid;
+  const timeStr = isNaN(date) ? '' : date.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
+  const initials = (m.displayName || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '?';
+  const canDelete = isMine || isCoach;
+  const id = escHtml(m.id || '');
+
+  // Workout posts: centered event row, like an iMessage system notice.
   if (m.kind === 'workout') {
     const ws = m.workoutSummary || {};
-    const typeColor = (
-      ws.type === 'ride' || ws.type === 'cycle' ? '#3b82f6' :
-      ws.type === 'run' ? '#22c55e' :
-      ws.type === 'walk' ? '#a855f7' :
-      ws.type === 'hpv' ? '#f97316' :
-      'var(--muted-fg)'
-    );
-    return `<div class="chat-msg chat-msg-workout" data-msg-id="${escHtml(m.id || '')}" style="display:flex;gap:8px;padding:8px 10px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.18);border-radius:10px">
-      <div class="chat-avatar" style="width:28px;height:28px;border-radius:50%;background:${typeColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">${escHtml(initials)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">
-          <span style="font-size:12px;font-weight:700;color:var(--fg)">${escHtml(m.displayName || 'Member')}</span>
-          <span style="font-size:10px;color:#22c55e;font-weight:700;letter-spacing:.04em;text-transform:uppercase">workout</span>
-          <span style="font-size:10px;color:var(--muted-fg);margin-left:auto">${timeStr}</span>
-        </div>
-        <div style="font-size:13px;color:var(--fg);line-height:1.35">${escHtml(m.text || '')}${ws.hasMap ? ' <span style="color:var(--muted-fg);font-size:11px">· 🗺 route saved</span>' : ''}</div>
-      </div>
+    const route = ws.hasMap ? ' <span class="msg-event-meta">· route saved</span>' : '';
+    return `<div class="msg-event msg-event-workout" data-msg-id="${id}">
+      <span class="msg-event-actor">${escHtml(m.displayName || 'Member')}</span>
+      <span class="msg-event-text">${escHtml(m.text || 'logged a workout')}</span>${route}
     </div>`;
   }
 
+  // Coach broadcast: full-width banner with delete control if allowed.
   if (m.kind === 'coach') {
-    return `<div class="chat-msg chat-msg-coach" data-msg-id="${escHtml(m.id || '')}" style="display:flex;gap:8px;padding:8px 10px;background:rgba(249,115,22,.10);border:1px solid rgba(249,115,22,.30);border-radius:10px">
-      <div class="chat-avatar" style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">${escHtml(initials)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:2px">
-          <span style="font-size:12px;font-weight:700;color:var(--primary)">${escHtml(m.displayName || 'Coach')}</span>
-          <span style="font-size:10px;color:var(--primary);font-weight:700;letter-spacing:.04em;text-transform:uppercase">coach${m.broadcastPush ? ' · pushed' : ''}</span>
-          <span style="font-size:10px;color:var(--muted-fg);margin-left:auto">${timeStr}</span>
-          ${canDelete ? `<button class="chat-msg-del" data-del-id="${escHtml(m.id || '')}" aria-label="Delete message" style="background:none;border:none;color:var(--muted-fg);font-size:14px;cursor:pointer;padding:0 2px">×</button>` : ''}
-        </div>
-        <div style="font-size:13px;color:var(--fg);line-height:1.35;font-weight:500">${escHtml(m.text || '')}</div>
+    const delBtn = canDelete ? `<button class="msg-del chat-msg-del" data-del-id="${id}" aria-label="Delete">×</button>` : '';
+    return `<div class="msg-event msg-event-coach" data-msg-id="${id}">
+      <div class="msg-event-head">
+        <span class="msg-event-actor">${escHtml(m.displayName || 'Coach')}${m.broadcastPush ? ' · pushed' : ''}</span>
+        <span class="msg-event-time">${timeStr}</span>
+        ${delBtn}
       </div>
+      <div class="msg-event-body">${escHtml(m.text || '')}</div>
     </div>`;
   }
 
-  // Default — plain athlete chat.
-  return `<div class="chat-msg" data-msg-id="${escHtml(m.id || '')}" style="display:flex;gap:8px;padding:6px 10px;border-radius:10px${isMine ? ';background:rgba(249,115,22,.06)' : ''}">
-    <div class="chat-avatar" style="width:26px;height:26px;border-radius:50%;background:${isMine ? 'var(--primary)' : 'var(--muted)'};color:${isMine ? '#fff' : 'var(--fg)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${escHtml(initials)}</div>
-    <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:baseline;gap:6px">
-        <span style="font-size:12px;font-weight:600;color:var(--fg)">${escHtml(m.displayName || 'Member')}</span>
-        <span style="font-size:10px;color:var(--muted-fg);margin-left:auto">${timeStr}</span>
-        ${canDelete ? `<button class="chat-msg-del" data-del-id="${escHtml(m.id || '')}" aria-label="Delete message" style="background:none;border:none;color:var(--muted-fg);font-size:14px;cursor:pointer;padding:0 2px">×</button>` : ''}
-      </div>
-      <div style="font-size:13px;color:var(--fg);line-height:1.35">${escHtml(m.text || '')}</div>
+  // Standard chat bubble: aligned by sender, grouped, with optional tail.
+  const side = isMine ? 'msg-mine' : 'msg-other';
+  const groupCls = [isFirstInGroup ? 'msg-first' : '', isLastInGroup ? 'msg-last' : ''].filter(Boolean).join(' ');
+  const tailCls = isLastInGroup ? ' msg-bubble-tail' : '';
+  const delBtn = canDelete ? `<button class="msg-del chat-msg-del" data-del-id="${id}" aria-label="Delete">×</button>` : '';
+  const avatar = !isMine
+    ? (isFirstInGroup
+        ? `<div class="msg-avatar">${escHtml(initials)}</div>`
+        : `<div class="msg-avatar-spacer" aria-hidden="true"></div>`)
+    : '';
+  const author = !isMine && isFirstInGroup
+    ? `<div class="msg-author">${escHtml(m.displayName || 'Member')}</div>`
+    : '';
+  const meta = isLastInGroup
+    ? `<div class="msg-meta">${timeStr}</div>`
+    : '';
+  return `<div class="msg-row ${side} ${groupCls}" data-msg-id="${id}">
+    ${avatar}
+    <div class="msg-stack">
+      ${author}
+      <div class="msg-bubble${tailCls}">${escHtml(m.text || '')}${delBtn}</div>
+      ${meta}
     </div>
   </div>`;
 }
