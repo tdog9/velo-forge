@@ -795,18 +795,21 @@ function calcXp() {
   // Base XP: 10 per workout
   xp += userWorkouts.length * 10;
   // Daily 2x bonus: first workout each day gets bonus 10 XP
+  // Day-bucket workouts using local-day keys, not UTC — a workout
+  // logged 8 AM AEST (22:00 UTC the previous day) used to collapse
+  // into "yesterday" and the streak math missed it.
   const dailyDates = new Set();
   userWorkouts.forEach(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     if (d) {
-      const key = d.toISOString().split('T')[0];
+      const key = localDateKey(d);
       if (!dailyDates.has(key)) { dailyDates.add(key); xp += 10; } // +10 bonus for first workout of each day
     }
   });
-  // Streak calculation with freeze support
+  // Streak calculation with freeze support — same local-day rule.
   const dates = [...new Set(userWorkouts.map(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-    return d ? d.toISOString().split('T')[0] : null;
+    return d ? localDateKey(d) : null;
   }).filter(Boolean))].sort();
   let streak = 0, best = 0, cur = 0;
   let freezesEarned = 0, freezesUsed = 0;
@@ -923,7 +926,7 @@ function getEarnedBadges() {
 function calcStreak() {
   const dates = [...new Set(userWorkouts.map(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-    return d ? d.toISOString().split('T')[0] : null;
+    return d ? localDateKey(d) : null;
   }).filter(Boolean))].sort();
   let cur = 0, best = 0;
   dates.forEach((d, i) => {
@@ -2625,7 +2628,7 @@ function renderGoals() {
     else if (g.type === 'streak') {
       const dates = [...new Set(userWorkouts.map(w => {
         const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-        return d ? d.toISOString().split('T')[0] : null;
+        return d ? localDateKey(d) : null;
       }).filter(Boolean))].sort();
       let s = 0, c = 0;
       const today = new Date(); today.setHours(0,0,0,0);
@@ -2929,7 +2932,7 @@ function renderToday() {
   const weekDay = now.getDay(); // 0=Sun
   const lastSummaryWeek = localStorage.getItem('tp_summary_week');
   const summaryWeekStart = new Date(now); summaryWeekStart.setDate(now.getDate() - now.getDay() + 1); summaryWeekStart.setHours(0,0,0,0);
-  const thisWeekKey = summaryWeekStart.toISOString().split('T')[0];
+  const thisWeekKey = localDateKey(summaryWeekStart);
   if (totalWorkouts > 0 && lastSummaryWeek !== thisWeekKey) {
     // Compute last week stats
     const lwStart = new Date(summaryWeekStart); lwStart.setDate(lwStart.getDate() - 7);
@@ -3108,8 +3111,8 @@ function renderToday() {
   }
   // Daily Roundup Card
   if (isWidgetOn('engagement') && totalWorkouts > 0) {
-    const roundupToday = now.toISOString().split('T')[0];
-    const todaysWorkouts = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === roundupToday; });
+    const roundupToday = localDateKey(now);
+    const todaysWorkouts = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && localDateKey(d) === roundupToday; });
     const todayMins = todaysWorkouts.reduce((s, w) => s + (w.duration || 0), 0);
     const todayXp = todaysWorkouts.length * 10 + todaysWorkouts.filter(w => w.rpe).length * 5;
     // The earlier "Today's Roundup" card was deduplicated — the same
@@ -3144,7 +3147,7 @@ function renderToday() {
   }
   // Race countdown (compact, only next race)
   const allRaces = getActiveRaces();
-  const todayStr2 = now.toISOString().split('T')[0];
+  const todayStr2 = localDateKey(now);
   const futureRaces = allRaces.filter(r => r.date >= todayStr2).sort((a,b) => a.date.localeCompare(b.date));
   const nextRace = futureRaces[0];
   if (nextRace) {
@@ -3153,7 +3156,7 @@ function renderToday() {
     html += `<div class="today-race-row" style="margin-top:8px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span class="today-race-name">${escHtml(nextRace.name)}</span><span class="today-race-days"><strong>${diffDays}</strong>d</span></div>`;
   }
   // Upcoming training session
-  const todayStr3 = now.toISOString().split('T')[0];
+  const todayStr3 = localDateKey(now);
   const upcomingSessions = trainingSessions.filter(s => s.date >= todayStr3).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
   const nextSession = upcomingSessions[0];
   if (nextSession) {
@@ -3531,7 +3534,7 @@ function renderToday() {
   // header flex row, leaving stats + goal text orphaned in the DOM).
   $('dismiss-weekly')?.addEventListener('click', () => {
     const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay() + 1); ws.setHours(0,0,0,0);
-    localStorage.setItem('tp_summary_week', ws.toISOString().split('T')[0]);
+    localStorage.setItem('tp_summary_week', localDateKey(ws));
     $('dismiss-weekly')?.closest('.last-week-card')?.remove();
   });
   // Widget customization
@@ -9917,21 +9920,24 @@ function addSessionToCalendar(session) {
   const title = session.title || 'Training Session';
   const loc = session.location || '';
   const notes = session.notes || '';
-  // Format dates
-  const fmt = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const fmtLocal = d => d.toISOString().replace(/[-:]/g, '').split('.')[0];
+  // ICS / Google / Outlook formatters that emit FLOATING LOCAL time —
+  // was previously emitting UTC stamps (`.toISOString()`), which on
+  // AEST devices shifted a 4pm event to 6am the next day in the
+  // calendar. Floating times mean "use the device's local timezone"
+  // when the event is rendered, which is what users expect for a
+  // school training session at "16:00".
+  const pad = (n) => String(n).padStart(2, '0');
+  const floatLocal = (d) =>
+    d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + 'T' +
+    pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+  const fmt = floatLocal;       // for ICS DTSTART/DTEND (floating)
+  const fmtLocal = floatLocal;  // for Google's `dates=` param
   // Show calendar picker
   const content = `<div style="padding:4px 0">
     <div style="font-size:14px;font-weight:700;margin-bottom:12px">Add to Calendar</div>
-    <button class="btn cal-opt" data-cal="google" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer">
-      <span style="font-size:18px">📅</span> Google Calendar
-    </button>
-    <button class="btn cal-opt" data-cal="apple" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer">
-      <span style="font-size:18px">🍎</span> Apple Calendar (.ics)
-    </button>
-    <button class="btn cal-opt" data-cal="outlook" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer">
-      <span style="font-size:18px">📧</span> Outlook Calendar
-    </button>
+    <button class="btn cal-opt" data-cal="google" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);text-align:left;cursor:pointer">Google Calendar</button>
+    <button class="btn cal-opt" data-cal="apple" style="width:100%;padding:12px;margin-bottom:8px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);text-align:left;cursor:pointer">Apple Calendar (.ics)</button>
+    <button class="btn cal-opt" data-cal="outlook" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);text-align:left;cursor:pointer">Outlook Calendar</button>
   </div>`;
   $('sheet-content').innerHTML = content;
   openSheet();
