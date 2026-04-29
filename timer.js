@@ -40,6 +40,7 @@ let timerTotal = 0;
 let timerRunning = false;
 let timerExercises = [];
 let timerCurrentStep = -1;
+let timerWakeLock = null; // Retained sentinel so GC can't release the lock mid-workout.
 
 function playBeep(freq, dur, count) {
   try {
@@ -198,9 +199,13 @@ export function openWorkoutTimer(workoutName, durationMin, exercises) {
     renderTimerSteps();
   }
 
-  // Keep screen awake
+  // Keep screen awake. Retain the sentinel so closeWorkoutTimer can
+  // release it — was previously just throwing away the resolved value
+  // and the lock leaked for the rest of the tab's life.
   if (navigator.wakeLock) {
-    navigator.wakeLock.request('screen').catch(() => {});
+    navigator.wakeLock.request('screen')
+      .then(s => { timerWakeLock = s; })
+      .catch(() => {});
   }
 }
 
@@ -209,6 +214,9 @@ export function closeWorkoutTimer() {
   A.$('timer-overlay').style.display = 'none';
   timerExercises = [];
   timerCurrentStep = -1;
+  // Release the wake lock if we held one.
+  try { timerWakeLock?.release?.(); } catch(e) {}
+  timerWakeLock = null;
 }
 
 

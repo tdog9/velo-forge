@@ -128,7 +128,7 @@ export async function importGarminFile(file) {
     type: inferType(parsed.name, parsed.sport),
     duration: parsed.durMin || 0,
     distance: Number(parsed.distKm.toFixed(2)) || 0,
-    avgHeartRate: parsed.avgHr || null,
+    heartRate: parsed.avgHr || null, // schema-wide field is `heartRate`; was previously `avgHeartRate` so the HR pill never appeared on Garmin-imported cards
     date: A.Timestamp.fromDate(date),
     source: 'garmin',
     importedAt: A.serverTimestamp(),

@@ -5133,9 +5133,36 @@ function renderWorkouts() {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
       if (!id || !currentUser) return;
+      // Prune any local attachments for this workout — was previously
+      // leaking until the 30/80-key caps evicted *valid* attachments.
+      const w = userWorkouts.find(x => x._id === id);
+      try {
+        const photos = JSON.parse(localStorage.getItem('tp_photos') || '{}');
+        if (photos[id] || (w?.photoId && photos[w.photoId])) {
+          delete photos[id];
+          if (w?.photoId) delete photos[w.photoId];
+          localStorage.setItem('tp_photos', JSON.stringify(photos));
+        }
+      } catch(e) {}
+      try {
+        const routeKey = w?.routeId || (w?.stravaId ? 'strava-' + w.stravaId : null);
+        if (routeKey) {
+          const routes = JSON.parse(localStorage.getItem('vf_routes') || '{}');
+          if (routes[routeKey]) {
+            delete routes[routeKey];
+            localStorage.setItem('vf_routes', JSON.stringify(routes));
+          }
+        }
+      } catch(e) {}
       if (demoMode) { userWorkouts = userWorkouts.filter(w=>w._id!==id); renderWorkouts(); return; }
       if (!db) return;
-      try { await deleteDoc(doc(db, 'users', currentUser.uid, 'workouts', id)); } catch(e) { console.error('Delete error:', e); }
+      try {
+        await deleteDoc(doc(db, 'users', currentUser.uid, 'workouts', id));
+        showToast('Workout deleted.', 'info');
+      } catch(e) {
+        console.error('Delete error:', e);
+        showToast('Couldn\'t delete: ' + (e?.message || 'try again'), 'error');
+      }
     });
   });
   // Click card to open detail view
@@ -5347,9 +5374,28 @@ async function saveWorkout(rpe, photoData, workoutType) {
   try {
     const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
       name, type, duration, distance, heartRate, notes, rpe: rpeVal, ...extra,
+      // photoId was previously omitted from the online write — the
+      // optimistic in-memory entry had it but the snapshot replaced
+      // _id with the Firestore docRef.id, so storedPhotos[w._id]
+      // lookup permanently missed and the photo became invisible.
+      photoId: photoData ? workoutId : null,
       date: Timestamp.fromDate(dateObj),
       createdAt: serverTimestamp()
     });
+    // Re-key the photo under the Firestore doc id so a refresh + new
+    // snapshot finds it. Keeps the original key as well so the
+    // optimistic local entry still resolves until the listener fires.
+    if (photoData) {
+      try {
+        const photos = JSON.parse(localStorage.getItem('tp_photos') || '{}');
+        if (photos[workoutId]) {
+          photos[docRef.id] = photos[workoutId];
+          const keys = Object.keys(photos);
+          while (keys.length > 30) { delete photos[keys.shift()]; }
+          localStorage.setItem('tp_photos', JSON.stringify(photos));
+        }
+      } catch(e) {}
+    }
     hideLoading();
     const oldXp = calcXp();
     showToast('Workout logged!', 'success');
@@ -5366,23 +5412,38 @@ async function saveWorkout(rpe, photoData, workoutType) {
     if (stravaTokens?.access_token) {
       stravaUploadActivity({ name, type, duration, distance, date: dateObj }).then(async (sid) => {
         if (sid) {
-          try { await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid) }); } catch(e) { logError('strava-link-workout', e, { workoutId: docRef.id, stravaId: sid }); }
-          showToast('Synced to Strava!', 'success');
+          try {
+            // Idempotency: re-read the doc and skip the link if it
+            // already has a stravaId — an earlier upload may have
+            // succeeded but the network drop on the link write retried.
+            const cur = await getDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id));
+            if (cur.exists() && cur.data().stravaId) return;
+            await updateDoc(doc(db, 'users', currentUser.uid, 'workouts', docRef.id), { stravaId: String(sid) });
+            showToast('Synced to Strava!', 'success');
+          } catch(e) { logError('strava-link-workout', e, { workoutId: docRef.id, stravaId: sid }); }
         }
       });
     }
     autoUpdateChallengeScore(duration, 10 + (rpeVal ? 5 : 0));
   } catch(e) {
     hideLoading();
-    // Network error — queue offline
-    const queued = { name, type, duration, distance, heartRate, notes, rpe: rpeVal, date: dateObj.toISOString(), photoId: photoData ? workoutId : null, queuedAt: new Date().toISOString() };
-    try {
-      const queue = JSON.parse(localStorage.getItem('tp_offline_queue') || '[]');
-      queue.push(queued);
-      localStorage.setItem('tp_offline_queue', JSON.stringify(queue));
-    } catch(ex) {}
-    showToast('Saved offline — will sync when connected.', 'info');
-    userWorkouts.unshift({ _id: workoutId, ...queued, date: dateObj, createdAt: new Date() });
+    // If we're genuinely offline, queue it. If we're online and the
+    // write failed (auth, rules, quota), surface the actual error
+    // instead of a misleading "Saved offline" — the user has no idea
+    // why their workout never synced.
+    if (!navigator.onLine) {
+      const queued = { name, type, duration, distance, heartRate, notes, rpe: rpeVal, ...extra, date: dateObj.toISOString(), photoId: photoData ? workoutId : null, queuedAt: new Date().toISOString() };
+      try {
+        const queue = JSON.parse(localStorage.getItem('tp_offline_queue') || '[]');
+        queue.push(queued);
+        localStorage.setItem('tp_offline_queue', JSON.stringify(queue));
+      } catch(ex) {}
+      showToast('Saved offline — will sync when connected.', 'info');
+      userWorkouts.unshift({ _id: workoutId, ...queued, date: dateObj, createdAt: new Date() });
+    } else {
+      console.error('[saveWorkout] online error:', e);
+      showError('Couldn\'t save workout', 'workout', e, { action: 'save' });
+    }
   }
 }
 // Bottom Sheet
@@ -8470,12 +8531,25 @@ async function loadUserProfile(uid) {
     }
     profileUnsubscribe = onSnapshot(doc(db, 'users', uid), (refreshSnap) => {
       if (!refreshSnap.exists()) return;
-      const oldHealth = JSON.stringify(userProfile?.health || {});
       const newData = refreshSnap.data();
-      const newHealth = JSON.stringify(newData?.health || {});
-      if (oldHealth !== newHealth) {
+      // Was previously gating on `health` JSON only — every other field
+      // (activePlanId, teamId, teamName, displayName, isCoach, year/tier,
+      // notification prefs, coach Pro entitlement) was silently ignored
+      // until a manual page reload. So an admin's plan reassignment, a
+      // co-coach promotion, even renaming the team didn't reflect on
+      // the user's open session.
+      const importantKeys = [
+        'health', 'activePlanId', 'teamId', 'teamName', 'displayName',
+        'isCoach', 'yearLevel', 'fitnessLevel', 'role',
+        'coachProActive', 'coachProExempt', 'coachProRequestStatus',
+        'notificationPrefs', 'tutorialSeen',
+      ];
+      const oldKey = importantKeys.map(k => JSON.stringify(userProfile?.[k] ?? null)).join('|');
+      const newKey = importantKeys.map(k => JSON.stringify(newData?.[k] ?? null)).join('|');
+      if (oldKey !== newKey) {
         userProfile = newData;
-        if (currentPage === 'today') renderCurrentPage();
+        // Re-render whichever surface depends on this profile field.
+        try { renderCurrentPage(); } catch(e) {}
       }
     }, (err) => { console.warn('profile listener:', err); });
   } catch(e) {
@@ -8499,6 +8573,9 @@ async function loadUserProfile(uid) {
 async function ensureDefaultTeamMembership() {
   if (!db || !currentUser || !userProfile) return;
   // Path A: user has a teamId — make sure they're in members[].
+  // (This branch runs for every role including parent — earlier
+  // versions skipped parent and they were stuck with permission-denied
+  // toasts forever if they drifted out of members[].)
   if (userProfile.teamId) {
     try {
       const tref = doc(db, 'teams', userProfile.teamId);
@@ -10095,32 +10172,75 @@ function shouldShowTutorial() {
   if (userProfile?.tutorialSeen) return false;
   return true;
 }
-// Offline queue sync — flush queued workouts when back online
+// Offline queue sync — flush queued workouts when back online. Two
+// changes vs. the previous implementation:
+// 1) Persist the queue after EACH item, not after the loop, so a tab
+//    close mid-flush doesn't re-sync items that already wrote (which
+//    used to produce duplicates).
+// 2) Spread the entire queued payload through the addDoc so vehicle/
+//    location/laps/avgSpeed/pace/incline/photoId/exerciseNotes/
+//    activity all survive — they were silently dropped before.
+let _flushingOfflineQueue = false;
 async function flushOfflineQueue() {
   if (!db || !currentUser || demoMode) return;
+  if (_flushingOfflineQueue) return;
+  _flushingOfflineQueue = true;
   let queue = [];
-  try { queue = JSON.parse(localStorage.getItem('tp_offline_queue') || '[]'); } catch(e) { return; }
-  if (queue.length === 0) return;
+  try { queue = JSON.parse(localStorage.getItem('tp_offline_queue') || '[]'); } catch(e) { _flushingOfflineQueue = false; return; }
+  if (queue.length === 0) { _flushingOfflineQueue = false; return; }
   let synced = 0;
-  const remaining = [];
-  for (const w of queue) {
+  // Process in order, removing each item as it lands.
+  while (queue.length > 0) {
+    const w = queue[0];
+    const { date: dateRaw, queuedAt, ...rest } = w;
     try {
       await addDoc(collection(db, 'users', currentUser.uid, 'workouts'), {
-        name: w.name, type: w.type, duration: w.duration, distance: w.distance,
-        heartRate: w.heartRate, notes: w.notes, rpe: w.rpe,
-        date: Timestamp.fromDate(new Date(w.date)),
+        ...rest,
+        date: Timestamp.fromDate(new Date(dateRaw)),
         createdAt: serverTimestamp(),
-        source: 'offline'
+        source: rest.source || 'offline',
       });
       synced++;
+      queue.shift();
+      try { localStorage.setItem('tp_offline_queue', JSON.stringify(queue)); } catch(e) {}
     } catch(e) {
-      remaining.push(w);
+      // Stop on first failure — likely network is back-down or rules
+      // rejected. Leaving remaining items in the queue is safer than
+      // dropping them.
+      console.warn('[flushOfflineQueue] stopped after', synced, 'synced —', e);
+      break;
     }
   }
-  try { localStorage.setItem('tp_offline_queue', JSON.stringify(remaining)); } catch(e) {}
   if (synced > 0) showToast(synced + ' offline workout' + (synced > 1 ? 's' : '') + ' synced!', 'success');
+  _flushingOfflineQueue = false;
 }
 window.addEventListener('online', () => { setTimeout(flushOfflineQueue, 2000); });
+
+// Service worker tells us where to navigate when a notification is
+// tapped while the app is already open. Was previously just focusing
+// the existing window — coach-broadcast push never landed on chat.
+if (navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    const data = e?.data;
+    if (!data || data.type !== 'NAV') return;
+    try {
+      const url = new URL(data.url, location.origin);
+      const go = url.searchParams.get('go');
+      if (go === 'team-chat') {
+        currentPage = 'team';
+        lbSubTab = 'chat';
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === 'team'));
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        $('page-team')?.classList.add('active');
+        renderTeam();
+      } else if (go === 'race-day') {
+        try { openRaceDayOverlay(); } catch(err) {}
+      } else if (go === 'today') {
+        switchPage('today');
+      }
+    } catch(err) { console.warn('[sw nav] bad url:', err); }
+  });
+}
 // ── Offline indicator banner ──────────────────────────────────────────────
 // Show a thin amber banner at the top of the page when navigator.onLine
 // flips to false. Auto-removes when connection returns.

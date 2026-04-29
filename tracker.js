@@ -100,6 +100,9 @@ function startTracking() {
   trackerStartTime = Date.now() - (trackerElapsed * 1000);
   ctx.haptic('medium');
   try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(wl => { trackerWakeLock = wl; }).catch(() => {}); } catch(e) {}
+  // Defensive clear — fast double-tap on Resume used to schedule
+  // multiple intervals and the timer would tick twice per second.
+  if (trackerInterval) { try { clearInterval(trackerInterval); } catch(e) {} }
   trackerInterval = setInterval(updateTrackerDisplay, 1000);
   try {
     if (navigator.geolocation) {

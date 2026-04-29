@@ -135,9 +135,13 @@ function fitbitToWorkout(act) {
     name: act.activityName || 'Fitbit Activity',
     type: t,
     duration: durMin,
-    distance: act.distance || 0,
+    // Distance is meaningful for runs/rides/walks; gym/yoga get null so
+    // the card doesn't render a misleading "0 km" pill.
+    distance: (typeof act.distance === 'number' && act.distance > 0) ? act.distance : null,
     calories: act.calories || 0,
-    avgHeartRate: act.averageHeartRate || null,
+    // schema-wide field is `heartRate`; was `avgHeartRate` so the HR
+    // pill never appeared on Fitbit imports.
+    heartRate: act.averageHeartRate || null,
     date,
     source: 'fitbit',
     fitbitLogId: String(act.logId),

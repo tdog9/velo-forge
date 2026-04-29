@@ -16,7 +16,14 @@ const ASSETS_TO_CACHE = [
   '/timer.js',
   '/aifeatures.js',
   '/healthcheck.js',
-  '/raceday.js'
+  '/raceday.js',
+  // Modules added after this list was last hand-edited. Without these
+  // entries, first-install offline can't load chat / Garmin / Fitbit
+  // and the page hard-errors before the stale-while-revalidate fetch
+  // path covers them.
+  '/teamchat.js',
+  '/garmin.js',
+  '/fitbit.js'
 ];
 
 // Install: cache core assets, force activate immediately
@@ -37,15 +44,27 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Notification click handler
+// Notification click handler. Routes the user to the URL embedded in
+// the notification's data payload (e.g. /?go=team-chat) — even when an
+// existing window is already open. Was previously just focusing the
+// existing window without navigating, so a coach-broadcast push never
+// landed the user on the chat tab.
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      if (list.length > 0) { list[0].focus(); return; }
-      return self.clients.openWindow(e.notification.data?.url || '/');
-    })
-  );
+  const targetUrl = e.notification.data?.url || '/';
+  e.waitUntil((async () => {
+    const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (list.length > 0) {
+      const client = list[0];
+      try { await client.focus(); } catch(err) {}
+      // Tell the page to navigate. The page listens via
+      // navigator.serviceWorker.addEventListener('message') and routes
+      // to the right tab without a full reload.
+      try { client.postMessage({ type: 'NAV', url: targetUrl }); } catch(err) {}
+      return;
+    }
+    return self.clients.openWindow(targetUrl);
+  })());
 });
 
 // Fetch: network-first for API/Firebase, stale-while-revalidate for assets

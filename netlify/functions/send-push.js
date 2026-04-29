@@ -253,6 +253,23 @@ exports.handler = async (event) => {
     tokens.map(token => sendToToken({ token, payload: apnsPayload, jwt, bundleId, env }))
   );
   const delivered = results.filter(r => r.status === 'fulfilled').length;
+  // Refund the rate-limit count on TOTAL delivery failure — was
+  // previously consuming the cap on every call regardless of outcome,
+  // so a coach hitting an APNs outage 30 times got locked out for an
+  // hour despite zero successful pushes. Partial successes still
+  // consume one (rate-limiting is by call, not by recipient).
+  if (delivered === 0 && tokens.length > 0) {
+    try {
+      const rlRef = admin.firestore().collection('push_rate').doc(decoded.uid);
+      await admin.firestore().runTransaction(async tx => {
+        const snap = await tx.get(rlRef);
+        const cur = snap.exists ? (snap.data().count || 0) : 0;
+        if (cur > 0) tx.update(rlRef, { count: cur - 1 });
+      });
+    } catch (e) {
+      console.warn('rate-limit refund error:', e.message);
+    }
+  }
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json' },
