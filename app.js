@@ -1616,6 +1616,10 @@ function openUserMenu() {
   menu.style.display = '';
   overlay.classList.remove('hidden');
   overlay.style.display = '';
+  // Even before userProfile lands we can populate the avatar from auth —
+  // otherwise the markup default "U" stays in place on first open.
+  const seedInitial = ((userProfile?.displayName || currentUser?.displayName || currentUser?.email || 'U').trim().charAt(0) || 'U').toUpperCase();
+  try { const ma0 = $('menu-avatar'); if (ma0) ma0.textContent = seedInitial; } catch(e) {}
   if (!userProfile) return;
   // Guard every element — during a partial cache update (new HTML, stale
   // JS, or vice versa) any of these IDs could be missing. Set what we
@@ -7487,8 +7491,9 @@ function openPlanPickerForAthlete(uid, member) {
 /// Wire the chat composer + per-message delete buttons after the chat panel
 /// renders. Safe to call multiple times (re-bind on every render).
 function bindTeamChatPanel(c) {
-  const teamId = userProfile?.teamId;
-  if (!teamId) return;
+  // Don't capture teamId at bind time — auto-join can populate it after
+  // the chat panel renders and we'd be stuck with a null closure that
+  // makes the Send button silently no-op forever.
   // Auto-grow textarea
   const ta = c.querySelector('#team-chat-input');
   if (ta) {
@@ -7524,16 +7529,22 @@ function bindTeamChatPanel(c) {
   };
   ta?.addEventListener('input', clearErr);
   sendBtn?.addEventListener('click', async () => {
+    // Read teamId fresh on every click so a late auto-join doesn't leave
+    // us bound to a null closure. Same for the userProfile flags.
+    const teamId = userProfile?.teamId;
     const text = (ta?.value || '').trim();
     if (!text) return;
     clearErr();
     const pre = preflight();
     if (pre) { showErr(pre); console.warn('[chat] preflight blocked:', pre); return; }
-    // Coaches and admins skip the school-context profanity filter at the
-    // UI layer too — the same filter sits in the underlying send
-    // functions, but we don't want to block their tap before getting there.
+    if (!teamId) {
+      showErr('No team yet — give the auto-join a moment then try again.');
+      return;
+    }
     const isCoachUser = !!userProfile?.isCoach;
     const isAdminUser = !!isAdmin;
+    // Coaches and admins skip the school-context profanity filter — the
+    // underlying send funcs also bypass it for them.
     if (!isCoachUser && !isAdminUser && !isMessageClean(text)) {
       showErr('Message blocked — keep it clean.');
       return;
@@ -7558,7 +7569,7 @@ function bindTeamChatPanel(c) {
       }
     } catch (err) {
       console.error('[chat] send handler threw:', err);
-      showErr('Send failed: ' + (err?.message || 'unknown error'));
+      showErr(err?.message || 'Send failed.');
       ok = false;
     } finally {
       sendBtn.dataset.sending = '';
@@ -7569,13 +7580,24 @@ function bindTeamChatPanel(c) {
       ta.value = '';
       ta.style.height = 'auto';
       clearErr();
+      // Belt-and-braces: re-establish the live subscription if it wasn't
+      // active when the chat tab opened (e.g. teamId arrived late from
+      // auto-join). Idempotent — subscribeTeamChat unsubscribes any
+      // prior listener before attaching the new one.
+      if (typeof subscribeTeamChat === 'function' && userProfile?.teamId) {
+        try {
+          subscribeTeamChat(userProfile.teamId, () => {
+            if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
+          });
+        } catch(e) { console.warn('[chat] re-subscribe failed:', e); }
+      }
+      // Force-refresh once so the freshly sent message appears even if
+      // the snapshot listener hasn't fired yet.
+      setTimeout(() => { try { refreshTeamChatList(); } catch(e) {} }, 250);
       // Always scroll to the freshly-sent message — user is unambiguously
       // at the end of the thread when they send.
       try { scrollChatToBottom(); } catch(e) {}
     } else if (!ok && !errBox?.textContent) {
-      // sendCoachBroadcast / sendChatMessage already log + toast. Mirror
-      // the most-recent toast text into the inline error bar so the user
-      // sees the cause even if the toast scrolled off.
       showErr('Send failed. Check your connection or try again.');
     }
   });
@@ -7587,13 +7609,15 @@ function bindTeamChatPanel(c) {
       c.querySelector('#team-chat-send')?.click();
     }
   });
-  // Per-message delete (author or head coach only)
+  // Per-message delete (author or head coach only). Read teamId fresh
+  // for the same reason as the send handler.
   c.querySelectorAll('.chat-msg-del').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!confirm('Delete this message?')) return;
       const id = btn.dataset.delId;
-      if (id) await deleteChatMessage(teamId, id);
+      const tid = userProfile?.teamId;
+      if (id && tid) await deleteChatMessage(tid, id);
     });
   });
 }
@@ -8683,8 +8707,13 @@ function startApp() {
         onActivitySaved: () => { if (currentPage === 'today') renderToday(); if (currentPage === 'fitness') renderFitness(); }
       });
       showMainApp();
-      const initial = (userProfile?.displayName || user.displayName || user.email || 'U').charAt(0).toUpperCase();
+      const initial = (userProfile?.displayName || user.displayName || user.email || 'U').trim().charAt(0).toUpperCase();
       try { $('user-avatar-btn').textContent = initial; } catch(e) {}
+      // Also seed the dropdown's avatar circle now — was only being set
+      // inside openUserMenu, which short-circuits on a still-loading
+      // profile and left the markup default "U" visible the first time
+      // the menu was opened.
+      try { const ma = $('menu-avatar'); if (ma) ma.textContent = initial; } catch(e) {}
       // PHASE 3a: first paint. Render NOW with whatever we already have
       // (profile + plans + user workouts via listener). Everything else
       // fetches in the background and re-renders as it lands. Previously

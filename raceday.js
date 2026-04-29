@@ -191,8 +191,21 @@ async function loadRoster() {
   } catch(e){}
 }
 async function saveRoster() {
-  if (!ctx?.db||!rdd.date) return;
-  try { await ctx.setDoc(ctx.doc(ctx.db,'race_day',rdd.date,'roster','order'),{entries:rosterData,updatedAt:ctx.serverTimestamp()}); } catch(e){}
+  if (!ctx?.db||!rdd.date) {
+    ctx?.showToast?.('Race day not active — start it first.','warn');
+    return false;
+  }
+  try {
+    await ctx.setDoc(ctx.doc(ctx.db,'race_day',rdd.date,'roster','order'),{entries:rosterData,updatedAt:ctx.serverTimestamp()});
+    return true;
+  } catch(e) {
+    console.error('[raceday] saveRoster failed:',e);
+    const msg = (e?.code === 'permission-denied')
+      ? 'Server rejected the change — only coaches can edit the roster. Make sure you\'re signed in as the team coach.'
+      : ('Couldn\'t save roster: ' + (e?.message || 'unknown error'));
+    ctx?.showToast?.(msg,'error');
+    return false;
+  }
 }
 async function loadSetupFields() {
   if (!ctx?.db||!rdd.date) return;
@@ -519,8 +532,15 @@ function openAddDriver(c) {
     if (!name){ ctx.showToast('Enter a name.','warn'); return; }
     const dur=parseInt(ctx.$('rd-dur').value)*60||3600;
     const notes=ctx.$('rd-notes').value.trim();
-    rosterData.push({id:'drv_'+Date.now(),name,duration:dur,notes});
-    await saveRoster();
+    const driver = {id:'drv_'+Date.now(),name,duration:dur,notes};
+    rosterData.push(driver);
+    const ok = await saveRoster();
+    if (!ok) {
+      // Roll back the optimistic push so the next render reflects truth.
+      const idx = rosterData.findIndex(d => d.id === driver.id);
+      if (idx >= 0) rosterData.splice(idx, 1);
+      return; // leave sheet open so the user can see the error toast & retry
+    }
     // Alert team
     try { if(ctx.db&&ctx.userProfile?.teamId) await ctx.addDoc(ctx.collection(ctx.db,'teams',ctx.userProfile.teamId,'alerts'),{type:'roster_update',message:'Driver roster updated — check Race Day.',createdAt:ctx.serverTimestamp(),createdBy:ctx.userProfile.displayName}); } catch(e){}
     ctx.closeSheet();

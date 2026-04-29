@@ -295,13 +295,36 @@ service cloud.firestore {
       }
 
       match /roster/{rosterId} {
+        // Roster doc can be edited by an admin OR by any signed-in user
+        // whose userProfile has isCoach == true. Race-day roster is a
+        // coach activity (assigning drivers + stint durations), so
+        // restricting it to platform admins locked out the team's own
+        // head coach. Now coaches can manage their roster directly.
         allow read: if isSignedIn();
-        allow write: if isAdmin();
+        allow write: if isAdmin()
+          || (isSignedIn()
+              && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isCoach == true);
       }
 
       match /setup/{teamId} {
+        // Same scope as roster — head coach configures the field/track
+        // setup for their team's race day.
         allow read: if isSignedIn();
-        allow write: if isAdmin();
+        allow write: if isAdmin()
+          || (isSignedIn()
+              && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isCoach == true);
+      }
+
+      match /alerts/{alertId} {
+        // Coaches/admins post race-day alerts; everyone reads.
+        allow read: if isSignedIn();
+        allow create: if isAdmin()
+          || (isSignedIn()
+              && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isCoach == true);
+        allow update, delete: if isAdmin();
       }
     }
   }
