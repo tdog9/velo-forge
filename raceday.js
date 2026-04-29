@@ -377,13 +377,30 @@ function bindOverlay(ov) {
     document.getElementById('rd-responsive-style')?.remove();
     ov.remove(); // removes full overlay including backdrop
     document.getElementById('rd-roster-fab')?.remove();
-    if (spectatorInterval) { clearInterval(spectatorInterval); spectatorInterval=null; }
+    // spectatorInterval is sometimes a setTimeout id and sometimes a
+    // setInterval id; clearTimeout/clearInterval are interchangeable on
+    // the same numeric id in browsers but call both to be safe.
+    if (spectatorInterval) { try { clearInterval(spectatorInterval); } catch(e) {} try { clearTimeout(spectatorInterval); } catch(e) {} spectatorInterval=null; }
     if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
     const ma=document.getElementById('main-app');
     if (ma) ma.style.display='flex';
     const af=document.getElementById('ai-fab');
     if (af&&ctx.userProfile) af.style.display='';
   }
+  // Belt-and-braces: if the overlay is removed by some other code path
+  // (race-day auto-end, watchdog) the popstate listener used to leak
+  // forever. Wire a MutationObserver so leaving the overlay always
+  // tears down the listener.
+  try {
+    const mo = new MutationObserver(() => {
+      if (!document.body.contains(ov)) {
+        if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
+        if (spectatorInterval) { try { clearInterval(spectatorInterval); } catch(e) {} try { clearTimeout(spectatorInterval); } catch(e) {} spectatorInterval=null; }
+        mo.disconnect();
+      }
+    });
+    mo.observe(document.body, { childList: true });
+  } catch(e) {}
 
   // Only coaches/admin can end race day — no close for regular users
   // Share spectator link — anyone can open this URL to follow the race
@@ -391,7 +408,15 @@ function bindOverlay(ov) {
   // team's drivers.
   ov.querySelector('#rd-share-btn')?.addEventListener('click', async () => {
     const tid = ctx.userProfile?.teamId || '';
-    const url = location.origin + '/spectate.html' + (tid ? '?team=' + encodeURIComponent(tid) : '');
+    // Include the race date so spectators see THIS race day's roster
+    // even if they open the link past midnight UTC. Was previously
+    // letting spectate.html default to today's UTC day, which broke
+    // for overnight events in Australian timezones.
+    const params = new URLSearchParams();
+    if (tid) params.set('team', tid);
+    if (rdd.date) params.set('date', rdd.date);
+    const qs = params.toString();
+    const url = location.origin + '/spectate.html' + (qs ? '?' + qs : '');
     if (navigator.share) {
       try { await navigator.share({ title: 'TurboPrep — Spectator link', url }); return; } catch(e) {}
     }
@@ -470,15 +495,17 @@ function renderRoster(c) {
     html+=`<div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-bottom:8px">Hold and drag to reorder drivers</div><div id="rd-roster-list">`;
     rosterData.forEach((d,i)=>{
       const mins=Math.round((d.duration||3600)/60);
+      // Removed the dedicated drag handle ⠿ — the whole row is already
+      // draggable via touchstart/touchmove handlers. Plus duration is
+      // now folded into the name row's subtitle so this is 4 elements
+      // (number, name+meta, edit) instead of 6.
       html+=`<div class="rd-drag-item" data-idx="${i}" draggable="true">
         <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">${i+1}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:600">${esc(d.name)}</div>
-          ${d.notes?`<div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${esc(d.notes)}</div>`:''}
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${mins}m${d.notes?' · '+esc(d.notes):''}</div>
         </div>
-        <div style="font-size:12px;color:var(--muted-fg);white-space:nowrap;flex-shrink:0">${mins}m</div>
-        ${mgr?`<button class="rd-edit-btn" data-idx="${i}" style="width:30px;height:30px;border-radius:8px;background:var(--muted);border:none;color:var(--muted-fg);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}
-        <div style="color:var(--muted-fg);font-size:18px;line-height:1;cursor:grab;flex-shrink:0;padding:0 2px">⠿</div>
+        ${mgr?`<button class="rd-edit-btn" data-idx="${i}" aria-label="Edit driver" style="width:30px;height:30px;border-radius:8px;background:var(--muted);border:none;color:var(--muted-fg);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}
       </div>`;
     });
     html+=`</div>`;
@@ -1038,12 +1065,36 @@ function renderStintSummary(c,stint) {
         <span style="color:var(--muted-fg);width:54px">Lap ${i+1}</span>
         <span style="flex:1;font-weight:700;font-family:var(--font-mono)">${fmtMs(lap.duration)}</span>
       </div>`).join('')}
-    <button id="rd-email-rep" class="btn btn-primary" style="width:100%;margin-top:16px">📧 Email Stint Report</button>
-    <button id="rd-team-rep" class="btn btn-secondary" style="width:100%;margin-top:8px">📧 Email Full Team Report</button>
-    <button id="rd-done" class="btn btn-secondary" style="width:100%;margin-top:8px">Done</button>`;
-  c.querySelector('#rd-email-rep').addEventListener('click',()=>emailStint(stint));
-  c.querySelector('#rd-team-rep').addEventListener('click',()=>emailTeamReport());
-  c.querySelector('#rd-done').addEventListener('click',()=>renderStintTab(c));
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button id="rd-share-rep" class="btn btn-primary" style="flex:1">Share Report</button>
+      <button id="rd-done" class="btn btn-secondary" style="flex:1">Done</button>
+    </div>`;
+  c.querySelector('#rd-share-rep')?.addEventListener('click', () => openShareReportSheet(stint));
+  c.querySelector('#rd-done')?.addEventListener('click', () => renderStintTab(c));
+}
+
+// Two distinct report formats (just-this-stint, full team) used to be
+// two competing buttons of equal weight in the summary footer. Now
+// they live behind a single "Share Report" entry that opens a sheet
+// with two clearly-labelled options + a Cancel.
+function openShareReportSheet(stint) {
+  ctx.openSheet();
+  ctx.$('sheet-content').innerHTML = `
+    <div class="sheet-title">Share Report</div>
+    <p style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">Send a stint summary to coaches, parents, or the team.</p>
+    <button class="btn btn-secondary" style="width:100%;text-align:left;padding:14px;margin-bottom:8px" id="rd-rep-mine">
+      <div style="font-size:14px;font-weight:700;color:var(--fg)">Just my stint</div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">${stint.laps.length} laps · ${fmtTime(stint.duration)}</div>
+    </button>
+    <button class="btn btn-secondary" style="width:100%;text-align:left;padding:14px;margin-bottom:8px" id="rd-rep-team">
+      <div style="font-size:14px;font-weight:700;color:var(--fg)">Whole team's race day</div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Every stint logged today</div>
+    </button>
+    <button class="btn btn-secondary" style="width:100%" id="rd-rep-cancel">Cancel</button>
+  `;
+  ctx.$('rd-rep-mine')?.addEventListener('click', () => { ctx.closeSheet(); emailStint(stint); });
+  ctx.$('rd-rep-team')?.addEventListener('click', () => { ctx.closeSheet(); emailTeamReport(); });
+  ctx.$('rd-rep-cancel')?.addEventListener('click', () => ctx.closeSheet());
 }
 
 function emailStint(stint) {

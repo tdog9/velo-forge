@@ -4718,10 +4718,20 @@ async function generateAiPlan(category, yearLevel, tier, customGoal) {
       '<div style="font-size:11px;color:var(--muted-fg);margin-top:8px;line-height:1.6">' + workoutList + '</div>' +
       '<div class="ai-gen-plan-btns">' +
         '<button class="ai-gen-save" id="ai-plan-save">Save Plan</button>' +
-        '<button class="ai-gen-share" id="ai-plan-share">Save & Share with Team</button>' +
+        (userProfile?.teamId ? '<button class="ai-gen-share" id="ai-plan-share">Save & Share with Team</button>' : '') +
       '</div></div>';
     $('ai-plan-save')?.addEventListener('click', () => saveAiPlan(false));
-    $('ai-plan-share')?.addEventListener('click', () => saveAiPlan(true));
+    $('ai-plan-share')?.addEventListener('click', () => {
+      // Save & Share is meaningless without a team — used to claim
+      // "shared with team" while writing nothing. Fall back to a plain
+      // save with a clear toast so the user knows why.
+      if (!userProfile?.teamId) {
+        showToast('Join a team first to share. Plan saved to your library.', 'warn');
+        saveAiPlan(false);
+        return;
+      }
+      saveAiPlan(true);
+    });
   } catch(e) {
     typingMsg.innerHTML = '';
     typingMsg.textContent = 'Could not generate plan. Check the AI function is deployed.';
@@ -4966,13 +4976,16 @@ function renderWorkouts() {
     const watchCount = userWorkouts.filter(w => w.source === 'watch').length;
     const manualCount = userWorkouts.length - trackedCount - stravaCount - watchCount;
     if (trackedCount > 0) {
-      html += `<button class="wo-filter-btn" data-wofilter="tracked" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">📍 GPS (${trackedCount})</button>`;
+      html += `<button class="wo-filter-btn" data-wofilter="tracked" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">GPS (${trackedCount})</button>`;
     }
     if (stravaCount > 0) {
-      html += `<button class="wo-filter-btn" data-wofilter="strava" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">⬡ Strava (${stravaCount})</button>`;
+      html += `<button class="wo-filter-btn" data-wofilter="strava" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">Strava (${stravaCount})</button>`;
     }
     if (watchCount > 0) {
-      html += `<button class="wo-filter-btn" data-wofilter="watch" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">⌚ Watch (${watchCount})</button>`;
+      html += `<button class="wo-filter-btn" data-wofilter="watch" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">Watch (${watchCount})</button>`;
+    }
+    if (manualCount > 0) {
+      html += `<button class="wo-filter-btn" data-wofilter="manual" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">Manual (${manualCount})</button>`;
     }
     html += '</div>';
     html += '<div class="space-y" id="wo-list">';
@@ -5003,16 +5016,25 @@ function renderWorkouts() {
                 ${isWatch ? '<span class="activity-badge" style="background:rgba(139,92,246,.15);color:#8b5cf6" title="Recorded on Apple Watch">⌚ Watch</span>' : ''}
               </div>
               <div class="activity-stats-row">
-                ${w.duration ? `<span><strong>${w.duration}</strong> min</span>` : ''}
-                ${w.distance ? `<span><strong>${w.distance}</strong> km</span>` : ''}
-                ${w.avgSpeed ? `<span><strong>${w.avgSpeed}</strong> km/h</span>` : ''}
-                ${w.heartRate ? `<span><strong>${w.heartRate}</strong> bpm</span>` : ''}
-                ${w.rpe ? `<span>RPE <strong>${w.rpe}</strong>/10</span>` : ''}
-                ${w.laps ? `<span><strong>${w.laps}</strong> laps</span>` : ''}
-                ${w.pace ? `<span><strong>${w.pace}</strong> /km</span>` : ''}
-                ${w.incline ? `<span><strong>${w.incline}</strong>% incline</span>` : ''}
+                ${(() => {
+                  // Cap at 4 most-relevant stats per card to stop the
+                  // 8-stat wrap (duration / distance / speed / hr / rpe
+                  // / laps / pace / incline) that wrapped to 3 rows on
+                  // phones. Priority: duration → distance → laps → hr
+                  // → speed → pace → rpe → incline.
+                  const all = [
+                    w.duration ? `<span><strong>${w.duration}</strong> min</span>` : '',
+                    w.distance ? `<span><strong>${w.distance}</strong> km</span>` : '',
+                    w.laps ? `<span><strong>${w.laps}</strong> laps</span>` : '',
+                    w.heartRate ? `<span><strong>${w.heartRate}</strong> bpm</span>` : '',
+                    w.avgSpeed ? `<span><strong>${w.avgSpeed}</strong> km/h</span>` : '',
+                    w.pace ? `<span><strong>${w.pace}</strong> /km</span>` : '',
+                    w.rpe ? `<span>RPE <strong>${w.rpe}</strong>/10</span>` : '',
+                    w.incline ? `<span><strong>${w.incline}</strong>% incline</span>` : '',
+                  ].filter(Boolean);
+                  return all.slice(0, 4).join('');
+                })()}
               </div>
-              ${w.vehicle || w.location || w.bestLap ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${[w.vehicle, w.location, w.bestLap ? 'Best lap: ' + w.bestLap : ''].filter(Boolean).join(' · ')}</div>` : ''}
               <div style="font-size:11px;color:var(--muted-fg);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                 <span>${dateStr} · ${timeStr}</span>
                 ${w.stravaId ? `<a href="https://www.strava.com/activities/${escHtml(String(w.stravaId))}" target="_blank" rel="noopener" data-stop-card="1" style="color:#fc4c02;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:3px"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width:9px;height:9px"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>View on Strava</a>` : ''}
@@ -5077,21 +5099,33 @@ function renderWorkouts() {
       }
     });
   }
-  // Filter buttons
+  // Filter buttons. Persist current filter on window so a Firestore
+  // snapshot rebuild doesn't snap back to "All". Re-apply on every paint.
+  const applyFilter = (filter) => {
+    c.querySelectorAll('.wo-filter-btn').forEach(b => {
+      const active = b.dataset.wofilter === filter;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--primary)' : 'var(--surface)';
+      b.style.color = active ? 'var(--primary-fg)' : 'var(--muted-fg)';
+      b.style.borderColor = active ? 'var(--primary)' : 'var(--border)';
+      b.style.fontWeight = active ? '700' : '600';
+    });
+    c.querySelectorAll('.wo-card').forEach(card => {
+      if (filter === 'all') { card.style.display = ''; }
+      else if (filter === 'tracked') { card.style.display = card.dataset.woSource === 'tracker' ? '' : 'none'; }
+      else if (filter === 'strava') { card.style.display = card.dataset.woSource === 'strava' ? '' : 'none'; }
+      else if (filter === 'watch') { card.style.display = card.dataset.woSource === 'watch' ? '' : 'none'; }
+      else if (filter === 'manual') { card.style.display = (!card.dataset.woSource || card.dataset.woSource === 'manual') ? '' : 'none'; }
+      else { card.style.display = card.dataset.woType === filter ? '' : 'none'; }
+    });
+  };
+  // Re-apply persisted filter on every paint.
+  applyFilter(window._tpWoFilter || 'all');
   c.querySelectorAll('.wo-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      c.querySelectorAll('.wo-filter-btn').forEach(b => {
-        b.style.background = 'var(--surface)'; b.style.color = 'var(--muted-fg)'; b.style.borderColor = 'var(--border)';
-      });
-      btn.style.background = 'var(--primary)'; btn.style.color = 'var(--primary-fg)'; btn.style.borderColor = 'var(--primary)';
       const filter = btn.dataset.wofilter;
-      c.querySelectorAll('.wo-card').forEach(card => {
-        if (filter === 'all') { card.style.display = ''; }
-        else if (filter === 'tracked') { card.style.display = card.dataset.woSource === 'tracker' ? '' : 'none'; }
-        else if (filter === 'strava') { card.style.display = card.dataset.woSource === 'strava' ? '' : 'none'; }
-        else if (filter === 'watch') { card.style.display = card.dataset.woSource === 'watch' ? '' : 'none'; }
-        else { card.style.display = card.dataset.woType === filter ? '' : 'none'; }
-      });
+      window._tpWoFilter = filter;
+      applyFilter(filter);
     });
   });
   // Delete buttons
@@ -5434,15 +5468,24 @@ function renderPlans() {
   // SEARCH MODE
   if (plansSearch.trim()) {
     const q = plansSearch.toLowerCase().trim();
-    const results = visiblePlans.filter(p => {
+    // Include user-generated AI plans in search results — they used to
+    // disappear the moment a query was typed because we only searched
+    // ALL_PLANS. Custom plans match by name/description/tier and an
+    // explicit "ai"/"custom" keyword.
+    const matchPlan = (p) => {
       const pd = getPlanDisplayData(p);
-      return pd.name.toLowerCase().includes(q)
-        || pd.description.toLowerCase().includes(q)
-        || p.category.toLowerCase().includes(q)
-        || p.yearLevel.toLowerCase().includes(q)
-        || p.tier.toLowerCase().includes(q)
+      return (pd.name || '').toLowerCase().includes(q)
+        || (pd.description || '').toLowerCase().includes(q)
+        || (p.category || '').toLowerCase().includes(q)
+        || (p.yearLevel || '').toLowerCase().includes(q)
+        || (p.tier || '').toLowerCase().includes(q)
         || (p.workouts || []).some(w => (w.name || '').toLowerCase().includes(q));
-    });
+    };
+    const matchCustom = (p) => matchPlan(p)
+      || 'ai'.includes(q)
+      || 'custom'.includes(q);
+    const results = visiblePlans.filter(matchPlan)
+      .concat((customPlans || []).filter(matchCustom));
     html += `<div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">${results.length} plan${results.length !== 1 ? 's' : ''} matching "${escHtml(plansSearch)}"</div>`;
     if (results.length === 0) {
       html += `<div class="empty-state" style="padding:24px 16px">
@@ -6049,17 +6092,28 @@ function renderTeamChatPanelInto(el) {
 }
 
 // Scroll the page so the bottom of the chat thread sits just above the
-// composer. Called on initial paint and after a successful send.
+// composer. Called on initial paint and after a successful send. We
+// retry across a few rAF ticks because the snapshot listener completes
+// 30–200 ms after the panel paints — without retries the first attempt
+// scrolled against the empty-state height and landed mid-thread.
 function scrollChatToBottom() {
-  const list = document.getElementById('team-chat-list');
-  if (!list) return;
   const content = document.getElementById('content');
   if (!content) return;
-  // The page-team layout: sub-tab bar (sticky top), chat panel below.
-  // We want the last bubble to land just above the sticky composer.
-  requestAnimationFrame(() => {
+  let tries = 0;
+  const tick = () => {
+    const list = document.getElementById('team-chat-list');
+    if (!list && tries < 6) {
+      tries++;
+      setTimeout(tick, 80);
+      return;
+    }
     content.scrollTop = content.scrollHeight;
-  });
+    if (tries < 4) {
+      tries++;
+      setTimeout(tick, 120);
+    }
+  };
+  requestAnimationFrame(tick);
 }
 
 // Patch only the message list (`#team-chat-list`) inside the chat panel,
@@ -6071,10 +6125,15 @@ function refreshTeamChatList() {
   if (!cc) return;
   const list = cc.querySelector('#team-chat-list');
   const messages = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
-  // Empty cache: nothing to patch, and the empty-state placeholder is
-  // already painted from renderTeamChatPanelInto. Don't re-render — the
-  // textarea would lose focus + typed text every snapshot.
-  if (messages.length === 0) return;
+  // Empty cache: if the panel is currently showing messages (list
+  // exists), repaint to surface the empty-state placeholder — otherwise
+  // a coach who deletes the last message gets no visual feedback.
+  // If no list element exists yet, nothing to do (empty state already
+  // painted by renderTeamChatPanelInto).
+  if (messages.length === 0) {
+    if (list) renderTeamChatPanelInto(cc);
+    return;
+  }
   // Going from empty-state → first message: no list element yet, do a
   // single full repaint so the placeholder is replaced cleanly.
   if (!list) { renderTeamChatPanelInto(cc); return; }
@@ -6127,49 +6186,50 @@ async function loadGlobalLeaderboard() {
   globalLbLoading = true;
   try {
     const usersSnap = await getDocs(collection(db, 'users'));
-    const entries = [];
-    for (const d of usersSnap.docs) {
+    // Pre-filter eligible users so we don't fan out reads against
+    // VeloForge-era accounts that have no teamId.
+    const eligible = usersSnap.docs.filter(d => {
       const u = d.data();
-      // Skip legacy VeloForge-era accounts that never joined a TurboPrep
-      // team — they crufted up the global leaderboard. Active TurboPrep
-      // users always have a teamId (or are admin/coach with intent).
-      if (!u.teamId && !u.isCoach && !u.isAdmin) continue;
-      let wCount = 0;
-      try {
-        const wSnap = await getDocs(collection(db, 'users', d.id, 'workouts'));
-        wCount = wSnap.size;
-      } catch(e) {}
-      // Calculate streak
+      return u.teamId || u.isCoach || u.isAdmin;
+    });
+    // Fetch every athlete's workouts subcollection ONCE (was previously
+    // doing it twice — once for count, once for streak — so a 30-user
+    // team did 60 round-trips). Parallel + single read each now.
+    const workoutResults = await Promise.all(
+      eligible.map(d => getDocs(collection(db, 'users', d.id, 'workouts')).catch(() => null))
+    );
+    const today = new Date(); today.setHours(0,0,0,0);
+    const dKey = (dt) => dt.getFullYear() + '-' + (dt.getMonth()+1) + '-' + dt.getDate();
+    const entries = eligible.map((d, i) => {
+      const u = d.data();
+      const wSnap = workoutResults[i];
+      const wCount = wSnap?.size || 0;
+      // Streak — derived from the same single fetch.
       let streak = 0;
-      try {
-        const wSnap2 = await getDocs(collection(db, 'users', d.id, 'workouts'));
-        const dates = new Set();
-        wSnap2.docs.forEach(wd => {
+      const dates = new Set();
+      if (wSnap) {
+        wSnap.docs.forEach(wd => {
           const dd = wd.data().date;
           const dt = dd ? (dd.toDate ? dd.toDate() : new Date(dd)) : null;
-          if (dt) dates.add(dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate());
+          if (dt) dates.add(dKey(dt));
         });
-        const check = new Date(); check.setHours(0,0,0,0);
-        let todayKey = check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate();
-        if (!dates.has(todayKey)) check.setDate(check.getDate()-1);
-        while (dates.has(check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate())) {
-          streak++; check.setDate(check.getDate()-1);
-        }
-      } catch(e) {}
-      // Estimate XP from available data
-      let xp = wCount * 10; // 10 per workout
+        const check = new Date(today);
+        if (!dates.has(dKey(check))) check.setDate(check.getDate() - 1);
+        while (dates.has(dKey(check))) { streak++; check.setDate(check.getDate() - 1); }
+      }
+      let xp = wCount * 10;
       if (streak >= 7) xp += 25;
       if (streak >= 14) xp += 50;
       if (streak >= 30) xp += 100;
-      entries.push({
+      return {
         uid: d.id,
         displayName: u.displayName || 'Unknown',
         yearLevel: u.yearLevel || '',
         totalWorkouts: wCount,
         streak,
-        xp
-      });
-    }
+        xp,
+      };
+    });
     globalLeaderboard = entries;
   } catch(e) {
     console.error('Load global leaderboard error:', e);
@@ -6352,7 +6412,11 @@ function renderTeamTab(c) {
   const mySubteam = subteams.find(s => Array.isArray(s.members) && s.members.includes(myUid));
   const isHeadCoach = userProfile?.isCoach && teamData?.createdBy === myUid;
   // Default: show "my subteam" if I'm in one; head coach defaults to whole team.
-  if (window._teamLbFilter === undefined) {
+  // Self-heal a stale filter id (e.g. user switched teams or a subteam
+  // was deleted) — without this the leaderboard rendered an empty
+  // table with no diagnostic.
+  const knownFilters = new Set(['all', ...subteams.map(s => s.id)]);
+  if (window._teamLbFilter === undefined || !knownFilters.has(window._teamLbFilter)) {
     window._teamLbFilter = (mySubteam && !isHeadCoach) ? mySubteam.id : 'all';
   }
   const activeFilter = window._teamLbFilter;
