@@ -1611,25 +1611,34 @@ $('user-avatar-btn')?.addEventListener('click', (e) => {
 function openUserMenu() {
   const menu = $('user-menu');
   const overlay = $('user-menu-overlay');
+  if (!menu || !overlay) return;
   menu.classList.remove('hidden');
   menu.style.display = '';
   overlay.classList.remove('hidden');
   overlay.style.display = '';
-  if (userProfile) {
-    const name = userProfile.displayName || 'User';
-    $('menu-name').textContent = name;
-    const initial = (name || currentUser?.email || 'U').trim().charAt(0).toUpperCase();
-    const av = $('menu-avatar');
-    if (av) av.textContent = initial;
-    $('menu-sub').textContent = (userProfile.yearLevel || 'Y7') + ' · ' + capitalize(userProfile.fitnessLevel || 'basic') + ' tier';
-    const teamEl = $('menu-team');
-    if (teamEl) {
-      if (userProfile.teamName) {
-        teamEl.textContent = userProfile.teamName;
-        teamEl.style.display = '';
-      } else {
-        teamEl.style.display = 'none';
-      }
+  if (!userProfile) return;
+  // Guard every element — during a partial cache update (new HTML, stale
+  // JS, or vice versa) any of these IDs could be missing. Set what we
+  // can; never throw and stop the whole menu from rendering.
+  const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  const setDisplay = (id, val) => { const el = $(id); if (el) el.style.display = val; };
+  const name = userProfile.displayName || 'User';
+  setText('menu-name', name);
+  const initial = (name || currentUser?.email || 'U').trim().charAt(0).toUpperCase();
+  setText('menu-avatar', initial);
+  const sub = (userProfile.yearLevel || 'Y7') + ' · ' + capitalize(userProfile.fitnessLevel || 'basic') + ' tier';
+  setText('menu-sub', sub);
+  // Legacy element id from the pre-3.4.0 markup. Some clients may still
+  // be on a stale service-worker cache that has the old HTML; updating
+  // it keeps that menu functional too.
+  setText('menu-info', sub);
+  const teamEl = $('menu-team');
+  if (teamEl) {
+    if (userProfile.teamName) {
+      teamEl.textContent = userProfile.teamName;
+      setDisplay('menu-team', '');
+    } else {
+      setDisplay('menu-team', 'none');
     }
   }
 }
