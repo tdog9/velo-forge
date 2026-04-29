@@ -620,23 +620,36 @@ body{
 }
 
 /* ============================================================
-   USER MENU DROPDOWN — avatar + name + team. Identity block on top,
-   actions stacked beneath. No more wall of orange uppercase text.
+   USER MENU DROPDOWN — clean identity card with two actions. No
+   gradient, no uppercase orange title, no emoji. Single source of
+   truth for visibility lives on body[data-menu-open]; the menu and
+   overlay just react with opacity transitions so a fast double-tap
+   can't leave them out of sync.
    ============================================================ */
 .user-menu{
-  min-width:264px !important;
+  min-width:260px !important;
   max-width:300px;
   padding:6px !important;
   border-radius:14px !important;
   overflow:hidden;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)),
-    var(--card) !important;
+  background:var(--card) !important;
   border:1px solid var(--border-strong) !important;
   box-shadow:
-    0 20px 60px rgba(0,0,0,.6),
+    0 24px 64px rgba(0,0,0,.55),
     0 1px 0 rgba(255,255,255,.04) inset !important;
+  opacity:0;
+  transform:translateY(-4px);
+  transition:opacity .14s ease, transform .14s ease;
+  pointer-events:none;
 }
+body[data-menu-open="1"] .user-menu{
+  opacity:1;
+  transform:none;
+  pointer-events:auto;
+}
+.user-menu.hidden{ display:block !important; opacity:0; pointer-events:none; }
+body:not([data-menu-open="1"]) .user-menu{ display:none; }
+
 .user-menu-header{
   display:flex;
   align-items:center;
@@ -649,7 +662,7 @@ body{
   width:38px;
   height:38px;
   border-radius:50%;
-  background:linear-gradient(135deg, var(--primary), var(--primary-hover));
+  background:var(--primary);
   color:var(--primary-fg);
   display:flex;
   align-items:center;
@@ -657,15 +670,14 @@ body{
   font-size:15px;
   font-weight:800;
   flex-shrink:0;
-  box-shadow:0 4px 12px rgba(249,115,22,.30);
 }
 .user-menu-id{flex:1;min-width:0}
 .user-menu-name{
-  font-size:14px !important;
+  font-size:14.5px !important;
   font-weight:700 !important;
   color:var(--fg) !important;
-  letter-spacing:0;
-  text-transform:none;
+  letter-spacing:0 !important;
+  text-transform:none !important;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -679,17 +691,9 @@ body{
   text-overflow:ellipsis;
 }
 .user-menu-team{
-  display:inline-block;
-  margin-top:6px;
-  font-size:10.5px;
-  font-weight:700;
-  color:var(--primary);
-  background:rgba(249,115,22,.10);
-  border:1px solid rgba(249,115,22,.25);
-  padding:2px 8px;
-  border-radius:99px;
-  letter-spacing:.02em;
-  max-width:100%;
+  font-size:11px;
+  color:var(--muted-fg);
+  margin-top:4px;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -697,7 +701,7 @@ body{
 .user-menu-btn{
   display:block;
   width:100%;
-  padding:10px 12px !important;
+  padding:11px 12px !important;
   text-align:left !important;
   font-size:13.5px;
   font-weight:600;
@@ -708,18 +712,25 @@ body{
   border-radius:8px !important;
   transition:background .12s ease;
 }
-.user-menu-btn + .user-menu-btn{
-  margin-top:2px;
+.user-menu-btn + .user-menu-btn{ margin-top:2px; }
+.user-menu-btn:hover,
+.user-menu-btn:active{ background:var(--surface) !important; }
+.user-menu-danger{ color:var(--destructive) !important; }
+.user-menu-danger:hover,
+.user-menu-danger:active{ background:rgba(239,68,68,.10) !important; }
+
+/* Avatar button stays tappable above the scrim so the user can always
+   close the menu by tapping the same button they opened it with. The
+   scrim still catches taps everywhere else. */
+#user-avatar-btn{
+  position:relative;
+  z-index:201;
 }
-.user-menu-btn:hover{
-  background:var(--surface) !important;
+.user-menu-overlay{
+  opacity:0;
+  transition:opacity .14s ease;
 }
-.user-menu-danger{
-  color:var(--destructive) !important;
-}
-.user-menu-danger:hover{
-  background:rgba(239,68,68,.08) !important;
-}
+body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
 
 /* ============================================================
    PLANS SECTION — spacing + card polish
@@ -773,18 +784,18 @@ body{
 #page-team > div:first-child{
   margin-bottom:16px !important;
 }
-/* Team page sticky sub-tab bar — chrome-free row that hosts the segmented
-   strip. The strip itself sits on the page background so the bar reads as
-   one with the page; the active pill is the only visual emphasis. */
+/* Team page sub-tab row — centered horizontally, NOT sticky. Was
+   previously pinned to the top of the scroll context which caused it
+   to overlap the user-menu dropdown / sit awkwardly when the page
+   scrolled. Inline placement reads cleaner: the strip flows with
+   content and the page header / app bar above stays the only sticky
+   chrome on this view. */
 .team-tab-bar{
-  position:sticky;
-  top:0;
-  z-index:10;
   display:flex;
   justify-content:center;
-  padding:6px 12px 10px;
-  background:var(--bg);
-  border-bottom:1px solid var(--border);
+  padding:6px 0 14px;
+  background:transparent;
+  border-bottom:none;
 }
 .team-tab-strip{
   display:inline-flex;
@@ -1005,7 +1016,16 @@ body{
   text-align:center;
   color:var(--muted-fg);
 }
-.msg-empty-icon{font-size:36px;margin-bottom:10px;opacity:.7}
+.msg-empty-icon{
+  width:32px;
+  height:32px;
+  margin-bottom:10px;
+  color:var(--muted-fg);
+  opacity:.55;
+  display:block;
+  margin-left:auto;
+  margin-right:auto;
+}
 .msg-empty-title{font-size:14px;font-weight:700;color:var(--fg);margin-bottom:4px}
 .msg-empty-sub{font-size:12.5px;line-height:1.45}
 
@@ -1169,6 +1189,17 @@ body{
   flex-wrap:wrap;
   justify-content:center;
   gap:6px;
+}
+.msg-event-workout .msg-event-tag{
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:#22c55e;
+  padding:2px 8px;
+  border-radius:99px;
+  background:rgba(34,197,94,.10);
+  border:1px solid rgba(34,197,94,.30);
 }
 .msg-event-workout .msg-event-actor{
   color:#22c55e;

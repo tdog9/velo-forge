@@ -145,7 +145,7 @@ export async function sendCoachBroadcast(teamId, text, { push = false } = {}) {
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
             body: JSON.stringify({
               uid,
-              title: '👋 ' + (A.userProfile?.displayName || 'Coach'),
+              title: (A.userProfile?.displayName || 'Coach'),
               body: trimmed.length > 120 ? trimmed.slice(0, 117) + '…' : trimmed,
               category: 'coach_broadcast',
               data: { teamId, threadId: 'team-chat' },
@@ -220,7 +220,7 @@ export function renderChatPanel(messages, opts = {}) {
   const myUid = opts.myUid || '';
   if (!messages || messages.length === 0) {
     return `<div class="msg-empty">
-      <div class="msg-empty-icon">💬</div>
+      <svg class="msg-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
       <div class="msg-empty-title">No messages yet</div>
       <div class="msg-empty-sub">Be the first to say hi — your team sees it here.</div>
     </div>`;
@@ -293,6 +293,7 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
     const ws = m.workoutSummary || {};
     const route = ws.hasMap ? ' <span class="msg-event-meta">· route saved</span>' : '';
     return `<div class="msg-event msg-event-workout" data-msg-id="${id}">
+      <span class="msg-event-tag">Workout</span>
       <span class="msg-event-actor">${escHtml(m.displayName || 'Member')}</span>
       <span class="msg-event-text">${escHtml(m.text || 'logged a workout')}</span>${route}
     </div>`;

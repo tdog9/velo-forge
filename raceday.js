@@ -335,7 +335,7 @@ function buildOverlayHTML() {
   <div style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(249,115,22,.3)">T</div>
   <div style="flex:1;min-width:0">
     <div style="font-size:13px;font-weight:800;letter-spacing:.08em;color:var(--primary)">TURBOPREP</div>
-    <div style="font-size:10px;color:var(--muted-fg);margin-top:-1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${raceName ? '🏁 '+esc(raceName)+' · ' : ''}${esc(teamName)}</div>
+    <div style="font-size:10px;color:var(--muted-fg);margin-top:-1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${raceName ? esc(raceName)+' · ' : ''}${esc(teamName)}</div>
   </div>
   <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
     <div style="width:7px;height:7px;border-radius:50%;background:#ef4444;animation:rdPulse 1.4s ease infinite"></div>
@@ -853,7 +853,7 @@ function onPos(pos) {
   if (moving) {
     if (!moveContinuousStart) moveContinuousStart=now;
     if (!rdd.startPointSet && (now-moveContinuousStart)/1000>=AUTO_START_SECS) {
-      setStartPoint(lat,lng).then(()=>{ addStartMarker(lat,lng); ctx.showToast('🏁 Start/finish point set!','success'); });
+      setStartPoint(lat,lng).then(()=>{ addStartMarker(lat,lng); ctx.showToast('Start/finish point set.','success'); });
     }
   } else { moveContinuousStart=null; }
 
@@ -861,7 +861,7 @@ function onPos(pos) {
   if (!rdd.startPointSet && stintPositions.length>20) {
     const first=stintPositions[0], elapsed=(now-first.time)/1000;
     if (elapsed>60 && haversine(lat,lng,first.lat,first.lng)<LAP_THRESHOLD_M) {
-      setStartPoint(first.lat,first.lng).then(()=>{ addStartMarker(first.lat,first.lng); ctx.showToast('🏁 Start/finish point set!','success'); });
+      setStartPoint(first.lat,first.lng).then(()=>{ addStartMarker(first.lat,first.lng); ctx.showToast('Start/finish point set.','success'); });
     }
   }
 
@@ -874,7 +874,7 @@ function onPos(pos) {
       try { ctx.haptic?.('heavy'); } catch(e) {}
       stintLaps.push({time:now,duration:dur,lat,lng});
       lastLapTime=now;
-      ctx.showToast('🏁 Lap '+stintLaps.length+' — '+fmtMs(dur),'success');
+      ctx.showToast('Lap '+stintLaps.length+' · '+fmtMs(dur),'success');
       updateActive();
     }
   }
@@ -945,7 +945,7 @@ function updateActive() {
   const sl=document.getElementById('rd-sublabel');
   if (sl) {
     if (stintGpsState === 'error') {
-      sl.innerHTML = '<span style="color:#f59e0b">⚠️ GPS unavailable — tap laps manually</span>';
+      sl.innerHTML = '<span style="color:#f59e0b">GPS unavailable — tap laps manually.</span>';
     } else if (stintGpsState === 'connecting') {
       sl.textContent = 'GPS connecting…';
     } else if (stintLaps.length > 0) {
@@ -1098,7 +1098,7 @@ export function updateRaceDayTabBar(active) {
       rdBtn.className='tab-btn';
       rdBtn.innerHTML=`
         <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);display:flex;align-items:center;justify-content:center;margin:-4px auto 0;box-shadow:0 3px 10px rgba(239,68,68,.4)">
-          <span style="font-size:16px">🏁</span>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
         </div>
         <span class="tab-btn-label" style="color:#ef4444">Race</span>`;
       rdBtn.addEventListener('click',()=>openRaceDayOverlay());

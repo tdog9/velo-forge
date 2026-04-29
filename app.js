@@ -637,7 +637,7 @@ function renderAiWidgets() {
   const widgets = loadAiWidgets();
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
     <div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--muted-fg)">AI COACH</div>
-    <button id="ai-widget-generate" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);color:var(--primary);padding:4px 10px;border-radius:14px;cursor:pointer">✨ <span>Ask coach</span></button>
+    <button id="ai-widget-generate" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);color:var(--primary);padding:4px 10px;border-radius:14px;cursor:pointer"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg><span>Ask coach</span></button>
   </div>`;
   if (widgets.length === 0) {
     html += `<div style="font-size:12px;color:var(--muted-fg);background:var(--card);border:1px dashed var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;line-height:1.45">Tap <b style="color:var(--primary)">Ask coach</b> for a personalised insight from your training, race phase, and plan.</div>`;
@@ -1597,25 +1597,28 @@ function friendlyError(code) {
   };
   return map[code] || 'Something went wrong. Please try again.';
 }
-// User Menu
+// User Menu — single state attribute drives both menu and overlay so
+// rapid taps and partial cache states can't desync them. The avatar
+// button itself sits above the overlay so the user can always tap it
+// to close, even while the scrim is up.
+const USER_MENU_OPEN_ATTR = 'data-menu-open';
 $('user-avatar-btn')?.addEventListener('click', (e) => {
   e.stopPropagation();
-  const menu = $('user-menu');
-  const overlay = $('user-menu-overlay');
-  if (menu.classList.contains('hidden')) {
-    openUserMenu();
-  } else {
-    closeUserMenu();
-  }
+  e.preventDefault();
+  const isOpen = document.body.getAttribute(USER_MENU_OPEN_ATTR) === '1';
+  if (isOpen) closeUserMenu(); else openUserMenu();
 });
 function openUserMenu() {
   const menu = $('user-menu');
   const overlay = $('user-menu-overlay');
+  const btn = $('user-avatar-btn');
   if (!menu || !overlay) return;
+  document.body.setAttribute(USER_MENU_OPEN_ATTR, '1');
   menu.classList.remove('hidden');
   menu.style.display = '';
   overlay.classList.remove('hidden');
   overlay.style.display = '';
+  btn?.setAttribute('aria-expanded', 'true');
   // Even before userProfile lands we can populate the avatar from auth —
   // otherwise the markup default "U" stays in place on first open.
   const seedInitial = ((userProfile?.displayName || currentUser?.displayName || currentUser?.email || 'U').trim().charAt(0) || 'U').toUpperCase();
@@ -1647,10 +1650,16 @@ function openUserMenu() {
   }
 }
 function closeUserMenu() {
+  document.body.removeAttribute(USER_MENU_OPEN_ATTR);
   hide('user-menu');
   hide('user-menu-overlay');
+  $('user-avatar-btn')?.setAttribute('aria-expanded', 'false');
 }
 $('user-menu-overlay')?.addEventListener('click', closeUserMenu);
+// Esc closes the menu — keyboard users + iOS hardware keyboards.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.body.getAttribute(USER_MENU_OPEN_ATTR) === '1') closeUserMenu();
+});
 // --- Feature 3: Remember scroll position per tab ---
 const scrollPositions = {};
 // --- Feature 6: Remember last active tab on reload ---
@@ -6435,7 +6444,7 @@ function renderTeamTab(c) {
         <button class="btn" style="width:100%;margin-bottom:8px;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" id="team-delete-btn">Delete Team</button>
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
           <div style="font-size:13px;font-weight:600;margin-bottom:8px">Race Day</div>
-          ${getRaceDayActive() ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:13px;cursor:pointer">🏁 End Race Day Mode</button>` : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e;font-weight:700;font-size:13px;cursor:pointer">🏁 Activate Race Day Mode</button>`}
+          ${getRaceDayActive() ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:13px;cursor:pointer">End Race Day Mode</button>` : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e;font-weight:700;font-size:13px;cursor:pointer">Activate Race Day Mode</button>`}
         </div>
       </div>
     `;
@@ -7402,8 +7411,8 @@ async function openCoachAthleteSheet(uid) {
   }
   // Quick actions
   html += `<div style="display:flex;flex-direction:column;gap:8px">
-    <button id="coach-athlete-msg" class="btn btn-primary" style="width:100%">💬 Send chat message</button>
-    <button id="coach-athlete-assign" class="btn btn-secondary" style="width:100%">📋 Assign a plan</button>
+    <button id="coach-athlete-msg" class="btn btn-primary" style="width:100%">Send chat message</button>
+    <button id="coach-athlete-assign" class="btn btn-secondary" style="width:100%">Assign a plan</button>
     <button id="coach-athlete-close" class="btn btn-secondary" style="width:100%">Close</button>
   </div>`;
   $('sheet-content').innerHTML = `
