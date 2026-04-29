@@ -69,7 +69,11 @@ exports.handler = async (event) => {
         return t > liveCutoff;
       })
       .map(d => ({
-        uid: d.uid,
+        // uid intentionally omitted from public response — was leaking
+        // Firestore uids to unauthenticated spectators, which combined
+        // with the broad `users/{uid}` read rule made uid → name →
+        // email harvestable. We don't need uid client-side; the
+        // spectator UI keys on displayName.
         displayName: d.displayName || 'Driver',
         lapCount: d.lapCount || 0,
         bestMs: d.bestLap || null,
@@ -84,21 +88,23 @@ exports.handler = async (event) => {
         const lapCount = laps.length;
         const bestMs = laps.length > 0 ? Math.min(...laps.map(l => l.duration || 0)) : null;
         return {
-          uid: d.uid,
+          // uid intentionally omitted (see above).
           displayName: d.displayName || 'Driver',
           lapCount,
           bestMs,
           duration: d.duration || null,
         };
       });
-    // Combined leaderboard — laps from completed stints + live laps wins.
+    // Combined leaderboard — laps from completed stints + live laps
+    // wins. Keyed on displayName since uid is no longer in the
+    // outgoing payload (privacy).
     const totals = {};
     [...stints, ...live].forEach(d => {
-      if (!d.uid) return;
-      if (!totals[d.uid]) totals[d.uid] = { displayName: d.displayName, lapCount: 0, bestMs: null };
-      totals[d.uid].lapCount += d.lapCount;
-      if (d.bestMs && (totals[d.uid].bestMs == null || d.bestMs < totals[d.uid].bestMs)) {
-        totals[d.uid].bestMs = d.bestMs;
+      const key = d.displayName || 'Driver';
+      if (!totals[key]) totals[key] = { displayName: key, lapCount: 0, bestMs: null };
+      totals[key].lapCount += d.lapCount;
+      if (d.bestMs && (totals[key].bestMs == null || d.bestMs < totals[key].bestMs)) {
+        totals[key].bestMs = d.bestMs;
       }
     });
     const leaderboard = Object.values(totals)

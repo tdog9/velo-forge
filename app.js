@@ -1746,7 +1746,11 @@ function showToast(message, type = 'info') {
   const container = $('toast-container');
   if (!container) return;
   const toast = document.createElement('div');
-  toast.className = 'toast ' + type;
+  // CSS selectors are .toast-success / .toast-warn / .toast-error /
+  // .toast-info (hyphenated). The previous `'toast ' + type` produced
+  // separate classes ("toast warn") so EVERY toast in the app was
+  // rendering with zero color differentiation. One missing hyphen.
+  toast.className = 'toast toast-' + type;
   toast.textContent = message;
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 3100);
@@ -1783,7 +1787,7 @@ function showError(message, area, error, context) {
   const container = $('toast-container');
   if (!container) return;
   const toast = document.createElement('div');
-  toast.className = 'toast error';
+  toast.className = 'toast toast-error';
   toast.style.cursor = 'pointer';
   toast.innerHTML = message + '<span style="opacity:.6;font-size:10px;margin-left:6px">Tap for help</span>';
   toast.addEventListener('click', () => { toast.remove(); openErrorDiagnostics(entry); });
@@ -2105,7 +2109,7 @@ function renderCurrentPage() {
     catch(e) {
       logError('render-' + name, e);
       const target = $(name === 'admin' ? 'admin-content' : name === 'coach' ? 'coach-content' : 'content');
-      if (target) target.innerHTML = `<div class="empty-state" style="padding:32px 20px"><div class="empty-state-title">Couldn't load ${name}</div><div class="empty-state-desc" style="font-family:var(--font-mono);font-size:11px;color:#ef4444;margin-top:8px;word-break:break-word">${escHtml(e.message || String(e))}</div></div>`;
+      if (target) target.innerHTML = `<div class="empty-state"><div class="empty-state-title">Couldn't load ${name}</div><div class="empty-state-desc" style="font-family:var(--font-mono);font-size:11px;color:#ef4444;margin-top:8px;word-break:break-word">${escHtml(e.message || String(e))}</div></div>`;
     }
   }
   switch(currentPage) {
@@ -2116,7 +2120,7 @@ function renderCurrentPage() {
     case 'admin':
       if (!isAdmin) {
         const ac = $('admin-content');
-        if (ac) ac.innerHTML = '<div class="empty-state" style="padding:32px 20px"><div class="empty-state-title">Admin Access Required</div><div class="empty-state-desc">Sign in with an admin account to view this tab.</div></div>';
+        if (ac) ac.innerHTML = '<div class="empty-state"><div class="empty-state-title">Admin Access Required</div><div class="empty-state-desc">Sign in with an admin account to view this tab.</div></div>';
       } else safeRender('admin', renderAdmin);
       break;
     case 'coach': safeRender('coach', renderCoachPage); break;
@@ -2473,7 +2477,7 @@ function renderDemonstration() {
   html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="demo-cat-count" style="margin-bottom:0">${filtered.length} exercise${filtered.length !== 1 ? 's' : ''}</div>${filtered.length > 12 ? '<button class="demo-collapse-all" id="demos-collapse-all">Collapse All</button>' : ''}</div>`;
   html += '</div>'; // end sticky
   if (filtered.length === 0) {
-    html += '<div class="empty-state" style="padding:32px 16px"><div class="empty-state-title">No Exercises Found</div><div class="empty-state-desc">Try a different search term or category filter.</div></div>';
+    html += '<div class="empty-state"><div class="empty-state-title">No Exercises Found</div><div class="empty-state-desc">Try a different search term or category filter.</div></div>';
   } else {
     const typeColors = { Core: '#3b82f6', Legs: '#22c55e', Glutes: '#f97316', 'Upper Body': '#ec4899', Back: '#a855f7', Plyometric: '#ef4444', Cardio: '#f59e0b', Mobility: '#06b6d4', Stretch: '#10b981', Balance: '#6366f1' };
     filtered.forEach((ex, i) => {
@@ -5689,7 +5693,7 @@ function renderPlans() {
       .concat((customPlans || []).filter(matchCustom));
     html += `<div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">${results.length} plan${results.length !== 1 ? 's' : ''} matching "${escHtml(plansSearch)}"</div>`;
     if (results.length === 0) {
-      html += `<div class="empty-state" style="padding:24px 16px">
+      html += `<div class="empty-state">
         <div class="empty-state-title">No Plans Found</div>
         <div class="empty-state-desc">Try a different search term.</div>
       </div>`;
@@ -5757,7 +5761,7 @@ function renderPlans() {
   // Filter plans
   const filtered = visiblePlans.filter(p => p.category === plansCategory && p.yearLevel === plansYear && p.tier === plansTier);
   if (filtered.length === 0) {
-    html += `<div class="empty-state" style="padding:32px 16px">
+    html += `<div class="empty-state">
       <div class="empty-state-title">No Plans Found</div>
       <div class="empty-state-desc">No training plans match this combination. Try a different category, year level, or fitness tier.</div>
     </div>`;
@@ -6184,7 +6188,7 @@ function renderRaces() {
     `;
   });
   if (racesData.length === 0) {
-    html += '<div class="empty-state" style="padding:40px"><div class="empty-state-title">No Races Scheduled</div><div class="empty-state-desc">Race calendar will be updated by your coach.</div></div>';
+    html += '<div class="empty-state"><div class="empty-state-title">No Races Scheduled</div><div class="empty-state-desc">Race calendar will be updated by your coach.</div></div>';
   }
   html += '</div>';
   c.innerHTML = html;
@@ -6472,7 +6476,7 @@ function renderGlobalLeaderboard(el) {
   }
   if (globalLbErr) {
     el.innerHTML = `
-      <div class="empty-state" style="padding:32px 16px;text-align:center">
+      <div class="empty-state" style="text-align:center">
         <div class="empty-state-title">Couldn't load the leaderboard</div>
         <div class="empty-state-desc" style="margin:6px auto 14px;max-width:300px">${escHtml(globalLbErr)}</div>
         <button class="btn btn-secondary" id="lb-retry-btn">Retry</button>
@@ -6487,7 +6491,7 @@ function renderGlobalLeaderboard(el) {
   }
   if (globalLeaderboard.length === 0) {
     el.innerHTML = `
-      <div class="empty-state" style="padding:32px 16px;text-align:center">
+      <div class="empty-state" style="text-align:center">
         <div class="empty-state-title">No athletes yet</div>
         <div class="empty-state-desc" style="margin:6px auto 0;max-width:300px">As your team logs workouts, the global leaderboard fills in here.</div>
       </div>
@@ -7535,7 +7539,7 @@ async function renderLeaguesTab(el) {
   html += '<div style="font-size:13px;color:var(--muted-fg);margin-bottom:14px">Compete across clubs and schools.</div>';
 
   if (leagues.length === 0) {
-    html += `<div class="empty-state" style="padding:32px 16px">
+    html += `<div class="empty-state">
       <div class="empty-state-title">No Leagues Yet</div>
       <div class="empty-state-desc">Leagues are created by verified coaches and approved by TurboPrep.</div>
     </div>`;
@@ -9313,7 +9317,7 @@ function renderCoachPage() {
   const c = $('coach-content');
   if (!c) return;
   const isMasterUser = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-  if (!userProfile?.isCoach && !isMasterUser) { c.innerHTML = '<div class="empty-state" style="padding:40px 20px"><div class="empty-state-title">Coach Access Only</div><div class="empty-state-desc">This tab is for coach accounts. If you are a coach, contact TurboPrep to enable coach access.</div></div>'; return; }
+  if (!userProfile?.isCoach && !isMasterUser) { c.innerHTML = '<div class="empty-state"><div class="empty-state-title">Coach Access Only</div><div class="empty-state-desc">This tab is for coach accounts. If you are a coach, contact TurboPrep to enable coach access.</div></div>'; return; }
 
   const isPro = isCoachPro();
   const tabs = [
@@ -9399,7 +9403,7 @@ function renderCoachProLockout(tabId) {
   } else {
     cta = '<button class="btn btn-primary" data-coach-pro-request style="margin-top:8px">Request Coach Pro</button>';
   }
-  return `<div class="empty-state" style="padding:48px 24px;text-align:center">
+  return `<div class="empty-state" style="text-align:center">
     <div style="font-size:48px;margin-bottom:12px">🔒</div>
     <div class="empty-state-title">${featureName} is a Coach Pro feature</div>
     <div class="empty-state-desc" style="max-width:340px;margin:8px auto 0">$2.99/month unlocks training scheduling, the live Race Day dashboard, bulk messaging, custom workouts, per-athlete notes, AI insights and more. Approval is required.</div>
@@ -9460,10 +9464,10 @@ async function renderCoachStudents(el) {
       el.innerHTML = '<div id="admin-coach"></div>';
       await renderCoachDashboard();
     } else {
-      el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-state-title">Loading...</div></div>';
+      el.innerHTML = '<div class="empty-state"><div class="empty-state-title">Loading...</div></div>';
     }
   } catch(e) {
-    el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-state-title">Error loading students</div><div class="empty-state-desc">' + e.message + '</div></div>';
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-title">Error loading students</div><div class="empty-state-desc">' + e.message + '</div></div>';
   }
 }
 
@@ -9472,7 +9476,7 @@ function renderCoachTraining(el) {
   el.innerHTML = '<div id="admin-training"></div>';
   try {
     if (typeof renderAdminTraining === 'function') renderAdminTraining();
-    else el.innerHTML = '<div class="empty-state" style="padding:32px"><div class="empty-state-title">Training scheduler loading...</div></div>';
+    else el.innerHTML = '<div class="empty-state"><div class="empty-state-title">Training scheduler loading...</div></div>';
   } catch(e) { console.warn('renderCoachTraining:', e); }
 }
 
@@ -9485,7 +9489,7 @@ function renderCoachTraining(el) {
 function renderCoachTeam(el) {
   if (!el) return;
   el.innerHTML = `
-    <div class="empty-state" style="padding:32px 16px;text-align:center">
+    <div class="empty-state" style="text-align:center">
       <div class="empty-state-title">Team management lives on the Team tab</div>
       <div class="empty-state-desc" style="margin:8px auto 16px;max-width:320px">All your coach controls — Edit Team, Add Co-Coach, Manage Subteams, Feature Toggles, Race Day, Delete Team — are on the Team tab's Coach Settings panel.</div>
       <button class="btn btn-primary" id="coach-go-team" style="min-width:180px">Open Team Tab</button>
@@ -10227,7 +10231,7 @@ function checkRaceResultPrompt() {
     const container = $('toast-container');
     if (!container) return;
     const toast = document.createElement('div');
-    toast.className = 'toast info';
+    toast.className = 'toast toast-info';
     toast.style.cursor = 'pointer';
     toast.textContent = 'How did ' + rName + ' go? Tap to log your result!';
     toast.addEventListener('click', () => {

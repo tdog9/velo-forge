@@ -38,7 +38,26 @@ service cloud.firestore {
       // re-sign-in for the change to take effect.
       allow read: if isSignedIn();
       allow create, delete: if isOwner(userId);
-      allow update: if isOwner(userId) || (
+      // Owner may update their own profile, but cannot write the
+      // privilege-gating fields. Was previously unrestricted, so a
+      // user could `setDoc(users/<self>, {isCoach: true})` and bypass
+      // every coach check (chat profanity bypass, race-day roster /
+      // setup / alerts writes, send-push higher rate cap, etc.).
+      // isCoach / isAdmin can only be set via the dedicated paths
+      // below (admin entitlement update, head-coach promotion).
+      allow update: if (
+        isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'isCoach', 'isAdmin', 'coachProActive', 'coachProExempt',
+          'coachProRequestStatus', 'coachProGrantedAt',
+          'coachProGrantedBy', 'coachProRevokedAt'
+        ])
+      ) || (
+        // Master account — already gated by isAdmin / isGodAdmin above
+        // — keeps the broad self-update path so the master can set
+        // their own isCoach flag during account bootstrap.
+        isOwner(userId) && isGodAdmin()
+      ) || (
         isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'coachProActive', 'coachProExempt', 'coachProRequestStatus',
@@ -126,21 +145,59 @@ service cloud.firestore {
       // Prevents creating orphan teams with empty members arrays that no one can modify.
       allow create: if isSignedIn()
         && (request.auth.uid in request.resource.data.members || isAdmin());
-      // Members may update, but cannot empty the members array (would lock everyone out).
-      // Non-members may add exactly themselves (self-join via team code), and only to
-      // the `members` field — they can't rename the team or alter other fields.
-      allow update: if (
-        isSignedIn()
-        && request.resource.data.members.size() > 0
-        && (
-          request.auth.uid in resource.data.members
-          ||
-          (
-            request.auth.uid in request.resource.data.members
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+      // Update permissions are scoped by role:
+      //  - Head coach (createdBy) can edit name / description /
+      //    inviteBlurb / features / subteams / coaches / members.
+      //  - Any current member can leave (remove their own uid) or
+      //    add their own uid; they cannot change other fields.
+      //  - Non-member can self-join via members[] only (team-code flow).
+      //  - Admins can do anything.
+      // Was previously: any current member could rewrite the entire
+      // doc, including renaming the team, changing createdBy, or
+      // silently adding arbitrary uids to members[].
+      allow update: if isAdmin()
+        || (
+          // Head coach: full update over a known set of editable keys.
+          isSignedIn()
+          && resource.data.createdBy == request.auth.uid
+          && request.resource.data.members.size() > 0
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'description', 'inviteBlurb', 'features',
+            'subteams', 'coaches', 'members'
+          ])
+        )
+        || (
+          // Existing member: members-only update, must not boot anyone
+          // else. Either add self, remove self, or no change in size
+          // with same membership minus self being added/removed only.
+          isSignedIn()
+          && request.auth.uid in resource.data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.size() > 0
+          && (
+            // Adding self only (idempotent).
+            (request.auth.uid in request.resource.data.members
+             && request.resource.data.members.toSet().difference(resource.data.members.toSet())
+                .hasOnly([]))
+            ||
+            // Leaving — must remove only self, no one else.
+            (!(request.auth.uid in request.resource.data.members)
+             && resource.data.members.toSet().difference(request.resource.data.members.toSet())
+                .hasOnly([request.auth.uid])
+             && request.resource.data.members.toSet().difference(resource.data.members.toSet())
+                .hasOnly([]))
           )
         )
-      ) || isAdmin();
+        || (
+          // Non-member self-join: members-only update, adding only self.
+          isSignedIn()
+          && !(request.auth.uid in resource.data.members)
+          && request.auth.uid in request.resource.data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.size() > 0
+          && request.resource.data.members.toSet().difference(resource.data.members.toSet())
+              .hasOnly([request.auth.uid])
+        );
       allow delete: if (isSignedIn() && request.auth.uid in resource.data.members) || isAdmin();
 
       match /sharedPlans/{planId} {
@@ -173,12 +230,27 @@ service cloud.firestore {
       match /chat/{messageId} {
         allow read: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
+        // kind/displayName must be schema-pinned. Without this, any
+        // team member could post `kind: 'coach', displayName: 'Coach'`
+        // and the recipient UI would render their message in the
+        // coach-broadcast banner — a plain impersonation channel.
         allow create: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 500;
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.kind in ['chat', 'workout', 'coach', 'system']
+          // 'coach' kind only writable by an actual head coach of this team.
+          && (request.resource.data.kind != 'coach'
+              || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
+              || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isCoach == true))
+          // Author must use their own profile displayName so the
+          // coach banner can't be impersonated by a member typing
+          // someone else's name into displayName.
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() <= 80;
         allow update: if isSignedIn()
           && (resource.data.uid == request.auth.uid
               || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy);
