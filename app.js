@@ -4084,6 +4084,12 @@ async function toggleChecklist(key) {
     await setDoc(ref, { items: { [key]: newVal } }, { merge: true });
   } catch(e) {
     console.error('Checklist save error:', e);
+    // Was previously silent — UI flipped the tick locally but next
+    // session the value was empty. Surface the failure and roll back
+    // the in-memory state so the next render shows the truth.
+    userChecklist[key] = !newVal;
+    showToast('Couldn\'t save your tick — check connection. Try again in a moment.', 'error');
+    try { renderToday(); } catch(err) {}
   }
 }
 // Celebration animation
@@ -4222,6 +4228,11 @@ function showAiHelpMenu() {
 }
 function openAiCoach(prefill) {
   $('ai-overlay').style.display = 'flex';
+  // Restore the quick-actions strip — was previously hidden on first
+  // tap and never came back, so the user opened the overlay to a bare
+  // input field with no orientation.
+  const qb = document.getElementById('ai-quick-btns');
+  if (qb) qb.style.display = '';
   if (prefill) {
     $('ai-input').value = prefill;
     sendAiMessage(prefill);
@@ -4231,31 +4242,51 @@ function openAiCoach(prefill) {
 }
 function closeAiCoach() {
   $('ai-overlay').style.display = 'none';
+  // Reset transient AI state so the next open is clean. The DOM
+  // messages list intentionally persists for the same conversation —
+  // user can clear it via the "New chat" affordance — but we drop the
+  // typing-indicator + any pending plan offer.
+  try {
+    document.querySelectorAll('#ai-messages .ai-msg.typing').forEach(n => n.remove());
+  } catch(e) {}
 }
 $('ai-fab')?.addEventListener('click', () => { haptic('light'); openAiCoach(); });
 $('ai-close-btn')?.addEventListener('click', closeAiCoach);
-// Quick question buttons
+// Esc closes the AI overlay — was previously only closeable via the
+// back button. Keyboard users + iOS hardware keyboards now have parity
+// with the rest of the app's overlays.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const ov = document.getElementById('ai-overlay');
+  if (ov && ov.style.display !== 'none') closeAiCoach();
+});
+// Quick question buttons. We HIDE the strip on first interaction
+// instead of removing it, so reopening the AI overlay (or starting a
+// new conversation) restores the quick-actions. Was previously calling
+// qb.remove() — first tap permanently destroyed the buttons for the
+// rest of the page lifetime.
+const _hideAiQuickBtns = () => {
+  const qb = document.getElementById('ai-quick-btns');
+  if (qb) qb.style.display = 'none';
+};
 document.querySelectorAll('.ai-quick-btn:not(.ai-gen-trigger):not(.ai-action-trigger)').forEach(btn => {
   btn.addEventListener('click', () => {
     const q = btn.dataset.q;
     if (q) sendAiMessage(q);
-    const qb = $('ai-quick-btns');
-    if (qb) qb.remove();
+    _hideAiQuickBtns();
   });
 });
 // Generate plan trigger
 document.querySelectorAll('.ai-gen-trigger').forEach(btn => {
   btn.addEventListener('click', () => {
-    const qb = $('ai-quick-btns');
-    if (qb) qb.remove();
+    _hideAiQuickBtns();
     startPlanGeneration();
   });
 });
 // AI action triggers (edit plan, weekly review, race prep, injury mode)
 document.querySelectorAll('.ai-action-trigger').forEach(btn => {
   btn.addEventListener('click', () => {
-    const qb = $('ai-quick-btns');
-    if (qb) qb.remove();
+    _hideAiQuickBtns();
     const action = btn.dataset.action;
     if (action === 'edit-plan') startAiPlanEdit();
     else if (action === 'weekly-review') startAiWeeklyReview();
@@ -4302,9 +4333,9 @@ async function sendAiMessage(message) {
   const messagesEl = $('ai-messages');
   const input = $('ai-input');
   input.value = '';
-  // Remove quick buttons
+  // Hide quick buttons (preserved across reopens; see openAiCoach).
   const qb = $('ai-quick-btns');
-  if (qb) qb.remove();
+  if (qb) qb.style.display = 'none';
   // Add user message
   const userMsg = document.createElement('div');
   userMsg.className = 'ai-msg user';
@@ -4312,7 +4343,7 @@ async function sendAiMessage(message) {
   messagesEl.appendChild(userMsg);
   // Add typing indicator
   const typingMsg = document.createElement('div');
-  typingMsg.className = 'ai-msg ai';
+  typingMsg.className = 'ai-msg ai typing';
   typingMsg.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -4330,15 +4361,29 @@ async function sendAiMessage(message) {
     const planList = ALL_PLANS.map(p => `${p.id}|${p.name}|${p.yearLevel}|${p.tier}|${p.category}`).join(';');
     ctx.push('AVAILABLE_PLANS: ' + planList);
   }
+  // Append the user's turn to history BEFORE we send so the next call
+  // includes it. Server-side multi-turn endpoint accepts `messages:
+  // [{role, content}, ...]`. aiChatHistory was previously declared
+  // but never populated, so every follow-up question lost prior turns
+  // and the AI couldn't remember the plan it had just generated.
+  aiChatHistory.push({ role: 'user', content: message });
+  // Cap to last 12 turns (24 messages) so payload stays manageable.
+  if (aiChatHistory.length > 24) aiChatHistory = aiChatHistory.slice(-24);
   try {
     const resp = await aiCoachFetch({
+      // Send the full multi-turn array so the server can pass it
+      // straight to Claude. Keep `message` populated for backwards-
+      // compat with any path that ignores `messages`.
       message,
-      context: ctx.join('. ')
+      messages: aiChatHistory.slice(),
+      context: ctx.join('. '),
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Request failed');
+    typingMsg.classList.remove('typing');
     typingMsg.innerHTML = '';
     typingMsg.textContent = data.reply;
+    if (data.reply) aiChatHistory.push({ role: 'assistant', content: data.reply });
     if (Array.isArray(data.actions) && data.actions.length) {
       renderAiActions(typingMsg, data.actions);
     }
@@ -4745,27 +4790,38 @@ async function saveAiPlan(shareWithTeam) {
   customPlans.unshift(plan);
   // Always persist to localStorage (primary storage)
   saveCustomPlansLocal();
+  let firestoreOk = true;
+  let shareOk = true;
   // Also save to Firestore (secondary sync)
   if (!demoMode && db && currentUser) {
     try {
       await setDoc(doc(db, 'users', currentUser.uid, 'customPlans', plan.id), plan);
-    } catch(e) { console.error('Save plan error:', e); }
+    } catch(e) { console.error('Save plan error:', e); firestoreOk = false; }
   }
   // Share with team
   if (shareWithTeam && userProfile?.teamId) {
     if (!demoMode && db) {
       try {
         await setDoc(doc(db, 'teams', userProfile.teamId, 'sharedPlans', plan.id), plan);
-      } catch(e) { console.error('Share plan error:', e); }
+      } catch(e) { console.error('Share plan error:', e); shareOk = false; }
     }
   }
   pendingAiPlan = null;
   const messagesEl = $('ai-messages');
   const msg = document.createElement('div');
   msg.className = 'ai-msg ai';
-  msg.textContent = shareWithTeam
-    ? '"' + plan.name + '" saved and shared with your team! Find it in Fitness → My Plans.'
-    : '"' + plan.name + '" saved! Find it in Fitness → My Plans.';
+  // Be honest about what actually persisted. Local-only saves DO
+  // survive on the same device (localStorage) so call that out
+  // separately from a successful cross-device sync.
+  if (shareWithTeam && shareOk && firestoreOk) {
+    msg.textContent = '"' + plan.name + '" saved and shared with your team. Find it in Fitness → Plans.';
+  } else if (firestoreOk) {
+    msg.textContent = '"' + plan.name + '" saved' + (shareWithTeam ? ' (couldn\'t share with team — saved to your library only)' : '') + '. Find it in Fitness → Plans.';
+    if (shareWithTeam && !shareOk) showToast('Plan saved but couldn\'t share — try again from My Plans.', 'warn');
+  } else {
+    msg.textContent = '"' + plan.name + '" saved on this device only. Sign in to sync across devices.';
+    showToast('Plan saved locally — server sync failed.', 'warn');
+  }
   messagesEl.appendChild(msg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   // Refresh My Plans tab
@@ -5045,7 +5101,7 @@ function renderWorkouts() {
             </button>
           </div>
           ${hasRoute ? `<div class="activity-map-thumb" id="mini-map-${idx}" data-route-id="${routeId}"></div>` : ''}
-          ${hasPhoto ? `<img src="${storedPhotos[photoId]}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-top:8px" loading="lazy">` : ''}
+          ${hasPhoto ? `<img src="${storedPhotos[photoId]}" alt="Workout photo" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-top:8px" loading="lazy" onerror="this.remove()">` : ''}
         </div>
       </div>`;
     });
@@ -5890,7 +5946,18 @@ async function renderRaceDayHistory() {
       .sort((a,b) => b.date.localeCompare(a.date))
       .slice(0, 10);
 
-    if (days.length === 0) { el.innerHTML = ''; return; }
+    if (days.length === 0) {
+      // Was previously rendering blank. At least show the user that
+      // the section exists and that they don't have history yet.
+      el.innerHTML = `
+        <div class="page-title" style="margin-top:8px">Race Day Results</div>
+        <div class="empty-state" style="padding:28px 16px;text-align:center;color:var(--muted-fg);font-size:13px">
+          <div class="empty-state-title" style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:4px">No race day history yet</div>
+          <div class="empty-state-desc" style="max-width:300px;margin:0 auto;line-height:1.45">Race days you and your teammates run will land here with lap times, drivers and a shareable summary.</div>
+        </div>
+      `;
+      return;
+    }
 
     let html = '<div class="page-title" style="margin-top:8px">Race Day Results</div><div class="space-y">';
 
@@ -6292,19 +6359,51 @@ async function loadGlobalLeaderboard() {
       };
     });
     globalLeaderboard = entries;
+    globalLbErr = null;
   } catch(e) {
     console.error('Load global leaderboard error:', e);
+    globalLbErr = e?.message || 'Failed to load leaderboard.';
   }
   globalLbLoading = false;
 }
+let globalLbErr = null;
 function renderGlobalLeaderboard(el) {
   if (globalLbLoading) {
     el.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
     return;
   }
-  if (globalLeaderboard.length === 0) {
+  // First-render kickoff — start the load, show spinner ONCE, but don't
+  // recurse on every empty-result render (which would loop forever
+  // when the load failed). After the load resolves we either have
+  // entries, an error, or a genuinely-empty result.
+  if (globalLeaderboard.length === 0 && !globalLbErr && !el._tpLbLoaded) {
+    el._tpLbLoaded = true;
     el.innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
     loadGlobalLeaderboard().then(() => renderGlobalLeaderboard(el));
+    return;
+  }
+  if (globalLbErr) {
+    el.innerHTML = `
+      <div class="empty-state" style="padding:32px 16px;text-align:center">
+        <div class="empty-state-title">Couldn't load the leaderboard</div>
+        <div class="empty-state-desc" style="margin:6px auto 14px;max-width:300px">${escHtml(globalLbErr)}</div>
+        <button class="btn btn-secondary" id="lb-retry-btn">Retry</button>
+      </div>
+    `;
+    el.querySelector('#lb-retry-btn')?.addEventListener('click', () => {
+      globalLbErr = null;
+      el._tpLbLoaded = false;
+      renderGlobalLeaderboard(el);
+    });
+    return;
+  }
+  if (globalLeaderboard.length === 0) {
+    el.innerHTML = `
+      <div class="empty-state" style="padding:32px 16px;text-align:center">
+        <div class="empty-state-title">No athletes yet</div>
+        <div class="empty-state-desc" style="margin:6px auto 0;max-width:300px">As your team logs workouts, the global leaderboard fills in here.</div>
+      </div>
+    `;
     return;
   }
   // Shallow-copy each entry so overriding "my" xp doesn't mutate the
@@ -6519,7 +6618,7 @@ function renderTeamTab(c) {
     sorted.forEach((m, i) => {
       const isMe = m.uid === myUid;
       const rankClass = i === 0 ? ' lb-rank-1' : '';
-      const drillAttr = canDrill && m.uid !== myUid ? ` data-coach-drill="${escHtml(m.uid)}" style="cursor:pointer"` : '';
+      const drillAttr = canDrill && m.uid !== myUid ? ` data-coach-drill="${escHtml(m.uid)}" style="cursor:pointer" tabindex="0" role="button" aria-label="Open athlete: ${escHtml(m.displayName || 'Unknown')}"` : '';
       html += `<tr class="${isMe ? 'lb-me' : ''}"${drillAttr}>
         <td class="lb-rank${rankClass}">${i + 1}</td>
         <td class="lb-name">${escHtml(m.displayName || 'Unknown')}${canDrill && m.uid !== myUid ? ' <span style="color:var(--muted-fg);font-size:10px">›</span>' : ''}</td>
@@ -6589,11 +6688,17 @@ function renderTeamTab(c) {
       renderTeam();
     });
   });
-  // Coach drill-into-athlete on row tap.
+  // Coach drill-into-athlete on row tap. Also Enter / Space for
+  // keyboard users — was tap-only before, locking out anyone using
+  // a hardware keyboard.
   c.querySelectorAll('[data-coach-drill]').forEach(row => {
-    row.addEventListener('click', () => {
+    const open = () => {
       const uid = row.dataset.coachDrill;
       if (uid) openCoachAthleteSheet(uid);
+    };
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
     });
   });
   // Bind coach features
@@ -7131,17 +7236,34 @@ async function renderProfile() {
 }
 async function updateProfileField(field, value) {
   if (!currentUser) return;
+  const prevValue = userProfile[field];
   userProfile[field] = value;
+  let authOk = true, dbOk = true;
   if (field === 'displayName' && updateProfile) {
-    try { await updateProfile(currentUser, { displayName: value }); } catch(e) { logError('update-display-name', e, { value }); }
+    try { await updateProfile(currentUser, { displayName: value }); }
+    catch(e) { logError('update-display-name', e, { value }); authOk = false; }
   }
   if (!demoMode && db) {
-    try { await updateDoc(doc(db, 'users', currentUser.uid), { [field]: value }); } catch(e) { console.error(e); }
+    try { await updateDoc(doc(db, 'users', currentUser.uid), { [field]: value }); }
+    catch(e) {
+      console.error('[updateProfileField] failed:', field, e);
+      dbOk = false;
+    }
   }
-  // Update header avatar
+  if (!authOk || !dbOk) {
+    // Roll back the in-memory mutation and tell the user — was
+    // previously silent, so a year/tier change failure looked saved
+    // in the UI but reverted on next reload.
+    userProfile[field] = prevValue;
+    showToast('Couldn\'t save change. Check your connection.', 'error');
+    renderProfile();
+    return;
+  }
+  // Update header avatar + dropdown name on success.
   if (field === 'displayName') {
-    $('user-avatar-btn').textContent = value.charAt(0).toUpperCase();
-    $('menu-name').textContent = value;
+    try { $('user-avatar-btn').textContent = (value || 'U').charAt(0).toUpperCase(); } catch(e) {}
+    try { $('menu-name').textContent = value; } catch(e) {}
+    try { const ma = $('menu-avatar'); if (ma) ma.textContent = (value || 'U').charAt(0).toUpperCase(); } catch(e) {}
   }
   renderProfile();
 }

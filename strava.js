@@ -100,9 +100,12 @@ export function renderStravaActivities() {
     return;
   }
 
-  // Check which activities are already imported
+  // Check which activities are already imported. Always String-coerce
+  // on add so older docs that stored stravaId as a Number still hit
+  // the same dedup key the lookup uses (`String(a.id)`). Without this,
+  // numeric-id workouts re-import as duplicates.
   const importedIds = new Set();
-  A.userWorkouts.forEach(w => { if (w.stravaId) importedIds.add(w.stravaId); });
+  A.userWorkouts.forEach(w => { if (w.stravaId != null) importedIds.add(String(w.stravaId)); });
 
   let html = '';
   A.stravaActivities.slice(0, 10).forEach(a => {
@@ -176,6 +179,7 @@ export function renderStravaActivities() {
         source: 'strava'
       };
 
+      let writeOk = true;
       if (A.demoMode) {
         A.userWorkouts.unshift({ ...workoutData, _id: 'd' + Date.now(), date: dateObj, createdAt: new Date() });
       } else if (A.db && A.currentUser) {
@@ -185,12 +189,21 @@ export function renderStravaActivities() {
             date: A.Timestamp.fromDate(dateObj),
             createdAt: A.serverTimestamp()
           });
-        } catch(e) { console.error('Strava import error:', e); }
+        } catch(e) {
+          console.error('Strava import error:', e);
+          writeOk = false;
+        }
       }
-
-      btn.textContent = 'Imported ✓';
-      btn.classList.add('imported');
-      btn.disabled = true;
+      if (writeOk) {
+        btn.textContent = 'Imported ✓';
+        btn.classList.add('imported');
+        btn.disabled = true;
+      } else {
+        // Don't lie that the import succeeded.
+        btn.textContent = 'Try again';
+        btn.disabled = false;
+        A.showToast?.('Couldn\'t import — try again in a moment.', 'error');
+      }
     });
   });
 }
