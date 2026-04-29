@@ -859,6 +859,10 @@ function initPreMap() {
 
 function startStint(c) {
   stintActive=true; stintStartTime=Date.now();
+  // Persist so a JS context loss / reload doesn't leave stintStartTime
+  // null. Without this, endStint() would compute Date.now() - null =
+  // Date.now() (≈55 years in ms) and bypass the 25-hour cap entirely.
+  try { localStorage.setItem('tp_stint_start', String(stintStartTime)); } catch(e) {}
   stintPositions=[]; stintLaps=[]; moveContinuousStart=null; lastLapTime=null;
   stintMap=null; stintPolyline=null; stintMarker=null;
   stintGpsState='connecting';
@@ -953,12 +957,22 @@ function onPos(pos) {
     }
   } catch(e){}
 
-  // Movement tracking
-  const moving=(speed||0)>MIN_SPEED_MS;
-  if (moving) {
+  // Movement tracking. iOS Geolocation reports `null` speed mid-stride
+  // between fixes — the previous code treated null as stationary and
+  // reset moveContinuousStart on every null sample, so the 7.5-min
+  // continuous-movement timer never expired and auto-start-point
+  // never fired on iPhones. Treat null as "unknown — keep counting"
+  // and only reset on a confirmed-stationary sample (speed is a
+  // number AND below threshold).
+  const movingOrUnknown = speed == null || speed > MIN_SPEED_MS;
+  if (movingOrUnknown) {
     if (!moveContinuousStart) moveContinuousStart=now;
     if (!rdd.startPointSet && (now-moveContinuousStart)/1000>=AUTO_START_SECS) {
-      setStartPoint(lat,lng).then(()=>{ addStartMarker(lat,lng); ctx.showToast('Start/finish point set.','success'); });
+      setStartPoint(lat,lng).then(()=>{
+        addStartMarker(lat,lng);
+        lastLapTime = now;
+        ctx.showToast('Start/finish point set.','success');
+      });
     }
   } else { moveContinuousStart=null; }
 
@@ -966,7 +980,14 @@ function onPos(pos) {
   if (!rdd.startPointSet && stintPositions.length>20) {
     const first=stintPositions[0], elapsed=(now-first.time)/1000;
     if (elapsed>60 && haversine(lat,lng,first.lat,first.lng)<LAP_THRESHOLD_M) {
-      setStartPoint(first.lat,first.lng).then(()=>{ addStartMarker(first.lat,first.lng); ctx.showToast('Start/finish point set.','success'); });
+      setStartPoint(first.lat,first.lng).then(()=>{
+        addStartMarker(first.lat,first.lng);
+        // Seed lastLapTime so the first lap measures from the start
+        // point being set, not from stintStartTime — was producing
+        // 7+ minute first laps when auto-set fired late.
+        lastLapTime = now;
+        ctx.showToast('Start/finish point set.','success');
+      });
     }
   }
 
@@ -1101,6 +1122,17 @@ function updateActive() {
 
 async function endStint(c) {
   stintActive=false;
+  // Hydrate stintStartTime from localStorage if it's null (cold-boot
+  // mid-stint case), then clamp duration to the 25-hour max so a
+  // stale persisted value can't write a 55-year stint to Firestore.
+  if (!stintStartTime) {
+    try {
+      const persisted = parseInt(localStorage.getItem('tp_stint_start') || '0', 10);
+      if (persisted && persisted > Date.now() - rdd.maxDurationMs) stintStartTime = persisted;
+    } catch(e) {}
+  }
+  if (!stintStartTime) stintStartTime = Date.now() - 1000; // last-resort: 1s stint
+  try { localStorage.removeItem('tp_stint_start'); } catch(e) {}
   clearInterval(stintInterval); stintInterval=null;
   clearInterval(stintLiveInterval); stintLiveInterval=null;
   if (stintGpsTimeout) { clearTimeout(stintGpsTimeout); stintGpsTimeout=null; }
@@ -1110,10 +1142,18 @@ async function endStint(c) {
   // of file holds it so GC can't kill it mid-stint.
   try { await stintWakeLock?.release?.(); } catch(e) {}
   stintWakeLock = null;
+  const rawDuration = Date.now() - stintStartTime;
+  // Clamp to the configured max (default 25h) — protects against
+  // stale persisted stintStartTime values from earlier sessions.
+  const cappedDuration = Math.min(rdd.maxDurationMs || (25 * 60 * 60 * 1000), Math.max(0, rawDuration));
   const record={
     uid:ctx.currentUser?.uid, displayName:ctx.userProfile?.displayName||'Unknown',
-    startTime:stintStartTime, endTime:Date.now(), duration:Date.now()-stintStartTime,
-    laps:stintLaps, positions:stintPositions.slice(0,500)
+    startTime:stintStartTime, endTime:Date.now(), duration:cappedDuration,
+    // Was slice(0,500) which kept the FIRST 500 points — for a
+    // 24-hour Maryborough stint at 1Hz that's the first 8.3 minutes
+    // only. Take the most-recent 500 to preserve the end of the stint
+    // (where the rider's actually ridden the most distance).
+    laps:stintLaps, positions:stintPositions.slice(-500)
   };
   // Save the stint FIRST. If this fails (network flake), we still want
   // the live doc up so the spectator panel doesn't show "off track" for

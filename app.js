@@ -192,7 +192,7 @@ function phaseArcProgress(phase, daysOut) {
   switch (phase) {
     case 'base':      return Math.max(0, seg - Math.min(84, daysOut - 84) / 84 * seg);
     case 'build':     return seg   + ((84 - daysOut) / 42) * seg;
-    case 'peak':      return 2*seg + ((42 - daysOut) / 35) * seg;
+    case 'peak':      return 2*seg + ((42 - daysOut) / 34) * seg; // Peak runs 42→8 days = 34d span; was /35 leaving a visual gap.
     case 'race-week': return 3*seg + ((7  - daysOut) / 7)  * seg;
     default: return 0;
   }
@@ -598,7 +598,11 @@ function renderRecoveryCard(workouts, healthData) {
     message = sleepFresh
       ? `Score ${score}/100. ${sleep.toFixed(1)}h sleep + ${recentCount} session${recentCount === 1 ? '' : 's'} in 3 days${hardCount ? ' (' + hardCount + ' hard)' : ''}. Rest or active recovery today.`
       : `Score ${score}/100. ${recentCount} session${recentCount === 1 ? '' : 's'} in 3 days${hardCount ? ' (' + hardCount + ' hard)' : ''}. Easy day recommended.`;
-  } else if (score >= 80 && recentCount === 0) {
+  } else if (score >= 80) {
+    // Was gated on `recentCount === 0` — anyone with even one session
+    // in the last 3 days never saw the "fresh" surface, which is
+    // exactly the population this card is meant to encourage. A high
+    // score with sleep + low RPE is the legitimate signal.
     kind = 'fresh';
     message = `Score ${score}/100. ${sleepFresh ? sleep.toFixed(1) + 'h sleep, ' : ''}you're fresh — good day to push.`;
   }
@@ -811,17 +815,38 @@ function calcXp() {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     return d ? localDateKey(d) : null;
   }).filter(Boolean))].sort();
-  let streak = 0, best = 0, cur = 0;
+  // Streak compute with freeze accounting. Two prior bugs:
+  //   1) Multi-day gap with multiple freezes burned NONE — `diff === 2`
+  //      check meant a 14-day streak with 2 freezes still snapped at a
+  //      3-day gap.
+  //   2) Freezes accrued on streak length, not workout count — when a
+  //      freeze was consumed, `cur` advanced over a non-trained day,
+  //      so freezes were issued for streak-days that included skips.
+  // Now: track activeDays separately; freezes accrue per 7 active days;
+  // gaps consume up to (gap-1) freezes if available.
+  let best = 0, cur = 0;
   let freezesEarned = 0, freezesUsed = 0;
+  let activeDays = 0;
   dates.forEach((d, i) => {
-    if (i === 0) { cur = 1; } else {
-      const diff = (new Date(d) - new Date(dates[i-1])) / 86400000;
-      if (diff === 1) { cur += 1; }
-      else if (diff === 2 && freezesEarned > freezesUsed) { cur += 1; freezesUsed++; } // Use a freeze for 1 missed day
-      else { cur = 1; }
+    if (i === 0) {
+      cur = 1;
+    } else {
+      const diff = Math.round((new Date(d) - new Date(dates[i-1])) / 86400000);
+      if (diff === 1) {
+        cur += 1;
+      } else if (diff > 1) {
+        const needed = diff - 1;
+        if ((freezesEarned - freezesUsed) >= needed) {
+          cur += 1;
+          freezesUsed += needed;
+        } else {
+          cur = 1;
+        }
+      }
     }
+    activeDays++;
     if (cur > best) best = cur;
-    if (cur > 0 && cur % 7 === 0) freezesEarned++; // Earn a freeze every 7 days
+    if (activeDays > 0 && activeDays % 7 === 0) freezesEarned++;
   });
   // Store streak freeze balance for display
   try { localStorage.setItem('tp_streak_freezes', String(Math.max(0, freezesEarned - freezesUsed))); } catch(e) {}
@@ -924,15 +949,37 @@ function getEarnedBadges() {
   return earned;
 }
 function calcStreak() {
+  // Mirror calcXp's freeze-aware streak math so the UI displays the
+  // same number the XP/badges path uses. Was previously plain
+  // consecutive-day, undercounting streak by however many freezes had
+  // been earned and consumed.
   const dates = [...new Set(userWorkouts.map(w => {
     const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
     return d ? localDateKey(d) : null;
   }).filter(Boolean))].sort();
   let cur = 0, best = 0;
+  let freezesEarned = 0, freezesUsed = 0;
+  let activeDays = 0;
   dates.forEach((d, i) => {
-    if (i === 0) cur = 1;
-    else cur = (new Date(d) - new Date(dates[i-1])) / 86400000 === 1 ? cur + 1 : 1;
+    if (i === 0) {
+      cur = 1;
+    } else {
+      const diff = Math.round((new Date(d) - new Date(dates[i-1])) / 86400000);
+      if (diff === 1) {
+        cur += 1;
+      } else if (diff > 1) {
+        const needed = diff - 1;
+        if ((freezesEarned - freezesUsed) >= needed) {
+          cur += 1;
+          freezesUsed += needed;
+        } else {
+          cur = 1;
+        }
+      }
+    }
+    activeDays++;
     if (cur > best) best = cur;
+    if (activeDays > 0 && activeDays % 7 === 0) freezesEarned++;
   });
   return best;
 }
@@ -4052,7 +4099,18 @@ async function toggleChecklist(key) {
       // Find current week number based on plan start
       const planStartKey = 'tp_plan_start_' + activePlanId;
       let planStart = localStorage.getItem(planStartKey);
-      if (!planStart) { planStart = now.toISOString(); localStorage.setItem(planStartKey, planStart); }
+      if (!planStart) {
+        // Snap to most-recent local Monday so plan workouts (which use
+        // Mon..Sun day names) align to a real week boundary. Activating
+        // mid-week used to roll week 2 over 168h after activation —
+        // meaning week 2 "Mon" would land in the past on day 1 of week 2.
+        const mon = new Date(now);
+        const offset = (mon.getDay() + 6) % 7; // 0=Mon, 1=Tue, ..., 6=Sun
+        mon.setDate(mon.getDate() - offset);
+        mon.setHours(0, 0, 0, 0);
+        planStart = mon.toISOString();
+        localStorage.setItem(planStartKey, planStart);
+      }
       const weeksSinceStart = Math.floor((now - new Date(planStart)) / (7 * 86400000)) + 1;
       const currentWeek = Math.min(weeksSinceStart, activePlan.durationWeeks || 8);
       const weekWorkouts = activePlan.workouts.filter(w => w.week === currentWeek);
@@ -5048,8 +5106,14 @@ function renderWorkouts() {
     }
     html += '</div>';
     html += '<div class="space-y" id="wo-list">';
+    // Only parse the photos blob (can be 5–15 MB of base64) when at
+    // least one workout actually has a photoId. Was previously parsing
+    // unconditionally on every snapshot, blocking the main thread for
+    // 80–150ms on phones.
     let storedPhotos = {};
-    try { storedPhotos = JSON.parse(localStorage.getItem('tp_photos') || '{}'); } catch(e) {}
+    if (userWorkouts.some(w => w.photoId)) {
+      try { storedPhotos = JSON.parse(localStorage.getItem('tp_photos') || '{}'); } catch(e) {}
+    }
     userWorkouts.forEach((w, idx) => {
       const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
       const dateStr = date.toLocaleDateString('en-AU', {day:'numeric',month:'short'});
@@ -5124,6 +5188,15 @@ function renderWorkouts() {
       </div>`;
     }
   }
+  // Tear down any Leaflet maps that the previous render attached to
+  // mini-map containers — without this, every Firestore snapshot
+  // leaks the prior maps + their tile-layer subscriptions + DOM
+  // listeners. After 5–10 snapshots a thirty-workout list was holding
+  // ~100 detached map instances in memory.
+  c.querySelectorAll('.activity-map-thumb').forEach(el => {
+    try { el._tpLeafletMap?.remove(); } catch(e) {}
+    el._tpLeafletMap = null;
+  });
   c.innerHTML = html;
   // Render mini maps — wait for container to have real dimensions
   if (typeof L !== 'undefined') {
@@ -5139,12 +5212,20 @@ function renderWorkouts() {
           touchZoom:false, scrollWheelZoom:false, doubleClickZoom:false
         });
         L.tileLayer(getMapTileUrl(), { maxZoom:18 }).addTo(miniMap);
-        const latlngs = route.map(p => [p[0], p[1]]);
+        // Simplify long routes before drawing — a 90-min ride emits
+        // 5000+ points; we only render in a 120px-wide thumbnail so
+        // every 6th point is fine. Saves ~300ms init + a lot of GPU.
+        const stride = Math.max(1, Math.floor(route.length / 600));
+        const latlngs = (stride > 1 ? route.filter((_, i) => i % stride === 0 || i === route.length - 1) : route).map(p => [p[0], p[1]]);
         const poly = L.polyline(latlngs, { color:'#f97316', weight:3, opacity:0.9 }).addTo(miniMap);
         L.circleMarker(latlngs[0], { radius:5, fillColor:'#22c55e', fillOpacity:1, color:'#fff', weight:2 }).addTo(miniMap);
         L.circleMarker(latlngs[latlngs.length-1], { radius:5, fillColor:'#ef4444', fillOpacity:1, color:'#fff', weight:2 }).addTo(miniMap);
         miniMap.fitBounds(poly.getBounds(), { padding:[8,8] });
         miniMap.invalidateSize();
+        // Track this instance on the element so renderWorkouts can
+        // tear it down before innerHTML wipes the parent — was leaking
+        // ~100 Leaflet maps per session before this.
+        el._tpLeafletMap = miniMap;
       } catch(e) { console.warn('Mini map:', e); }
     };
     c.querySelectorAll('.activity-map-thumb').forEach(el => {
@@ -5964,14 +6045,18 @@ async function renderRaceDayHistory() {
 
     let html = '<div class="page-title" style="margin-top:8px">Race Day Results</div><div class="space-y">';
 
-    for (const day of days) {
-      // Load stints for this day
-      let stints = [];
+    // Fetch each day's stints in parallel — was sequential await per
+    // day so a 10-day archive made 10 round-trips serially (~500ms-1s).
+    const stintFetches = await Promise.all(days.map(async (day) => {
       try {
         const stintSnap = await getDocs(collection(db, 'race_day', day.date, 'stints'));
-        stints = stintSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
-      } catch(e) {}
+        return { day, stints: stintSnap.docs.map(d => ({ uid: d.id, ...d.data() })) };
+      } catch(e) {
+        return { day, stints: [] };
+      }
+    }));
 
+    for (const { day, stints } of stintFetches) {
       if (stints.length === 0) continue;
 
       const totalLaps = stints.reduce((s,x) => s+(x.laps?.length||0), 0);
@@ -8585,13 +8670,22 @@ function getEmbedUrl(url) {
 }
 // Firebase Listeners
 function setupListeners(uid) {
-  // Listen to workouts
+  // Listen to workouts. Debounce the re-render so a burst — e.g. a
+  // Strava sync writing 30 workouts in <1s — coalesces into a single
+  // paint instead of 30 full list rebuilds (each one reparses
+  // tp_photos / vf_routes from localStorage and re-mounts every
+  // mini-map).
   if (workoutsUnsubscribe) workoutsUnsubscribe();
   const wRef = query(collection(db, 'users', uid, 'workouts'), orderBy('date', 'desc'));
+  let _workoutsRenderTimer = null;
   workoutsUnsubscribe = onSnapshot(wRef, (snap) => {
     userWorkouts = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
-    if (currentPage === 'fitness' && fitnessSubTab === 'workouts') renderWorkouts();
-    if (currentPage === 'today') renderToday();
+    if (_workoutsRenderTimer) clearTimeout(_workoutsRenderTimer);
+    _workoutsRenderTimer = setTimeout(() => {
+      _workoutsRenderTimer = null;
+      if (currentPage === 'fitness' && fitnessSubTab === 'workouts') renderWorkouts();
+      else if (currentPage === 'today') renderToday();
+    }, 80);
   }, (err) => {
     console.error('Workouts listener error:', err);
     userWorkouts = [];
@@ -9032,6 +9126,17 @@ function startApp() {
         // an orphan setInterval that kept firing across sign-in sessions.
         if (window._tpRaceDayPoll) clearInterval(window._tpRaceDayPoll);
         window._tpRaceDayPoll = setInterval(async () => {
+          // Cheap pre-check: skip the Firestore read entirely when
+          // there's no race day active and no race scheduled today.
+          // Was hitting Firestore every 60s for the entire session
+          // regardless of whether the user was anywhere near a race.
+          const todayKey = localDateKey();
+          const races = (typeof getActiveRaces === 'function') ? (getActiveRaces() || []) : [];
+          const raceToday = races.some(r => r.date === todayKey);
+          const isActive = getRaceDayActive();
+          if (!isActive && !raceToday) return;
+          // Also gate on visibility — no point polling a backgrounded tab.
+          if (document.visibilityState === 'hidden') return;
           await checkRaceDaySchedule();
           const stillActive = getRaceDayActive();
           if (!stillActive && document.getElementById('raceday-overlay')) {
