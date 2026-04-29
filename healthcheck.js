@@ -2,6 +2,16 @@
 // Runs on every 5th load + once daily
 // Sends report to hearn.tenny@icloud.com if issues found
 
+// Local YYYY-MM-DD key — `_localDateKey()` was
+// rolling at UTC midnight (10–11am Sydney), causing health_reports/
+// {key} to be keyed differently between morning and afternoon and the
+// per-device daily cap to fire twice in a single calendar day.
+function _localDateKey(d = new Date()) {
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt)) return '';
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+
 const HC_LOAD_KEY   = 'tp_hc_load_count';
 const HC_DAILY_KEY  = 'tp_hc_last_daily';
 const HC_ERRORS_KEY = 'tp_hc_captured_errors';
@@ -96,7 +106,7 @@ function runUIChecks() {
 async function saveToFirestore(report, A) {
   if (!A?.db || !A?.setDoc || !A?.doc) return;
   try {
-    const key = new Date().toISOString().split('T')[0];
+    const key = _localDateKey();
     await A.setDoc(A.doc(A.db, 'health_reports', key), { ...report, savedAt: new Date() }, { merge: true });
   } catch(_) {}
 }
@@ -188,7 +198,7 @@ export async function runHealthCheck(A, force = false) {
     const allIssues     = [...sessionErrors, ...uiIssues];
 
     const report = {
-      date: new Date().toISOString().split('T')[0],
+      date: _localDateKey(),
       ts: Date.now(),
       vw: window.innerWidth,
       vh: window.innerHeight,
@@ -252,7 +262,7 @@ export function maybeRunHealthCheck(ctx) {
   try {
     const count = (parseInt(localStorage.getItem('tp_hc_load_count') || '0')) + 1;
     localStorage.setItem('tp_hc_load_count', count.toString());
-    const today = new Date().toISOString().split('T')[0];
+    const today = _localDateKey();
     const lastDate = localStorage.getItem('tp_hc_last_date') || '';
     if (count % 5 === 0 || lastDate !== today) {
       localStorage.setItem('tp_hc_last_date', today);

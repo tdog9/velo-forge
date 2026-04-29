@@ -1,6 +1,6 @@
 // TurboPrep Admin Panel Module
 // All state accessed via A (app context set by initAdmin)
-import { escHtml, capitalize, getXpLevel, timeAgo } from './state.js';
+import { escHtml, capitalize, getXpLevel, timeAgo, localDateKey } from './state.js';
 
 // Default A with working $ so render functions don't hard-crash if init hasn't
 // run yet (module load race, demo mode bypass, etc.). initAdmin replaces this.
@@ -139,7 +139,11 @@ async function renderAdminOverview() {
 async function renderAdminRaceDay() {
   const el = A.$('admin-raceday');
   if (!el) return;
-  const todayKey = new Date().toISOString().split('T')[0];
+  // Use localDateKey so this matches raceday.js + race-day-public —
+  // was UTC, which broke the same Firestore doc keyed two ways for
+  // ~10 hours every Sydney morning (admin saw "no race day" while
+  // raceday.js had it active).
+  const todayKey = localDateKey();
   const races = (A.getActiveRaces ? A.getActiveRaces() : []) || [];
   const todayRace = races.find(r => r.date === todayKey);
   let rd = null;
@@ -630,7 +634,7 @@ export async function renderCoachDashboard() {
   const needsFollowUp = students.filter(s => s.lastActive && s.lastActive < fiveDaysAgo && s.lastActive > new Date(now.getTime() - 86400000 * 30));
   if (needsFollowUp.length > 0 && ('Notification' in window) && Notification.permission === 'granted') {
     const lastNotif = localStorage.getItem('vf_coach_notif_date');
-    const today = now.toISOString().split('T')[0];
+    const today = localDateKey(now);
     if (lastNotif !== today) {
       localStorage.setItem('vf_coach_notif_date', today);
       try {
@@ -1214,7 +1218,7 @@ export function renderAdminTraining() {
   if (!el) return;
   const sessions = A.trainingSessions || [];
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = localDateKey(now);
   // Split into upcoming and past
   const upcoming = sessions.filter(s => s.date >= todayStr).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
   const past = sessions.filter(s => s.date < todayStr).sort((a,b) => (b.date + b.time).localeCompare(a.date + a.time));
@@ -1485,7 +1489,7 @@ function renderRaceFootageSection(parentEl) {
   
   races.forEach(race => {
     const existing = A.raceFootage[race.id] || race.footageUrls || [];
-    const isPast = race.date <= new Date().toISOString().split('T')[0];
+    const isPast = race.date <= localDateKey();
     html += `
       <div class="footage-admin-item">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">

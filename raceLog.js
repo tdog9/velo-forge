@@ -1,5 +1,5 @@
 // TurboPrep Race Log Module
-import { escHtml } from './state.js';
+import { escHtml, localDateKey } from './state.js';
 
 let A = { $: (id) => document.getElementById(id) };
 export function initRaceLog(ctx) { A = ctx; }
@@ -62,7 +62,7 @@ export function renderFootageLinks(raceId) {
 export function getCompletedRacesNeedingLogs() {
   if (!A || !A.getActiveRaces) return;
   const races = A.getActiveRaces();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateKey();
   const loggedTracks = new Set((A.userRaceLogs || []).map(l => (l.trackName || '').toLowerCase()));
   return races.filter(r => {
     if (!r.date || r.date > today) return false;
@@ -251,7 +251,7 @@ export function openRaceLogForm(existing, editIdx) {
         <input class="input" type="text" id="rl-track-custom" placeholder="Custom track name" value="${escHtml(e.trackName || '')}" style="${trackNames.includes(e.trackName) ? 'display:none' : ''}">
 
         <div class="label">Date</div>
-        <input class="input" type="date" id="rl-date" value="${e.date || new Date().toISOString().split('T')[0]}">
+        <input class="input" type="date" id="rl-date" value="${e.date || localDateKey()}">
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div>

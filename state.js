@@ -1,5 +1,23 @@
 // TurboPrep Utilities Module — pure functions, no state
 
+// Local "today key" for date-keyed docs and localStorage. The previous
+// `new Date().toISOString().split('T')[0]` rolled at UTC midnight,
+// which is 10am or 11am Sydney-time — flipping users into "tomorrow"
+// during the workday and causing daily-mute keys to re-trigger,
+// streaks to break, and the race_day Firestore doc to be keyed
+// differently in admin.js vs raceday.js for ~10 hours every morning.
+// This helper produces YYYY-MM-DD using the device's local timezone
+// components, so every consumer agrees on the same calendar day for
+// the user's actual day boundary.
+export function localDateKey(d = new Date()) {
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt)) return '';
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function escHtml(s) {
   if (s == null) return '';
   const div = document.createElement('div');

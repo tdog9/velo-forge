@@ -1,7 +1,7 @@
 // TurboPrep HPR Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { initRaceDay, loadRaceDayState, getRaceDayActive, getTodayStints, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay, checkRaceDaySchedule } from './raceday.js';
-import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } from './state.js';
+import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS, localDateKey } from './state.js';
 import { maybeRunHealthCheck, initHealthErrorCollector, forceHealthCheck, getLastHealthReport } from './healthcheck.js';
 initHealthErrorCollector();
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)
@@ -467,7 +467,7 @@ function loadAiWidgets() {
 // nagging by keeping the cap at 1/day.
 function maybeAutoGenerateAiWidget() {
   try {
-    const todayKey = new Date().toISOString().split('T')[0];
+    const todayKey = localDateKey();
     const lastAutoKey = localStorage.getItem('tp_ai_widget_last_auto');
     if (lastAutoKey === todayKey) return;
     // Only auto-generate if we have signal to give the coach: a logged
@@ -522,7 +522,7 @@ function dismissAiWidget(id) {
 function renderMilestoneCard(totalWorkouts, streak, lvl, xp) {
   let last = {};
   try { last = JSON.parse(localStorage.getItem('tp_last_milestone') || '{}'); } catch(e) {}
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateKey();
   // Find the highest unmet milestone for each axis.
   const wMilestones = [10, 25, 50, 100, 250, 500];
   const sMilestones = [7, 14, 30, 60, 100];
@@ -588,7 +588,7 @@ function renderRecoveryCard(workouts, healthData) {
   score -= Math.min(40, recentCount * 8 + hardCount * 8);
   score = Math.max(0, Math.min(100, Math.round(score)));
   // Decide whether to surface a card. Quiet bands (50-79) don't show.
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateKey();
   let lastDismissed = '';
   try { lastDismissed = localStorage.getItem('tp_recovery_dismissed') || ''; } catch(e) {}
   if (lastDismissed === today) return '';
@@ -631,7 +631,7 @@ function renderRpeBurnoutCard(workouts) {
   // Don't repeat — only show once per day.
   let last = '';
   try { last = localStorage.getItem('tp_rpe_warn') || ''; } catch(e) {}
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateKey();
   if (last === today) return '';
   return `<div class="rpe-burnout-card" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.35)">
     <div style="font-size:24px;flex-shrink:0">⚠️</div>
@@ -3190,8 +3190,8 @@ function renderToday() {
   }
   // Daily Roundup (shows after 5pm if student trained today)
   const roundupHour = now.getHours();
-  const roundupDateStr = now.toISOString().split('T')[0];
-  const todayWos = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === roundupDateStr; });
+  const roundupDateStr = localDateKey(now);
+  const todayWos = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && localDateKey(d) === roundupDateStr; });
   const roundupDismissed = localStorage.getItem('tp_roundup_' + roundupDateStr);
   if (roundupHour >= 17 && todayWos.length > 0 && !roundupDismissed) {
     const rMins = todayWos.reduce((s, w) => s + (w.duration || 0), 0);
@@ -3326,7 +3326,7 @@ function renderToday() {
   document.querySelectorAll('.rpe-warn-dismiss').forEach(btn => {
     btn.addEventListener('click', () => {
       haptic('light');
-      try { localStorage.setItem('tp_rpe_warn', new Date().toISOString().split('T')[0]); } catch(e) {}
+      try { localStorage.setItem('tp_rpe_warn', localDateKey()); } catch(e) {}
       btn.closest('.rpe-burnout-card')?.remove();
     });
   });
@@ -3334,7 +3334,7 @@ function renderToday() {
   document.querySelectorAll('.recovery-dismiss').forEach(btn => {
     btn.addEventListener('click', () => {
       haptic('light');
-      try { localStorage.setItem('tp_recovery_dismissed', new Date().toISOString().split('T')[0]); } catch(e) {}
+      try { localStorage.setItem('tp_recovery_dismissed', localDateKey()); } catch(e) {}
       btn.closest('.recovery-card')?.remove();
     });
   });
@@ -3581,7 +3581,7 @@ function renderToday() {
   $('today-strava-connect')?.addEventListener('click', () => { stravaStartAuth(); });
   // Dismiss daily roundup
   $('dismiss-roundup')?.addEventListener('click', () => {
-    localStorage.setItem('tp_roundup_' + new Date().toISOString().split('T')[0], '1');
+    localStorage.setItem('tp_roundup_' + localDateKey(), '1');
     $('dismiss-roundup')?.closest('.today-roundup-card')?.remove();
   });
   // Health card → open detailed dashboard
@@ -3593,7 +3593,7 @@ function renderToday() {
   document.querySelectorAll('.add-to-cal-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.dataset.sessionIdx || '0');
-      const todayStr4 = new Date().toISOString().split('T')[0];
+      const todayStr4 = localDateKey();
       const upcoming = trainingSessions.filter(s => s.date >= todayStr4).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
       const session = upcoming[idx];
       if (!session) return;
@@ -5240,7 +5240,7 @@ function renderWorkouts() {
 // FAB & Workout Log Sheet
 // Record moved to nav tab
 function openWorkoutSheet() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateKey();
   function getTypeFields(type) {
     const fields = {
       HPR: { name: 'HPR Session', fields: `
@@ -6721,7 +6721,7 @@ function renderTeamTab(c) {
       // Pick the most-imminent active race today as the raceId so the
       // overlay header has a label. Was previously called with no arg,
       // leaving rdd.raceId null.
-      const todayKey = new Date().toISOString().slice(0,10);
+      const todayKey = localDateKey();
       const races = (typeof getActiveRaces === 'function') ? (getActiveRaces() || []) : [];
       const todayRace = races.find(r => r.date === todayKey) || null;
       const ok = await activateRaceDay(todayRace?.id || null);
@@ -9972,7 +9972,12 @@ function addSessionToCalendar(session) {
 }
 function checkTrainingReminder() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const today = new Date().toISOString().split('T')[0];
+  // Skip when the page is hidden — Chrome / iOS Safari throttle
+  // setInterval but still fire occasionally; firing reminders against
+  // a backgrounded tab is wasteful + can race with stale state.
+  if (document.visibilityState === 'hidden') return;
+  if (!currentUser) return;  // user signed out — no point
+  const today = localDateKey();
   const lastReminder = localStorage.getItem('tp_reminder_date');
   if (lastReminder === today) return;
   // Check upcoming training sessions
@@ -10095,7 +10100,7 @@ async function autoUpdateChallengeScore(minutes, xpEarned) {
 }
 function checkRaceResultPrompt() {
   const allRaces = getActiveRaces();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateKey();
   const recentPast = allRaces.filter(r => {
     if (!r.date || r.date >= today) return false;
     const daysSince = Math.floor((Date.now() - new Date(r.date + 'T12:00:00').getTime()) / 86400000);

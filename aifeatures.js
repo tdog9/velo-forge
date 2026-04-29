@@ -1,5 +1,5 @@
 // TurboPrep AI Features Module — Plan editing, weekly review, race prep, injury mode
-import { escHtml } from './state.js';
+import { escHtml, localDateKey } from './state.js';
 
 // Default A with working $ so render functions don't crash if init hasn't run.
 let A = { $: (id) => document.getElementById(id) };
@@ -154,7 +154,7 @@ export function startAiWeeklyReview() {
 export function startAiRacePrep() {
   const messagesEl = A.$('ai-messages');
   const races = A.getActiveRaces();
-  const upcoming = races.filter(r => r.date && r.date >= new Date().toISOString().split('T')[0]).sort((a, b) => a.date.localeCompare(b.date));
+  const upcoming = races.filter(r => r.date && r.date >= localDateKey()).sort((a, b) => a.date.localeCompare(b.date));
 
   const aiMsg = document.createElement('div');
   aiMsg.className = 'ai-msg ai';
