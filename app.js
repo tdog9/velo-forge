@@ -1999,6 +1999,13 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 function switchPage(page) {
   // Feature 3: Save scroll position before leaving
   scrollPositions[currentPage] = $('content').scrollTop;
+  // Tear down the chat snapshot listener when leaving Team — was
+  // previously leaking forever once chat was opened, racking up
+  // Firestore reads on every chat write while the user was on Today
+  // / Fitness / Races / Admin / Coach.
+  if (currentPage === 'team' && page !== 'team') {
+    try { unsubscribeTeamChat(); } catch(e) {}
+  }
   currentPage = page;
   // Feature 6: Persist to localStorage
   try { localStorage.setItem('tp_lastTab', page); } catch(e) {}
@@ -2838,18 +2845,11 @@ function renderToday() {
     </div>
   </div>`;
   html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
-  // Engagement indicators row
-  if (isWidgetOn('engagement')) {
-  const freezeCount = parseInt(localStorage.getItem('tp_streak_freezes') || '0');
-  const engTodayStr = now.toISOString().split('T')[0];
-  const hasTrainedToday = userWorkouts.some(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && d.toISOString().split('T')[0] === engTodayStr; });
-  const indicators = [];
-  if (!hasTrainedToday && totalWorkouts > 0) indicators.push('<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(245,158,11,.12);color:#f59e0b">2x XP — log today!</span>');
-  if (freezeCount > 0) indicators.push('<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;background:rgba(59,130,246,.1);color:#3b82f6">🧊 ' + freezeCount + ' freeze' + (freezeCount > 1 ? 's' : '') + '</span>');
-  if (indicators.length > 0) {
-    html += '<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">' + indicators.join('') + '</div>';
-  }
-  }
+  // Engagement chips removed — they restated information already
+  // present in the XP / streak header (XP value + level + progress bar
+  // already convey "log today for more XP", and freezes show on the
+  // streak drilldown in Stats). Two competing signals for the same
+  // facts felt cluttered above the fold.
   // Weather card — render cached inline, fetch fresh in background
   if (isWidgetOn('weather')) {
   let cachedWeather = null;
@@ -6246,11 +6246,20 @@ function renderGlobalLeaderboard(el) {
     loadGlobalLeaderboard().then(() => renderGlobalLeaderboard(el));
     return;
   }
-  const sorted = [...globalLeaderboard].sort((a, b) => (b.xp || 0) - (a.xp || 0));
+  // Shallow-copy each entry so overriding "my" xp doesn't mutate the
+  // source globalLeaderboard array (which would persist a possibly-zero
+  // calcXp() onto the cached entry and sink the user to last on every
+  // subsequent render until the next fetch).
+  const sorted = globalLeaderboard.map(e => ({ ...e })).sort((a, b) => (b.xp || 0) - (a.xp || 0));
   const myUid = currentUser?.uid;
-  // Override my own XP with accurate calculation
   const myEntry = sorted.find(u => u.uid === myUid);
-  if (myEntry) { myEntry.xp = calcXp(); }
+  if (myEntry) {
+    const liveXp = calcXp();
+    // Only override if our local calc is non-zero — otherwise the
+    // server snapshot's value is more trustworthy than a freshly
+    // signed-in / cleared-cache local that hasn't loaded workouts yet.
+    if (liveXp > 0) myEntry.xp = liveXp;
+  }
   sorted.sort((a, b) => (b.xp || 0) - (a.xp || 0));
   // Find my rank
   const myIdx = sorted.findIndex(u => u.uid === myUid);
@@ -6816,6 +6825,13 @@ async function renderProfile() {
   if (currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
     html += renderGodAdminPanel();
   }
+  // Sign Out — was previously only on the avatar dropdown above the
+  // overlay. Users opening "Profile & Settings" had to back out and
+  // tap the avatar to log out, which most never noticed. Surface it
+  // at the bottom of the overlay where it's expected.
+  html += `<div class="profile-section" style="margin-top:8px">
+    <button id="profile-signout-btn" class="btn" style="width:100%;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);padding:12px;font-size:13px;font-weight:700;border-radius:10px">Sign Out</button>
+  </div>`;
   el.innerHTML = html;
   // Bind god admin panel
   if (currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
@@ -6921,6 +6937,12 @@ async function renderProfile() {
   // Fetch clubs button (if clubs not yet loaded)
 
   $('profile-export-btn')?.addEventListener('click', exportTrainingReport);
+  // Sign Out — fire the same logout handler used by the avatar dropdown.
+  $('profile-signout-btn')?.addEventListener('click', () => {
+    if (!confirm('Sign out of TurboPrep?')) return;
+    closeProfile();
+    $('logout-btn')?.click();
+  });
   // League admin buttons
   el.querySelectorAll('[data-league-manage]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -7486,7 +7508,18 @@ async function openCoachAthleteSheet(uid) {
       }
     }, 100);
   });
-  $('coach-athlete-assign')?.addEventListener('click', () => openPlanPickerForAthlete(uid, member));
+  $('coach-athlete-assign')?.addEventListener('click', () => {
+    // Firestore rules gate activePlanId writes to the team's createdBy
+    // user only; co-coaches who aren't the creator would tap Assign,
+    // pick a plan, then see a generic permission-denied toast. Surface
+    // this up-front instead.
+    const isHeadCoach = userProfile?.isCoach && teamData?.createdBy === currentUser?.uid;
+    if (!isHeadCoach) {
+      showToast('Only the head coach can assign plans. Ask them to do it from their account.', 'warn');
+      return;
+    }
+    openPlanPickerForAthlete(uid, member);
+  });
 }
 
 /// Plan picker — shows visible plans grouped by category. Tapping one
@@ -8267,6 +8300,12 @@ async function loadTeamData(forceRefresh=false) {
       return {
         uid,
         displayName: uData.displayName || 'Unknown',
+        // email + isCoach were missing from the projection; the
+        // Add-Co-Coach search-by-email path could never find anyone
+        // and the Promote button always rendered for existing
+        // co-coaches because m.isCoach was always undefined.
+        email: uData.email || '',
+        isCoach: !!uData.isCoach,
         yearLevel: uData.yearLevel || null,
         fitnessLevel: uData.fitnessLevel || 'basic',
         activePlanId: uData.activePlanId || null,
@@ -8840,6 +8879,21 @@ function startApp() {
                 });
               }
               autoUpdateChallengeScore(workout.duration || 0, 10);
+              // Auto-post to team chat — manual workouts already posted
+              // via saveWorkout (line ~5360) but tracker activities
+              // didn't, so teammates only saw half the team's workouts
+              // in the feed.
+              if (userProfile?.teamId) {
+                try {
+                  postWorkoutToTeamChat(userProfile.teamId, {
+                    name: workout.name || 'Workout',
+                    type: workout.type,
+                    duration: workout.duration,
+                    distance: workout.distance,
+                    routeId: workoutId,
+                  });
+                } catch(e) { console.warn('postWorkoutToTeamChat (tracker):', e); }
+              }
             } catch(e) { showError('Failed to save activity', 'tracker', e, { action: 'save' }); }
           } else { userWorkouts.unshift({ ...workout, id: workoutId, routeId: workoutId }); showToast('Activity saved (demo).', 'success'); }
         },

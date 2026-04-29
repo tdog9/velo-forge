@@ -24,6 +24,7 @@ let lastLapTime       = null;
 let stintMap          = null;
 let stintPolyline     = null;
 let stintMarker       = null;
+let stintWakeLock     = null;  // Strong reference to the wake-lock sentinel so GC doesn't drop it mid-stint.
 
 const LAP_THRESHOLD_M  = 30;   // metres — within this = at start/finish
 const MIN_SPEED_MS     = 0.3;  // m/s — below this = stopped
@@ -230,16 +231,36 @@ async function saveSetupFields() {
 }
 async function saveStint(record) {
   if (!ctx?.db || !ctx.currentUser) return;
-  // Audit found: rdd.date can be null if the user opens race-day mode
-  // before loadRaceDayState() has resolved (race condition on cold start).
-  // Fall back to today's local date so the stint actually saves instead of
-  // silently disappearing. Same key format as todayKey() above.
+  // rdd.date can be null if race-day mode opens before loadRaceDayState
+  // resolves (cold-boot race). Fall back to today's local date.
   const dk = rdd.date || (() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   })();
   try {
-    await ctx.setDoc(ctx.doc(ctx.db,'race_day',dk,'stints',ctx.currentUser.uid), record);
+    // Merge with any existing stint doc so we don't clobber laps that
+    // came in from the Watch path (app.js writes via merge:true into
+    // the same document). Without merge, a phone-side endStint() would
+    // wipe lastWatchStintAt + any Watch-recorded laps that arrived
+    // first.
+    const ref = ctx.doc(ctx.db, 'race_day', dk, 'stints', ctx.currentUser.uid);
+    let existing = null;
+    try { const snap = await ctx.getDoc(ref); existing = snap.exists() ? snap.data() : null; } catch(e) {}
+    const existingLaps = Array.isArray(existing?.laps) ? existing.laps : [];
+    const incomingLaps = Array.isArray(record?.laps) ? record.laps : [];
+    // Dedup by (number, recordedAt) — Watch can retransmit on
+    // connectivity recovery so the same lap can arrive twice.
+    const lapKey = (l) => (l?.number ?? '') + '|' + (l?.recordedAt ?? l?.duration ?? '');
+    const seen = new Set();
+    const mergedLaps = [];
+    [...existingLaps, ...incomingLaps].forEach(l => {
+      const k = lapKey(l);
+      if (seen.has(k)) return;
+      seen.add(k);
+      mergedLaps.push(l);
+    });
+    const merged = { ...existing, ...record, laps: mergedLaps };
+    await ctx.setDoc(ref, merged, { merge: true });
   } catch(e) {
     console.warn('saveStint failed:', e);
     try { ctx.showToast?.('Couldn\'t sync stint — your laps are saved locally.', 'warn'); } catch(e2) {}
@@ -627,7 +648,7 @@ function renderSetup(c) {
         ${mgr?`<button class="rd-del-field" data-idx="${i}" style="font-size:10px;color:#ef4444;background:none;border:none;cursor:pointer;padding:2px 6px;font-weight:700">✕</button>`:''}
       </div>
       ${f.type==='number'
-        ?`<input class="input rd-sf" data-idx="${i}" type="number" min="${f.min??0}" max="${f.max??30}" value="${esc(f.value||'')}" placeholder="${esc(f.label)}">`
+        ?`<input class="input rd-sf" data-idx="${i}" type="number"${typeof f.min==='number'?` min="${f.min}"`:''}${typeof f.max==='number'?` max="${f.max}"`:''} value="${esc(f.value||'')}" placeholder="${esc(f.label)}">`
         :`<input class="input rd-sf" data-idx="${i}" type="text" value="${esc(f.value||'')}" placeholder="${esc(f.label)}" maxlength="80">`
       }
     </div>`;
@@ -636,11 +657,15 @@ function renderSetup(c) {
   html+=`<button class="btn btn-primary" style="width:100%;margin-top:4px" id="rd-setup-save">Save My Setup</button>`;
   c.innerHTML=html;
 
-  c.querySelectorAll('.rd-sf').forEach(inp=>inp.addEventListener('change',()=>{ setupFields[parseInt(inp.dataset.idx)].value=inp.value; }));
+  // 'input' (not 'change') so the last keystroke captures even if the
+  // user taps Save without blurring the input first.
+  c.querySelectorAll('.rd-sf').forEach(inp=>inp.addEventListener('input',()=>{ setupFields[parseInt(inp.dataset.idx)].value=inp.value; }));
   c.querySelectorAll('.rd-del-field').forEach(btn=>btn.addEventListener('click',async()=>{
     const i = parseInt(btn.dataset.idx);
-    const fName = setupFields[i]?.name || 'this field';
-    if (!confirm('Delete ' + fName + ' from setup?')) return;
+    // Field objects use `label`, not `name` — confirm prompt was
+    // showing "undefined" before.
+    const fName = setupFields[i]?.label || 'this field';
+    if (!confirm('Delete "' + fName + '" from setup?')) return;
     const removed = setupFields.splice(i,1)[0];
     try { await saveSetupFields(); renderSetup(c); }
     catch(e) { setupFields.splice(i,0,removed); renderSetup(c); }
@@ -694,9 +719,23 @@ function renderLivePanel(live) {
 
 function renderUpNextPanel() {
   if (!rosterData || rosterData.length === 0) return '';
-  // Pick driver who hasn't ridden today, in roster order
-  const completedUids = new Set(todayStints.map(s => s.uid));
-  const next = rosterData.find(d => !completedUids.has(d.id) && d.id !== ctx.currentUser?.uid);
+  // Roster entries are keyed by `drv_<ts>` (internal id), not the
+  // user's auth uid — so the previous `d.id !== ctx.currentUser?.uid`
+  // check could NEVER match. Filter by displayName collation instead:
+  // a roster entry whose name matches the current user's display name
+  // (case + space-normalised) is considered "this is me, don't show
+  // me as up-next".
+  const meName = (ctx.userProfile?.displayName || '').trim().toLowerCase();
+  const completedNames = new Set(todayStints
+    .map(s => (s.displayName || '').trim().toLowerCase())
+    .filter(Boolean));
+  const next = rosterData.find(d => {
+    const dn = (d.name || '').trim().toLowerCase();
+    if (!dn) return false;
+    if (completedNames.has(dn)) return false;
+    if (meName && dn === meName) return false;
+    return true;
+  });
   if (!next) return '';
   const mins = Math.round((next.duration||3600)/60);
   // Visually distinct from the red "Live on track" panel — uses a blue
@@ -772,24 +811,31 @@ function renderStintTab(c) {
     const s=todayStints.find(x=>x.uid===btn.dataset.uid); if(s) emailStint(s);
   }));
 
-  // Spectator polling — refresh live drivers every 20s while pre-stint screen is visible
-  if (spectatorInterval) { clearInterval(spectatorInterval); spectatorInterval=null; }
+  // Spectator polling — refresh live drivers every 5–20s while pre-stint
+  // screen is visible. Returns the live array so the tick can compute
+  // the adaptive delay without doing a second loadLiveStints round-trip
+  // (was previously calling it twice per cycle, doubling read cost).
+  if (spectatorInterval) {
+    try { clearInterval(spectatorInterval); } catch(e) {}
+    try { clearTimeout(spectatorInterval); } catch(e) {}
+    spectatorInterval = null;
+  }
   const refreshLive = async () => {
     const live = await loadLiveStints();
     const panel = document.getElementById('rd-live-panel');
     if (panel) panel.innerHTML = renderLivePanel(live);
     if (!document.getElementById('rd-start-btn')) {
-      clearInterval(spectatorInterval); spectatorInterval=null;
+      try { clearInterval(spectatorInterval); } catch(e) {}
+      try { clearTimeout(spectatorInterval); } catch(e) {}
+      spectatorInterval = null;
     }
+    return live;
   };
   refreshLive();
-  // Re-poll: 5s while at least one rider is live, else 20s. (The previous
-  // adaptiveDelay helper was dead code — `false ? 20000 : 20000` always
-  // returned 20s. The real adaptive logic lives inside tick() below.)
+  // 5s while at least one rider is live, else 20s.
   const tick = async () => {
-    await refreshLive();
+    const live = await refreshLive();
     if (!document.getElementById('rd-start-btn')) return;  // tab moved on
-    const live = await loadLiveStints();
     const delay = (live && live.length > 0) ? 5000 : 20000;
     spectatorInterval = setTimeout(tick, delay);
   };
@@ -854,7 +900,16 @@ function startStint(c) {
     stintGpsState = 'error';
     try { ctx.showToast?.('Location not supported — tap laps manually.', 'warn'); } catch(e) {}
   }
-  try { if(navigator.wakeLock) navigator.wakeLock.request('screen').catch(()=>{}); } catch(e){}
+  // Retain a strong reference to the wake-lock sentinel — without
+  // this, the GC can release it partway through a long stint and the
+  // screen sleeps unexpectedly during a race.
+  try {
+    if (navigator.wakeLock) {
+      navigator.wakeLock.request('screen')
+        .then(s => { stintWakeLock = s; })
+        .catch(() => {});
+    }
+  } catch(e) {}
 }
 
 async function publishLiveStint() {
@@ -921,13 +976,27 @@ function onPos(pos) {
     const timeSinceLast=lastLapTime ? now-lastLapTime : now-stintStartTime;
     if (dist<LAP_THRESHOLD_M && timeSinceLast>20000) {
       const dur=lastLapTime ? now-lastLapTime : now-stintStartTime;
-      try { ctx.haptic?.('heavy'); } catch(e) {}
-      stintLaps.push({time:now,duration:dur,lat,lng});
-      lastLapTime=now;
-      ctx.showToast('Lap '+stintLaps.length+' · '+fmtMs(dur),'success');
-      updateActive();
+      recordManualLap(dur, { time: now, lat, lng });
     }
   }
+}
+
+// Manual / GPS-agnostic lap commit. Used by both the auto-detection
+// path above and the manual-tap button on the active-stint screen for
+// when GPS is unavailable. Was previously inlined inside onPos —
+// renderActiveStint advertised "tap laps manually" with no tappable
+// element, which made the GPS-error fallback a dead promise.
+function recordManualLap(durMs, opts = {}) {
+  if (!stintActive) return;
+  const now = opts.time || Date.now();
+  const dur = (typeof durMs === 'number' && durMs > 0) ? durMs : (lastLapTime ? now - lastLapTime : now - stintStartTime);
+  // Reject implausibly fast laps (<3s) so a triple-tap doesn't pollute.
+  if (dur < 3000) return;
+  try { ctx.haptic?.('heavy'); } catch(e) {}
+  stintLaps.push({ time: now, duration: dur, lat: opts.lat, lng: opts.lng, source: opts.source || (opts.lat ? 'gps' : 'manual') });
+  lastLapTime = now;
+  ctx.showToast('Lap ' + stintLaps.length + ' · ' + fmtMs(dur), 'success');
+  updateActive();
 }
 
 function addStartMarker(lat,lng) {
@@ -953,8 +1022,11 @@ function renderActiveStint(c) {
       <div style="width:1px;height:14px;background:var(--border)"></div>
       <div style="text-align:center;min-width:0"><span id="rd-bl" style="font-size:14px;font-weight:800;color:#22c55e;font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">best</span></div>
     </div>
-    <div id="rd-laplist" style="margin-bottom:14px;max-height:200px;overflow-y:auto"></div>
-    <button id="rd-end-stint" style="width:100%;padding:14px;border-radius:12px;background:#ef4444;color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">■ End Stint</button>`;
+    <div id="rd-laplist" style="margin-bottom:10px;max-height:180px;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button id="rd-tap-lap" style="flex:1;padding:14px;border-radius:12px;background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);color:#22c55e;font-size:14px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">Tap Lap</button>
+      <button id="rd-end-stint" style="flex:1;padding:14px;border-radius:12px;background:#ef4444;color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">End Stint</button>
+    </div>`;
 
   setTimeout(()=>{
     try {
@@ -978,6 +1050,14 @@ function renderActiveStint(c) {
   c.querySelector('#rd-end-stint')?.addEventListener('click',()=>{
     if (!confirm('End your stint? Lap times stop now.')) return;
     endStint(c);
+  });
+  // Manual-lap fallback for when GPS is unreliable. The sublabel under
+  // the timer already advertises this as available; previously there
+  // was no actual button to tap.
+  c.querySelector('#rd-tap-lap')?.addEventListener('click', () => {
+    const now = Date.now();
+    const dur = lastLapTime ? (now - lastLapTime) : (now - stintStartTime);
+    recordManualLap(dur, { time: now, source: 'manual' });
   });
   updateActive();
 }
@@ -1026,13 +1106,21 @@ async function endStint(c) {
   if (stintGpsTimeout) { clearTimeout(stintGpsTimeout); stintGpsTimeout=null; }
   stintGpsState='idle';
   if (stintWatchId!==null){ navigator.geolocation.clearWatch(stintWatchId); stintWatchId=null; }
-  await clearLiveStint();
+  // Release the wake lock if we held one — saveStint reference at top
+  // of file holds it so GC can't kill it mid-stint.
+  try { await stintWakeLock?.release?.(); } catch(e) {}
+  stintWakeLock = null;
   const record={
     uid:ctx.currentUser?.uid, displayName:ctx.userProfile?.displayName||'Unknown',
     startTime:stintStartTime, endTime:Date.now(), duration:Date.now()-stintStartTime,
     laps:stintLaps, positions:stintPositions.slice(0,500)
   };
+  // Save the stint FIRST. If this fails (network flake), we still want
+  // the live doc up so the spectator panel doesn't show "off track" for
+  // a stint that hasn't been archived yet. Was previously clearing live
+  // first, so flaky network = "live cleared, stint never saved".
   await saveStint(record);
+  await clearLiveStint();
   todayStints=todayStints.filter(s=>s.uid!==record.uid); todayStints.push(record);
   stintMap=null; stintPolyline=null; stintMarker=null;
   renderStintSummary(c,record);

@@ -598,6 +598,10 @@ export async function renderCoachDashboard() {
           });
         } catch(e) {}
         students.push({
+          // uid was missing — every shoutout/nudge button rendered with
+          // data-uid="undefined", so the handler couldn't address the
+          // student and posted to the team feed unscoped.
+          uid: d.id,
           name: u.displayName || 'Unknown',
           year: u.yearLevel || '',
           tier: u.fitnessLevel || 'basic',
