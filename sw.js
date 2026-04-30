@@ -1,5 +1,5 @@
 // TurboPrep Service Worker v2
-const CACHE_NAME = 'turboprep-20260430-chat-heal';
+const CACHE_NAME = 'turboprep-20260430-audit-fixes';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

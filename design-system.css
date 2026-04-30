@@ -51,7 +51,7 @@
   --ds-elev-1: 0 1px 2px rgba(0,0,0,.18);
   --ds-elev-2: 0 4px 12px rgba(0,0,0,.22);
   --ds-elev-3: 0 12px 32px rgba(0,0,0,.34);
-  --ds-elev-pop: 0 8px 24px rgba(249,115,22,.18);
+  --ds-elev-pop: 0 8px 24px rgba(var(--primary-rgb),.18);
 
   /* ── Motion: 3 standard durations + one easing */
   --ds-dur-fast: 120ms;
@@ -265,7 +265,7 @@ textarea.input { min-height: 72px; resize: vertical; line-height: 1.4; }
   font-size: 16px; line-height: 1; flex-shrink: 0;
   width: 26px; height: 26px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(249,115,22,.14);
+  background: rgba(var(--primary-rgb),.14);
 }
 #tp-ann-banner .tp-ann-banner-text { flex: 1; min-width: 0; }
 #tp-ann-banner .tp-ann-banner-title {

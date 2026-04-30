@@ -1169,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-chat-heal';
+const APP_VERSION = '20260430-audit-fixes';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1354,6 +1354,11 @@ let teamMembers = []; // [{uid, displayName, yearLevel, fitnessLevel, activePlan
 let teamUnsubscribe = null;  // onSnapshot disposer for live team updates
 let isAdmin = false;
 const ADMIN_EMAIL = 'hearn.tenny@icloud.com';
+// Single source of truth for the master-account check. Replaces ~10 inline
+// `isMasterAccount(currentUser?.email)` checks.
+function isMasterAccount(email) {
+  return !!email && String(email).toLowerCase() === ADMIN_EMAIL.toLowerCase();
+}
 // Default team that any new athlete signing in falls into when they don't
 // already belong to one. Ensures testers (Felix, Alison, etc.) and any
 // future student who signs up with no team code still see the team UI
@@ -6769,7 +6774,7 @@ function renderTeamTab(c) {
     return;
   }
   const hasTeam = userProfile?.teamId && teamData;
-  const isMasterOrCoach = userProfile?.isCoach || currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+  const isMasterOrCoach = userProfile?.isCoach || isMasterAccount(currentUser?.email);
   if (!hasTeam) {
     html += `
       <div class="page-title" style="margin-bottom:4px">Your Team</div>
@@ -6907,7 +6912,7 @@ function renderTeamTab(c) {
   // testers + the master unable to manage their own test team.
   const canManageTeam = (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid)
     || isAdmin
-    || (currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com');
+    || (isMasterAccount(currentUser?.email));
   if (canManageTeam) {
     html += `
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
@@ -7705,7 +7710,7 @@ async function joinTeam() {
 // --- Leagues ---
 async function renderLeaguesTab(el) {
   try {
-  const isMasterOrCoach = userProfile?.isCoach || currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+  const isMasterOrCoach = userProfile?.isCoach || isMasterAccount(currentUser?.email);
   el.innerHTML = '<div style="text-align:center;padding:24px"><div class="spinner"></div></div>';
   let leagues = [];
   try {
@@ -8254,7 +8259,7 @@ function openManageTeamSheet() {
   if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
   // Admin + master can manage any team for support purposes; otherwise
   // restricted to the head coach (createdBy of the team doc).
-  const isMaster = currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+  const isMaster = isMasterAccount(currentUser?.email);
   if (teamData.createdBy !== currentUser?.uid && !isAdmin && !isMaster) {
     showToast('Only the head coach can manage the team.', 'warn');
     return;
@@ -9239,7 +9244,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-chat-heal';
+  const APP_VERSION = '20260430-audit-fixes';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9491,7 +9496,10 @@ $('login-password')?.addEventListener('keydown', (e) => { if (e.key === 'Enter')
 $('signup-password')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('signup-btn').click(); });
 
 // ── Coach Page (bottom tab for coach accounts) ───────────────────────────────
-let coachPageTab = 'students';
+let coachPageTab = (() => {
+  try { return localStorage.getItem('tp_coachPageTab') || 'students'; }
+  catch (e) { return 'students'; }
+})();
 // Tabs marked PRO are locked behind isCoachPro(). Free tier gets Students
 // (read-only roster) + My Team (basic team info). Training scheduler and
 // the live Race Day dashboard are the carrots that drive the upgrade.
@@ -9524,6 +9532,7 @@ function renderCoachPage() {
   c.querySelectorAll('[data-coach-sub]').forEach(btn => {
     btn.addEventListener('click', () => {
       coachPageTab = btn.dataset.coachSub;
+      try { localStorage.setItem('tp_coachPageTab', coachPageTab); } catch (e) {}
       renderCoachPage();
     });
   });

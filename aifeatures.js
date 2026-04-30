@@ -89,8 +89,21 @@ export async function sendAiPlanEdit(instruction, plan) {
       message: instruction,
       context: `PLAN_EDIT_MODE. Current plan: "${plan.name}" (${plan.category}, ${plan.yearLevel}, ${plan.tier}). Workouts: ${planSummary}. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Respond with specific workout-by-workout changes the student should make. Be practical and specific.`
     });
-    const data = await resp.json();
-    typingMsg.innerHTML = data.reply || 'Sorry, I couldn\'t process that edit.';
+    // Check response status before parsing — a 401/429/500 with a body
+    // could throw a SyntaxError on resp.json() and skip the catch's
+    // friendly error mapping. Read text first, then attempt to parse.
+    const raw = await resp.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch (_) {}
+    if (!resp.ok) {
+      const friendly = resp.status === 401 ? 'Session expired — sign in again.'
+        : resp.status === 429 ? 'Too many AI requests — wait a few minutes.'
+        : (data?.error || `AI request failed (HTTP ${resp.status}).`);
+      typingMsg.textContent = friendly;
+      typingMsg.classList.remove('ai-typing');
+      return;
+    }
+    typingMsg.innerHTML = data?.reply || 'Sorry, I couldn\'t process that edit.';
     typingMsg.classList.remove('ai-typing');
   } catch(e) {
     const msg = String(e?.message || '');

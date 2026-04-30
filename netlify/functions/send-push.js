@@ -96,7 +96,11 @@ exports.handler = async (event) => {
   } catch (e) {
     return { statusCode: 401, body: 'Invalid token' };
   }
-  const isGodAdmin = decoded.email === 'hearn.tenny@icloud.com';
+  // God-admin email — kept as a single literal so it's easy to audit,
+  // but check via lowercased compare so case differences in the JWT
+  // claim don't break the gate.
+  const GOD_ADMIN_EMAIL = 'hearn.tenny@icloud.com';
+  const isGodAdmin = !!decoded.email && decoded.email.toLowerCase() === GOD_ADMIN_EMAIL;
   let payload = {};
   try { payload = JSON.parse(event.body || '{}'); } catch (e) {}
   const broadcast = payload.broadcast === true;
@@ -179,8 +183,28 @@ exports.handler = async (event) => {
   } else {
     const targetUid = String(payload.uid || '').trim();
     if (!targetUid) return { statusCode: 400, body: 'Missing uid' };
+    // Authorization rules for single-user push:
+    // - God admin: any target uid
+    // - Self: pushing to own devices (e.g. test push)
+    // - Coach: target must be a member of a team this coach owns
+    //   (createdBy === decoded.uid). Was previously unchecked, allowing
+    //   any coach to push to any user.
     if (!isGodAdmin && targetUid !== decoded.uid) {
-      return { statusCode: 403, body: 'Forbidden' };
+      if (senderRole !== 'coach') {
+        return { statusCode: 403, body: 'Forbidden' };
+      }
+      try {
+        const targetProf = await admin.firestore().collection('users').doc(targetUid).get();
+        const targetTeamId = targetProf.exists ? targetProf.data().teamId : null;
+        if (!targetTeamId) return { statusCode: 403, body: 'Target has no team' };
+        const teamSnap = await admin.firestore().collection('teams').doc(targetTeamId).get();
+        const team = teamSnap.exists ? teamSnap.data() : null;
+        if (!team || team.createdBy !== decoded.uid) {
+          return { statusCode: 403, body: 'Coaches can only push to their own team members' };
+        }
+      } catch (e) {
+        return { statusCode: 500, body: 'Permission check failed: ' + e.message };
+      }
     }
     try {
       const snap = await admin.firestore().collection('users').doc(targetUid).collection('devices').get();
