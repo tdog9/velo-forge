@@ -352,25 +352,25 @@ function buildOverlayHTML() {
 </style>
 
 <!-- Header matching app style -->
-<header style="height:56px;min-height:calc(56px + env(safe-area-inset-top,0px));padding:0 16px;padding-top:env(safe-area-inset-top,0px);display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;z-index:30">
-  <div style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(var(--primary-rgb),.3)">T</div>
+<header style="height:56px;min-height:calc(56px + env(safe-area-inset-top,0px));padding:0 16px;padding-top:env(safe-area-inset-top,0px);display:flex;align-items:center;gap:10px;background:'var(--bg)';border-bottom:1px solid 'var(--border)';flex-shrink:0;z-index:30">
+  <div style="width:32px;height:32px;border-radius:9px;background:'var(--primary)';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;box-shadow:0 2px 8px 'rgba(var(--primary-rgb),.3)'">T</div>
   <div style="flex:1;min-width:0">
-    <div style="font-size:13px;font-weight:800;letter-spacing:.08em;color:var(--primary)">TURBOPREP</div>
-    <div style="font-size:10px;color:var(--muted-fg);margin-top:-1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${raceName ? esc(raceName)+' · ' : ''}${esc(teamName)}</div>
+    <div style="font-size:13px;font-weight:800;letter-spacing:.08em;color:'var(--primary)'">TURBOPREP</div>
+    <div style="font-size:10px;color:'var(--muted-fg)';margin-top:-1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${raceName ? esc(raceName)+' · ' : ''}${esc(teamName)}</div>
   </div>
   <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-    <div style="width:7px;height:7px;border-radius:50%;background:var(--destructive);animation:rdPulse 1.4s ease infinite"></div>
-    <span style="font-size:11px;font-weight:700;color:var(--destructive)">LIVE</span>
+    <div style="width:7px;height:7px;border-radius:50%;background:'var(--destructive)';animation:rdPulse 1.4s ease infinite"></div>
+    <span style="font-size:11px;font-weight:700;color:'var(--destructive)'">LIVE</span>
   </div>
   <button id="rd-share-btn" aria-label="Share spectator link" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-weight:700;cursor:pointer;margin-left:4px">Share</button>
-  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
+  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:'rgba(var(--destructive-rgb),.1)';border:1px solid 'rgba(var(--destructive-rgb),.3)';color:'var(--destructive)';font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
 </header>
 
 <!-- Scrollable content -->
 <div id="rd-content" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px calc(16px + var(--tab-h,72px) + env(safe-area-inset-bottom,0px));"></div>
 
 <!-- Coach FAB — add to roster -->
-${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--tab-h,72px) + 12px + env(safe-area-inset-bottom,0px));right:16px;z-index:160;width:48px;height:48px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(var(--primary-rgb),.4);-webkit-tap-highlight-color:transparent">
+${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--tab-h,72px) + 12px + env(safe-area-inset-bottom,0px));right:16px;z-index:160;width:48px;height:48px;border-radius:50%;background:'var(--primary)';color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px 'rgba(var(--primary-rgb),.4)';-webkit-tap-highlight-color:transparent">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 </button>` : ''}
 
@@ -381,7 +381,7 @@ ${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--
     <span class="rd-tab-lbl">Roster</span>
   </button>
   <button class="rd-tab-btn" data-rdtab="stint" style="position:relative">
-    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--success),#16a34a);display:flex;align-items:center;justify-content:center;margin:-14px auto 0;box-shadow:0 4px 14px rgba(var(--success-rgb),.4)">
+    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,'var(--success)',#16a34a);display:flex;align-items:center;justify-content:center;margin:-14px auto 0;box-shadow:0 4px 14px 'rgba(var(--success-rgb),.4)'">
       <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="white" stroke="none"/></svg>
     </div>
     <span class="rd-tab-lbl" style="margin-top:4px">Stint</span>
@@ -507,13 +507,13 @@ function renderRoster(c) {
   const mgr=ctx.userProfile?.isCoach||ctx.userProfile?.isManager;
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
     <div style="font-size:16px;font-weight:700">Driver Roster</div>
-    ${mgr?`<button id="rd-add-driver" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--primary);color:var(--primary);background:none;font-weight:600;cursor:pointer">+ Add Driver</button>`:''}
+    ${mgr?`<button id="rd-add-driver" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid 'var(--primary)';color:'var(--primary)';background:none;font-weight:600;cursor:pointer">+ Add Driver</button>`:''}
   </div>`;
 
   if (rosterData.length===0) {
-    html+=`<div style="text-align:center;padding:32px 20px;color:var(--muted-fg);font-size:13px">No drivers added yet.${mgr?'<br>Tap + Add Driver to begin.':''}</div>`;
+    html+=`<div style="text-align:center;padding:32px 20px;color:'var(--muted-fg)';font-size:13px">No drivers added yet.${mgr?'<br>Tap + Add Driver to begin.':''}</div>`;
   } else {
-    html+=`<div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-bottom:8px">Hold and drag to reorder drivers</div><div id="rd-roster-list">`;
+    html+=`<div style="font-size:11px;color:'var(--muted-fg)';text-align:center;margin-bottom:8px">Hold and drag to reorder drivers</div><div id="rd-roster-list">`;
     rosterData.forEach((d,i)=>{
       const mins=Math.round((d.duration||3600)/60);
       // Removed the dedicated drag handle ⠿ — the whole row is already
@@ -521,12 +521,12 @@ function renderRoster(c) {
       // now folded into the name row's subtitle so this is 4 elements
       // (number, name+meta, edit) instead of 6.
       html+=`<div class="rd-drag-item" data-idx="${i}" draggable="true">
-        <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">${i+1}</div>
+        <div style="width:28px;height:28px;border-radius:50%;background:'var(--primary)';color:'var(--primary-fg)';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">${i+1}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:600">${esc(d.name)}</div>
-          <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${mins}m${d.notes?' · '+esc(d.notes):''}</div>
+          <div style="font-size:11px;color:'var(--muted-fg)';margin-top:1px">${mins}m${d.notes?' · '+esc(d.notes):''}</div>
         </div>
-        ${mgr?`<button class="rd-edit-btn" data-idx="${i}" aria-label="Edit driver" style="width:30px;height:30px;border-radius:8px;background:var(--muted);border:none;color:var(--muted-fg);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}
+        ${mgr?`<button class="rd-edit-btn" data-idx="${i}" aria-label="Edit driver" style="width:30px;height:30px;border-radius:8px;background:'var(--muted)';border:none;color:'var(--muted-fg)';cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}
       </div>`;
     });
     html+=`</div>`;
@@ -637,15 +637,15 @@ function renderSetup(c) {
   const mgr=ctx.userProfile?.isCoach||ctx.userProfile?.isManager;
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
     <div style="font-size:16px;font-weight:700">Team Setup</div>
-    ${mgr?`<button id="rd-add-field" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--primary);color:var(--primary);background:none;font-weight:600;cursor:pointer">+ Field</button>`:''}
+    ${mgr?`<button id="rd-add-field" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid 'var(--primary)';color:'var(--primary)';background:none;font-weight:600;cursor:pointer">+ Field</button>`:''}
   </div>
-  <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">Enter your personal setup for today's race.</div>`;
+  <div style="font-size:12px;color:'var(--muted-fg)';margin-bottom:14px">Enter your personal setup for today's race.</div>`;
 
   setupFields.forEach((f,i)=>{
     html+=`<div style="margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
         <label class="label" style="margin:0;flex:1">${esc(f.label)}</label>
-        ${mgr?`<button class="rd-del-field" data-idx="${i}" style="font-size:10px;color:var(--destructive);background:none;border:none;cursor:pointer;padding:2px 6px;font-weight:700">✕</button>`:''}
+        ${mgr?`<button class="rd-del-field" data-idx="${i}" style="font-size:10px;color:'var(--destructive)';background:none;border:none;cursor:pointer;padding:2px 6px;font-weight:700">✕</button>`:''}
       </div>
       ${f.type==='number'
         ?`<input class="input rd-sf" data-idx="${i}" type="number"${typeof f.min==='number'?` min="${f.min}"`:''}${typeof f.max==='number'?` max="${f.max}"`:''} value="${esc(f.value||'')}" placeholder="${esc(f.label)}">`
@@ -704,15 +704,15 @@ async function loadLiveStints() {
 
 function renderLivePanel(live) {
   if (!live || live.length === 0) return '';
-  return `<div style="background:linear-gradient(135deg,rgba(var(--destructive-rgb),.10),rgba(var(--destructive-rgb),.04));border:1px solid rgba(var(--destructive-rgb),.25);border-radius:12px;padding:12px;margin-bottom:14px">
+  return `<div style="background:linear-gradient(135deg,'rgba(var(--destructive-rgb),.10)','rgba(var(--destructive-rgb),.04)');border:1px solid 'rgba(var(--destructive-rgb),.25)';border-radius:12px;padding:12px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <div style="width:7px;height:7px;border-radius:50%;background:var(--destructive);animation:rdPulse 1.4s ease infinite"></div>
-      <span style="font-size:11px;font-weight:700;color:var(--destructive);letter-spacing:.05em;text-transform:uppercase">Live on track</span>
+      <div style="width:7px;height:7px;border-radius:50%;background:'var(--destructive)';animation:rdPulse 1.4s ease infinite"></div>
+      <span style="font-size:11px;font-weight:700;color:'var(--destructive)';letter-spacing:.05em;text-transform:uppercase">Live on track</span>
     </div>
-    ${live.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(var(--destructive-rgb),.12);font-size:13px">
+    ${live.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid 'rgba(var(--destructive-rgb),.12)';font-size:13px">
       <span style="flex:1;font-weight:700">${esc(l.displayName||'Driver')}</span>
-      <span style="color:var(--muted-fg);font-size:11px">${l.lapCount||0} laps</span>
-      <span style="font-family:var(--font-mono);font-weight:700;color:var(--fg)">${fmtTime(l.elapsed||0)}</span>
+      <span style="color:'var(--muted-fg)';font-size:11px">${l.lapCount||0} laps</span>
+      <span style="font-family:'var(--font-mono)';font-weight:700;color:'var(--fg)'">${fmtTime(l.elapsed||0)}</span>
     </div>`).join('')}
   </div>`;
 }
