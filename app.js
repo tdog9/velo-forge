@@ -1096,7 +1096,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '202604281114';
+const APP_VERSION = '20260430-localDateKey';
 // (CHANGELOG array + showWhatsNew empty stub removed — the
 // "what's new" popup was already disabled in favor of showWelcomeSetup
 // for new users. Release notes belong in commit messages, not in a
@@ -8620,7 +8620,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '202604281114';
+  const APP_VERSION = '20260430-localDateKey';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

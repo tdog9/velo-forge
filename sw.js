@@ -1,5 +1,5 @@
 // TurboPrep Service Worker v2
-const CACHE_NAME = 'turboprep-202604281114';
+const CACHE_NAME = 'turboprep-20260430-localDateKey';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
