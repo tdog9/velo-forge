@@ -48,7 +48,7 @@ export function renderAdmin() {
   let html = '<div class="page-title" style="margin-bottom:8px">Admin</div>';
   html += `<div id="admin-maintenance-bar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(var(--destructive-rgb),.08);border:1px solid rgba(var(--destructive-rgb),.2);display:flex;align-items:center;gap:10px">
     <span style="font-size:13px;font-weight:600;flex:1;color:var(--fg)">🔧 Maintenance</span>
-    <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?'var(--destructive)':'var(--muted)'};color:${mo?'#fff':'var(--muted-fg)'}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
+    <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?var(--destructive):var(--muted)};color:${mo?'#fff':var(--muted-fg)}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
   </div>`;
   html += '<div class="admin-tabs" style="overflow-x:auto;padding-bottom:2px">';
   tabs.forEach(t => {
@@ -183,20 +183,20 @@ async function renderAdminRaceDay() {
     <div class="card" style="padding:14px;margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em">Today's Status</div>
-        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${rd?.active?'rgba('var(--destructive-rgb)',.12)':'rgba(255,255,255,.06)'};color:${rd?.active?'var(--destructive)':'var(--muted-fg)'}">${rd?.active?'● LIVE':'OFF'}</span>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${rd?.active?'rgba(var(--destructive-rgb),.12)':'rgba(255,255,255,.06)'};color:${rd?.active?var(--destructive):var(--muted-fg)}">${rd?.active?'● LIVE':'OFF'}</span>
       </div>
       <div style="font-size:13px;color:var(--fg);margin-bottom:6px">${todayRace ? '🏁 ' + A.escHtml(todayRace.name) : 'No race scheduled today.'}</div>
       ${todayRace?.notes ? `<div style="font-size:11px;color:var(--muted-fg)">${A.escHtml(todayRace.notes)}</div>` : ''}
       <div style="display:flex;gap:8px;margin-top:12px">
         ${rd?.active
-          ? `<button class="btn btn-secondary" id="adm-rd-deactivate" style="flex:1;background:rgba('var(--destructive-rgb)',.15);color:var(--destructive)">■ End Race Day</button>`
+          ? `<button class="btn btn-secondary" id="adm-rd-deactivate" style="flex:1;background:rgba(var(--destructive-rgb),.15);color:var(--destructive)">■ End Race Day</button>`
           : `<button class="btn btn-primary" id="adm-rd-activate" style="flex:1">▶ Start Race Day${todayRace?' for '+A.escHtml(todayRace.name):''}</button>`}
       </div>
     </div>
     <div class="card" style="padding:14px;margin-bottom:14px">
       <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Live On Track (${liveDrivers.length})</div>
       ${liveDrivers.length === 0 ? `<div style="font-size:12px;color:var(--muted-fg)">No drivers currently riding.</div>` :
-        liveDrivers.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid 'var(--border)';font-size:13px">
+        liveDrivers.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
           <span style="flex:1;font-weight:600">${A.escHtml(l.displayName||'Driver')}</span>
           <span style="color:var(--muted-fg);font-size:11px">${l.lapCount||0} laps</span>
         </div>`).join('')}
@@ -207,7 +207,7 @@ async function renderAdminRaceDay() {
         stints.map(s => {
           const best = s.laps?.length>0 ? Math.min(...s.laps.map(l=>l.duration)) : null;
           const bestStr = best ? Math.floor(best/60000)+':'+String(Math.floor((best%60000)/1000)).padStart(2,'0') : '--:--';
-          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid 'var(--border)';font-size:13px">
+          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
             <span style="flex:1;font-weight:600">${A.escHtml(s.displayName||s.uid)}</span>
             <span style="color:var(--muted-fg);font-size:11px">${s.laps?.length||0} laps</span>
             <span style="font-family:var(--font-mono);color:var(--success)">${bestStr}</span>
@@ -316,10 +316,10 @@ function renderAdminMaintenance() {
     <div>
       <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Recent Error Log (${errorLog.length})</div>
       ${errorLog.length === 0
-        ? '<div style="font-size:13px;color:'var(--muted-fg)';text-align:center;padding:16px">No errors logged.</div>'
+        ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:16px">No errors logged.</div>'
         : errorLog.slice(-20).reverse().map(e => `
-          <div style="padding:8px 10px;background:rgba('var(--destructive-rgb)',.06);border:1px solid rgba('var(--destructive-rgb)',.15);border-radius:8px;margin-bottom:6px;font-size:11px;font-family:var(--font-mono)">
-            <div style="color:'var(--destructive)';font-weight:600;margin-bottom:2px">${A.escHtml(e.message||'Unknown')}</div>
+          <div style="padding:8px 10px;background:rgba(var(--destructive-rgb),.06);border:1px solid rgba(var(--destructive-rgb),.15);border-radius:8px;margin-bottom:6px;font-size:11px;font-family:var(--font-mono)">
+            <div style="color:var(--destructive);font-weight:600;margin-bottom:2px">${A.escHtml(e.message||'Unknown')}</div>
             <div style="color:var(--muted-fg)">${A.escHtml(e.source||'')} · ${A.escHtml(e.timestamp||'')}</div>
           </div>`).join('')
       }
@@ -379,7 +379,7 @@ function renderAdminMaintenance() {
           infoEl.innerHTML = isActive
             ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:6px;line-height:1.6">
                 Active for: <b style="color:var(--fg)">${elapsed} min</b> · 
-                Remaining: <b style="color:${remaining<60?'var(--destructive)':'var(--fg)'}">${remaining} min</b><br>
+                Remaining: <b style="color:${remaining<60?var(--destructive):var(--fg)}">${remaining} min</b><br>
                 Start point: <b style="color:var(--fg)">${rdData.startPointSet?'Set ✓':'Not set yet'}</b>
                </div>`
             : '';
@@ -449,13 +449,13 @@ export function renderHealthReports(el) {
     reports.slice(0,10).forEach(r => {
       const dt = new Date(r.timestamp).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'});
       const ok = r.findingCount === 0;
-      html += `<div style="background:var(--card);border:1px solid ${ok?'var(--border)':'rgba('var(--destructive-rgb)',.2)'};border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px">
+      html += `<div style="background:var(--card);border:1px solid ${ok?var(--border):'rgba(var(--destructive-rgb),.2)'};border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <span style="font-size:11px;font-weight:700;color:${ok?'var(--success)':'var(--destructive)'}">${ok?'✓ PASSED':'✗ '+r.findingCount+' ISSUE'+(r.findingCount!==1?'S':'')}</span>
+          <span style="font-size:11px;font-weight:700;color:${ok?var(--success):var(--destructive)}">${ok?'✓ PASSED':'✗ '+r.findingCount+' ISSUE'+(r.findingCount!==1?'S':'')}</span>
           <span style="font-size:11px;color:var(--muted-fg);flex:1">${dt}</span>
           <span style="font-size:10px;color:var(--muted-fg)">${r.passed}/${r.total} checks</span>
         </div>
-        ${r.findings && r.findings.length > 0 ? r.findings.map(f=>`<div style="font-size:11px;color:${f.severity==='error'?'var(--destructive)':'var(--warning)'};padding:1px 0">• ${escHtml(f.name)}${f.detail?': '+escHtml(f.detail):''}</div>`).join('') : ''}
+        ${r.findings && r.findings.length > 0 ? r.findings.map(f=>`<div style="font-size:11px;color:${f.severity==='error'?var(--destructive):var(--warning)};padding:1px 0">• ${escHtml(f.name)}${f.detail?': '+escHtml(f.detail):''}</div>`).join('') : ''}
       </div>`;
     });
   }
@@ -726,7 +726,7 @@ export async function renderCoachDashboard() {
       const isInactive = !s.lastActive || s.lastActive < sevenDaysAgo;
       const lastStr = s.lastActive ? timeAgo(s.lastActive) : 'Never';
       const tierColors = { basic:'#3b82f6', average:'var(--success)', intense:'#f97316' };
-      const borderStyle = isInactive ? 'border-color:rgba(var(--destructive-rgb),.3)' : '';
+      const borderStyle = isInactive ? 'border-color:'rgba(var(--destructive-rgb),.3)' : '';
       html += `<div class="coach-card" style="${borderStyle}">
         <div class="coach-card-top">
           <div class="coach-card-name">${escHtml(s.name)}</div>
@@ -1302,7 +1302,7 @@ export function renderAdminTraining() {
           <div style="font-size:11px;font-weight:600;color:var(--primary)">${dayLabel}</div>
         </div>
         <div style="font-size:12px;color:var(--muted-fg);margin-bottom:2px">${s.time || ''}${s.endTime ? ' - ' + s.endTime : ''}${s.location ? ' · ' + escHtml(s.location) : ''}</div>
-        ${s.notes ? '<div style="font-size:11px;color:'var(--muted-fg)';line-height:1.4;margin-bottom:6px">' + escHtml(s.notes) + '</div>' : ''}
+        ${s.notes ? '<div style="font-size:11px;color:var(--muted-fg);line-height:1.4;margin-bottom:6px">' + escHtml(s.notes) + '</div>' : ''}
         <div style="display:flex;gap:6px">
           <button class="btn ts-notify-btn" data-ts-id="${s.id}" style="flex:1;padding:6px;font-size:11px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:var(--purple);border-radius:6px">📢 Notify All</button>
           <button class="btn ts-edit-btn" data-ts-id="${s.id}" style="padding:6px 10px;font-size:11px;background:var(--surface);border:1px solid var(--border);color:var(--fg);border-radius:6px">Edit</button>
@@ -1528,7 +1528,7 @@ function renderRaceFootageSection(parentEl) {
       <div class="footage-admin-item">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <strong style="font-size:13px;color:var(--fg);flex:1">${escHtml(race.name)}</strong>
-          ${isPast ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba('var(--primary-rgb)',0.15);color:#f97316;font-weight:600">DONE</span>' : '<span style="font-size:10px;color:var(--muted-fg)">' + race.date + '</span>'}
+          ${isPast ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(var(--primary-rgb),0.15);color:#f97316;font-weight:600">DONE</span>' : '<span style="font-size:10px;color:var(--muted-fg)">' + race.date + '</span>'}
         </div>
         <div style="font-size:11px;color:var(--muted-fg);margin-bottom:6px">${existing.length} link${existing.length !== 1 ? 's' : ''} attached</div>
         <div style="display:flex;gap:6px">
@@ -1538,7 +1538,7 @@ function renderRaceFootageSection(parentEl) {
         </div>
         ${existing.length > 0 ? '<div style="margin-top:6px">' + existing.map((f, fi) => `
           <div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px">
-            <span style="flex:1;color:'var(--muted-fg)';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.label || f.url)}</span>
+            <span style="flex:1;color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.label || f.url)}</span>
             <button class="admin-del-btn" data-footage-del="${race.id}:${fi}" style="font-size:11px">×</button>
           </div>
         `).join('') + '</div>' : ''}
@@ -1704,7 +1704,7 @@ export function renderAdminRaces() {
       html += `
         <div class="admin-item" style="${archived ? 'opacity:.55' : ''}">
           <div class="admin-item-info">
-            <div class="admin-item-title">${escHtml(r.name)}${archived ? ' <span style="font-size:10px;color:'var(--muted-fg)';font-weight:600">(archived)</span>' : ''}</div>
+            <div class="admin-item-title">${escHtml(r.name)}${archived ? ' <span style="font-size:10px;color:var(--muted-fg);font-weight:600">(archived)</span>' : ''}</div>
             <div class="admin-item-meta">${r.date} · ${escHtml(r.location || '')} · ${r.distance}km${isPast ? ' · past' : ''}</div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -2703,9 +2703,9 @@ async function renderAdminRequests() {
             <div style="font-size:15px;font-weight:700">${A.escHtml(r.clubName||'')}</div>
             <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${A.escHtml(r.coachName||'')} · ${A.escHtml(r.coachEmail||'')}</div>
           </div>
-          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${isApproved?'rgba('var(--success-rgb)',.15)':'rgba('var(--primary-rgb)',.15)'};color:${isApproved?'var(--success)':'#f97316'}">${isApproved?'Approved':'Pending'}</span>
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${isApproved?'rgba(var(--success-rgb),.15)':'rgba(var(--primary-rgb),.15)'};color:${isApproved?var(--success):'#f97316'}">${isApproved?'Approved':'Pending'}</span>
         </div>
-        ${r.clubDesc ? `<div style="font-size:13px;color:'var(--muted-fg)';margin-bottom:10px">${A.escHtml(r.clubDesc)}</div>` : ''}
+        ${r.clubDesc ? `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${A.escHtml(r.clubDesc)}</div>` : ''}
         ${isPending ? `
           <button class="btn btn-primary" style="width:100%;font-size:13px" data-approve-req="${r._id}" data-club-name="${A.escHtml(r.clubName||'')}" data-club-desc="${A.escHtml(r.clubDesc||'')}" data-coach-uid="${A.escHtml(r.coachUid||'')}" data-coach-email="${A.escHtml(r.coachEmail||'')}">
             ✓ Approve & Create Team
@@ -2810,7 +2810,7 @@ async function renderAdminCoachProRequests() {
           <div style="flex:1;min-width:0">
             <div style="font-size:15px;font-weight:700">${A.escHtml(r.displayName || r.email || r._id)}</div>
             <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${A.escHtml(r.email || '')}${r.teamName ? ' · ' + A.escHtml(r.teamName) : ''}</div>
-            ${requestedDate ? `<div style="font-size:11px;color:'var(--muted-fg)';margin-top:2px">Requested ${requestedDate}</div>` : ''}
+            ${requestedDate ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Requested ${requestedDate}</div>` : ''}
           </div>
           <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${statusInfo.bg};color:${statusInfo.color};white-space:nowrap">${statusInfo.label}</span>
         </div>

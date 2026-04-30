@@ -1055,7 +1055,7 @@ function renderBadges() {
     const has = earned.includes(b.id);
     html += `<div style="display:flex;flex-direction:column;align-items:center;width:60px;opacity:${has ? 1 : 0.25}" title="${b.desc}">
       <span style="font-size:24px">${b.icon}</span>
-      <span style="font-size:9px;color:${has ? 'var(--fg)' : 'var(--muted-fg)'};text-align:center;margin-top:2px;line-height:1.1">${b.name}</span>
+      <span style="font-size:9px;color:${has ? var(--fg) : var(--muted-fg)};text-align:center;margin-top:2px;line-height:1.1">${b.name}</span>
     </div>`;
   });
   html += '</div>';
@@ -1169,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-r21';
+const APP_VERSION = '20260430-r22';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1998,7 +1998,7 @@ function openErrorDiagnostics(entry, showLog) {
       <div><strong>Time:</strong> ${entry.time}</div>
       <div><strong>User:</strong> ${_esc(entry.user)} · <strong>Online:</strong> ${entry.online ? '✓' : '✗'} · <strong>Platform:</strong> ${entry.platform}</div>
       ${entry.context && Object.keys(entry.context).length > 0 ? '<div><strong>Context:</strong> ' + _esc(JSON.stringify(entry.context)) + '</div>' : ''}
-      ${entry.stack ? '<div style="margin-top:4px;white-space:pre-wrap;font-size:10px;opacity:.7;border-top:1px solid 'var(--border)';padding-top:4px">' + _esc(entry.stack) + '</div>' : ''}
+      ${entry.stack ? '<div style="margin-top:4px;white-space:pre-wrap;font-size:10px;opacity:.7;border-top:1px solid var(--border);padding-top:4px">' + _esc(entry.stack) + '</div>' : ''}
     </div>`;
     // Firestore doc path hint
     const docHints = {
@@ -2019,7 +2019,7 @@ function openErrorDiagnostics(entry, showLog) {
       html += `<div style="margin-top:8px"><div style="font-size:11px;font-weight:600;color:var(--muted-fg);margin-bottom:4px">Recent Errors (${errorLog.length})</div>`;
       errorLog.slice(0, 10).forEach((e, i) => {
         const isCurrent = e === entry;
-        html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);background:${isCurrent ? 'rgba('var(--destructive-rgb)',.1)' : 'transparent'};color:${isCurrent ? 'var(--destructive)' : 'var(--muted-fg)'}">
+        html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);background:${isCurrent ? rgba(var(--destructive-rgb),.1)' : 'transparent'};color:${isCurrent ? var(--destructive) : var(--muted-fg)}">
           ${e.time.split('T')[1]?.split('.')[0] || ''} · ${_esc(e.area)} · ${_esc((e.message || '').substring(0, 60))}${e.message?.length > 60 ? '...' : ''}
         </div>`;
       });
@@ -2624,7 +2624,7 @@ function renderDemonstration() {
         <div class="demo-ex-card">
           <div class="demo-ex-header" data-demos-expand="${i}">
             <div class="demo-ex-info">
-              <div class="demo-ex-name">${escHtml(ex.name)}${hasVideo ? ' <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;vertical-align:-1px;color:'var(--primary)';display:inline" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>' : ''}</div>
+              <div class="demo-ex-name">${escHtml(ex.name)}${hasVideo ? ' <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;vertical-align:-1px;color:var(--primary);display:inline" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>' : ''}</div>
               <div class="demo-ex-meta">
                 <span style="color:${typeColor}">${ex.exerciseType || ex.catLabel}</span>
               </div>
@@ -2640,7 +2640,7 @@ function renderDemonstration() {
             ${ex.description ? '<div class="demo-ex-desc">' + escHtml(ex.description) + '</div>' : ''}
             ${!embedUrl ? `
               <div class="demo-ex-no-video">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:'var(--muted-fg)';margin-bottom:4px"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--muted-fg);margin-bottom:4px"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                 No video added yet
               </div>
             ` : ''}
@@ -2965,7 +2965,7 @@ function renderTeamFeed() {
         <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
           <div class="feed-time">${item.timeAgo}</div>
           <div class="feed-reactions" style="display:flex;gap:2px;margin-left:auto">
-            ${['🔥','💪','👏','⚡'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? 'rgba('var(--primary-rgb)',.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? 'var(--primary)' : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
+            ${['🔥','💪','👏','⚡'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? rgba(var(--primary-rgb),.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? var(--primary) : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
           </div>
         </div>
       </div>
@@ -3087,11 +3087,11 @@ function renderToday() {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
-        ${healthData.latestHr ? `<div style="text-align:center;padding:10px 4px;background:rgba('var(--destructive-rgb)',.06);border-radius:10px">
+        ${healthData.latestHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--destructive-rgb),.06);border-radius:10px">
           <div style="font-size:22px;font-weight:800;color:var(--destructive)">${healthData.latestHr}</div>
           <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">❤️ bpm</div>
         </div>` : ''}
-        ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:rgba('var(--success-rgb)',.06);border-radius:10px">
+        ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--success-rgb),.06);border-radius:10px">
           <div style="font-size:22px;font-weight:800;color:var(--success)">${healthData.latestSteps > 999 ? (healthData.latestSteps / 1000).toFixed(1) + 'k' : healthData.latestSteps}</div>
           <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">👟 steps</div>
         </div>` : ''}
@@ -3358,16 +3358,16 @@ function renderToday() {
     if (isSessionToday && diffMs > 0) timeLabel = diffHrs > 0 ? 'in ' + diffHrs + 'h ' + diffMins + 'm' : 'in ' + diffMins + 'm';
     else if (isSessionToday && diffMs <= 0) timeLabel = 'NOW';
     else { const d = sDate; timeLabel = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
-    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba('var(--primary-rgb)',.08),rgba('var(--success-rgb)',.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba('var(--primary-rgb)',.25)' : 'var(--border)'};border-radius:10px">
+    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(var(--primary-rgb),.08),rgba(var(--success-rgb),.06))' : var(--card)};border:1.5px solid ${isSessionToday ? rgba(var(--primary-rgb),.25)' : var(--border)};border-radius:10px">
       <div style="display:flex;align-items:start;gap:10px">
-        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba('var(--primary-rgb)',.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
+        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? rgba(var(--primary-rgb),.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
             <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(nextSession.title)}</div>
-            <div style="font-size:11px;font-weight:700;color:${isSessionToday ? 'var(--primary)' : 'var(--muted-fg)'}">${timeLabel}</div>
+            <div style="font-size:11px;font-weight:700;color:${isSessionToday ? var(--primary) : var(--muted-fg)}">${timeLabel}</div>
           </div>
           <div style="font-size:12px;color:var(--muted-fg)">${nextSession.time || ''}${nextSession.endTime ? ' - ' + nextSession.endTime : ''}${nextSession.location ? ' · ' + escHtml(nextSession.location) : ''}</div>
-          ${nextSession.notes ? '<div style="font-size:11px;color:'var(--muted-fg)';margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
+          ${nextSession.notes ? '<div style="font-size:11px;color:var(--muted-fg);margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
         </div>
       </div>
       <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
@@ -3420,8 +3420,8 @@ function renderToday() {
           <div style="font-size:9px;color:var(--muted-fg)">XP</div>
         </div>
       </div>
-      ${rAvgRpe ? `<div style="font-size:11px;color:'var(--muted-fg)';margin-bottom:4px">Effort: ${rAvgRpe}/10 · Types: ${rTypes}</div>` : ''}
-      ${healthD?.latestHr ? `<div style="font-size:11px;color:'var(--muted-fg)';margin-bottom:4px">Peak HR: ${healthD.latestHr} bpm${healthD.latestSteps ? ' · Steps: ' + healthD.latestSteps.toLocaleString() : ''}</div>` : ''}
+      ${rAvgRpe ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Effort: ${rAvgRpe}/10 · Types: ${rTypes}</div>` : ''}
+      ${healthD?.latestHr ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Peak HR: ${healthD.latestHr} bpm${healthD.latestSteps ? ' · Steps: ' + healthD.latestSteps.toLocaleString() : ''}</div>` : ''}
       <div style="font-size:12px;color:var(--fg);line-height:1.4;margin-top:6px;padding-top:6px;border-top:1px solid rgba(124,58,237,.1)">${encouragement}</div>
     </div>`;
   }
@@ -3462,7 +3462,7 @@ function renderToday() {
     const visibleWeeks = weeks.slice(0, cutIdx + 1);
     const maxCount = Math.max(...visibleWeeks.map(w => w.count), 1);
     html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px;text-align:center">Weekly Activity</div>
-    <div class="chart-row">${visibleWeeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? 'var(--primary)' : 'var(--muted)'}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
+    <div class="chart-row">${visibleWeeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? var(--primary) : var(--muted)}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
   }
   html += renderWorkoutCalendar(now);
   html += renderTeamFeed();
@@ -3847,7 +3847,7 @@ function renderChecklistItem(workout, key, isChecked) {
   if (hasExercises && setsTotal === 0) {
     setsTotal = workout.exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
   }
-  const progressText = setsTotal > 0 ? `<span style="font-size:10px;color:${setsDone >= setsTotal ? 'var(--primary)' : 'var(--muted-fg)'};margin-left:4px">${setsDone}/${setsTotal}</span>` : '';
+  const progressText = setsTotal > 0 ? `<span style="font-size:10px;color:${setsDone >= setsTotal ? var(--primary) : var(--muted-fg)};margin-left:4px">${setsDone}/${setsTotal}</span>` : '';
   return `
     <div class="checklist-item${isChecked?' checked':''}">
       <div class="cl-check" data-key="${key}">
@@ -4025,12 +4025,12 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
             <div style="font-weight:700;font-size:14px;color:var(--fg);flex:1;min-width:0">${exDone ? '<span style="color:var(--primary)">\u2713</span> ' : ''}${escHtml(ex.name)}</div>
             <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;margin-left:8px">${repInfo}${resistInfo}</div>
           </div>
-          ${ex.notes ? '<div style="font-size:12px;color:'var(--muted-fg)';line-height:1.4;margin-bottom:6px">' + escHtml(ex.notes) + '</div>' : ''}
+          ${ex.notes ? '<div style="font-size:12px;color:var(--muted-fg);line-height:1.4;margin-bottom:6px">' + escHtml(ex.notes) + '</div>' : ''}
           <div style="display:flex;align-items:center;gap:6px">
             <div style="display:flex;gap:4px;flex:1;flex-wrap:wrap">`;
       for (let s = 0; s < setsTarget; s++) {
         const setDone = s < setsCompleted;
-        html += `<button class="et-set-btn" data-ex="${i}" data-set="${s}" style="min-width:36px;height:36px;border-radius:8px;border:2px solid ${setDone ? 'var(--primary)' : 'var(--border)'};background:${setDone ? 'var(--primary)' : 'var(--card)'};color:${setDone ? 'var(--primary-fg)' : 'var(--muted-fg)'};font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;padding:0 6px">${setsTarget === 1 ? '\u2713' : s + 1}</button>`;
+        html += `<button class="et-set-btn" data-ex="${i}" data-set="${s}" style="min-width:36px;height:36px;border-radius:8px;border:2px solid ${setDone ? var(--primary) : var(--border)};background:${setDone ? var(--primary) : var(--card)};color:${setDone ? var(--primary-fg) : var(--muted-fg)};font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;padding:0 6px">${setsTarget === 1 ? '\u2713' : s + 1}</button>`;
       }
       html += `</div>
             <button class="et-rest-btn" data-ex="${i}" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted-fg);font-size:10px;cursor:pointer;padding:4px 8px;white-space:nowrap">\u23f1 Rest</button>
@@ -4076,12 +4076,12 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
         <div style="font-size:48px;margin-bottom:12px">${exDone ? '\u2705' : '\ud83c\udfcb\ufe0f'}</div>
         <div style="font-size:24px;font-weight:800;color:var(--fg);margin-bottom:6px">${escHtml(ex.name)}</div>
         <div style="font-size:16px;color:var(--muted-fg);margin-bottom:4px">${repInfo}${ex.resistance ? ' \u00b7 ' + ex.resistance : ''}</div>
-        ${ex.notes ? '<div style="font-size:13px;color:'var(--muted-fg)';line-height:1.5;margin-bottom:12px;max-width:300px">' + escHtml(ex.notes) + '</div>' : ''}
+        ${ex.notes ? '<div style="font-size:13px;color:var(--muted-fg);line-height:1.5;margin-bottom:12px;max-width:300px">' + escHtml(ex.notes) + '</div>' : ''}
         <div style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:16px">Set ${Math.min(setsCompleted + 1, setsTarget)} of ${setsTarget}</div>
         <div style="display:flex;gap:6px;margin-bottom:20px">`;
       for (let s = 0; s < setsTarget; s++) {
         const done = s < setsCompleted;
-        html += `<div style="width:12px;height:12px;border-radius:50%;background:${done ? 'var(--primary)' : 'var(--border)'}"></div>`;
+        html += `<div style="width:12px;height:12px;border-radius:50%;background:${done ? var(--primary) : var(--border)}"></div>`;
       }
       html += `</div>
         ${exDone ? `<button id="live-next" class="btn btn-primary" style="padding:14px 40px;font-size:16px;font-weight:700;border-radius:12px">${liveExIdx < exercises.length - 1 ? 'Next Exercise \u2192' : '\u2713 Finish Workout'}</button>`
@@ -5517,7 +5517,7 @@ function openWorkoutSheet() {
         <div style="display:flex;gap:4px;flex-wrap:wrap" id="wo-type-btns">
           ${['HPR','Ride','Run','Treadmill','Strength','Cardio','Flexibility'].map(t => {
             const icons = {HPR:'🏎️',Ride:'🚴',Run:'🏃',Treadmill:'🏃‍♂️',Strength:'🏋️',Cardio:'❤️',Flexibility:'🧘'};
-            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'var(--primary-dim)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${icons[t]} ${t}</button>`;
+            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? var(--primary) : var(--border)};background:${t === type ? var(--primary-dim) : var(--card)};color:${t === type ? var(--primary) : var(--muted-fg)};cursor:pointer">${icons[t]} ${t}</button>`;
           }).join('')}
         </div>
       </div>
@@ -6137,7 +6137,7 @@ function renderPlanCard(plan, isActive) {
             <span class="badge badge-outline">${cadenceLabel}</span>
             <span class="badge" style="background:${tierColor}22;color:${tierColor}">${capitalize(plan.tier)}</span>
             ${isActive ? '<span class="badge badge-primary">Active</span>' : ''}
-            ${isCustomAi ? '<span class="badge" style="background:rgba('var(--purple-rgb)',.12);color:'var(--purple)';border:1px solid rgba('var(--purple-rgb)',.30)">AI</span>' : ''}
+            ${isCustomAi ? '<span class="badge" style="background:rgba(var(--purple-rgb),.12);color:var(--purple);border:1px solid rgba(var(--purple-rgb),.30)">AI</span>' : ''}
           </div>
           <button class="plan-explain-btn" data-explain-plan="${plan.id}" onclick="event.stopPropagation()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
@@ -6151,12 +6151,12 @@ function renderPlanCard(plan, isActive) {
           ${isActive ? `
             <div style="display:flex;gap:8px;align-items:center">
               <span class="badge badge-primary" style="flex:1;text-align:center;padding:8px 0;font-size:12px">✓ Active</span>
-              <button class="btn plan-cancel-btn" style="flex:1;color:'var(--destructive)';border:1px solid rgba('var(--destructive-rgb)',0.3);background:rgba('var(--destructive-rgb)',0.08)" data-plan-id="${plan.id}">Cancel</button>
+              <button class="btn plan-cancel-btn" style="flex:1;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),0.3);background:rgba(var(--destructive-rgb),0.08)" data-plan-id="${plan.id}">Cancel</button>
             </div>
           ` : `
             <div style="display:flex;gap:8px">
               <button class="btn btn-primary plan-activate-btn" style="flex:1" data-plan-id="${plan.id}">Activate Plan</button>
-              ${canDelete ? `<button class="btn plan-delete-btn" style="flex-shrink:0;padding:0 14px;color:'var(--destructive)';border:1px solid rgba('var(--destructive-rgb)',.3);background:rgba('var(--destructive-rgb)',.06)" data-delete-plan-id="${plan.id}" aria-label="Delete plan">Delete</button>` : ''}
+              ${canDelete ? `<button class="btn plan-delete-btn" style="flex-shrink:0;padding:0 14px;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06)" data-delete-plan-id="${plan.id}" aria-label="Delete plan">Delete</button>` : ''}
             </div>
           `}
         </div>
@@ -6231,7 +6231,7 @@ async function renderRaceDayHistory() {
               <div style="font-size:15px;font-weight:700">🏁 Race Day — ${day.date}</div>
               <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${stints.length} drivers · ${totalLaps} total laps</div>
             </div>
-            ${bestLap ? `<div style="text-align:right"><div style="font-size:11px;color:var(--muted-fg)">Best Lap</div><div style="font-size:18px;font-weight:800;color:'var(--success)';font-family:var(--font-mono)">${fmtMs(bestLap)}</div></div>` : ''}
+            ${bestLap ? `<div style="text-align:right"><div style="font-size:11px;color:var(--muted-fg)">Best Lap</div><div style="font-size:18px;font-weight:800;color:var(--success);font-family:var(--font-mono)">${fmtMs(bestLap)}</div></div>` : ''}
           </div>`;
 
       // My stint summary
@@ -6245,7 +6245,7 @@ async function renderRaceDayHistory() {
             <div><div style="font-size:16px;font-weight:800;color:var(--success);font-family:var(--font-mono)">${myBest?fmtMs(myBest):'—'}</div><div style="color:var(--muted-fg)">Best</div></div>
             <div><div style="font-size:16px;font-weight:800;font-family:var(--font-mono)">${myStint.duration?fmtTime(myStint.duration):'—'}</div><div style="color:var(--muted-fg)">Time</div></div>
           </div>
-          ${myStint.laps?.length > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">${myStint.laps.map((l,i)=>`<span style="font-size:11px;font-family:'var(--font-mono)';margin-right:8px;color:${l.duration===myBest?'var(--success)':'var(--muted-fg)'}">L${i+1} ${fmtMs(l.duration)}</span>`).join('')}</div>` : ''}
+          ${myStint.laps?.length > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">${myStint.laps.map((l,i)=>`<span style="font-size:11px;font-family:var(--font-mono);margin-right:8px;color:${l.duration===myBest?var(--success):var(--muted-fg)}">L${i+1} ${fmtMs(l.duration)}</span>`).join('')}</div>` : ''}
         </div>`;
       }
 
@@ -6263,7 +6263,7 @@ async function renderRaceDayHistory() {
         const best = laps.length>0 ? fmtMs(Math.min(...laps.map(l=>l.duration))) : '—';
         const avg = laps.length>0 ? fmtMs(laps.reduce((t,l)=>t+l.duration,0)/laps.length) : '—';
         const isMe = s.uid === currentUser.uid;
-        html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);${isMe?'background:rgba('var(--primary-rgb)',.04)':''}">
+        html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);${isMe?'background:'rgba(var(--primary-rgb),.04)':''}">
           <td style="padding:6px 0;font-weight:${isMe?'700':'400'}">${escHtml(s.displayName||'Driver')}${isMe?' ★':''}</td>
           <td style="text-align:right;font-variant-numeric:tabular-nums">${laps.length}</td>
           <td style="text-align:right;font-family:var(--font-mono);color:var(--success)">${best}</td>
@@ -6813,7 +6813,7 @@ function renderTeamTab(c) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Request a New Team
         </button>
-        <div style="font-size:11px;color:'var(--muted-fg)';text-align:center;margin-top:6px">Sends a request to TurboPrep — approved teams appear automatically.</div>
+        <div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:6px">Sends a request to TurboPrep — approved teams appear automatically.</div>
       ` : ''}
     `;
     c.innerHTML = html;
@@ -6909,7 +6909,7 @@ function renderTeamTab(c) {
       const drillAttr = canDrill && m.uid !== myUid ? ` data-coach-drill="${escHtml(m.uid)}" style="cursor:pointer" tabindex="0" role="button" aria-label="Open athlete: ${escHtml(m.displayName || 'Unknown')}"` : '';
       html += `<tr class="${isMe ? 'lb-me' : ''}"${drillAttr}>
         <td class="lb-rank${rankClass}">${i + 1}</td>
-        <td class="lb-name">${escHtml(m.displayName || 'Unknown')}${canDrill && m.uid !== myUid ? ' <span style="color:'var(--muted-fg)';font-size:10px">›</span>' : ''}</td>
+        <td class="lb-name">${escHtml(m.displayName || 'Unknown')}${canDrill && m.uid !== myUid ? ' <span style="color:var(--muted-fg);font-size:10px">›</span>' : ''}</td>
         <td class="lb-year">${m.yearLevel || '—'}</td>
         <td class="lb-stat" style="text-align:right">${m.totalWorkouts || 0}</td>
         <td class="lb-stat" style="text-align:right">${m.streak || 0}d</td>
@@ -6934,8 +6934,8 @@ function renderTeamTab(c) {
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
         <button class="btn btn-secondary" style="width:100%" id="coach-manage-team-btn">Manage Team</button>
         ${getRaceDayActive()
-          ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba('var(--destructive-rgb)',.1);border:1px solid rgba('var(--destructive-rgb)',.3);color:'var(--destructive)';font-weight:700;font-size:13px;cursor:pointer">End Race Day Mode</button>`
-          : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba('var(--success-rgb)',.1);border:1px solid rgba('var(--success-rgb)',.3);color:'var(--success)';font-weight:700;font-size:13px;cursor:pointer">Activate Race Day Mode</button>`}
+          ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;font-size:13px;cursor:pointer">End Race Day Mode</button>`
+          : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(var(--success-rgb),.1);border:1px solid rgba(var(--success-rgb),.3);color:var(--success);font-weight:700;font-size:13px;cursor:pointer">Activate Race Day Mode</button>`}
       </div>
     `;
   }
@@ -7751,17 +7751,17 @@ async function renderLeaguesTab(el) {
         <div style="display:flex;align-items:center;gap:10px">
           <div style="flex:1;min-width:0">
             <div style="font-size:15px;font-weight:700">${escHtml(lg.name||'')}</div>
-            ${lg.description ? `<div style="font-size:12px;color:'var(--muted-fg)';margin-top:2px">${escHtml(lg.description)}</div>` : ''}
+            ${lg.description ? `<div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${escHtml(lg.description)}</div>` : ''}
             <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">${(lg.members||[]).length} members</div>
           </div>
           ${isMember
-            ? '<span style="font-size:11px;font-weight:700;color:'var(--primary)';background:rgba('var(--primary-rgb)',.12);padding:3px 10px;border-radius:20px;flex-shrink:0">Joined</span>'
+            ? '<span style="font-size:11px;font-weight:700;color:var(--primary);background:rgba(var(--primary-rgb),.12);padding:3px 10px;border-radius:20px;flex-shrink:0">Joined</span>'
             : `<button class="btn btn-primary" style="font-size:12px;padding:6px 14px;min-height:36px;flex-shrink:0" data-join-league="${escHtml(lg.id)}">Join</button>`
           }
         </div>
         ${isMember && lg.members && lg.members.length > 0 ? `
           <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:700;color:'var(--muted-fg)';text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Standings</div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Standings</div>
             <div style="font-size:12px;color:var(--muted-fg)">Standings coming soon.</div>
           </div>` : ''}
       </div>`;
@@ -7911,7 +7911,7 @@ async function openCoachAthleteSheet(uid) {
   html += `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px">
     <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--primary)">${member.totalWorkouts || 0}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Workouts</div></div>
     <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--success)">${member.streak || 0}d</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Streak</div></div>
-    <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:${hardCount >= 4 ? 'var(--warning)' : 'var(--fg)'}">${avgRpe || '—'}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Avg RPE</div></div>
+    <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:${hardCount >= 4 ? var(--warning) : var(--fg)}">${avgRpe || '—'}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Avg RPE</div></div>
   </div>`;
   // Plan summary
   if (planSummary) {
@@ -7919,10 +7919,10 @@ async function openCoachAthleteSheet(uid) {
       ? `<div style="margin-top:10px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em">7-Day Compliance</span>
-            <span style="font-size:11px;font-weight:700;color:${compliance.pct >= 80 ? 'var(--success)' : compliance.pct >= 50 ? 'var(--warning)' : 'var(--destructive)'}">${compliance.done}/${compliance.scheduled} · ${compliance.pct}%</span>
+            <span style="font-size:11px;font-weight:700;color:${compliance.pct >= 80 ? var(--success) : compliance.pct >= 50 ? var(--warning) : var(--destructive)}">${compliance.done}/${compliance.scheduled} · ${compliance.pct}%</span>
           </div>
           <div style="height:6px;background:var(--muted);border-radius:99px;overflow:hidden">
-            <div style="height:100%;width:${Math.min(100, compliance.pct)}%;background:${compliance.pct >= 80 ? 'var(--success)' : compliance.pct >= 50 ? 'var(--warning)' : 'var(--destructive)'};transition:width .3s"></div>
+            <div style="height:100%;width:${Math.min(100, compliance.pct)}%;background:${compliance.pct >= 80 ? var(--success) : compliance.pct >= 50 ? var(--warning) : var(--destructive)};transition:width .3s"></div>
           </div>
         </div>`
       : '<div style="margin-top:8px;font-size:11px;color:var(--muted-fg)">No checklist data yet — compliance fills in after they tick a session.</div>';
@@ -8009,17 +8009,17 @@ function openPlanPickerForAthlete(uid, member) {
     ? yearMatch.filter(p => p.tier === member.fitnessLevel)
     : (yearMatch.length ? yearMatch : tierMatch).slice(0, 6);
   const others = visible.filter(p => !recommended.includes(p)).slice(0, 30);
-  const renderCard = (p, recommended = false) => `<button class="coach-plan-pick" data-plan-id="${escHtml(p.id)}" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:${recommended ? 'rgba('var(--primary-rgb)',.06)' : 'var(--card)'};border:1px solid ${recommended ? 'rgba('var(--primary-rgb)',.30)' : 'var(--border)'};border-radius:10px;cursor:pointer">
-    <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(p.name || 'Plan')}${member.activePlanId === p.id ? ' <span style="font-size:9px;color:'var(--success)';font-weight:800;letter-spacing:.05em">CURRENT</span>' : ''}</div>
+  const renderCard = (p, recommended = false) => `<button class="coach-plan-pick" data-plan-id="${escHtml(p.id)}" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:${recommended ? rgba(var(--primary-rgb),.06)' : var(--card)};border:1px solid ${recommended ? rgba(var(--primary-rgb),.30)' : var(--border)};border-radius:10px;cursor:pointer">
+    <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(p.name || 'Plan')}${member.activePlanId === p.id ? ' <span style="font-size:9px;color:var(--success);font-weight:800;letter-spacing:.05em">CURRENT</span>' : ''}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${escHtml(p.category || '')}${p.yearLevel ? ' · ' + escHtml(p.yearLevel) : ''}${p.tier ? ' · ' + escHtml(p.tier) : ''}</div>
   </button>`;
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Assign Plan</div>
     <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">For ${escHtml(member.displayName || 'athlete')}. Their active plan switches immediately.</div>
-    ${recommended.length ? '<div style="font-size:10px;color:'var(--muted-fg)';text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Recommended</div>' + recommended.map(p => renderCard(p, true)).join('') : ''}
-    ${others.length ? '<div style="font-size:10px;color:'var(--muted-fg)';text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">All Plans</div><div style="max-height:340px;overflow-y:auto">' + others.map(p => renderCard(p, false)).join('') + '</div>' : ''}
+    ${recommended.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Recommended</div>' + recommended.map(p => renderCard(p, true)).join('') : ''}
+    ${others.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">All Plans</div><div style="max-height:340px;overflow-y:auto">' + others.map(p => renderCard(p, false)).join('') + '</div>' : ''}
     <div style="display:flex;gap:8px;margin-top:14px">
-      ${member.activePlanId ? '<button class="btn" id="coach-plan-clear" style="flex:1;color:'var(--destructive)';border:1px solid rgba('var(--destructive-rgb)',.3);background:rgba('var(--destructive-rgb)',.08)">Cancel current plan</button>' : ''}
+      ${member.activePlanId ? '<button class="btn" id="coach-plan-clear" style="flex:1;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.08)">Cancel current plan</button>' : ''}
       <button class="btn btn-secondary" style="flex:1" id="coach-plan-back">Back</button>
     </div>
   `;
@@ -8209,7 +8209,7 @@ async function renderTeamSearchResults(container, query) {
     <div class="card card-pad" style="margin-bottom:8px;display:flex;align-items:center;gap:12px">
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:700;color:var(--fg)">${escHtml(club.name || '')}</div>
-        ${club.description ? `<div style="font-size:12px;color:'var(--muted-fg)';margin-top:2px">${escHtml(club.description)}</div>` : ''}
+        ${club.description ? `<div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${escHtml(club.description)}</div>` : ''}
         <div style="font-size:11px;color:var(--muted-fg);margin-top:3px">${club.memberCount ? club.memberCount + ' members' : ''}</div>
       </div>
       <button class="btn btn-primary" style="flex-shrink:0;font-size:12px;padding:8px 14px;min-height:36px" data-club-team="${escHtml(club.teamId || '')}">Join</button>
@@ -8424,7 +8424,7 @@ function openAddCoCoachSheet() {
           <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.email || '')}</div>
         </div>
         ${already
-          ? '<span style="font-size:11px;font-weight:700;color:'var(--primary)';padding:6px 10px;border:1px solid rgba('var(--primary-rgb)',.4);border-radius:999px">COACH</span>'
+          ? '<span style="font-size:11px;font-weight:700;color:var(--primary);padding:6px 10px;border:1px solid rgba(var(--primary-rgb),.4);border-radius:999px">COACH</span>'
           : `<button class="btn btn-primary cocoach-promote" data-uid="${m.uid}" style="padding:6px 12px;font-size:12px">Promote</button>`
         }
       </div>`;
@@ -8470,7 +8470,7 @@ function openManageSubteamsSheet() {
     <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px">Create subteams within your club (e.g. "Venom"). Tap a subteam to assign members and set a sub-coach.</p>
     <div id="subteams-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
       ${subteams.length === 0
-        ? '<div style="font-size:13px;color:'var(--muted-fg)';text-align:center;padding:12px">No subteams yet.</div>'
+        ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:12px">No subteams yet.</div>'
         : subteams.map(s => {
             const sc = s.subCoachUid ? teamMembers.find(m => m.uid === s.subCoachUid) : null;
             return `<button class="subteam-row" data-sub-id="${escHtml(s.id)}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;text-align:left;width:100%">
@@ -8526,7 +8526,7 @@ function openSubteamDetailSheet(subId) {
         <div style="font-size:13px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.displayName || 'Unknown')}${isSubCoach ? ' · <span style="color:var(--primary)">SUB-COACH</span>' : ''}</div>
         <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.email || '')}</div>
       </div>
-      <button class="sub-toggle" data-uid="${m.uid}" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid ${inSub ? 'rgba('var(--success-rgb)',.4)' : 'var(--border)'};background:${inSub ? 'rgba('var(--success-rgb)',.10)' : 'transparent'};color:${inSub ? 'var(--success)' : 'var(--muted-fg)'};cursor:pointer">${inSub ? '✓ In' : '+ Add'}</button>
+      <button class="sub-toggle" data-uid="${m.uid}" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid ${inSub ? rgba(var(--success-rgb),.4)' : var(--border)};background:${inSub ? rgba(var(--success-rgb),.10)' : 'transparent'};color:${inSub ? var(--success) : var(--muted-fg)};cursor:pointer">${inSub ? '✓ In' : '+ Add'}</button>
       ${inSub && !isSubCoach ? `<button class="sub-promote" data-uid="${m.uid}" title="Make sub-coach" style="padding:6px 8px;font-size:11px;border:1px solid var(--border);background:transparent;border-radius:8px;cursor:pointer;color:var(--muted-fg)">★</button>` : ''}
     </div>`;
   };
@@ -8534,7 +8534,7 @@ function openSubteamDetailSheet(subId) {
     <div class="sheet-title">${escHtml(sub.name)}</div>
     <p style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">${(sub.members||[]).length} members${sub.subCoachUid ? ' · ★ marks sub-coach' : ''}</p>
     <div style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto;margin-bottom:14px">
-      ${teamMembers.filter(m => m.uid !== currentUser?.uid).map(renderMemberRow).join('') || '<div style="font-size:12px;color:'var(--muted-fg)';text-align:center;padding:12px">No team members to assign yet.</div>'}
+      ${teamMembers.filter(m => m.uid !== currentUser?.uid).map(renderMemberRow).join('') || '<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:12px">No team members to assign yet.</div>'}
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn" style="flex:1;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.08)" id="subteam-delete-btn">Delete</button>
@@ -9260,7 +9260,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-r21';
+  const APP_VERSION = '20260430-r22';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9722,9 +9722,9 @@ function renderCoachRaceDay(el) {
       <div style="font-size:18px;font-weight:700;margin-bottom:8px">${isActive ? 'Race Day is LIVE' : 'Race Day Mode'}</div>
       <div style="font-size:13px;color:var(--muted-fg);margin-bottom:20px;line-height:1.5">${isActive ? 'All team members are in race day mode. Tap below to end.' : 'Activating race day mode locks all users into the race day interface for the day.'}</div>
       ${isActive
-        ? `<button id="coach-rd-end" style="width:100%;padding:14px;border-radius:12px;background:rgba('var(--destructive-rgb)',.1);border:1px solid rgba('var(--destructive-rgb)',.3);color:'var(--destructive)';font-weight:700;font-size:15px;cursor:pointer">End Race Day Mode</button>
-           <button id="coach-rd-open" style="width:100%;padding:12px;border-radius:12px;background:'var(--primary)';color:'var(--primary-fg)';font-weight:700;font-size:14px;cursor:pointer;margin-top:8px">Open Race Day Interface</button>`
-        : `<button id="coach-rd-start" style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,'var(--success)',#16a34a);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba('var(--success-rgb)',.3)">🏁 Activate Race Day Mode</button>`
+        ? `<button id="coach-rd-end" style="width:100%;padding:14px;border-radius:12px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;font-size:15px;cursor:pointer">End Race Day Mode</button>
+           <button id="coach-rd-open" style="width:100%;padding:12px;border-radius:12px;background:var(--primary);color:var(--primary-fg);font-weight:700;font-size:14px;cursor:pointer;margin-top:8px">Open Race Day Interface</button>`
+        : `<button id="coach-rd-start" style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,var(--success),#16a34a);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(var(--success-rgb),.3)">🏁 Activate Race Day Mode</button>`
       }
     </div>
   `;
@@ -9983,8 +9983,8 @@ function renderHealthTab() {
     const isToday = d.key === now.toISOString().split('T')[0];
     html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
       ${d.mins > 0 ? `<div style="font-size:7px;font-weight:600;color:var(--muted-fg)">${d.mins}</div>` : ''}
-      <div style="width:100%;height:${pct}%;background:${isToday ? 'var(--primary)' : d.mins > 0 ? 'rgba('var(--primary-rgb)',.4)' : 'rgba(255,255,255,.04)'};border-radius:3px 3px 0 0;min-height:${d.mins > 0 ? '6' : '2'}px"></div>
-      <div style="font-size:7px;color:${isToday ? 'var(--primary)' : 'var(--muted-fg)'};font-weight:${isToday ? '700' : '400'}">${d.date.toLocaleDateString('en-AU',{weekday:'narrow'})}</div>
+      <div style="width:100%;height:${pct}%;background:${isToday ? var(--primary) : d.mins > 0 ? rgba(var(--primary-rgb),.4)' : 'rgba(255,255,255,.04)'};border-radius:3px 3px 0 0;min-height:${d.mins > 0 ? '6' : '2'}px"></div>
+      <div style="font-size:7px;color:${isToday ? var(--primary) : var(--muted-fg)};font-weight:${isToday ? '700' : '400'}">${d.date.toLocaleDateString('en-AU',{weekday:'narrow'})}</div>
     </div>`;
   });
   html += '</div></div>';
@@ -10004,12 +10004,12 @@ function renderHealthTab() {
       <div style="text-align:center">
         <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Sessions</div>
         <div style="font-size:20px;font-weight:800;color:var(--fg)">${twCount}</div>
-        <div style="font-size:10px;color:${twCount >= lwCount ? 'var(--success)' : 'var(--destructive)'}">${twCount >= lwCount ? '↑' : '↓'} vs ${lwCount}</div>
+        <div style="font-size:10px;color:${twCount >= lwCount ? var(--success) : var(--destructive)}">${twCount >= lwCount ? '↑' : '↓'} vs ${lwCount}</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Minutes</div>
         <div style="font-size:20px;font-weight:800;color:var(--fg)">${twMins}</div>
-        <div style="font-size:10px;color:${minsDiff >= 0 ? 'var(--success)' : 'var(--destructive)'}">${minsDiff >= 0 ? '+' : ''}${minsDiff} min</div>
+        <div style="font-size:10px;color:${minsDiff >= 0 ? var(--success) : var(--destructive)}">${minsDiff >= 0 ? '+' : ''}${minsDiff} min</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Distance</div>
@@ -10063,19 +10063,19 @@ function renderHealthTab() {
     html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
       <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:10px">🏆 Personal Bests</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        ${allDurations.length > 0 ? `<div style="padding:8px;background:'var(--bg)';border-radius:8px;text-align:center">
+        ${allDurations.length > 0 ? `<div style="padding:8px;background:var(--bg);border-radius:8px;text-align:center">
           <div style="font-size:18px;font-weight:800;color:var(--primary)">${Math.max(...allDurations)}</div>
           <div style="font-size:10px;color:var(--muted-fg)">Longest session (min)</div>
         </div>` : ''}
-        ${allDistances.length > 0 ? `<div style="padding:8px;background:'var(--bg)';border-radius:8px;text-align:center">
+        ${allDistances.length > 0 ? `<div style="padding:8px;background:var(--bg);border-radius:8px;text-align:center">
           <div style="font-size:18px;font-weight:800;color:var(--primary)">${Math.max(...allDistances).toFixed(1)}</div>
           <div style="font-size:10px;color:var(--muted-fg)">Longest ride (km)</div>
         </div>` : ''}
-        ${allSpeeds.length > 0 ? `<div style="padding:8px;background:'var(--bg)';border-radius:8px;text-align:center">
+        ${allSpeeds.length > 0 ? `<div style="padding:8px;background:var(--bg);border-radius:8px;text-align:center">
           <div style="font-size:18px;font-weight:800;color:var(--primary)">${Math.max(...allSpeeds).toFixed(1)}</div>
           <div style="font-size:10px;color:var(--muted-fg)">Top speed (km/h)</div>
         </div>` : ''}
-        ${userWorkouts.length > 0 ? `<div style="padding:8px;background:'var(--bg)';border-radius:8px;text-align:center">
+        ${userWorkouts.length > 0 ? `<div style="padding:8px;background:var(--bg);border-radius:8px;text-align:center">
           <div style="font-size:18px;font-weight:800;color:var(--primary)">${userWorkouts.length}</div>
           <div style="font-size:10px;color:var(--muted-fg)">Total workouts</div>
         </div>` : ''}

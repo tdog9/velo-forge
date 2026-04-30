@@ -363,14 +363,14 @@ function buildOverlayHTML() {
     <span style="font-size:11px;font-weight:700;color:var(--destructive)">LIVE</span>
   </div>
   <button id="rd-share-btn" aria-label="Share spectator link" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-weight:700;cursor:pointer;margin-left:4px">Share</button>
-  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba('var(--destructive-rgb)',.1);border:1px solid rgba('var(--destructive-rgb)',.3);color:'var(--destructive)';font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
+  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
 </header>
 
 <!-- Scrollable content -->
 <div id="rd-content" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px calc(16px + var(--tab-h,72px) + env(safe-area-inset-bottom,0px));"></div>
 
 <!-- Coach FAB — add to roster -->
-${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--tab-h,72px) + 12px + env(safe-area-inset-bottom,0px));right:16px;z-index:160;width:48px;height:48px;border-radius:50%;background:'var(--primary)';color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba('var(--primary-rgb)',.4);-webkit-tap-highlight-color:transparent">
+${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--tab-h,72px) + 12px + env(safe-area-inset-bottom,0px));right:16px;z-index:160;width:48px;height:48px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(var(--primary-rgb),.4);-webkit-tap-highlight-color:transparent">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 </button>` : ''}
 
@@ -507,7 +507,7 @@ function renderRoster(c) {
   const mgr=ctx.userProfile?.isCoach||ctx.userProfile?.isManager;
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
     <div style="font-size:16px;font-weight:700">Driver Roster</div>
-    ${mgr?`<button id="rd-add-driver" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid 'var(--primary)';color:'var(--primary)';background:none;font-weight:600;cursor:pointer">+ Add Driver</button>`:''}
+    ${mgr?`<button id="rd-add-driver" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--primary);color:var(--primary);background:none;font-weight:600;cursor:pointer">+ Add Driver</button>`:''}
   </div>`;
 
   if (rosterData.length===0) {
@@ -637,7 +637,7 @@ function renderSetup(c) {
   const mgr=ctx.userProfile?.isCoach||ctx.userProfile?.isManager;
   let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
     <div style="font-size:16px;font-weight:700">Team Setup</div>
-    ${mgr?`<button id="rd-add-field" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid 'var(--primary)';color:'var(--primary)';background:none;font-weight:600;cursor:pointer">+ Field</button>`:''}
+    ${mgr?`<button id="rd-add-field" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--primary);color:var(--primary);background:none;font-weight:600;cursor:pointer">+ Field</button>`:''}
   </div>
   <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">Enter your personal setup for today's race.</div>`;
 
@@ -709,7 +709,7 @@ function renderLivePanel(live) {
       <div style="width:7px;height:7px;border-radius:50%;background:var(--destructive);animation:rdPulse 1.4s ease infinite"></div>
       <span style="font-size:11px;font-weight:700;color:var(--destructive);letter-spacing:.05em;text-transform:uppercase">Live on track</span>
     </div>
-    ${live.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba('var(--destructive-rgb)',.12);font-size:13px">
+    ${live.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(var(--destructive-rgb),.12);font-size:13px">
       <span style="flex:1;font-weight:700">${esc(l.displayName||'Driver')}</span>
       <span style="color:var(--muted-fg);font-size:11px">${l.lapCount||0} laps</span>
       <span style="font-family:var(--font-mono);font-weight:700;color:var(--fg)">${fmtTime(l.elapsed||0)}</span>
@@ -745,7 +745,7 @@ function renderUpNextPanel() {
     <div style="font-size:10px;font-weight:800;color:#3b82f6;text-transform:uppercase;letter-spacing:.06em">Up next</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:14px;font-weight:700;color:var(--fg)">${esc(next.name)}</div>
-      ${next.notes?`<div style="font-size:11px;color:'var(--muted-fg)';margin-top:1px">${esc(next.notes)}</div>`:''}
+      ${next.notes?`<div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${esc(next.notes)}</div>`:''}
     </div>
     <div style="font-size:12px;color:var(--muted-fg);white-space:nowrap">${mins}m</div>
   </div>`;
@@ -1112,8 +1112,8 @@ function updateActive() {
         const n=stintLaps.length-i, isBest=lap.duration===bestDur;
         return `<div style="display:flex;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
           <span style="color:var(--muted-fg);width:54px">Lap ${n}</span>
-          <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${isBest?'var(--success)':'var(--fg)'}">${fmtMs(lap.duration)}</span>
-          ${isBest?'<span style="font-size:10px;color:'var(--success)';font-weight:700">BEST</span>':''}
+          <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${isBest?var(--success):var(--fg)}">${fmtMs(lap.duration)}</span>
+          ${isBest?'<span style="font-size:10px;color:var(--success);font-weight:700">BEST</span>':''}
         </div>`;
       }).join('');
     }
@@ -1190,7 +1190,7 @@ function renderStintSummary(c,stint) {
     </div>
     ${stint.laps.map((lap,i)=>`
       <div style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
-        <span style="color:'var(--muted-fg)';width:54px">Lap ${i+1}</span>
+        <span style="color:var(--muted-fg);width:54px">Lap ${i+1}</span>
         <span style="flex:1;font-weight:700;font-family:var(--font-mono)">${fmtMs(lap.duration)}</span>
       </div>`).join('')}
     <div style="display:flex;gap:8px;margin-top:16px">
