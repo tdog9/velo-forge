@@ -353,7 +353,7 @@ function buildOverlayHTML() {
 
 <!-- Header matching app style -->
 <header style="height:56px;min-height:calc(56px + env(safe-area-inset-top,0px));padding:0 16px;padding-top:env(safe-area-inset-top,0px);display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;z-index:30">
-  <div style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(249,115,22,.3)">T</div>
+  <div style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(var(--primary-rgb),.3)">T</div>
   <div style="flex:1;min-width:0">
     <div style="font-size:13px;font-weight:800;letter-spacing:.08em;color:var(--primary)">TURBOPREP</div>
     <div style="font-size:10px;color:var(--muted-fg);margin-top:-1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${raceName ? esc(raceName)+' · ' : ''}${esc(teamName)}</div>
@@ -370,7 +370,7 @@ function buildOverlayHTML() {
 <div id="rd-content" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px calc(16px + var(--tab-h,72px) + env(safe-area-inset-bottom,0px));"></div>
 
 <!-- Coach FAB — add to roster -->
-${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--tab-h,72px) + 12px + env(safe-area-inset-bottom,0px));right:16px;z-index:160;width:48px;height:48px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(249,115,22,.4);-webkit-tap-highlight-color:transparent">
+${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--tab-h,72px) + 12px + env(safe-area-inset-bottom,0px));right:16px;z-index:160;width:48px;height:48px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(var(--primary-rgb),.4);-webkit-tap-highlight-color:transparent">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 </button>` : ''}
 
@@ -381,7 +381,7 @@ ${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--
     <span class="rd-tab-lbl">Roster</span>
   </button>
   <button class="rd-tab-btn" data-rdtab="stint" style="position:relative">
-    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;margin:-14px auto 0;box-shadow:0 4px 14px rgba(var(--success-rgb),.4)">
+    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--success),#16a34a);display:flex;align-items:center;justify-content:center;margin:-14px auto 0;box-shadow:0 4px 14px rgba(var(--success-rgb),.4)">
       <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="white" stroke="none"/></svg>
     </div>
     <span class="rd-tab-lbl" style="margin-top:4px">Stint</span>
@@ -759,7 +759,7 @@ function renderStintTab(c) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Start / finish point is set
        </div>`
-    : `<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:10px;margin-bottom:14px;font-size:13px;color:#f97316">
+    : `<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(var(--primary-rgb),.08);border:1px solid rgba(var(--primary-rgb),.2);border-radius:10px;margin-bottom:14px;font-size:13px;color:#f97316">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         Waiting for start/finish — first rider to move 7:30 continuously or pass the same point twice sets it for everyone
        </div>`;
@@ -773,7 +773,7 @@ function renderStintTab(c) {
         <span style="flex:1;font-weight:600">${esc(s.displayName||s.uid)}</span>
         <span style="color:var(--muted-fg)">${s.laps?.length||0} laps</span>
         <span style="color:var(--muted-fg);font-family:var(--font-mono)">${best}</span>
-        <button class="rd-email-btn" data-uid="${esc(s.uid)}" style="font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);color:var(--primary);cursor:pointer;font-weight:600">📧</button>
+        <button class="rd-email-btn" data-uid="${esc(s.uid)}" style="font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(var(--primary-rgb),.1);border:1px solid rgba(var(--primary-rgb),.2);color:var(--primary);cursor:pointer;font-weight:600">📧</button>
       </div>`;
     });
   }
@@ -794,7 +794,7 @@ function renderStintTab(c) {
       </div>
     </div>
     ${stintsHtml}
-    <button id="rd-start-btn" style="width:100%;padding:16px;border-radius:14px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;margin-top:14px;box-shadow:0 4px 15px rgba(var(--success-rgb),.35);-webkit-tap-highlight-color:transparent">▶ Start My Stint</button>`;
+    <button id="rd-start-btn" style="width:100%;padding:16px;border-radius:14px;background:linear-gradient(135deg,var(--success),#16a34a);color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;margin-top:14px;box-shadow:0 4px 15px rgba(var(--success-rgb),.35);-webkit-tap-highlight-color:transparent">▶ Start My Stint</button>`;
 
   setTimeout(()=>initPreMap(),150);
   c.querySelector('#rd-start-btn')?.addEventListener('click', (e) => {
@@ -952,7 +952,7 @@ function onPos(pos) {
     if (stintMap&&stintPolyline) {
       stintPolyline.addLatLng([lat,lng]);
       if (stintMarker) stintMarker.setLatLng([lat,lng]);
-      else if (typeof L!=='undefined') stintMarker=L.circleMarker([lat,lng],{radius:7,fillColor:'#22c55e',fillOpacity:1,color:'#fff',weight:2}).addTo(stintMap);
+      else if (typeof L!=='undefined') stintMarker=L.circleMarker([lat,lng],{radius:7,fillColor:var(--success),fillOpacity:1,color:'#fff',weight:2}).addTo(stintMap);
       stintMap.panTo([lat,lng]);
     }
   } catch(e){}
@@ -1112,7 +1112,7 @@ function updateActive() {
         const n=stintLaps.length-i, isBest=lap.duration===bestDur;
         return `<div style="display:flex;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
           <span style="color:var(--muted-fg);width:54px">Lap ${n}</span>
-          <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${isBest?'#22c55e':'var(--fg)'}">${fmtMs(lap.duration)}</span>
+          <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${isBest?var(--success):'var(--fg)'}">${fmtMs(lap.duration)}</span>
           ${isBest?'<span style="font-size:10px;color:var(--success);font-weight:700">BEST</span>':''}
         </div>`;
       }).join('');
@@ -1292,7 +1292,7 @@ export function updateRaceDayTabBar(active) {
       rdBtn.id='rd-tab-btn';
       rdBtn.className='tab-btn';
       rdBtn.innerHTML=`
-        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);display:flex;align-items:center;justify-content:center;margin:-4px auto 0;box-shadow:0 3px 10px rgba(var(--destructive-rgb),.4)">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--destructive),#dc2626);display:flex;align-items:center;justify-content:center;margin:-4px auto 0;box-shadow:0 3px 10px rgba(var(--destructive-rgb),.4)">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
         </div>
         <span class="tab-btn-label" style="color:var(--destructive)">Race</span>`;

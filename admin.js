@@ -48,7 +48,7 @@ export function renderAdmin() {
   let html = '<div class="page-title" style="margin-bottom:8px">Admin</div>';
   html += `<div id="admin-maintenance-bar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(var(--destructive-rgb),.08);border:1px solid rgba(var(--destructive-rgb),.2);display:flex;align-items:center;gap:10px">
     <span style="font-size:13px;font-weight:600;flex:1;color:var(--fg)">🔧 Maintenance</span>
-    <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?'#ef4444':'var(--muted)'};color:${mo?'#fff':'var(--muted-fg)'}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
+    <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?var(--destructive):'var(--muted)'};color:${mo?'#fff':'var(--muted-fg)'}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
   </div>`;
   html += '<div class="admin-tabs" style="overflow-x:auto;padding-bottom:2px">';
   tabs.forEach(t => {
@@ -183,7 +183,7 @@ async function renderAdminRaceDay() {
     <div class="card" style="padding:14px;margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em">Today's Status</div>
-        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${rd?.active?'rgba(var(--destructive-rgb),.12)':'rgba(255,255,255,.06)'};color:${rd?.active?'#ef4444':'var(--muted-fg)'}">${rd?.active?'● LIVE':'OFF'}</span>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${rd?.active?'rgba(var(--destructive-rgb),.12)':'rgba(255,255,255,.06)'};color:${rd?.active?var(--destructive):'var(--muted-fg)'}">${rd?.active?'● LIVE':'OFF'}</span>
       </div>
       <div style="font-size:13px;color:var(--fg);margin-bottom:6px">${todayRace ? '🏁 ' + A.escHtml(todayRace.name) : 'No race scheduled today.'}</div>
       ${todayRace?.notes ? `<div style="font-size:11px;color:var(--muted-fg)">${A.escHtml(todayRace.notes)}</div>` : ''}
@@ -301,7 +301,7 @@ function renderAdminMaintenance() {
           </select>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-          <button class="btn btn-primary" style="font-size:12px;background:linear-gradient(135deg,#22c55e,#16a34a);padding:10px" id="rd-activate-god">🏁 Activate</button>
+          <button class="btn btn-primary" style="font-size:12px;background:linear-gradient(135deg,var(--success),#16a34a);padding:10px" id="rd-activate-god">🏁 Activate</button>
           <button class="btn btn-secondary" style="font-size:12px;color:var(--destructive);border-color:rgba(var(--destructive-rgb),.3);padding:10px" id="rd-deactivate-god">⬛ End</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
@@ -367,7 +367,7 @@ function renderAdminMaintenance() {
         if (badge) {
           badge.textContent = isActive ? '🔴 LIVE' : '⚪ Inactive';
           badge.style.background = isActive ? 'rgba(var(--destructive-rgb),.15)' : 'rgba(100,100,100,.15)';
-          badge.style.color = isActive ? '#ef4444' : 'var(--muted-fg)';
+          badge.style.color = isActive ? var(--destructive) : 'var(--muted-fg)';
         }
 
         // Show extra info if active
@@ -379,7 +379,7 @@ function renderAdminMaintenance() {
           infoEl.innerHTML = isActive
             ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:6px;line-height:1.6">
                 Active for: <b style="color:var(--fg)">${elapsed} min</b> · 
-                Remaining: <b style="color:${remaining<60?'#ef4444':'var(--fg)'}">${remaining} min</b><br>
+                Remaining: <b style="color:${remaining<60?var(--destructive):'var(--fg)'}">${remaining} min</b><br>
                 Start point: <b style="color:var(--fg)">${rdData.startPointSet?'Set ✓':'Not set yet'}</b>
                </div>`
             : '';
@@ -451,11 +451,11 @@ export function renderHealthReports(el) {
       const ok = r.findingCount === 0;
       html += `<div style="background:var(--card);border:1px solid ${ok?'var(--border)':'rgba(var(--destructive-rgb),.2)'};border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <span style="font-size:11px;font-weight:700;color:${ok?'#22c55e':'#ef4444'}">${ok?'✓ PASSED':'✗ '+r.findingCount+' ISSUE'+(r.findingCount!==1?'S':'')}</span>
+          <span style="font-size:11px;font-weight:700;color:${ok?var(--success):var(--destructive)}">${ok?'✓ PASSED':'✗ '+r.findingCount+' ISSUE'+(r.findingCount!==1?'S':'')}</span>
           <span style="font-size:11px;color:var(--muted-fg);flex:1">${dt}</span>
           <span style="font-size:10px;color:var(--muted-fg)">${r.passed}/${r.total} checks</span>
         </div>
-        ${r.findings && r.findings.length > 0 ? r.findings.map(f=>`<div style="font-size:11px;color:${f.severity==='error'?'#ef4444':'#f59e0b'};padding:1px 0">• ${escHtml(f.name)}${f.detail?': '+escHtml(f.detail):''}</div>`).join('') : ''}
+        ${r.findings && r.findings.length > 0 ? r.findings.map(f=>`<div style="font-size:11px;color:${f.severity==='error'?var(--destructive):var(--warning)};padding:1px 0">• ${escHtml(f.name)}${f.detail?': '+escHtml(f.detail):''}</div>`).join('') : ''}
       </div>`;
     });
   }
@@ -725,7 +725,7 @@ export async function renderCoachDashboard() {
       const isActive = s.lastActive && s.lastActive >= threeDaysAgo;
       const isInactive = !s.lastActive || s.lastActive < sevenDaysAgo;
       const lastStr = s.lastActive ? timeAgo(s.lastActive) : 'Never';
-      const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
+      const tierColors = { basic:'#3b82f6', average:var(--success), intense:'#f97316' };
       const borderStyle = isInactive ? 'border-color:rgba(var(--destructive-rgb),.3)' : '';
       html += `<div class="coach-card" style="${borderStyle}">
         <div class="coach-card-top">
@@ -739,7 +739,7 @@ export async function renderCoachDashboard() {
           <span>Last active: ${lastStr}</span>
         </div>
         <div style="display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
-          <button class="btn shoutout-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);color:var(--primary);border-radius:6px;cursor:pointer">👏 Shoutout</button>
+          <button class="btn shoutout-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(var(--primary-rgb),.08);border:1px solid rgba(var(--primary-rgb),.2);color:var(--primary);border-radius:6px;cursor:pointer">👏 Shoutout</button>
           <button class="btn nudge-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(var(--warning-rgb),.08);border:1px solid rgba(var(--warning-rgb),.2);color:var(--warning);border-radius:6px;cursor:pointer">💬 Nudge</button>
         </div>
       </div>`;
@@ -1528,7 +1528,7 @@ function renderRaceFootageSection(parentEl) {
       <div class="footage-admin-item">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <strong style="font-size:13px;color:var(--fg);flex:1">${escHtml(race.name)}</strong>
-          ${isPast ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(249,115,22,0.15);color:#f97316;font-weight:600">DONE</span>' : '<span style="font-size:10px;color:var(--muted-fg)">' + race.date + '</span>'}
+          ${isPast ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(var(--primary-rgb),0.15);color:#f97316;font-weight:600">DONE</span>' : '<span style="font-size:10px;color:var(--muted-fg)">' + race.date + '</span>'}
         </div>
         <div style="font-size:11px;color:var(--muted-fg);margin-bottom:6px">${existing.length} link${existing.length !== 1 ? 's' : ''} attached</div>
         <div style="display:flex;gap:6px">
@@ -1618,7 +1618,7 @@ export function renderAdminRaceLogVideos(parentEl) {
       const raceName = v.raceId ? (races.find(r => r.id === v.raceId)?.name || '') : '';
       html += `
         <div class="video-admin-row">
-          <div style="width:40px;height:30px;border-radius:4px;background:rgba(249,115,22,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <div style="width:40px;height:30px;border-radius:4px;background:rgba(var(--primary-rgb),0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
             <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;color:#f97316"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
           </div>
           <div class="video-info">
@@ -1869,7 +1869,7 @@ async function renderUsersAll(el) {
     html += '<div class="admin-empty">No users yet.</div>';
   } else {
     A.allUsersCache.forEach(u => {
-      const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
+      const tierColors = { basic:'#3b82f6', average:var(--success), intense:'#f97316' };
       const tc = tierColors[u.fitnessLevel] || '#3b82f6';
       html += `
         <div class="card admin-user-card-row" data-name="${escHtml(u.displayName||'')}" data-email="${escHtml(u.email||'')}" style="margin-bottom:8px">
@@ -2703,7 +2703,7 @@ async function renderAdminRequests() {
             <div style="font-size:15px;font-weight:700">${A.escHtml(r.clubName||'')}</div>
             <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${A.escHtml(r.coachName||'')} · ${A.escHtml(r.coachEmail||'')}</div>
           </div>
-          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${isApproved?'rgba(var(--success-rgb),.15)':'rgba(249,115,22,.15)'};color:${isApproved?'#22c55e':'#f97316'}">${isApproved?'Approved':'Pending'}</span>
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${isApproved?'rgba(var(--success-rgb),.15)':'rgba(var(--primary-rgb),.15)'};color:${isApproved?var(--success):'#f97316'}">${isApproved?'Approved':'Pending'}</span>
         </div>
         ${r.clubDesc ? `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${A.escHtml(r.clubDesc)}</div>` : ''}
         ${isPending ? `
@@ -2797,9 +2797,9 @@ async function renderAdminCoachProRequests() {
   reqs.forEach(r => {
     const status = r.status || 'pending';
     const statusInfo = {
-      pending:                   { label: 'Pending',           color: '#f97316', bg: 'rgba(249,115,22,.15)' },
+      pending:                   { label: 'Pending',           color: '#f97316', bg: 'rgba(var(--primary-rgb),.15)' },
       approved_pending_payment:  { label: 'Approved (billing)', color: '#3b82f6', bg: 'rgba(59,130,246,.15)' },
-      exempt:                    { label: 'Free (exempt)',     color: '#22c55e', bg: 'rgba(var(--success-rgb),.15)' },
+      exempt:                    { label: 'Free (exempt)',     color: var(--success), bg: 'rgba(var(--success-rgb),.15)' },
       denied:                    { label: 'Denied',            color: '#9ca3af', bg: 'rgba(156,163,175,.15)' },
     }[status] || { label: status, color: '#9ca3af', bg: 'rgba(156,163,175,.15)' };
     const isPending = status === 'pending';
