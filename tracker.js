@@ -17,6 +17,16 @@ let trackerPolyline = null;
 let trackerMarker = null;
 let trackerWakeLock = null;
 
+// Live primary accent so the GPS line + marker track Dark / Light /
+// Venom themes (was hard-coded `#BFFF00` neon-green which clashed
+// against the orange UI and was invisible on light tiles). Resolved at
+// module scope so both openActivityTracker and startTracking can read it.
+function getAccentColor() {
+  try {
+    return getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#f97316';
+  } catch (_) { return '#f97316'; }
+}
+
 // Call once from app.js after Firebase + state is ready
 export function initTracker(appCtx) { ctx = appCtx; }
 
@@ -55,16 +65,10 @@ export function openActivityTracker() {
     </div>`;
   document.body.appendChild(overlay);
 
-  // Pull the live primary accent so the GPS line tracks Dark / Light /
-  // Venom themes (was hard-coded `#BFFF00` neon-green which clashed
-  // against the orange UI and was invisible on light tiles).
-  const accent = (typeof getComputedStyle !== 'undefined')
-    ? (getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#f97316')
-    : '#f97316';
-
   setTimeout(() => {
     try {
       if (typeof L !== 'undefined') {
+        const accent = getAccentColor();
         trackerMap = L.map('tracker-map-el', { zoomControl: false, attributionControl: false }).setView([-37.81, 144.96], 15);
         L.tileLayer(ctx.getMapTileUrl(), { maxZoom: 19 }).addTo(trackerMap);
         trackerPolyline = L.polyline([], { color: accent, weight: 4, opacity: 0.9 }).addTo(trackerMap);
@@ -125,7 +129,7 @@ function startTracking() {
             const ll = [latitude, longitude];
             trackerPolyline.addLatLng(ll);
             if (trackerMarker) trackerMarker.setLatLng(ll);
-            else if (typeof L !== 'undefined') trackerMarker = L.circleMarker(ll, { radius: 8, fillColor: accent, fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
+            else if (typeof L !== 'undefined') trackerMarker = L.circleMarker(ll, { radius: 8, fillColor: getAccentColor(), fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
             trackerMap.panTo(ll);
           }
         } catch(e) {}
@@ -317,9 +321,7 @@ export function openActivityDetail(workoutIdx) {
   document.body.appendChild(ov);
 
   if (hasRoute && typeof L !== 'undefined') {
-    const accent2 = (typeof getComputedStyle !== 'undefined')
-      ? (getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#f97316')
-      : '#f97316';
+    const accent2 = getAccentColor();
     setTimeout(() => {
       try {
         const m = L.map('ad-map',{zoomControl:false,attributionControl:false});
