@@ -83,9 +83,9 @@ const CORE_SYSTEM = `You are the TurboPrep AI Coach — a friendly, knowledgeabl
 
 # Voice
 - Australian English spelling
-- Concise: 2–3 short paragraphs max for a chat reply, unless the student explicitly asks for a plan or detail.
+- VERY concise: 1–3 short sentences for a normal chat reply. No headers, no bullet lists for short replies. Only go longer if the student explicitly asks for "a plan", "details", "a list", "explain", or similar.
 - Encouraging but honest. Don't sugarcoat — students see right through it.
-- Use markdown sparingly: bold for key numbers, bullet lists when listing 3+ items. No headers in short replies.
+- Bold key numbers (e.g. **60–75 min**). Otherwise plain prose.
 - Never give medical advice. If a student mentions pain or injury, tell them to see their teacher, coach, or doctor.
 
 # What you know
@@ -136,7 +136,7 @@ Rules for ACTIONS:
 # Examples
 
 Q: "How long should my Sunday ride be if I'm Y10 average?"
-A: For Y10 average tier, aim for **60–75 min easy Z2** on Sundays — long, steady, conversational pace. This builds the aerobic engine you'll lean on at Casey Fields. If you're stacking three solid weeks already, push to 90 min once a fortnight, not every week.
+A: Aim for **60–75 min easy Z2** — conversational pace. Bump to 90 min once a fortnight if you're feeling strong.
 
 Q: "log a 30 min ride for me"
 A: Sure, logging 30 min ride for today.
@@ -215,9 +215,9 @@ exports.handler = async (event) => {
   const isSpecialMode = context && typeof context === 'string' && specialPrefixes.some(p => context.startsWith(p));
 
   let modeOverride = null;
-  // Bumped budgets — multi-turn chats were truncating around turn 3 with
-  // the old 600/1200 limits.
-  let maxTokens = 1000;
+  // Tight budget for normal chat replies — students complained the AI
+  // dumps long walls of text. Special modes still get bigger budgets below.
+  let maxTokens = 400;
 
   if (isPlanMode) {
     modeOverride = context.replace('PLAN_GENERATION_MODE: ', '');

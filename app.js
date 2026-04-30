@@ -1125,7 +1125,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-restore-features';
+const APP_VERSION = '20260430-ai-trim';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -3357,13 +3357,12 @@ function renderToday() {
     </div>`;
   }
   // ── SECTION 5: Expandable extras ──
+  // Stats row + goals + season-phase removed per simplification ask.
+  // Keeping badges, weekly chart, calendar, and team feed inside the
+  // expandable as "Activity History" so the Today page stays uncluttered.
   const extrasOpen = localStorage.getItem('tp_extras_open') === 'true';
-  html += `<div style="margin-top:14px"><div id="extras-toggle" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none;color:var(--muted-fg);font-size:13px;font-weight:600">Stats & Goals <span style="font-size:14px;transition:transform .2s;transform:rotate(${extrasOpen ? '0' : '-90'}deg)">▾</span></div>
+  html += `<div style="margin-top:14px"><div id="extras-toggle" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none;color:var(--muted-fg);font-size:13px;font-weight:600">Activity History <span style="font-size:14px;transition:transform .2s;transform:rotate(${extrasOpen ? '0' : '-90'}deg)">▾</span></div>
   <div id="extras-body" style="${extrasOpen ? '' : 'display:none'}">`;
-  // Stats row
-  html += `<div class="today-stats-row" style="margin-bottom:8px"><div class="today-stat"><span class="today-stat-val">${workoutsThisWeek}</span><span class="today-stat-lbl">this week</span></div><div class="today-stat-sep"></div><div class="today-stat"><span class="today-stat-val">${totalWorkouts}</span><span class="today-stat-lbl">total</span></div></div>`;
-  html += renderSeasonPhase();
-  html += renderGoals();
   const earned = getEarnedBadges();
   if (earned.length > 0 || userWorkouts.length > 0) {
     html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px;text-align:center">Badges · ${earned.length}/${BADGES.length}</div>`;
@@ -9122,7 +9121,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-restore-features';
+  const APP_VERSION = '20260430-ai-trim';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

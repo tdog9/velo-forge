@@ -663,7 +663,12 @@ select.input{
 }
 .ai-fab svg{width:20px;height:20px}
 .ai-fab:active{transform:scale(.92)}
-.ai-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--safe-t)}
+/* Use 100dvh so iOS Safari shrinks the overlay when the on-screen
+   keyboard is up, instead of leaving the input bar floating below the
+   keyboard. inset:0 alone falls back to the larger SVH which causes
+   the messages to get pushed off-screen. */
+.ai-overlay{position:fixed;left:0;right:0;top:0;height:100dvh;z-index:200;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--safe-t)}
+.ai-messages{min-height:0}
 .ai-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)}
 .ai-header-back{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--muted)}
 .ai-header-back svg{width:18px;height:18px}
