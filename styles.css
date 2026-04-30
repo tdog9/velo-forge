@@ -36,6 +36,9 @@
   --secondary-fg:#c8c6c0;
   --muted:#1e2128;
   --info:#3b82f6;
+  /* `--text` is an alias for `--fg` so legacy templates that reference
+     it (a few in tracker.js / aifeatures.js / raceLog.js) resolve. */
+  --text:var(--fg);
   --destructive:#ef4444;
   --radius:12px;
   --radius-sm:8px;
@@ -206,40 +209,22 @@ body { -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transpare
   --surface-raised:#e8e5de;
 }
 
-/* Venom theme — fully green per spec. Deep blackish-green backgrounds,
-   acid-green accent, green-tinted cards and borders. */
+/* Venom theme — keep ALL black backgrounds from Dark theme; only
+   the accent flips orange → acid green. Same UI shell, different
+   accent color. */
 .venom-theme{
-  --bg:#03130a;
-  --bg-elevated:#06200f;
-  --fg:#d8ffe8;
-  --card:#082a16;
-  --card-hover:#0b3520;
-  --border:rgba(34,255,136,.18);
-  --border-strong:rgba(34,255,136,.36);
   --primary:#22ff88;
-  --primary-fg:#03130a;
+  --primary-fg:#0a0b0f;
   --primary-hover:#1ce277;
   --primary-rgb:34,255,136;
-  --primary-dim:rgba(34,255,136,.16);
+  --primary-dim:rgba(34,255,136,.14);
   --primary-soft:rgba(34,255,136,.10);
-  --primary-edge:rgba(34,255,136,.36);
-  --muted:#0e2d1c;
-  --muted-fg:#7fcfa0;
-  --secondary:#0e2d1c;
-  --secondary-fg:#cdebd6;
-  --surface:#06200f;
-  --surface-raised:#0b3520;
+  --primary-edge:rgba(34,255,136,.32);
 }
 .venom-theme .auth-wordmark{color:#22ff88}
 .venom-theme .auth-wordmark-2{color:rgba(34,255,136,.55)}
-.venom-theme .auth-logo-mark{background:linear-gradient(135deg,#22ff88,#0a8b46);color:#03130a}
+.venom-theme .auth-logo-mark{background:linear-gradient(135deg,#22ff88,#0a8b46);color:#0a0b0f}
 .venom-theme .ai-fab{background:linear-gradient(135deg,#22ff88,#0a8b46)}
-.venom-theme body{
-  background:
-    radial-gradient(1200px 600px at 85% -10%, rgba(34,255,136,.08), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(34,255,136,.04), transparent 60%),
-    #03130a !important;
-}
 
 /* ===== Base ===== */
 html{

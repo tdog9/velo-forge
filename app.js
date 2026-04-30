@@ -1183,7 +1183,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r30';
+const APP_VERSION = '20260501-r31';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6413,11 +6413,11 @@ function renderTeam() {
   const tc = $('lb-team-content');
   const cc = $('lb-chat-content');
   const gc = $('lb-global-content');
-  tc.style.display = 'none';
+  if (tc) tc.style.display = 'none';
   if (cc) cc.style.display = 'none';
-  gc.style.display = 'none';
+  if (gc) gc.style.display = 'none';
   if (lbSubTab === 'global') {
-    gc.style.display = '';
+    if (gc) gc.style.display = '';
     renderGlobalLeaderboard(gc);
     try { unsubscribeTeamChat(); } catch(e) {}
   } else if (lbSubTab === 'chat') {
@@ -6434,6 +6434,7 @@ function renderTeam() {
       // renderTeamChatPanelInto on every snapshot, which re-built the
       // whole panel (composer included) and thrashed the input.
       if (userProfile?.teamId && typeof subscribeTeamChat === 'function') {
+        let healAttempted = false;
         const startSubscribe = () => {
           subscribeTeamChat(userProfile.teamId, () => {
             // Successful snapshot — clear any prior error banner.
@@ -6442,35 +6443,29 @@ function renderTeam() {
             if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
           }, async (err) => {
             const errBox = document.getElementById('team-chat-error');
-            // permission-denied almost always means the user has a
-            // teamId set on their profile but isn't in the team's
-            // `members` array — a drift state. Self-heal by running
-            // ensureDefaultTeamMembership (which arrayUnion's their
-            // uid into members[]) then re-subscribe.
-            if (err?.code === 'permission-denied') {
-              if (errBox) {
-                errBox.textContent = 'Joining team chat…';
-                errBox.hidden = false;
-              }
-              try {
-                await ensureDefaultTeamMembership();
-                // Wait a beat for Firestore to propagate the membership
-                // update before re-subscribing.
-                setTimeout(() => {
-                  if (currentPage === 'team' && lbSubTab === 'chat') startSubscribe();
-                }, 600);
-              } catch(_) {
-                if (errBox) {
-                  errBox.textContent = 'Couldn\'t join team chat. Reload and try again.';
-                  errBox.hidden = false;
-                }
-              }
+            const code = err?.code || '';
+            // First failure of any kind: try to self-heal silently
+            // (membership drift, transient permission, etc.) WITHOUT
+            // flashing a scary banner. ensureDefaultTeamMembership is
+            // idempotent + cheap, so it's safe to run unconditionally.
+            if (!healAttempted) {
+              healAttempted = true;
+              try { await ensureDefaultTeamMembership(); } catch(_) {}
+              setTimeout(() => {
+                if (currentPage === 'team' && lbSubTab === 'chat') startSubscribe();
+              }, 700);
               return;
             }
-            if (errBox) {
-              errBox.textContent = 'Chat connection lost — check your internet and try again.';
-              errBox.hidden = false;
-            }
+            // Repeat failure — surface a clear message tied to the
+            // actual cause. Skip the banner if user is offline (covered
+            // by the global offline indicator + Firestore retries on its
+            // own once the connection comes back).
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+            if (!errBox) return;
+            errBox.textContent = code === 'permission-denied'
+              ? 'You don\'t have access to this team\'s chat. Reload to retry.'
+              : 'Chat connection trouble — Firestore will retry automatically.';
+            errBox.hidden = false;
           });
         };
         startSubscribe();
@@ -9289,7 +9284,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r30';
+  const APP_VERSION = '20260501-r31';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

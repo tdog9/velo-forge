@@ -434,12 +434,13 @@ button.user-avatar {
   min-width: 0;
 }
 .fitness-sub-bar::-webkit-scrollbar { display: none; }
+/* Tabs fill the strip equally so there's no dead space on the right.
+   Was previously `flex:0 0 auto` which sized tabs to content and left
+   a gap when the strip was wider than the sum of the tabs. */
 .fitness-sub-tab {
-  flex: 0 0 auto !important;
+  flex: 1 1 0 !important;
   min-width: 0;
   white-space: nowrap;
-  padding-left: var(--ds-space-4);
-  padding-right: var(--ds-space-4);
 }
 
 /* Touch-target floor — 44px is Apple HIG. Several legacy controls were
