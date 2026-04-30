@@ -2,7 +2,10 @@ import SwiftUI
 
 @main
 struct TurboPrepWatchApp: App {
-    @StateObject private var auth = AuthService()
+    // AuthService was previously instantiated and injected, but no
+    // Watch view ever consumed it — keychain auth-sharing requires
+    // paid-team signing, so the iPhone is the source of truth for
+    // sign-in via WatchConnectivity. Removing the dead injection.
 
     init() {
         FirebaseBootstrap.configure()
@@ -16,7 +19,6 @@ struct TurboPrepWatchApp: App {
     var body: some Scene {
         WindowGroup {
             WatchRootView()
-                .environmentObject(auth)
         }
     }
 }

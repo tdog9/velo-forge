@@ -3010,18 +3010,11 @@ function renderToday() {
   // Native bridge — refresh the Watch's state snapshot whenever Today re-renders.
   // No-op when not inside the iOS WebView.
   pushWatchState();
-  // First Today render of the day → ask the coach for a proactive insight
-  // (no-op if one was already auto-generated today, or there's no signal yet).
-  maybeAutoGenerateAiWidget();
-  // Race-week trigger: once-per-day specialist coaching when the athlete
-  // crosses into race-week so the AI has a chance to give a focused
-  // peaking/recovery message ahead of competition.
-  try {
-    const phaseNow = computeRacePhase(now);
-    if (phaseNow && phaseNow.phase === 'race-week') {
-      triggerCoachInsight('race_week', { phase: phaseNow.phase, days_out: phaseNow.daysOut });
-    }
-  } catch(e) {}
+  // (Auto-fire AI widget on every Today render was removed —
+  // burned a Claude call per cold-load and competed with the
+  // coach-insight cards below. Users can tap "Ask coach" if they
+  // want a fresh insight; the explicit action keeps the AI surface
+  // intentional rather than ambient.)
   // Milestone celebrations — pure-derived (no Firestore writes). Shown as
   // a one-day card the first time the user sees a multiple-of-N workouts,
   // 7/14/30 day streak, or XP level-up. localStorage tracks "last
@@ -3180,17 +3173,8 @@ function renderToday() {
       html += `<div class="today-no-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><div><strong>No plan active</strong></div><div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one.</div></div>`;
     }
   }
-  // Daily Roundup Card
-  if (isWidgetOn('engagement') && totalWorkouts > 0) {
-    const roundupToday = localDateKey(now);
-    const todaysWorkouts = userWorkouts.filter(w => { const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null; return d && localDateKey(d) === roundupToday; });
-    const todayMins = todaysWorkouts.reduce((s, w) => s + (w.duration || 0), 0);
-    const todayXp = todaysWorkouts.length * 10 + todaysWorkouts.filter(w => w.rpe).length * 5;
-    // The earlier "Today's Roundup" card was deduplicated — the same
-    // information renders later in the page after 5pm with a dismiss
-    // button (see the roundupHour block below). Two near-identical
-    // cards on the same page felt redundant.
-  }
+  // (Engagement-gated early roundup block was removed — the after-5pm
+  // Roundup card later in the page covers the same ground.)
   // ── SECTION 3: Quick actions ──
   html += `<div style="display:flex;gap:8px;margin-top:10px">
     <button class="btn" id="today-quick-log" style="flex:1;padding:10px;font-size:13px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Log</button>
@@ -7055,12 +7039,8 @@ async function renderProfile() {
   }
   html += '</div>';
   html += '<div class="profile-section"><div class="profile-section-title">Help</div>';
-  html += `<div class="profile-row" id="profile-redo-tutorial" style="cursor:pointer">
-    <span class="profile-row-label">🎓 App Tour</span>
-    <span class="profile-row-action">Redo Tutorial</span>
-  </div>`;
   html += `<div class="profile-row" id="profile-open-coach" style="cursor:pointer">
-    <span class="profile-row-label">🤖 AI Coach</span>
+    <span class="profile-row-label">AI Coach</span>
     <span class="profile-row-action">Ask a Question</span>
   </div>`;
   if (errorLog.length > 0) {
@@ -7251,11 +7231,7 @@ async function renderProfile() {
     }
     setTimeout(() => { btn.textContent = 'Test Sync'; btn.disabled = false; btn.style.color = ''; btn.style.borderColor = ''; }, 5000);
   });
-  $('profile-redo-tutorial')?.addEventListener('click', () => {
-    closeProfile();
-    try { localStorage.removeItem('tp_tutorial_seen'); } catch(e) {}
-    setTimeout(() => showTutorial(), 300);
-  });
+  // (App Tour redo button removed with the tutorial overlay.)
   $('profile-open-coach')?.addEventListener('click', () => {
     closeProfile();
     setTimeout(() => openAiCoach(), 300);
@@ -10082,177 +10058,14 @@ function checkRaceResultPrompt() {
     localStorage.setItem('tp_race_prompted', prompted + ',' + unprompted.date);
   }, 3000);
 }
-const TUTORIAL_STEPS = [
-  {
-    icon: '👋', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
-    title: 'Welcome to TurboPrep!',
-    desc: 'Hey! Welcome to your HPR training app. This tour takes about 2 minutes and shows you everything you need. Skip anytime or redo later from Profile.',
-    highlight: null
-  },
-  {
-    icon: '📊', bg: 'linear-gradient(135deg,#3b82f6,#60a5fa)',
-    title: 'Today — Your Dashboard',
-    desc: 'Your home base. Weather, XP, streak, health data at the top. Today\'s workout below. Training sessions, team challenges, and daily roundup further down. Tap ⚙️ to show/hide any widget.',
-    highlight: '[data-page="today"]'
-  },
-  {
-    icon: '🌤️', bg: 'linear-gradient(135deg,#3b82f6,#60a5fa)',
-    title: 'Weather & Training Advice',
-    desc: 'Live local weather with training advice. Updates every 15 minutes using your location. Tells you when conditions are good for outdoor training or when to train indoors.',
-    highlight: null
-  },
-  {
-    icon: '⭐', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
-    title: 'XP, Levels & Streaks',
-    desc: 'Every workout: +10 XP. First workout of the day: +10 bonus (2x XP badge). RPE rating: +5 XP. Every 7-day streak earns a Streak Freeze 🧊 that protects you if you miss a day. Levels: Rookie → Racer → Athlete → Champion → Legend → Elite.',
-    highlight: null
-  },
-  {
-    icon: '🏋️', bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
-    title: 'Training Plans',
-    desc: '54 plans across In Vehicle, Floor, and Machine. Matched to your year level and fitness tier. Tap a workout on Today to open the set tracker with auto rest timers between sets.',
-    highlight: '[data-page="fitness"]'
-  },
-  {
-    icon: '💪', bg: 'linear-gradient(135deg,#22c55e,#4ade80)',
-    title: 'Set Tracker & Live Mode',
-    desc: 'Tap any workout to open the exercise tracker. Tap set buttons as you complete them — rest timer starts automatically (45s between sets, 60s between exercises). Hit "Live Mode" for a full-screen guided workout that advances exercise by exercise.',
-    highlight: null
-  },
-  {
-    icon: '🟢', bg: 'linear-gradient(135deg,#22c55e,#16a34a)',
-    title: 'GPS Tracker',
-    desc: 'The green Record button opens GPS tracking with 6 types: 🏎️ HPR, 🚴 Ride, 🏃 Run, 🏃‍♂️ Treadmill, 🚶 Walk, 🏋️ Gym. Live map, distance, speed, pace, and elevation in real time.',
-    highlight: '#record-tab-btn'
-  },
-  {
-    icon: '✏️', bg: 'linear-gradient(135deg,#64748b,#94a3b8)',
-    title: 'Smart Logging',
-    desc: 'Tap "Log" to manually record. The form adapts per type — HPR asks for laps, vehicle, best lap. Treadmill asks for speed and incline. Strength lets you list exercises. Add a photo and rate your effort 1-10.',
-    highlight: null
-  },
-  {
-    icon: '📅', bg: 'linear-gradient(135deg,#f97316,#fb923c)',
-    title: 'Training Sessions',
-    desc: 'Coach-scheduled sessions appear on Today with a countdown. Tap "Add to Calendar" to add to Google Calendar, Apple Calendar, or Outlook with a 30-minute reminder.',
-    highlight: null
-  },
-  {
-    icon: '🏆', bg: 'linear-gradient(135deg,#f97316,#fb923c)',
-    title: 'Teams & Monthly Challenge',
-    desc: 'Pick your team at signup. Your training minutes AND XP count toward the Monthly Challenge. Top 3 teams get medals. Coach shoutouts appear as announcements when you\'re doing well.',
-    highlight: '[data-page="team"]'
-  },
-  {
-    icon: '📋', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
-    title: 'Daily Roundup',
-    desc: 'Every evening after 5pm, a roundup card shows today\'s sessions, minutes, distance, XP earned, effort level, and health data. Plus a personalised message. Your training receipt for the day.',
-    highlight: null
-  },
-  {
-    icon: '🤖', bg: 'linear-gradient(135deg,#7c3aed,#a855f7)',
-    title: 'AI Coach',
-    desc: 'Purple button, bottom corner. Ask anything — plans, warm-ups, nutrition, injuries. It generates custom plans, reviews your week, and gives race prep advice. Knows your level and current plan.',
-    highlight: '#ai-fab'
-  },
-  {
-    icon: '⬡', bg: 'linear-gradient(135deg,#fc5200,#ff7043)',
-    title: 'Strava Sync',
-    desc: 'Connect Strava in Profile to auto-import Apple Watch, Garmin, and Fitbit workouts with routes and heart rate. TurboPrep activities upload back to Strava. Fully two-way.',
-    highlight: null
-  },
-  {
-    icon: '❤️', bg: 'linear-gradient(135deg,#ef4444,#f87171)',
-    title: 'Health Sync — Apple Watch',
-    desc: 'Open the TurboPrep iPhone app once and tap "Allow" when iOS asks for Health permission. The watch app then reads heart rate, steps, and sleep directly from HealthKit during your workouts — no extra setup.',
-    highlight: null
-  },
-  {
-    icon: '👤', bg: 'linear-gradient(135deg,#64748b,#94a3b8)',
-    title: 'Your Profile',
-    desc: 'Tap your avatar for Profile. Change name, year, tier, dark/light mode, Strava, health sync token, training report export. Redo this tour anytime from Profile → Help.',
-    highlight: '#user-avatar-btn'
-  },
-  {
-    icon: '🚀', bg: 'linear-gradient(135deg,var(--primary),#a3e635)',
-    title: 'You\'re Ready!',
-    desc: 'Do this now:\n\n1. Go to Fitness → Plans → start a training plan\n2. Tap a workout on Today → try Live Mode\n3. Hit Record to track your first ride\n4. Check back tomorrow for your streak\n\nRedo this tour anytime from Profile → Help.',
-    highlight: null
-  }
-];
-let tutorialStep = 0;
-let tutorialOverlay = null;
-function showTutorial() {
-  tutorialStep = 0;
-  renderTutorialStep();
-}
-function renderTutorialStep() {
-  const step = TUTORIAL_STEPS[tutorialStep];
-  if (!step) { closeTutorial(); return; }
-  // Remove existing
-  if (tutorialOverlay) tutorialOverlay.remove();
-  tutorialOverlay = document.createElement('div');
-  tutorialOverlay.className = 'tutorial-overlay';
-  tutorialOverlay.id = 'tutorial-overlay';
-  // Highlight element
-  let highlightHtml = '';
-  if (step.highlight) {
-    const el = document.querySelector(step.highlight);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      highlightHtml = `<div class="tutorial-highlight" style="top:${rect.top - 4}px;left:${rect.left - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px"></div>`;
-    }
-  }
-  const isFirst = tutorialStep === 0;
-  const isLast = tutorialStep === TUTORIAL_STEPS.length - 1;
-  const dots = TUTORIAL_STEPS.map((_, i) => `<div class="tutorial-dot${i === tutorialStep ? ' active' : ''}"></div>`).join('');
-  const stepCount = `<div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-bottom:8px">${tutorialStep + 1} of ${TUTORIAL_STEPS.length}</div>`;
-  tutorialOverlay.innerHTML = `
-    <div class="tutorial-backdrop" id="tut-backdrop"></div>
-    ${highlightHtml}
-    <div class="tutorial-card">
-      ${stepCount}
-      <div class="tutorial-icon" style="background:${step.bg}">${step.icon}</div>
-      <div class="tutorial-title">${step.title}</div>
-      <div class="tutorial-desc" style="max-height:180px;overflow-y:auto">${step.desc.replace(/\n/g, '<br>')}</div>
-      <div class="tutorial-dots">${dots}</div>
-      <div class="tutorial-btns">
-        ${isFirst
-          ? `<button class="tutorial-btn secondary" id="tut-skip">Skip Tour</button>
-             <button class="tutorial-btn primary" id="tut-next">Let's Go →</button>`
-          : isLast
-            ? `<button class="tutorial-btn secondary" id="tut-back">← Back</button>
-               <button class="tutorial-btn primary" id="tut-finish">Start Training!</button>`
-            : `<button class="tutorial-btn secondary" id="tut-back">← Back</button>
-               <button class="tutorial-btn primary" id="tut-next">Next →</button>`
-        }
-      </div>
-      ${!isFirst && !isLast ? '<div style="text-align:center;margin-top:8px"><button id="tut-skip-mid" style="background:none;border:none;color:var(--muted-fg);font-size:12px;cursor:pointer;padding:4px">Skip tour</button></div>' : ''}
-    </div>`;
-  document.body.appendChild(tutorialOverlay);
-  // Bindings
-  $('tut-skip')?.addEventListener('click', () => closeTutorial());
-  $('tut-skip-mid')?.addEventListener('click', () => closeTutorial());
-  $('tut-next')?.addEventListener('click', () => { tutorialStep++; renderTutorialStep(); });
-  $('tut-back')?.addEventListener('click', () => { tutorialStep--; renderTutorialStep(); });
-  $('tut-finish')?.addEventListener('click', () => closeTutorial());
-  $('tut-backdrop')?.addEventListener('click', () => { tutorialStep++; renderTutorialStep(); });
-}
-function closeTutorial() {
-  if (tutorialOverlay) { tutorialOverlay.remove(); tutorialOverlay = null; }
-  // Mark as seen
-  try { localStorage.setItem('tp_tutorial_seen', 'true'); } catch(e) {}
-  if (!demoMode && db && currentUser) {
-    try { updateDoc(doc(db, 'users', currentUser.uid), { tutorialSeen: true }).catch(() => {}); } catch(e) {}
-  }
-}
-function shouldShowTutorial() {
-  // Check localStorage first (fast)
-  try { if (localStorage.getItem('tp_tutorial_seen') === 'true') return false; } catch(e) {}
-  // Check Firestore profile
-  if (userProfile?.tutorialSeen) return false;
-  return true;
-}
+// Tutorial overlay (16 marketing-copy steps + the runner) was deleted
+// per simplification audit — duplicated the welcome-setup overlay
+// (showWelcomeSetup), which already covers the same intent in 4
+// concise buttons. Two onboarding flows is one too many. The
+// localStorage `tp_tutorial_seen` and Firestore `tutorialSeen`
+// fields are now legacy; new accounts skip both flows.
+function showTutorial() {/* removed */}
+function shouldShowTutorial() { return false; }
 // Offline queue sync — flush queued workouts when back online. Two
 // changes vs. the previous implementation:
 // 1) Persist the queue after EACH item, not after the loop, so a tab

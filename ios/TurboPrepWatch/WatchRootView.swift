@@ -1,28 +1,33 @@
 import SwiftUI
 
 struct WatchRootView: View {
-    @EnvironmentObject private var auth: AuthService
     @StateObject private var state = WatchAppState.shared
 
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
-            // Watch app runs fully standalone — no gate. Demo seed data
-            // populates Today / Fitness / Record on first launch; if the
-            // iPhone bridge ever lands later it will overwrite the seed
-            // values via WatchAppState.applyRemoteSnapshot. Race-day
-            // toggling stays local (long-press the wordmark).
-            TabView {
-                WatchTodayView()
-                    .containerBackground(Theme.bg.gradient, for: .tabView)
+            // RACE-MODE LOCK
+            // When the iPhone (or the Dev controls) flips raceDayActive
+            // to true, the Watch collapses to ONLY the lap-timer view.
+            // The user can't swipe to Today / Fitness / Dev mid-stint
+            // and accidentally lose lap focus. Exits when raceDayActive
+            // flips back to false (manual end-stint, or iPhone push).
+            if state.raceDayActive {
                 WatchRecordView()
-                    .containerBackground(Theme.bg.gradient, for: .tabView)
-                WatchFitnessView()
-                    .containerBackground(Theme.bg.gradient, for: .tabView)
-                WatchDevView()
-                    .containerBackground(Theme.bg.gradient, for: .tabView)
+                    .containerBackground(Theme.primary.opacity(0.04).gradient, for: .tabView)
+            } else {
+                TabView {
+                    WatchTodayView()
+                        .containerBackground(Theme.bg.gradient, for: .tabView)
+                    WatchRecordView()
+                        .containerBackground(Theme.bg.gradient, for: .tabView)
+                    WatchFitnessView()
+                        .containerBackground(Theme.bg.gradient, for: .tabView)
+                    WatchDevView()
+                        .containerBackground(Theme.bg.gradient, for: .tabView)
+                }
+                .tabViewStyle(.verticalPage)
             }
-            .tabViewStyle(.verticalPage)
         }
         .environmentObject(state)
         .preferredColorScheme(.dark)
