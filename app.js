@@ -1169,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-audit5';
+const APP_VERSION = '20260430-chat-heal';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6388,6 +6388,10 @@ function renderTeam() {
   } else if (lbSubTab === 'chat') {
     if (cc) {
       cc.style.display = '';
+      // Defense-in-depth — opening chat self-heals members[] drift
+      // before the snapshot listener can fire a permission error.
+      // Idempotent and best-effort, fire-and-forget.
+      try { ensureDefaultTeamMembership?.().catch(() => {}); } catch(_) {}
       renderTeamChatPanelInto(cc);
       // Subscribe ONCE per chat-tab entry. The callback patches the
       // message list in place so an incoming message never wipes what
@@ -6395,20 +6399,46 @@ function renderTeam() {
       // renderTeamChatPanelInto on every snapshot, which re-built the
       // whole panel (composer included) and thrashed the input.
       if (userProfile?.teamId && typeof subscribeTeamChat === 'function') {
-        subscribeTeamChat(userProfile.teamId, () => {
-          if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
-        }, (err) => {
-          // Surface a real "connection lost" message in the chat error
-          // bar so users don't sit staring at an empty scroll forever.
-          const errBox = document.getElementById('team-chat-error');
-          if (errBox) {
-            const msg = err?.code === 'permission-denied'
-              ? 'You don\'t have permission to read this team\'s chat. Reload the app.'
-              : 'Chat connection lost — check your internet and try again.';
-            errBox.textContent = msg;
-            errBox.hidden = false;
-          }
-        });
+        const startSubscribe = () => {
+          subscribeTeamChat(userProfile.teamId, () => {
+            // Successful snapshot — clear any prior error banner.
+            const errBox = document.getElementById('team-chat-error');
+            if (errBox && !errBox.hidden) { errBox.textContent = ''; errBox.hidden = true; }
+            if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
+          }, async (err) => {
+            const errBox = document.getElementById('team-chat-error');
+            // permission-denied almost always means the user has a
+            // teamId set on their profile but isn't in the team's
+            // `members` array — a drift state. Self-heal by running
+            // ensureDefaultTeamMembership (which arrayUnion's their
+            // uid into members[]) then re-subscribe.
+            if (err?.code === 'permission-denied') {
+              if (errBox) {
+                errBox.textContent = 'Joining team chat…';
+                errBox.hidden = false;
+              }
+              try {
+                await ensureDefaultTeamMembership();
+                // Wait a beat for Firestore to propagate the membership
+                // update before re-subscribing.
+                setTimeout(() => {
+                  if (currentPage === 'team' && lbSubTab === 'chat') startSubscribe();
+                }, 600);
+              } catch(_) {
+                if (errBox) {
+                  errBox.textContent = 'Couldn\'t join team chat. Reload and try again.';
+                  errBox.hidden = false;
+                }
+              }
+              return;
+            }
+            if (errBox) {
+              errBox.textContent = 'Chat connection lost — check your internet and try again.';
+              errBox.hidden = false;
+            }
+          });
+        };
+        startSubscribe();
       }
     }
   } else {
@@ -9209,7 +9239,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-audit5';
+  const APP_VERSION = '20260430-chat-heal';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

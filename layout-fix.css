@@ -1248,13 +1248,15 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   position:relative;
 }
 
-/* Composer — sticky at the bottom of the chat scroll context. */
+/* Composer — sticky at the bottom of the chat scroll context.
+   Bottom anchor accounts for both the safe-area inset AND the bottom
+   tab bar (~70px) so the composer never sits behind the nav. */
 .msg-composer{
   position:sticky;
-  bottom:0;
+  bottom:calc(70px + env(safe-area-inset-bottom, 0px));
   z-index:5;
   margin-top:12px;
-  padding:10px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+  padding:10px 0;
   background:var(--bg);
   border-top:1px solid var(--border);
 }
