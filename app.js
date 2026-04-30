@@ -36,8 +36,8 @@ let startAiPlanEdit = () => {}, sendAiPlanEdit = async () => {},
     startAiWeeklyReview = () => {}, startAiRacePrep = () => {},
     generateRacePrepPlan = () => {}, startAiInjuryMod = () => {},
     sendInjuryModification = () => {}, openInlineWorkoutEdit = () => {},
-    startAiFormCheck = () => {}, generateCoachSummary = () => null,
-    generateTrainingInsight = () => null, renderSeasonPhase = () => '',
+    startAiFormCheck = () => {},
+    generateTrainingInsight = () => null,
     initAiFeatures = () => {};
 let ALL_PLANS = [];
 let initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword,
@@ -109,8 +109,8 @@ Promise.allSettled([
     ({ initAiFeatures, startAiPlanEdit, sendAiPlanEdit, startAiWeeklyReview,
        startAiRacePrep, generateRacePrepPlan, startAiInjuryMod,
        sendInjuryModification, openInlineWorkoutEdit,
-       startAiFormCheck, generateCoachSummary,
-       generateTrainingInsight, renderSeasonPhase } = m);
+       startAiFormCheck,
+       generateTrainingInsight } = m);
   }, e => console.warn('aifeatures.js load failed:', e)),
 ]).then(async () => {
   // The module ctx we handed to initX() earlier wrapped the noop stubs.
@@ -3321,7 +3321,7 @@ function renderToday() {
   <div id="extras-body" style="${extrasOpen ? '' : 'display:none'}">`;
   // Stats row
   html += `<div class="today-stats-row" style="margin-bottom:8px"><div class="today-stat"><span class="today-stat-val">${workoutsThisWeek}</span><span class="today-stat-lbl">this week</span></div><div class="today-stat-sep"></div><div class="today-stat"><span class="today-stat-val">${totalWorkouts}</span><span class="today-stat-lbl">total</span></div></div>`;
-  html += renderSeasonPhase();
+  // (renderSeasonPhase removed — duplicated the race-phase banner.)
   html += renderGoals();
   const earned = getEarnedBadges();
   if (earned.length > 0 || userWorkouts.length > 0) {
@@ -3611,14 +3611,13 @@ function renderToday() {
   // Widget customization
   $('today-customize')?.addEventListener('click', () => {
     haptic('light');
+    // Only the widgets actually wired into renderToday's isWidgetOn()
+    // checks belong here. The audit found training / challenge /
+    // weekly / quickActions / engagement toggles were rendered but
+    // had no effect — pure stubs. Removed.
     const widgets = [
-      { id: 'weather', icon: '🌤️', label: 'Weather', desc: 'Local conditions and training advice' },
-      { id: 'health', icon: '❤️', label: 'Health Data', desc: 'Heart rate, steps, sleep from wearables' },
-      { id: 'engagement', icon: '🔥', label: 'XP & Streaks', desc: '2x XP badge and streak freezes' },
-      { id: 'training', icon: '📅', label: 'Training Sessions', desc: 'Upcoming sessions with calendar add' },
-      { id: 'challenge', icon: '🏆', label: 'Team Challenge', desc: 'Monthly leaderboard' },
-      { id: 'weekly', icon: '📊', label: 'Weekly Summary', desc: 'Last week stats and goals' },
-      { id: 'quickActions', icon: '⚡', label: 'Quick Actions', desc: 'Log and Record GPS buttons' }
+      { id: 'weather', label: 'Weather', desc: 'Local conditions and training advice' },
+      { id: 'health',  label: 'Health Data', desc: 'Heart rate, steps, sleep from wearables' },
     ];
     let stored = {};
     try { stored = JSON.parse(localStorage.getItem('tp_widgets') || '{}'); } catch(e) {}
@@ -3627,7 +3626,6 @@ function renderToday() {
     sheetHtml += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">Toggle widgets on or off. Your layout is saved automatically.</div>';
     widgets.forEach(w => {
       sheetHtml += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
-        <span style="font-size:20px;width:28px;text-align:center">${w.icon}</span>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600;color:var(--fg)">${w.label}</div>
           <div style="font-size:11px;color:var(--muted-fg)">${w.desc}</div>
@@ -6893,13 +6891,6 @@ function closeProfile() {
 async function renderProfile() {
   const el = $('profile-body');
   const name = userProfile?.displayName || currentUser?.displayName || 'Unknown';
-  // Load leagues created by this user
-  if (!window.userLeagues && db && currentUser) {
-    try {
-      const snap = await getDocs(query(collection(db,'leagues'), where('createdBy','==',currentUser.uid)));
-      window.userLeagues = snap.docs.map(d=>({id:d.id,...d.data()}));
-    } catch(e) { window.userLeagues = []; }
-  }
   const email = currentUser?.email || '';
   const year = userProfile?.yearLevel || '—';
   const tier = capitalize(userProfile?.fitnessLevel || 'basic');
@@ -6989,30 +6980,8 @@ async function renderProfile() {
     </div>`;
     html += '</div>';
   }
-  // League Admin — only if user created a league
-  if (window.userLeagues && window.userLeagues.length > 0) {
-    const myLeagues = window.userLeagues.filter(lg => lg.createdBy === currentUser?.uid || lg.adminUid === currentUser?.uid);
-    if (myLeagues.length > 0) {
-      html += '<div class="profile-section"><div class="profile-section-title">My Leagues</div>';
-      myLeagues.forEach(lg => {
-        const mc = (lg.members || []).length;
-        const approved = lg.approved;
-        const statusLabel = approved ? 'Live' : 'Pending';
-        const statusColor = approved ? '#22c55e' : '#f59e0b';
-        html += '<div class="profile-row" style="flex-direction:column;align-items:flex-start;gap:6px">';
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;width:100%">';
-        html += '<span class="profile-row-label" style="font-size:14px;font-weight:600;color:var(--fg)">' + escHtml(lg.name||'My League') + '</span>';
-        html += '<span style="font-size:11px;font-weight:700;color:' + statusColor + ';background:' + statusColor + '22;padding:2px 8px;border-radius:10px">' + statusLabel + '</span>';
-        html += '</div>';
-        html += '<div style="font-size:12px;color:var(--muted-fg)">' + mc + ' member' + (mc!==1?'s':'') + '</div>';
-        html += '<div style="display:flex;gap:6px;width:100%;margin-top:2px">';
-        html += '<button class="btn btn-secondary" style="flex:1;font-size:12px;padding:7px 0" data-league-manage="' + escHtml(lg.id) + '">Manage</button>';
-        html += '<button class="btn" style="flex:1;font-size:12px;padding:7px 0;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" data-league-delete="' + escHtml(lg.id) + '">Delete</button>';
-        html += '</div></div>';
-      });
-      html += '</div>';
-    }
-  }
+  // (Profile "My Leagues" panel removed — leagues feature was deleted
+  // for being unreachable. See simplification audit.)
 
   // Stats
 
@@ -7223,59 +7192,8 @@ async function renderProfile() {
     closeProfile();
     $('logout-btn')?.click();
   });
-  // League admin buttons
-  el.querySelectorAll('[data-league-manage]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const lgId = btn.dataset.leagueManage;
-      const lg = (window.userLeagues||[]).find(l=>l.id===lgId);
-      if (!lg) return;
-      $('sheet-content').innerHTML = `
-        <div class="sheet-title">Manage League</div>
-        <div style="margin-bottom:12px">
-          <div style="font-size:15px;font-weight:700;margin-bottom:4px">${escHtml(lg.name||'')}</div>
-          <div style="font-size:12px;color:var(--muted-fg)">${(lg.members||[]).length} members · ${lg.approved?'Live':'Pending approval'}</div>
-        </div>
-        <div class="form-group">
-          <label class="label">League Name</label>
-          <input class="input" id="lg-edit-name" value="${escHtml(lg.name||'')}" maxlength="60">
-        </div>
-        <div class="form-group">
-          <label class="label">Description</label>
-          <input class="input" id="lg-edit-desc" value="${escHtml(lg.description||'')}" maxlength="120">
-        </div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-secondary" style="flex:1" id="lg-edit-cancel">Cancel</button>
-          <button class="btn btn-primary" style="flex:1" id="lg-edit-save" data-lgid="${escHtml(lgId)}">Save</button>
-        </div>
-      `;
-      openSheet();
-      $('lg-edit-cancel')?.addEventListener('click', closeSheet);
-      $('lg-edit-save')?.addEventListener('click', async () => {
-        const newName = $('lg-edit-name')?.value.trim();
-        const newDesc = $('lg-edit-desc')?.value.trim();
-        if (!newName) { showToast('Name required','warn'); return; }
-        try {
-          await updateDoc(doc(db,'leagues',lgId),{name:newName,description:newDesc});
-          showToast('League updated','success');
-          window.userLeagues = null; // clear cache
-          closeSheet(); renderProfile();
-        } catch(e) { showToast('Failed: '+e.message,'error'); }
-      });
-    });
-  });
-  el.querySelectorAll('[data-league-delete]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const lgId = btn.dataset.leagueDelete;
-      showModal('Delete League','<div style="font-size:14px">Are you sure? This will permanently delete the league and remove all members.</div>', async () => {
-        try {
-          await deleteDoc(doc(db,'leagues',lgId));
-          showToast('League deleted','info');
-          window.userLeagues = null;
-          renderProfile();
-        } catch(e) { showToast('Failed: '+e.message,'error'); }
-      });
-    });
-  });
+  // (League admin handlers removed with the rest of the unreachable
+  // leagues feature.)
   // Tutorial & Help bindings
   // Health sync token
   $('generate-sync-token')?.addEventListener('click', async () => {
@@ -7544,111 +7462,10 @@ async function joinTeam() {
     }
   }
 }
-// --- Leagues ---
-async function renderLeaguesTab(el) {
-  try {
-  const isMasterOrCoach = userProfile?.isCoach || currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
-  el.innerHTML = '<div style="text-align:center;padding:24px"><div class="spinner"></div></div>';
-  let leagues = [];
-  try {
-    if (db) {
-      const snap = await getDocs(collection(db, 'leagues'));
-      leagues = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    }
-  } catch(e) {}
-
-  let html = '<div class="page-title" style="margin-bottom:4px">Leagues</div>';
-  html += '<div style="font-size:13px;color:var(--muted-fg);margin-bottom:14px">Compete across clubs and schools.</div>';
-
-  if (leagues.length === 0) {
-    html += `<div class="empty-state">
-      <div class="empty-state-title">No Leagues Yet</div>
-      <div class="empty-state-desc">Leagues are created by verified coaches and approved by TurboPrep.</div>
-    </div>`;
-  } else {
-    leagues.forEach(lg => {
-      const isMember = (lg.members || []).includes(currentUser?.uid);
-      html += `<div class="card card-pad" style="margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:15px;font-weight:700">${escHtml(lg.name||'')}</div>
-            ${lg.description ? `<div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${escHtml(lg.description)}</div>` : ''}
-            <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">${(lg.members||[]).length} members</div>
-          </div>
-          ${isMember
-            ? '<span style="font-size:11px;font-weight:700;color:var(--primary);background:rgba(249,115,22,.12);padding:3px 10px;border-radius:20px;flex-shrink:0">Joined</span>'
-            : `<button class="btn btn-primary" style="font-size:12px;padding:6px 14px;min-height:36px;flex-shrink:0" data-join-league="${escHtml(lg.id)}">Join</button>`
-          }
-        </div>
-        ${isMember && lg.members && lg.members.length > 0 ? `
-          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Standings</div>
-            <div style="font-size:12px;color:var(--muted-fg)">Standings coming soon.</div>
-          </div>` : ''}
-      </div>`;
-    });
-  }
-
-  if (isMasterOrCoach) {
-    html += `<button class="btn btn-secondary" style="width:100%;margin-top:8px" id="league-request-btn">
-      Request a League
-    </button>
-    <div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:6px">Sends a request to TurboPrep for approval.</div>`;
-  }
-
-  el.innerHTML = html;
-
-  el.querySelectorAll('[data-join-league]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const lid = btn.dataset.joinLeague;
-      btn.disabled = true; btn.textContent = 'Joining...';
-      try {
-        await updateDoc(doc(db, 'leagues', lid), { members: arrayUnion(currentUser.uid) });
-        showToast('Joined league!', 'success');
-        renderLeaguesTab(el);
-      } catch(e) { showToast('Failed: ' + e.message, 'error'); btn.disabled = false; btn.textContent = 'Join'; }
-    });
-  });
-
-  el.querySelector('#league-request-btn')?.addEventListener('click', openLeagueRequestSheet);
-  } catch(e) { console.warn("[renderLeaguesTab]", e); }
-}
-
-function openLeagueRequestSheet() {
-  $('sheet-content').innerHTML = `
-    <div class="sheet-title">Request a League</div>
-    <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px;line-height:1.5">Leagues are open to all users once approved. A request will be sent to TurboPrep.</p>
-    <div class="form-group">
-      <label class="label">League Name</label>
-      <input class="input" type="text" id="lg-name" placeholder="e.g. Victorian HPR Schools League" maxlength="60">
-    </div>
-    <div class="form-group">
-      <label class="label">Description</label>
-      <input class="input" type="text" id="lg-desc" placeholder="Short description" maxlength="120">
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="lg-submit">Submit Request</button>
-  `;
-  openSheet();
-  $('lg-submit').addEventListener('click', async () => {
-    const name = $('lg-name').value.trim();
-    if (!name) { showToast('Enter a league name.', 'warn'); return; }
-    const desc = $('lg-desc').value.trim();
-    try {
-      if (db) await addDoc(collection(db, 'league_requests'), {
-        name, description: desc,
-        requestedBy: currentUser.uid,
-        requestedByEmail: currentUser.email,
-        status: 'pending',
-        createdAt: serverTimestamp()
-      });
-    } catch(e) {}
-    const subj = encodeURIComponent('TurboPrep League Request: ' + name);
-    const body = encodeURIComponent('League Request\n\nName: ' + name + '\nDescription: ' + desc + '\nRequested by: ' + (currentUser.email||'') + '\n\nTo approve: add to Firestore leagues/{id} with fields: name, description, members: []');
-    window.open('mailto:hearn.tenny@icloud.com?subject=' + subj + '&body=' + body);
-    closeSheet();
-    showToast('Request submitted!', 'success');
-  });
-}
+// Leagues feature was unreachable from any UI route — no sub-tab,
+// no router case, no DOM container. ~140 lines of dead code removed
+// per simplification audit. If revived later, build it from scratch
+// with a real entry point first.
 
 // --- Team Search ---
 let approvedClubsCache = null;
