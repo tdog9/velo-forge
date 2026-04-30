@@ -116,11 +116,24 @@ Promise.allSettled([
     ({ initTimer, openWorkoutTimer, closeWorkoutTimer } = m);
   }, e => console.warn('timer.js load failed:', e)),
   importWithTimeout('./aifeatures.js').then(m => {
-    ({ initAiFeatures, startAiPlanEdit, sendAiPlanEdit, startAiWeeklyReview,
-       startAiRacePrep, generateRacePrepPlan, startAiInjuryMod,
-       sendInjuryModification, openInlineWorkoutEdit,
-       startAiFormCheck, generateCoachSummary,
-       generateTrainingInsight, renderSeasonPhase } = m);
+    // Use `name = name` defaults so a stale-cached aifeatures.js that's
+    // missing newer exports (e.g. renderSeasonPhase) can't overwrite the
+    // safe stub at the top of this file with undefined.
+    ({
+      initAiFeatures = initAiFeatures,
+      startAiPlanEdit = startAiPlanEdit,
+      sendAiPlanEdit = sendAiPlanEdit,
+      startAiWeeklyReview = startAiWeeklyReview,
+      startAiRacePrep = startAiRacePrep,
+      generateRacePrepPlan = generateRacePrepPlan,
+      startAiInjuryMod = startAiInjuryMod,
+      sendInjuryModification = sendInjuryModification,
+      openInlineWorkoutEdit = openInlineWorkoutEdit,
+      startAiFormCheck = startAiFormCheck,
+      generateCoachSummary = generateCoachSummary,
+      generateTrainingInsight = generateTrainingInsight,
+      renderSeasonPhase = renderSeasonPhase,
+    } = m);
   }, e => console.warn('aifeatures.js load failed:', e)),
 ]).then(async () => {
   // The module ctx we handed to initX() earlier wrapped the noop stubs.
@@ -1125,7 +1138,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-ai-trim';
+const APP_VERSION = '20260430-safe-import';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -9121,7 +9134,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-ai-trim';
+  const APP_VERSION = '20260430-safe-import';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
