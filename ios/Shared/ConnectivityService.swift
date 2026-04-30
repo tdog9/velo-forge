@@ -95,21 +95,23 @@ final class ConnectivityService: NSObject, ObservableObject {
             if let onSent { Task { @MainActor in onSent(false) } }
             return
         }
+        // Always queue durably via transferUserInfo first — even when
+        // the session is reachable. The previous flow tried sendMessage
+        // for fast delivery and reported `onSent(true)` synchronously
+        // *before* the errorHandler had a chance to fire, so failures
+        // marked stints as synced when nothing actually shipped. Now:
+        // transferUserInfo is the source of truth (durable queue,
+        // delivered when the iPhone wakes), and sendMessage is a
+        // best-effort optimistic delivery on top of that. Either way,
+        // `onSent(true)` only fires when at least the durable queue
+        // has accepted the payload.
+        s.transferUserInfo(dict)
         if s.isReachable {
-            s.sendMessage(dict, replyHandler: nil) { _ in
-                // sendMessage failed — fall back to transferUserInfo (durable
-                // queue). Either way the payload is at least in flight.
-                s.transferUserInfo(dict)
-                if let onSent { Task { @MainActor in onSent(true) } }
-            }
-            // If sendMessage didn't error in the synchronous setup path,
-            // optimistically mark dispatched. The errorHandler above will
-            // override if the actual transmission failed.
-            if let onSent { Task { @MainActor in onSent(true) } }
-        } else {
-            s.transferUserInfo(dict)
-            if let onSent { Task { @MainActor in onSent(true) } }
+            // Best-effort fast path. We don't ack the caller from
+            // here — the durable queue already did.
+            s.sendMessage(dict, replyHandler: nil) { _ in /* swallow; durable queue covers it */ }
         }
+        if let onSent { Task { @MainActor in onSent(true) } }
     }
 }
 

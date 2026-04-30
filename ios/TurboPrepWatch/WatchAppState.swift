@@ -13,9 +13,14 @@ import WidgetKit
 final class WatchAppState: ObservableObject {
     static let shared = WatchAppState()
 
-    @Published var racePhase: WatchRacePhase? = .demoPeak
-    @Published var todayWorkouts: [WatchPlanWorkout] = WatchPlanWorkout.demoToday
-    @Published var completedWorkouts: [WatchLoggedWorkout] = WatchLoggedWorkout.demoRecent
+    // Demo seed values were leaking through to real users on cold boot
+    // when the iPhone bridge hadn't yet pushed a state snapshot — the
+    // Watch displayed "Round 2 · Casey Fields, 21d" forever for users
+    // whose phone was off / web app not loaded. Start empty; views
+    // render their own empty states until iPhone delivers real data.
+    @Published var racePhase: WatchRacePhase? = nil
+    @Published var todayWorkouts: [WatchPlanWorkout] = []
+    @Published var completedWorkouts: [WatchLoggedWorkout] = []
 
     /// Race-day live state. When `active`, the Record tab swaps to a lap
     /// timer; the iPhone's race-day controller is the authority and pushes
