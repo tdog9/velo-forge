@@ -1,5 +1,5 @@
 // TurboPrep Service Worker v2
-const CACHE_NAME = 'turboprep-20260430-safe-import';
+const CACHE_NAME = 'turboprep-20260430-venom';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

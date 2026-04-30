@@ -84,36 +84,59 @@ if (plansRes.status === 'fulfilled') {
 // stubs (see top of file); as each resolves we swap in real exports. We then
 // ping renderCurrentPage() so any tab that was waiting on a module refreshes.
 Promise.allSettled([
+  // All module destructures use `name = name` defaults so a stale-cached
+  // module that's missing a newer export can't overwrite the safe stub
+  // bindings at the top of this file with undefined.
   importWithTimeout('./admin.js').then(m => {
-    ({ initAdmin, renderAdmin, renderCoachDashboard, renderAdminTraining, loadAdminEmails, loadExerciseOverrides,
-       savePlanOverrides, loadPlanOverrides, loadExerciseDemoVideos, saveExerciseDemoVideos,
-       loadRaceFootage, loadRaceLogVideos, loadVideoOverrides, saveVideoOverrides,
-       loadHiddenPlans, saveHiddenPlans, getWorkoutData, getVideoUrl } = m);
+    ({
+      initAdmin = initAdmin, renderAdmin = renderAdmin, renderCoachDashboard = renderCoachDashboard,
+      renderAdminTraining = renderAdminTraining, loadAdminEmails = loadAdminEmails,
+      loadExerciseOverrides = loadExerciseOverrides, savePlanOverrides = savePlanOverrides,
+      loadPlanOverrides = loadPlanOverrides, loadExerciseDemoVideos = loadExerciseDemoVideos,
+      saveExerciseDemoVideos = saveExerciseDemoVideos, loadRaceFootage = loadRaceFootage,
+      loadRaceLogVideos = loadRaceLogVideos, loadVideoOverrides = loadVideoOverrides,
+      saveVideoOverrides = saveVideoOverrides, loadHiddenPlans = loadHiddenPlans,
+      saveHiddenPlans = saveHiddenPlans, getWorkoutData = getWorkoutData, getVideoUrl = getVideoUrl,
+    } = m);
   }, e => console.warn('admin.js load failed:', e)),
   importWithTimeout('./strava.js').then(m => {
-    ({ initStrava, stravaStartAuth, stravaHandleCallback, stravaFetchActivities,
-       renderStravaActivities, stravaDisconnect, loadStravaTokens,
-       stravaUploadActivity } = m);
+    ({
+      initStrava = initStrava, stravaStartAuth = stravaStartAuth,
+      stravaHandleCallback = stravaHandleCallback, stravaFetchActivities = stravaFetchActivities,
+      renderStravaActivities = renderStravaActivities, stravaDisconnect = stravaDisconnect,
+      loadStravaTokens = loadStravaTokens, stravaUploadActivity = stravaUploadActivity,
+    } = m);
   }, e => console.warn('strava.js load failed:', e)),
   importWithTimeout('./fitbit.js').then(m => {
-    ({ initFitbit, fitbitStartAuth, fitbitHandleCallback, fitbitFetchActivities,
-       fitbitDisconnect, fitbitImportActivity, renderFitbitActivities } = m);
+    ({
+      initFitbit = initFitbit, fitbitStartAuth = fitbitStartAuth,
+      fitbitHandleCallback = fitbitHandleCallback, fitbitFetchActivities = fitbitFetchActivities,
+      fitbitDisconnect = fitbitDisconnect, fitbitImportActivity = fitbitImportActivity,
+      renderFitbitActivities = renderFitbitActivities,
+    } = m);
   }, e => console.warn('fitbit.js load failed:', e)),
   importWithTimeout('./garmin.js').then(m => {
-    ({ initGarmin, importGarminFile } = m);
+    ({ initGarmin = initGarmin, importGarminFile = importGarminFile } = m);
   }, e => console.warn('garmin.js load failed:', e)),
   importWithTimeout('./teamchat.js').then(m => {
-    ({ initTeamChat, subscribeTeamChat, unsubscribeTeamChat, getTeamChatCache,
-       sendChatMessage, sendCoachBroadcast, postWorkoutToTeamChat,
-       deleteChatMessage, renderChatPanel, isMessageClean } = m);
+    ({
+      initTeamChat = initTeamChat, subscribeTeamChat = subscribeTeamChat,
+      unsubscribeTeamChat = unsubscribeTeamChat, getTeamChatCache = getTeamChatCache,
+      sendChatMessage = sendChatMessage, sendCoachBroadcast = sendCoachBroadcast,
+      postWorkoutToTeamChat = postWorkoutToTeamChat, deleteChatMessage = deleteChatMessage,
+      renderChatPanel = renderChatPanel, isMessageClean = isMessageClean,
+    } = m);
   }, e => console.warn('teamchat.js load failed:', e)),
   importWithTimeout('./raceLog.js').then(m => {
-    ({ initRaceLog, loadUserRaceLogs, renderRaceLog, openRaceLogForm,
-       getFootageForRace, getStreamForRace, renderFootageLinks,
-       getCompletedRacesNeedingLogs } = m);
+    ({
+      initRaceLog = initRaceLog, loadUserRaceLogs = loadUserRaceLogs,
+      renderRaceLog = renderRaceLog, openRaceLogForm = openRaceLogForm,
+      getFootageForRace = getFootageForRace, getStreamForRace = getStreamForRace,
+      renderFootageLinks = renderFootageLinks, getCompletedRacesNeedingLogs = getCompletedRacesNeedingLogs,
+    } = m);
   }, e => console.warn('racelog.js load failed:', e)),
   importWithTimeout('./timer.js').then(m => {
-    ({ initTimer, openWorkoutTimer, closeWorkoutTimer } = m);
+    ({ initTimer = initTimer, openWorkoutTimer = openWorkoutTimer, closeWorkoutTimer = closeWorkoutTimer } = m);
   }, e => console.warn('timer.js load failed:', e)),
   importWithTimeout('./aifeatures.js').then(m => {
     // Use `name = name` defaults so a stale-cached aifeatures.js that's
@@ -764,7 +787,15 @@ let calViewMonth = new Date().getMonth();
 let calViewYear = new Date().getFullYear();
 let teamFeedCache = [];
 try { currentTheme = localStorage.getItem('tp_theme') || 'dark'; } catch(e) {}
-if (currentTheme === 'light') document.documentElement.classList.add('light-theme');
+applyTheme(currentTheme);
+// Apply the active theme class. Mutually exclusive — only one of
+// light-theme / venom-theme is active at a time; default `dark` has
+// neither class.
+function applyTheme(theme) {
+  const root = document.documentElement;
+  root.classList.toggle('light-theme', theme === 'light');
+  root.classList.toggle('venom-theme', theme === 'venom');
+}
 // Map tile helper — switches dark/light based on theme
 function debounce(fn, ms=300) {
   let t;
@@ -1138,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-safe-import';
+const APP_VERSION = '20260430-venom';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6813,7 +6844,13 @@ function renderTeamTab(c) {
   // immediate-action and useful at a glance). Feature toggles, edit
   // details, add co-coach, manage subteams, delete team — all live in
   // the sheet now.
-  if (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid) {
+  // Manage Team is now visible for: head coach OR admin OR master
+  // account (hearn.tenny@icloud.com). Was head-coach-only, which left
+  // testers + the master unable to manage their own test team.
+  const canManageTeam = (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid)
+    || isAdmin
+    || (currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com');
+  if (canManageTeam) {
     html += `
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
         <button class="btn btn-secondary" style="width:100%" id="coach-manage-team-btn">Manage Team</button>
@@ -6935,11 +6972,12 @@ document.querySelectorAll('.lb-sub-tab').forEach(btn => {
   });
 });
 // --- Theme ---
-function toggleTheme() {
-  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  document.documentElement.classList.toggle('light-theme', currentTheme === 'light');
-  try { localStorage.setItem('tp_theme', currentTheme); } catch(e) {}
-  renderProfile(); // Re-render to update toggle state
+function setTheme(theme) {
+  if (!['dark', 'light', 'venom'].includes(theme)) theme = 'dark';
+  currentTheme = theme;
+  applyTheme(theme);
+  try { localStorage.setItem('tp_theme', theme); } catch(e) {}
+  renderProfile();
 }
 // --- Profile Page ---
 $('profile-menu-btn')?.addEventListener('click', () => {
@@ -6993,10 +7031,14 @@ async function renderProfile() {
   html += '</div>';
   // Appearance
   html += '<div class="profile-section"><div class="profile-section-title">Appearance</div>';
-  html += `<div class="profile-row">
-    <span class="profile-row-label">Light Mode</span>
-    <div class="theme-toggle${currentTheme === 'light' ? ' on' : ''}" id="theme-toggle-btn">
-      <div class="theme-toggle-knob"></div>
+  html += `<div class="profile-row" style="flex-direction:column;align-items:stretch;gap:8px">
+    <div style="font-size:12px;color:var(--muted-fg)">Pick a theme.</div>
+    <div class="theme-pick-row" style="display:flex;gap:6px;flex-wrap:wrap">
+      ${[
+        { id: 'dark',  label: 'Dark' },
+        { id: 'light', label: 'Light' },
+        { id: 'venom', label: 'Venom' },
+      ].map(t => `<button class="theme-pick${currentTheme === t.id ? ' active' : ''}" data-theme="${t.id}">${t.label}</button>`).join('')}
     </div>
   </div>`;
   html += '</div>';
@@ -7178,7 +7220,9 @@ async function renderProfile() {
     bindGodAdminPanel(el);
   }
   // Bindings
-  $('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+  document.querySelectorAll('.theme-pick').forEach(btn => {
+    btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+  });
   // Wearable / sync connect buttons
   $('prof-strava-connect')?.addEventListener('click', () => stravaStartAuth());
   $('prof-strava-disconnect')?.addEventListener('click', () => stravaDisconnect());
@@ -8150,7 +8194,10 @@ function renderCoachFeatureToggles() {
 // to duplicate any logic.
 function openManageTeamSheet() {
   if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
-  if (teamData.createdBy !== currentUser?.uid) {
+  // Admin + master can manage any team for support purposes; otherwise
+  // restricted to the head coach (createdBy of the team doc).
+  const isMaster = currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+  if (teamData.createdBy !== currentUser?.uid && !isAdmin && !isMaster) {
     showToast('Only the head coach can manage the team.', 'warn');
     return;
   }
@@ -9134,7 +9181,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-safe-import';
+  const APP_VERSION = '20260430-venom';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

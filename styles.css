@@ -199,6 +199,36 @@ body { -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transpare
   --surface-raised:#e8e5de;
 }
 
+/* Venom theme — dark green + black, primary is acid green to match
+   the Marvel symbiote palette. Header + tab bar + accents pick this
+   up automatically since they all read from the CSS vars. */
+.venom-theme{
+  --bg:#03110a;
+  --bg-elevated:#061a10;
+  --fg:#e8fff0;
+  --card:#082016;
+  --card-hover:#0a2a1c;
+  --border:rgba(0,255,128,.15);
+  --border-strong:rgba(0,255,128,.30);
+  --primary:#22ff88;
+  --primary-fg:#03110a;
+  --primary-hover:#1ce277;
+  --primary-dim:rgba(34,255,136,.14);
+  --primary-soft:rgba(34,255,136,.10);
+  --primary-edge:rgba(34,255,136,.32);
+  --muted:#0c2a1d;
+  --muted-fg:#7fcfa0;
+  --secondary:#0c2a1d;
+  --secondary-fg:#cdebd6;
+  --surface:#061a10;
+  --surface-raised:#0a2a1c;
+}
+.venom-theme .auth-wordmark{color:#22ff88}
+.venom-theme .auth-wordmark-2{color:rgba(34,255,136,.55)}
+/* Re-tint the in-app logo wordmark + the AI Coach FAB so the
+   accent really feels symbiote-green when Venom is on. */
+.venom-theme .ai-fab{background:linear-gradient(135deg,#22ff88,#0a8b46)}
+
 /* ===== Base ===== */
 html{
   font-size:16px;
@@ -1161,8 +1191,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .goal-tpl-btn{font-size:12px;font-weight:600;padding:7px 11px;border-radius:99px;background:rgba(249,115,22,.10);color:var(--primary);border:1px solid rgba(249,115,22,.25);cursor:pointer;white-space:nowrap;transition:all .15s}
 .goal-tpl-btn:hover{background:rgba(249,115,22,.18);border-color:rgba(249,115,22,.45)}
 .goal-tpl-btn:active{transform:scale(.96)}
-.persona-pick{font-size:12px;font-weight:600;padding:8px 12px;border-radius:99px;background:transparent;color:var(--fg);border:1px solid var(--border);cursor:pointer;transition:all .15s}
-.persona-pick.active{background:rgba(249,115,22,.15);color:var(--primary);border-color:var(--primary)}
+.persona-pick,
+.theme-pick{font-size:12px;font-weight:600;padding:8px 12px;border-radius:99px;background:transparent;color:var(--fg);border:1px solid var(--border);cursor:pointer;transition:all .15s}
+.persona-pick.active,
+.theme-pick.active{background:var(--primary-dim);color:var(--primary);border-color:var(--primary)}
 .persona-pick:active{transform:scale(.96)}
 .chart-row{display:flex;align-items:flex-end;justify-content:center;gap:6px;height:120px;margin-bottom:4px;padding:0 4px}
 .chart-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;max-width:48px}
