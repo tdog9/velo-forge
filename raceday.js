@@ -1112,7 +1112,7 @@ function updateActive() {
         const n=stintLaps.length-i, isBest=lap.duration===bestDur;
         return `<div style="display:flex;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
           <span style="color:var(--muted-fg);width:54px">Lap ${n}</span>
-          <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${isBest?var(--success):var(--fg)}">${fmtMs(lap.duration)}</span>
+          <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${isBest?'var(--success)':'var(--fg)'}">${fmtMs(lap.duration)}</span>
           ${isBest?'<span style="font-size:10px;color:var(--success);font-weight:700">BEST</span>':''}
         </div>`;
       }).join('');

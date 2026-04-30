@@ -1055,7 +1055,7 @@ function renderBadges() {
     const has = earned.includes(b.id);
     html += `<div style="display:flex;flex-direction:column;align-items:center;width:60px;opacity:${has ? 1 : 0.25}" title="${b.desc}">
       <span style="font-size:24px">${b.icon}</span>
-      <span style="font-size:9px;color:${has ? var(--fg) : var(--muted-fg)};text-align:center;margin-top:2px;line-height:1.1">${b.name}</span>
+      <span style="font-size:9px;color:${has ? 'var(--fg)' : 'var(--muted-fg)'};text-align:center;margin-top:2px;line-height:1.1">${b.name}</span>
     </div>`;
   });
   html += '</div>';
@@ -1169,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-r22';
+const APP_VERSION = '20260430-r23';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -2019,7 +2019,7 @@ function openErrorDiagnostics(entry, showLog) {
       html += `<div style="margin-top:8px"><div style="font-size:11px;font-weight:600;color:var(--muted-fg);margin-bottom:4px">Recent Errors (${errorLog.length})</div>`;
       errorLog.slice(0, 10).forEach((e, i) => {
         const isCurrent = e === entry;
-        html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);background:${isCurrent ? rgba(var(--destructive-rgb),.1)' : 'transparent'};color:${isCurrent ? var(--destructive) : var(--muted-fg)}">
+        html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);background:${isCurrent ? 'rgba(var(--destructive-rgb),.1)' : 'transparent'};color:${isCurrent ? 'var(--destructive)' : 'var(--muted-fg)'}">
           ${e.time.split('T')[1]?.split('.')[0] || ''} · ${_esc(e.area)} · ${_esc((e.message || '').substring(0, 60))}${e.message?.length > 60 ? '...' : ''}
         </div>`;
       });
@@ -2965,7 +2965,7 @@ function renderTeamFeed() {
         <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
           <div class="feed-time">${item.timeAgo}</div>
           <div class="feed-reactions" style="display:flex;gap:2px;margin-left:auto">
-            ${['🔥','💪','👏','⚡'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? rgba(var(--primary-rgb),.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? var(--primary) : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
+            ${['🔥','💪','👏','⚡'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? 'rgba(var(--primary-rgb),.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? 'var(--primary)' : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
           </div>
         </div>
       </div>
@@ -3358,19 +3358,19 @@ function renderToday() {
     if (isSessionToday && diffMs > 0) timeLabel = diffHrs > 0 ? 'in ' + diffHrs + 'h ' + diffMins + 'm' : 'in ' + diffMins + 'm';
     else if (isSessionToday && diffMs <= 0) timeLabel = 'NOW';
     else { const d = sDate; timeLabel = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
-    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(var(--primary-rgb),.08),rgba(var(--success-rgb),.06))' : var(--card)};border:1.5px solid ${isSessionToday ? rgba(var(--primary-rgb),.25)' : var(--border)};border-radius:10px">
+    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(var(--primary-rgb),.08),rgba(var(--success-rgb),.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba(var(--primary-rgb),.25)' : 'var(--border)'};border-radius:10px">
       <div style="display:flex;align-items:start;gap:10px">
-        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? rgba(var(--primary-rgb),.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
+        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(var(--primary-rgb),.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-            <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(nextSession.title)}</div>
-            <div style="font-size:11px;font-weight:700;color:${isSessionToday ? var(--primary) : var(--muted-fg)}">${timeLabel}</div>
+            <div style="font-size:13px;font-weight:700;color:'var(--fg)'">${escHtml(nextSession.title)}</div>
+            <div style="font-size:11px;font-weight:700;color:${isSessionToday ? 'var(--primary)' : 'var(--muted-fg)'}">${timeLabel}</div>
           </div>
-          <div style="font-size:12px;color:var(--muted-fg)">${nextSession.time || ''}${nextSession.endTime ? ' - ' + nextSession.endTime : ''}${nextSession.location ? ' · ' + escHtml(nextSession.location) : ''}</div>
-          ${nextSession.notes ? '<div style="font-size:11px;color:var(--muted-fg);margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
+          <div style="font-size:12px;color:'var(--muted-fg)'">${nextSession.time || ''}${nextSession.endTime ? ' - ' + nextSession.endTime : ''}${nextSession.location ? ' · ' + escHtml(nextSession.location) : ''}</div>
+          ${nextSession.notes ? '<div style="font-size:11px;color:'var(--muted-fg)';margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
         </div>
       </div>
-      <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
+      <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:'var(--bg)';border:1px solid 'var(--border)';border-radius:8px;color:'var(--fg)';display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
     </div>`;
   }
   // Team challenge (only if active)
@@ -3378,7 +3378,7 @@ function renderToday() {
   // AI insight (compact single line)
   if (totalWorkouts >= 5) {
     const insight = generateTrainingInsight();
-    if (insight) html += `<div style="margin-top:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted-fg);line-height:1.4;display:flex;align-items:start;gap:8px"><span style="font-size:14px;flex-shrink:0">🧠</span><span>${insight}</span></div>`;
+    if (insight) html += `<div style="margin-top:8px;padding:10px 12px;background:'var(--card)';border:1px solid 'var(--border)';border-radius:10px;font-size:12px;color:'var(--muted-fg)';line-height:1.4;display:flex;align-items:start;gap:8px"><span style="font-size:14px;flex-shrink:0">🧠</span><span>${insight}</span></div>`;
   }
   // Daily Roundup (shows after 5pm if student trained today)
   const roundupHour = now.getHours();
@@ -3399,30 +3399,30 @@ function renderToday() {
     else encouragement = 'Another day in the books. Consistency is what separates good from great.';
     html += `<div class="today-roundup-card" style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(var(--primary-rgb),.04));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:14px;font-weight:700;color:var(--fg)">Today's Roundup</div>
-        <button id="dismiss-roundup" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px" aria-label="Dismiss">×</button>
+        <div style="font-size:14px;font-weight:700;color:'var(--fg)'">Today's Roundup</div>
+        <button id="dismiss-roundup" style="background:none;border:none;color:'var(--muted-fg)';font-size:16px;cursor:pointer;padding:2px" aria-label="Dismiss">×</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(${rDist > 0 ? 4 : 3},1fr);gap:6px;margin-bottom:10px">
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--primary)">${todayWos.length}</div>
-          <div style="font-size:9px;color:var(--muted-fg)">sessions</div>
+          <div style="font-size:20px;font-weight:800;color:'var(--primary)'">${todayWos.length}</div>
+          <div style="font-size:9px;color:'var(--muted-fg)'">sessions</div>
         </div>
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--fg)">${rMins}</div>
-          <div style="font-size:9px;color:var(--muted-fg)">mins</div>
+          <div style="font-size:20px;font-weight:800;color:'var(--fg)'">${rMins}</div>
+          <div style="font-size:9px;color:'var(--muted-fg)'">mins</div>
         </div>
         ${rDist > 0 ? `<div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--fg)">${rDist.toFixed(1)}</div>
-          <div style="font-size:9px;color:var(--muted-fg)">km</div>
+          <div style="font-size:20px;font-weight:800;color:'var(--fg)'">${rDist.toFixed(1)}</div>
+          <div style="font-size:9px;color:'var(--muted-fg)'">km</div>
         </div>` : ''}
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--warning)">+${rXp}</div>
-          <div style="font-size:9px;color:var(--muted-fg)">XP</div>
+          <div style="font-size:20px;font-weight:800;color:'var(--warning)'">+${rXp}</div>
+          <div style="font-size:9px;color:'var(--muted-fg)'">XP</div>
         </div>
       </div>
-      ${rAvgRpe ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Effort: ${rAvgRpe}/10 · Types: ${rTypes}</div>` : ''}
-      ${healthD?.latestHr ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Peak HR: ${healthD.latestHr} bpm${healthD.latestSteps ? ' · Steps: ' + healthD.latestSteps.toLocaleString() : ''}</div>` : ''}
-      <div style="font-size:12px;color:var(--fg);line-height:1.4;margin-top:6px;padding-top:6px;border-top:1px solid rgba(124,58,237,.1)">${encouragement}</div>
+      ${rAvgRpe ? `<div style="font-size:11px;color:'var(--muted-fg)';margin-bottom:4px">Effort: ${rAvgRpe}/10 · Types: ${rTypes}</div>` : ''}
+      ${healthD?.latestHr ? `<div style="font-size:11px;color:'var(--muted-fg)';margin-bottom:4px">Peak HR: ${healthD.latestHr} bpm${healthD.latestSteps ? ' · Steps: ' + healthD.latestSteps.toLocaleString() : ''}</div>` : ''}
+      <div style="font-size:12px;color:'var(--fg)';line-height:1.4;margin-top:6px;padding-top:6px;border-top:1px solid rgba(124,58,237,.1)">${encouragement}</div>
     </div>`;
   }
   // Strava connect (new users only)
@@ -3462,7 +3462,7 @@ function renderToday() {
     const visibleWeeks = weeks.slice(0, cutIdx + 1);
     const maxCount = Math.max(...visibleWeeks.map(w => w.count), 1);
     html += `<div style="margin-top:8px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px;text-align:center">Weekly Activity</div>
-    <div class="chart-row">${visibleWeeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? var(--primary) : var(--muted)}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
+    <div class="chart-row">${visibleWeeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? 'var(--primary)' : 'var(--muted)'}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
   }
   html += renderWorkoutCalendar(now);
   html += renderTeamFeed();
@@ -3847,7 +3847,7 @@ function renderChecklistItem(workout, key, isChecked) {
   if (hasExercises && setsTotal === 0) {
     setsTotal = workout.exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
   }
-  const progressText = setsTotal > 0 ? `<span style="font-size:10px;color:${setsDone >= setsTotal ? var(--primary) : var(--muted-fg)};margin-left:4px">${setsDone}/${setsTotal}</span>` : '';
+  const progressText = setsTotal > 0 ? `<span style="font-size:10px;color:${setsDone >= setsTotal ? 'var(--primary)' : 'var(--muted-fg)'};margin-left:4px">${setsDone}/${setsTotal}</span>` : '';
   return `
     <div class="checklist-item${isChecked?' checked':''}">
       <div class="cl-check" data-key="${key}">
@@ -4030,7 +4030,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
             <div style="display:flex;gap:4px;flex:1;flex-wrap:wrap">`;
       for (let s = 0; s < setsTarget; s++) {
         const setDone = s < setsCompleted;
-        html += `<button class="et-set-btn" data-ex="${i}" data-set="${s}" style="min-width:36px;height:36px;border-radius:8px;border:2px solid ${setDone ? var(--primary) : var(--border)};background:${setDone ? var(--primary) : var(--card)};color:${setDone ? var(--primary-fg) : var(--muted-fg)};font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;padding:0 6px">${setsTarget === 1 ? '\u2713' : s + 1}</button>`;
+        html += `<button class="et-set-btn" data-ex="${i}" data-set="${s}" style="min-width:36px;height:36px;border-radius:8px;border:2px solid ${setDone ? 'var(--primary)' : 'var(--border)'};background:${setDone ? 'var(--primary)' : 'var(--card)'};color:${setDone ? 'var(--primary-fg)' : 'var(--muted-fg)'};font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;padding:0 6px">${setsTarget === 1 ? '\u2713' : s + 1}</button>`;
       }
       html += `</div>
             <button class="et-rest-btn" data-ex="${i}" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted-fg);font-size:10px;cursor:pointer;padding:4px 8px;white-space:nowrap">\u23f1 Rest</button>
@@ -4081,7 +4081,7 @@ function openExerciseTracker(key, name, desc, duration, exercisesJson) {
         <div style="display:flex;gap:6px;margin-bottom:20px">`;
       for (let s = 0; s < setsTarget; s++) {
         const done = s < setsCompleted;
-        html += `<div style="width:12px;height:12px;border-radius:50%;background:${done ? var(--primary) : var(--border)}"></div>`;
+        html += `<div style="width:12px;height:12px;border-radius:50%;background:${done ? 'var(--primary)' : 'var(--border)'}"></div>`;
       }
       html += `</div>
         ${exDone ? `<button id="live-next" class="btn btn-primary" style="padding:14px 40px;font-size:16px;font-weight:700;border-radius:12px">${liveExIdx < exercises.length - 1 ? 'Next Exercise \u2192' : '\u2713 Finish Workout'}</button>`
@@ -5517,7 +5517,7 @@ function openWorkoutSheet() {
         <div style="display:flex;gap:4px;flex-wrap:wrap" id="wo-type-btns">
           ${['HPR','Ride','Run','Treadmill','Strength','Cardio','Flexibility'].map(t => {
             const icons = {HPR:'🏎️',Ride:'🚴',Run:'🏃',Treadmill:'🏃‍♂️',Strength:'🏋️',Cardio:'❤️',Flexibility:'🧘'};
-            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? var(--primary) : var(--border)};background:${t === type ? var(--primary-dim) : var(--card)};color:${t === type ? var(--primary) : var(--muted-fg)};cursor:pointer">${icons[t]} ${t}</button>`;
+            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'var(--primary-dim)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${icons[t]} ${t}</button>`;
           }).join('')}
         </div>
       </div>
@@ -6245,7 +6245,7 @@ async function renderRaceDayHistory() {
             <div><div style="font-size:16px;font-weight:800;color:var(--success);font-family:var(--font-mono)">${myBest?fmtMs(myBest):'—'}</div><div style="color:var(--muted-fg)">Best</div></div>
             <div><div style="font-size:16px;font-weight:800;font-family:var(--font-mono)">${myStint.duration?fmtTime(myStint.duration):'—'}</div><div style="color:var(--muted-fg)">Time</div></div>
           </div>
-          ${myStint.laps?.length > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">${myStint.laps.map((l,i)=>`<span style="font-size:11px;font-family:var(--font-mono);margin-right:8px;color:${l.duration===myBest?var(--success):var(--muted-fg)}">L${i+1} ${fmtMs(l.duration)}</span>`).join('')}</div>` : ''}
+          ${myStint.laps?.length > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">${myStint.laps.map((l,i)=>`<span style="font-size:11px;font-family:var(--font-mono);margin-right:8px;color:${l.duration===myBest?'var(--success)':'var(--muted-fg)'}">L${i+1} ${fmtMs(l.duration)}</span>`).join('')}</div>` : ''}
         </div>`;
       }
 
@@ -6263,7 +6263,7 @@ async function renderRaceDayHistory() {
         const best = laps.length>0 ? fmtMs(Math.min(...laps.map(l=>l.duration))) : '—';
         const avg = laps.length>0 ? fmtMs(laps.reduce((t,l)=>t+l.duration,0)/laps.length) : '—';
         const isMe = s.uid === currentUser.uid;
-        html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);${isMe?'background:'rgba(var(--primary-rgb),.04)':''}">
+        html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);${isMe?'background:rgba(var(--primary-rgb),.04)':''}">
           <td style="padding:6px 0;font-weight:${isMe?'700':'400'}">${escHtml(s.displayName||'Driver')}${isMe?' ★':''}</td>
           <td style="text-align:right;font-variant-numeric:tabular-nums">${laps.length}</td>
           <td style="text-align:right;font-family:var(--font-mono);color:var(--success)">${best}</td>
@@ -7911,7 +7911,7 @@ async function openCoachAthleteSheet(uid) {
   html += `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px">
     <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--primary)">${member.totalWorkouts || 0}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Workouts</div></div>
     <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--success)">${member.streak || 0}d</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Streak</div></div>
-    <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:${hardCount >= 4 ? var(--warning) : var(--fg)}">${avgRpe || '—'}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Avg RPE</div></div>
+    <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:${hardCount >= 4 ? 'var(--warning)' : 'var(--fg)'}">${avgRpe || '—'}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Avg RPE</div></div>
   </div>`;
   // Plan summary
   if (planSummary) {
@@ -7919,10 +7919,10 @@ async function openCoachAthleteSheet(uid) {
       ? `<div style="margin-top:10px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em">7-Day Compliance</span>
-            <span style="font-size:11px;font-weight:700;color:${compliance.pct >= 80 ? var(--success) : compliance.pct >= 50 ? var(--warning) : var(--destructive)}">${compliance.done}/${compliance.scheduled} · ${compliance.pct}%</span>
+            <span style="font-size:11px;font-weight:700;color:${compliance.pct >= 80 ? 'var(--success)' : compliance.pct >= 50 ? 'var(--warning)' : 'var(--destructive)'}">${compliance.done}/${compliance.scheduled} · ${compliance.pct}%</span>
           </div>
           <div style="height:6px;background:var(--muted);border-radius:99px;overflow:hidden">
-            <div style="height:100%;width:${Math.min(100, compliance.pct)}%;background:${compliance.pct >= 80 ? var(--success) : compliance.pct >= 50 ? var(--warning) : var(--destructive)};transition:width .3s"></div>
+            <div style="height:100%;width:${Math.min(100, compliance.pct)}%;background:${compliance.pct >= 80 ? 'var(--success)' : compliance.pct >= 50 ? 'var(--warning)' : 'var(--destructive)'};transition:width .3s"></div>
           </div>
         </div>`
       : '<div style="margin-top:8px;font-size:11px;color:var(--muted-fg)">No checklist data yet — compliance fills in after they tick a session.</div>';
@@ -8009,14 +8009,14 @@ function openPlanPickerForAthlete(uid, member) {
     ? yearMatch.filter(p => p.tier === member.fitnessLevel)
     : (yearMatch.length ? yearMatch : tierMatch).slice(0, 6);
   const others = visible.filter(p => !recommended.includes(p)).slice(0, 30);
-  const renderCard = (p, recommended = false) => `<button class="coach-plan-pick" data-plan-id="${escHtml(p.id)}" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:${recommended ? rgba(var(--primary-rgb),.06)' : var(--card)};border:1px solid ${recommended ? rgba(var(--primary-rgb),.30)' : var(--border)};border-radius:10px;cursor:pointer">
-    <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(p.name || 'Plan')}${member.activePlanId === p.id ? ' <span style="font-size:9px;color:var(--success);font-weight:800;letter-spacing:.05em">CURRENT</span>' : ''}</div>
-    <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${escHtml(p.category || '')}${p.yearLevel ? ' · ' + escHtml(p.yearLevel) : ''}${p.tier ? ' · ' + escHtml(p.tier) : ''}</div>
+  const renderCard = (p, recommended = false) => `<button class="coach-plan-pick" data-plan-id="${escHtml(p.id)}" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:${recommended ? 'rgba(var(--primary-rgb),.06)' : 'var(--card)'};border:1px solid ${recommended ? 'rgba(var(--primary-rgb),.30)' : 'var(--border)'};border-radius:10px;cursor:pointer">
+    <div style="font-size:13px;font-weight:700;color:'var(--fg)'">${escHtml(p.name || 'Plan')}${member.activePlanId === p.id ? ' <span style="font-size:9px;color:'var(--success)';font-weight:800;letter-spacing:.05em">CURRENT</span>' : ''}</div>
+    <div style="font-size:11px;color:'var(--muted-fg)';margin-top:2px">${escHtml(p.category || '')}${p.yearLevel ? ' · ' + escHtml(p.yearLevel) : ''}${p.tier ? ' · ' + escHtml(p.tier) : ''}</div>
   </button>`;
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Assign Plan</div>
-    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">For ${escHtml(member.displayName || 'athlete')}. Their active plan switches immediately.</div>
-    ${recommended.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Recommended</div>' + recommended.map(p => renderCard(p, true)).join('') : ''}
+    <div style="font-size:12px;color:'var(--muted-fg)';margin-bottom:12px">For ${escHtml(member.displayName || 'athlete')}. Their active plan switches immediately.</div>
+    ${recommended.length ? '<div style="font-size:10px;color:'var(--muted-fg)';text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Recommended</div>' + recommended.map(p => renderCard(p, true)).join('') : ''}
     ${others.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">All Plans</div><div style="max-height:340px;overflow-y:auto">' + others.map(p => renderCard(p, false)).join('') + '</div>' : ''}
     <div style="display:flex;gap:8px;margin-top:14px">
       ${member.activePlanId ? '<button class="btn" id="coach-plan-clear" style="flex:1;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.08)">Cancel current plan</button>' : ''}
@@ -8526,7 +8526,7 @@ function openSubteamDetailSheet(subId) {
         <div style="font-size:13px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.displayName || 'Unknown')}${isSubCoach ? ' · <span style="color:var(--primary)">SUB-COACH</span>' : ''}</div>
         <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.email || '')}</div>
       </div>
-      <button class="sub-toggle" data-uid="${m.uid}" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid ${inSub ? rgba(var(--success-rgb),.4)' : var(--border)};background:${inSub ? rgba(var(--success-rgb),.10)' : 'transparent'};color:${inSub ? var(--success) : var(--muted-fg)};cursor:pointer">${inSub ? '✓ In' : '+ Add'}</button>
+      <button class="sub-toggle" data-uid="${m.uid}" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid ${inSub ? 'rgba(var(--success-rgb),.4)' : 'var(--border)'};background:${inSub ? 'rgba(var(--success-rgb),.10)' : 'transparent'};color:${inSub ? 'var(--success)' : 'var(--muted-fg)'};cursor:pointer">${inSub ? '✓ In' : '+ Add'}</button>
       ${inSub && !isSubCoach ? `<button class="sub-promote" data-uid="${m.uid}" title="Make sub-coach" style="padding:6px 8px;font-size:11px;border:1px solid var(--border);background:transparent;border-radius:8px;cursor:pointer;color:var(--muted-fg)">★</button>` : ''}
     </div>`;
   };
@@ -9260,7 +9260,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-r22';
+  const APP_VERSION = '20260430-r23';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9983,8 +9983,8 @@ function renderHealthTab() {
     const isToday = d.key === now.toISOString().split('T')[0];
     html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
       ${d.mins > 0 ? `<div style="font-size:7px;font-weight:600;color:var(--muted-fg)">${d.mins}</div>` : ''}
-      <div style="width:100%;height:${pct}%;background:${isToday ? var(--primary) : d.mins > 0 ? rgba(var(--primary-rgb),.4)' : 'rgba(255,255,255,.04)'};border-radius:3px 3px 0 0;min-height:${d.mins > 0 ? '6' : '2'}px"></div>
-      <div style="font-size:7px;color:${isToday ? var(--primary) : var(--muted-fg)};font-weight:${isToday ? '700' : '400'}">${d.date.toLocaleDateString('en-AU',{weekday:'narrow'})}</div>
+      <div style="width:100%;height:${pct}%;background:${isToday ? 'var(--primary)' : d.mins > 0 ? 'rgba(var(--primary-rgb),.4)' : 'rgba(255,255,255,.04)'};border-radius:3px 3px 0 0;min-height:${d.mins > 0 ? '6' : '2'}px"></div>
+      <div style="font-size:7px;color:${isToday ? 'var(--primary)' : 'var(--muted-fg)'};font-weight:${isToday ? '700' : '400'}">${d.date.toLocaleDateString('en-AU',{weekday:'narrow'})}</div>
     </div>`;
   });
   html += '</div></div>';
@@ -10004,12 +10004,12 @@ function renderHealthTab() {
       <div style="text-align:center">
         <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Sessions</div>
         <div style="font-size:20px;font-weight:800;color:var(--fg)">${twCount}</div>
-        <div style="font-size:10px;color:${twCount >= lwCount ? var(--success) : var(--destructive)}">${twCount >= lwCount ? '↑' : '↓'} vs ${lwCount}</div>
+        <div style="font-size:10px;color:${twCount >= lwCount ? 'var(--success)' : 'var(--destructive)'}">${twCount >= lwCount ? '↑' : '↓'} vs ${lwCount}</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Minutes</div>
         <div style="font-size:20px;font-weight:800;color:var(--fg)">${twMins}</div>
-        <div style="font-size:10px;color:${minsDiff >= 0 ? var(--success) : var(--destructive)}">${minsDiff >= 0 ? '+' : ''}${minsDiff} min</div>
+        <div style="font-size:10px;color:${minsDiff >= 0 ? 'var(--success)' : 'var(--destructive)'}">${minsDiff >= 0 ? '+' : ''}${minsDiff} min</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:9px;color:var(--muted-fg);margin-bottom:4px">Distance</div>

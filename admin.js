@@ -48,7 +48,7 @@ export function renderAdmin() {
   let html = '<div class="page-title" style="margin-bottom:8px">Admin</div>';
   html += `<div id="admin-maintenance-bar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(var(--destructive-rgb),.08);border:1px solid rgba(var(--destructive-rgb),.2);display:flex;align-items:center;gap:10px">
     <span style="font-size:13px;font-weight:600;flex:1;color:var(--fg)">🔧 Maintenance</span>
-    <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?var(--destructive):var(--muted)};color:${mo?'#fff':var(--muted-fg)}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
+    <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?'var(--destructive)':'var(--muted)'};color:${mo?'#fff':'var(--muted-fg)'}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
   </div>`;
   html += '<div class="admin-tabs" style="overflow-x:auto;padding-bottom:2px">';
   tabs.forEach(t => {
@@ -183,7 +183,7 @@ async function renderAdminRaceDay() {
     <div class="card" style="padding:14px;margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em">Today's Status</div>
-        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${rd?.active?'rgba(var(--destructive-rgb),.12)':'rgba(255,255,255,.06)'};color:${rd?.active?var(--destructive):var(--muted-fg)}">${rd?.active?'● LIVE':'OFF'}</span>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${rd?.active?'rgba(var(--destructive-rgb),.12)':'rgba(255,255,255,.06)'};color:${rd?.active?'var(--destructive)':'var(--muted-fg)'}">${rd?.active?'● LIVE':'OFF'}</span>
       </div>
       <div style="font-size:13px;color:var(--fg);margin-bottom:6px">${todayRace ? '🏁 ' + A.escHtml(todayRace.name) : 'No race scheduled today.'}</div>
       ${todayRace?.notes ? `<div style="font-size:11px;color:var(--muted-fg)">${A.escHtml(todayRace.notes)}</div>` : ''}
@@ -379,7 +379,7 @@ function renderAdminMaintenance() {
           infoEl.innerHTML = isActive
             ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:6px;line-height:1.6">
                 Active for: <b style="color:var(--fg)">${elapsed} min</b> · 
-                Remaining: <b style="color:${remaining<60?var(--destructive):var(--fg)}">${remaining} min</b><br>
+                Remaining: <b style="color:${remaining<60?'var(--destructive)':'var(--fg)'}">${remaining} min</b><br>
                 Start point: <b style="color:var(--fg)">${rdData.startPointSet?'Set ✓':'Not set yet'}</b>
                </div>`
             : '';
@@ -449,13 +449,13 @@ export function renderHealthReports(el) {
     reports.slice(0,10).forEach(r => {
       const dt = new Date(r.timestamp).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'});
       const ok = r.findingCount === 0;
-      html += `<div style="background:var(--card);border:1px solid ${ok?var(--border):'rgba(var(--destructive-rgb),.2)'};border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px">
+      html += `<div style="background:var(--card);border:1px solid ${ok?'var(--border)':'rgba(var(--destructive-rgb),.2)'};border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <span style="font-size:11px;font-weight:700;color:${ok?var(--success):var(--destructive)}">${ok?'✓ PASSED':'✗ '+r.findingCount+' ISSUE'+(r.findingCount!==1?'S':'')}</span>
+          <span style="font-size:11px;font-weight:700;color:${ok?'var(--success)':'var(--destructive)'}">${ok?'✓ PASSED':'✗ '+r.findingCount+' ISSUE'+(r.findingCount!==1?'S':'')}</span>
           <span style="font-size:11px;color:var(--muted-fg);flex:1">${dt}</span>
           <span style="font-size:10px;color:var(--muted-fg)">${r.passed}/${r.total} checks</span>
         </div>
-        ${r.findings && r.findings.length > 0 ? r.findings.map(f=>`<div style="font-size:11px;color:${f.severity==='error'?var(--destructive):var(--warning)};padding:1px 0">• ${escHtml(f.name)}${f.detail?': '+escHtml(f.detail):''}</div>`).join('') : ''}
+        ${r.findings && r.findings.length > 0 ? r.findings.map(f=>`<div style="font-size:11px;color:${f.severity==='error'?'var(--destructive)':'var(--warning)'};padding:1px 0">• ${escHtml(f.name)}${f.detail?': '+escHtml(f.detail):''}</div>`).join('') : ''}
       </div>`;
     });
   }
@@ -726,7 +726,7 @@ export async function renderCoachDashboard() {
       const isInactive = !s.lastActive || s.lastActive < sevenDaysAgo;
       const lastStr = s.lastActive ? timeAgo(s.lastActive) : 'Never';
       const tierColors = { basic:'#3b82f6', average:'var(--success)', intense:'#f97316' };
-      const borderStyle = isInactive ? 'border-color:'rgba(var(--destructive-rgb),.3)' : '';
+      const borderStyle = isInactive ? 'border-color:rgba(var(--destructive-rgb),.3)' : '';
       html += `<div class="coach-card" style="${borderStyle}">
         <div class="coach-card-top">
           <div class="coach-card-name">${escHtml(s.name)}</div>
@@ -2703,7 +2703,7 @@ async function renderAdminRequests() {
             <div style="font-size:15px;font-weight:700">${A.escHtml(r.clubName||'')}</div>
             <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${A.escHtml(r.coachName||'')} · ${A.escHtml(r.coachEmail||'')}</div>
           </div>
-          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${isApproved?'rgba(var(--success-rgb),.15)':'rgba(var(--primary-rgb),.15)'};color:${isApproved?var(--success):'#f97316'}">${isApproved?'Approved':'Pending'}</span>
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${isApproved?'rgba(var(--success-rgb),.15)':'rgba(var(--primary-rgb),.15)'};color:${isApproved?'var(--success)':'#f97316'}">${isApproved?'Approved':'Pending'}</span>
         </div>
         ${r.clubDesc ? `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${A.escHtml(r.clubDesc)}</div>` : ''}
         ${isPending ? `
