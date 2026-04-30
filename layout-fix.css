@@ -1340,6 +1340,68 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   color:#ef4444;
 }
 
+/* Today's session-length picker — extracted from a 13-declaration
+   inline-style block computed per-render. Recommended duration is
+   now sourced from the plan's expected workout for today instead of
+   a hardcoded "15 min". */
+.dur-picker-row{ margin-bottom:10px; }
+.dur-picker-head{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:5px;
+}
+.dur-picker-label{
+  font-size:11px;
+  font-weight:600;
+  color:var(--muted-fg);
+}
+.dur-picker-rec{
+  font-size:10px;
+  color:var(--primary);
+  background:var(--primary-soft);
+  padding:1px 7px;
+  border-radius:10px;
+  font-weight:600;
+}
+.dur-picker-strip{
+  display:flex;
+  gap:4px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  padding-bottom:2px;
+}
+.dur-picker-strip::-webkit-scrollbar{ display:none; }
+.dur-pick{
+  padding:5px 10px;
+  font-size:11px;
+  font-weight:700;
+  border-radius:6px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--muted-fg);
+  cursor:pointer;
+  white-space:nowrap;
+  flex-shrink:0;
+  transition:background .14s ease, color .14s ease, border-color .14s ease;
+}
+.dur-pick:hover{ color:var(--fg); }
+.dur-pick.rec{ box-shadow:0 0 0 1px var(--primary-edge); }
+.dur-pick.active{
+  border-color:var(--primary);
+  background:var(--primary-soft);
+  color:var(--primary);
+}
+.dur-pick-rec-tag{
+  font-size:8px;
+  display:block;
+  color:var(--primary);
+  font-weight:600;
+  line-height:1;
+  min-height:8px; /* keeps non-rec buttons the same height */
+}
+
 /* Subteam filter pills on the Team page. Was rendered with 9 inline
    declarations per pill, computed per-render with conditional
    border / background / color. Class-based states are easier to

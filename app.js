@@ -3093,15 +3093,35 @@ function renderToday() {
     });
     const progressPct = totalPlanWorkouts > 0 ? Math.min(100, Math.round((completedPlanWorkouts / totalPlanWorkouts) * 100)) : 0;
     html += `<div class="plan-progress"><div class="plan-progress-text"><span>${escHtml(pdData.name)}</span><span>${completedPlanWorkouts}/${totalPlanWorkouts} · ${progressPct}%</span></div><div class="plan-progress-bar"><div class="plan-progress-fill" style="width:${progressPct}%"></div></div></div>`;
-    // Duration selector
-    const selectedDur = parseInt(localStorage.getItem('tp_session_duration') || '15');
-    html += `<div style="margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-        <span style="font-size:11px;font-weight:600;color:var(--muted-fg)">Session length</span>
-        <span style="font-size:10px;color:var(--primary);background:rgba(249,115,22,.1);padding:1px 7px;border-radius:10px;font-weight:600">Recommended: 15 min</span>
+    // Duration selector. Two prior bugs:
+    //   1) Range was [5,10,15,20,25,30] which silently capped a 60-90
+    //      min Y11/Y12 plan workout to 30 min. Extended to 90.
+    //   2) Recommended badge was hardcoded "15 min" regardless of
+    //      plan. Now derived from the plan's expected workout
+    //      duration for today (falls back to 15 only if no plan).
+    const selectedDur = parseInt(localStorage.getItem('tp_session_duration') || '0') || null;
+    // Find the plan's expected duration for today (if any) — picks the
+    // first not-yet-completed workout for today's weekday.
+    let recDur = 15;
+    if (activePlan?.workouts?.length) {
+      const todayDayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][now.getDay()];
+      const todayPw = activePlan.workouts.find(w => w.day === todayDayName);
+      if (todayPw?.duration) recDur = todayPw.duration;
+    }
+    const durOptions = [5, 10, 15, 20, 30, 45, 60, 75, 90];
+    // Make sure recDur is in the list — slot it in if not.
+    if (!durOptions.includes(recDur)) {
+      durOptions.push(recDur);
+      durOptions.sort((a,b) => a - b);
+    }
+    const activeDur = selectedDur || recDur;
+    html += `<div class="dur-picker-row">
+      <div class="dur-picker-head">
+        <span class="dur-picker-label">Session length</span>
+        <span class="dur-picker-rec">Recommended: ${recDur} min</span>
       </div>
-      <div style="display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px">
-        ${[5,10,15,20,25,30].map(d => `<button class="dur-pick${selectedDur===d?' active':''}" data-dur="${d}" style="padding:5px 10px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid ${selectedDur===d?'var(--primary)':'var(--border)'};background:${selectedDur===d?'rgba(249,115,22,.15)':'var(--surface)'};color:${selectedDur===d?'var(--primary)':'var(--muted-fg)'};cursor:pointer;white-space:nowrap;flex-shrink:0${d===15?';box-shadow:0 0 0 1px rgba(249,115,22,.2)':''}">${d}${d===15?'<span style="font-size:8px;display:block;color:var(--primary);font-weight:600;line-height:1">rec.</span>':'<span style="font-size:8px;display:block;opacity:0;line-height:1">.</span>'}</button>`).join('')}
+      <div class="dur-picker-strip">
+        ${durOptions.map(d => `<button class="dur-pick${activeDur===d?' active':''}${d===recDur?' rec':''}" data-dur="${d}">${d}<span class="dur-pick-rec-tag">${d===recDur?'rec.':''}</span></button>`).join('')}
       </div>
     </div>`;
     const dayMap = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':0};
