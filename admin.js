@@ -367,7 +367,7 @@ function renderAdminMaintenance() {
         if (badge) {
           badge.textContent = isActive ? '🔴 LIVE' : '⚪ Inactive';
           badge.style.background = isActive ? 'rgba(var(--destructive-rgb),.15)' : 'rgba(100,100,100,.15)';
-          badge.style.color = isActive ? 'var(--destructive)' : 'var(--muted-fg)';
+          badge.style.color = isActive ? 'var(--destructive)' :var(--muted-fg);
         }
 
         // Show extra info if active

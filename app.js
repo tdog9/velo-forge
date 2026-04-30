@@ -261,7 +261,7 @@ function renderPhaseTimeline(racePhase) {
   }).join('');
   const labels = segments.map((s, i) => {
     const isCurrent = s.id === racePhase.phase;
-    const color = isCurrent ? s.color : 'var(--muted-fg)';
+    const color = isCurrent ? s.color :var(--muted-fg);
     const weight = isCurrent ? '800' : '600';
     return `<div style="flex:1;text-align:center;font-size:9px;font-weight:${weight};color:${color};letter-spacing:.04em">${s.label}</div>`;
   }).join('');
@@ -1169,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-r23';
+const APP_VERSION = '20260430-r24';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -3363,14 +3363,14 @@ function renderToday() {
         <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(var(--primary-rgb),.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-            <div style="font-size:13px;font-weight:700;color:'var(--fg)'">${escHtml(nextSession.title)}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(nextSession.title)}</div>
             <div style="font-size:11px;font-weight:700;color:${isSessionToday ? 'var(--primary)' : 'var(--muted-fg)'}">${timeLabel}</div>
           </div>
-          <div style="font-size:12px;color:'var(--muted-fg)'">${nextSession.time || ''}${nextSession.endTime ? ' - ' + nextSession.endTime : ''}${nextSession.location ? ' · ' + escHtml(nextSession.location) : ''}</div>
-          ${nextSession.notes ? '<div style="font-size:11px;color:'var(--muted-fg)';margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
+          <div style="font-size:12px;color:var(--muted-fg)">${nextSession.time || ''}${nextSession.endTime ? ' - ' + nextSession.endTime : ''}${nextSession.location ? ' · ' + escHtml(nextSession.location) : ''}</div>
+          ${nextSession.notes ? '<div style="font-size:11px;color:var(--muted-fg);margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
         </div>
       </div>
-      <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:'var(--bg)';border:1px solid 'var(--border)';border-radius:8px;color:'var(--fg)';display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
+      <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
     </div>`;
   }
   // Team challenge (only if active)
@@ -3378,7 +3378,7 @@ function renderToday() {
   // AI insight (compact single line)
   if (totalWorkouts >= 5) {
     const insight = generateTrainingInsight();
-    if (insight) html += `<div style="margin-top:8px;padding:10px 12px;background:'var(--card)';border:1px solid 'var(--border)';border-radius:10px;font-size:12px;color:'var(--muted-fg)';line-height:1.4;display:flex;align-items:start;gap:8px"><span style="font-size:14px;flex-shrink:0">🧠</span><span>${insight}</span></div>`;
+    if (insight) html += `<div style="margin-top:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted-fg);line-height:1.4;display:flex;align-items:start;gap:8px"><span style="font-size:14px;flex-shrink:0">🧠</span><span>${insight}</span></div>`;
   }
   // Daily Roundup (shows after 5pm if student trained today)
   const roundupHour = now.getHours();
@@ -3399,30 +3399,30 @@ function renderToday() {
     else encouragement = 'Another day in the books. Consistency is what separates good from great.';
     html += `<div class="today-roundup-card" style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(var(--primary-rgb),.04));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:14px;font-weight:700;color:'var(--fg)'">Today's Roundup</div>
-        <button id="dismiss-roundup" style="background:none;border:none;color:'var(--muted-fg)';font-size:16px;cursor:pointer;padding:2px" aria-label="Dismiss">×</button>
+        <div style="font-size:14px;font-weight:700;color:var(--fg)">Today's Roundup</div>
+        <button id="dismiss-roundup" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px" aria-label="Dismiss">×</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(${rDist > 0 ? 4 : 3},1fr);gap:6px;margin-bottom:10px">
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:'var(--primary)'">${todayWos.length}</div>
-          <div style="font-size:9px;color:'var(--muted-fg)'">sessions</div>
+          <div style="font-size:20px;font-weight:800;color:var(--primary)">${todayWos.length}</div>
+          <div style="font-size:9px;color:var(--muted-fg)">sessions</div>
         </div>
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:'var(--fg)'">${rMins}</div>
-          <div style="font-size:9px;color:'var(--muted-fg)'">mins</div>
+          <div style="font-size:20px;font-weight:800;color:var(--fg)">${rMins}</div>
+          <div style="font-size:9px;color:var(--muted-fg)">mins</div>
         </div>
         ${rDist > 0 ? `<div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:'var(--fg)'">${rDist.toFixed(1)}</div>
-          <div style="font-size:9px;color:'var(--muted-fg)'">km</div>
+          <div style="font-size:20px;font-weight:800;color:var(--fg)">${rDist.toFixed(1)}</div>
+          <div style="font-size:9px;color:var(--muted-fg)">km</div>
         </div>` : ''}
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:'var(--warning)'">+${rXp}</div>
-          <div style="font-size:9px;color:'var(--muted-fg)'">XP</div>
+          <div style="font-size:20px;font-weight:800;color:var(--warning)">+${rXp}</div>
+          <div style="font-size:9px;color:var(--muted-fg)">XP</div>
         </div>
       </div>
-      ${rAvgRpe ? `<div style="font-size:11px;color:'var(--muted-fg)';margin-bottom:4px">Effort: ${rAvgRpe}/10 · Types: ${rTypes}</div>` : ''}
-      ${healthD?.latestHr ? `<div style="font-size:11px;color:'var(--muted-fg)';margin-bottom:4px">Peak HR: ${healthD.latestHr} bpm${healthD.latestSteps ? ' · Steps: ' + healthD.latestSteps.toLocaleString() : ''}</div>` : ''}
-      <div style="font-size:12px;color:'var(--fg)';line-height:1.4;margin-top:6px;padding-top:6px;border-top:1px solid rgba(124,58,237,.1)">${encouragement}</div>
+      ${rAvgRpe ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Effort: ${rAvgRpe}/10 · Types: ${rTypes}</div>` : ''}
+      ${healthD?.latestHr ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Peak HR: ${healthD.latestHr} bpm${healthD.latestSteps ? ' · Steps: ' + healthD.latestSteps.toLocaleString() : ''}</div>` : ''}
+      <div style="font-size:12px;color:var(--fg);line-height:1.4;margin-top:6px;padding-top:6px;border-top:1px solid rgba(124,58,237,.1)">${encouragement}</div>
     </div>`;
   }
   // Strava connect (new users only)
@@ -5386,9 +5386,9 @@ function renderWorkouts() {
     c.querySelectorAll('.wo-filter-btn').forEach(b => {
       const active = b.dataset.wofilter === filter;
       b.classList.toggle('active', active);
-      b.style.background = active ? 'var(--primary)' : 'var(--surface)';
-      b.style.color = active ? 'var(--primary-fg)' : 'var(--muted-fg)';
-      b.style.borderColor = active ? 'var(--primary)' : 'var(--border)';
+      b.style.background = active ? 'var(--primary)' :var(--surface);
+      b.style.color = active ? 'var(--primary-fg)' :var(--muted-fg);
+      b.style.borderColor = active ? 'var(--primary)' :var(--border);
       b.style.fontWeight = active ? '700' : '600';
     });
     c.querySelectorAll('.wo-card').forEach(card => {
@@ -7947,7 +7947,7 @@ async function openCoachAthleteSheet(uid) {
       const dt = w.date?.toDate ? w.date.toDate() : (w.date ? new Date(w.date) : null);
       const dStr = dt ? dt.toLocaleDateString('en-AU', { day:'numeric', month:'short' }) : '?';
       const rpe = (typeof w.rpe === 'number') ? w.rpe : null;
-      const rpeColor = rpe == null ? 'var(--muted-fg)' : rpe >= 8 ? '#f59e0b' : rpe >= 5 ? '#22c55e' : 'var(--muted-fg)';
+      const rpeColor = rpe == null ? 'var(--muted-fg)' : rpe >= 8 ? '#f59e0b' : rpe >= 5 ? '#22c55e' :var(--muted-fg);
       html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--card);border-radius:8px;font-size:12px">
         <span style="flex:1;min-width:0;color:var(--fg);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(w.name || 'Workout')}</span>
         <span style="color:var(--muted-fg);white-space:nowrap">${w.duration || '?'}m</span>
@@ -8010,13 +8010,13 @@ function openPlanPickerForAthlete(uid, member) {
     : (yearMatch.length ? yearMatch : tierMatch).slice(0, 6);
   const others = visible.filter(p => !recommended.includes(p)).slice(0, 30);
   const renderCard = (p, recommended = false) => `<button class="coach-plan-pick" data-plan-id="${escHtml(p.id)}" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:${recommended ? 'rgba(var(--primary-rgb),.06)' : 'var(--card)'};border:1px solid ${recommended ? 'rgba(var(--primary-rgb),.30)' : 'var(--border)'};border-radius:10px;cursor:pointer">
-    <div style="font-size:13px;font-weight:700;color:'var(--fg)'">${escHtml(p.name || 'Plan')}${member.activePlanId === p.id ? ' <span style="font-size:9px;color:'var(--success)';font-weight:800;letter-spacing:.05em">CURRENT</span>' : ''}</div>
-    <div style="font-size:11px;color:'var(--muted-fg)';margin-top:2px">${escHtml(p.category || '')}${p.yearLevel ? ' · ' + escHtml(p.yearLevel) : ''}${p.tier ? ' · ' + escHtml(p.tier) : ''}</div>
+    <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(p.name || 'Plan')}${member.activePlanId === p.id ? ' <span style="font-size:9px;color:var(--success);font-weight:800;letter-spacing:.05em">CURRENT</span>' : ''}</div>
+    <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${escHtml(p.category || '')}${p.yearLevel ? ' · ' + escHtml(p.yearLevel) : ''}${p.tier ? ' · ' + escHtml(p.tier) : ''}</div>
   </button>`;
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Assign Plan</div>
-    <div style="font-size:12px;color:'var(--muted-fg)';margin-bottom:12px">For ${escHtml(member.displayName || 'athlete')}. Their active plan switches immediately.</div>
-    ${recommended.length ? '<div style="font-size:10px;color:'var(--muted-fg)';text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Recommended</div>' + recommended.map(p => renderCard(p, true)).join('') : ''}
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">For ${escHtml(member.displayName || 'athlete')}. Their active plan switches immediately.</div>
+    ${recommended.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Recommended</div>' + recommended.map(p => renderCard(p, true)).join('') : ''}
     ${others.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">All Plans</div><div style="max-height:340px;overflow-y:auto">' + others.map(p => renderCard(p, false)).join('') + '</div>' : ''}
     <div style="display:flex;gap:8px;margin-top:14px">
       ${member.activePlanId ? '<button class="btn" id="coach-plan-clear" style="flex:1;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.08)">Cancel current plan</button>' : ''}
@@ -9260,7 +9260,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-r23';
+  const APP_VERSION = '20260430-r24';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
