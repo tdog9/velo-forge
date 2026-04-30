@@ -60,9 +60,23 @@ let firebaseImportFailed = false;
 // Each import races a timeout so a hung CDN can't strand the page at a white
 // screen forever. Promise.allSettled still lets survivors continue loading.
 const IMPORT_TIMEOUT_MS = 12000;
+// Cache-bust local module imports with the same version string the
+// `<script src="app.js?v=…">` tag uses. import.meta.url gives the
+// module's own URL (with the ?v=... query) inside an ES module — pull
+// the v= param off it and append to every local import so lazy-loaded
+// modules (raceday.js, admin.js, etc.) miss the service-worker cache
+// when the app version bumps.
+const _MOD_VER = (() => {
+  try {
+    const m = (import.meta.url || '').match(/[?&]v=([^&]+)/);
+    return m ? m[1] : '';
+  } catch (_) { return ''; }
+})();
 function importWithTimeout(url) {
+  const isLocal = url.startsWith('./') || url.startsWith('/');
+  const stamped = (isLocal && _MOD_VER) ? (url + (url.includes('?') ? '&' : '?') + 'v=' + _MOD_VER) : url;
   return Promise.race([
-    import(url),
+    import(stamped),
     new Promise((_, reject) => setTimeout(() => reject(new Error('timeout loading ' + url)), IMPORT_TIMEOUT_MS))
   ]);
 }
@@ -1169,7 +1183,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-r26';
+const APP_VERSION = '20260430-r27';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -9260,7 +9274,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-r26';
+  const APP_VERSION = '20260430-r27';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
