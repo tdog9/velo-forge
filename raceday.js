@@ -359,11 +359,11 @@ function buildOverlayHTML() {
     <div style="font-size:10px;color:var(--muted-fg);margin-top:-1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${raceName ? esc(raceName)+' · ' : ''}${esc(teamName)}</div>
   </div>
   <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-    <div style="width:7px;height:7px;border-radius:50%;background:#ef4444;animation:rdPulse 1.4s ease infinite"></div>
-    <span style="font-size:11px;font-weight:700;color:#ef4444">LIVE</span>
+    <div style="width:7px;height:7px;border-radius:50%;background:var(--destructive);animation:rdPulse 1.4s ease infinite"></div>
+    <span style="font-size:11px;font-weight:700;color:var(--destructive)">LIVE</span>
   </div>
   <button id="rd-share-btn" aria-label="Share spectator link" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-weight:700;cursor:pointer;margin-left:4px">Share</button>
-  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
+  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
 </header>
 
 <!-- Scrollable content -->
@@ -381,7 +381,7 @@ ${isCoach ? `<button id="rd-roster-fab" style="position:fixed;bottom:calc(var(--
     <span class="rd-tab-lbl">Roster</span>
   </button>
   <button class="rd-tab-btn" data-rdtab="stint" style="position:relative">
-    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;margin:-14px auto 0;box-shadow:0 4px 14px rgba(34,197,94,.4)">
+    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#16a34a);display:flex;align-items:center;justify-content:center;margin:-14px auto 0;box-shadow:0 4px 14px rgba(var(--success-rgb),.4)">
       <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="white" stroke="none"/></svg>
     </div>
     <span class="rd-tab-lbl" style="margin-top:4px">Stint</span>
@@ -645,7 +645,7 @@ function renderSetup(c) {
     html+=`<div style="margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
         <label class="label" style="margin:0;flex:1">${esc(f.label)}</label>
-        ${mgr?`<button class="rd-del-field" data-idx="${i}" style="font-size:10px;color:#ef4444;background:none;border:none;cursor:pointer;padding:2px 6px;font-weight:700">✕</button>`:''}
+        ${mgr?`<button class="rd-del-field" data-idx="${i}" style="font-size:10px;color:var(--destructive);background:none;border:none;cursor:pointer;padding:2px 6px;font-weight:700">✕</button>`:''}
       </div>
       ${f.type==='number'
         ?`<input class="input rd-sf" data-idx="${i}" type="number"${typeof f.min==='number'?` min="${f.min}"`:''}${typeof f.max==='number'?` max="${f.max}"`:''} value="${esc(f.value||'')}" placeholder="${esc(f.label)}">`
@@ -704,12 +704,12 @@ async function loadLiveStints() {
 
 function renderLivePanel(live) {
   if (!live || live.length === 0) return '';
-  return `<div style="background:linear-gradient(135deg,rgba(239,68,68,.10),rgba(239,68,68,.04));border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:12px;margin-bottom:14px">
+  return `<div style="background:linear-gradient(135deg,rgba(var(--destructive-rgb),.10),rgba(var(--destructive-rgb),.04));border:1px solid rgba(var(--destructive-rgb),.25);border-radius:12px;padding:12px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-      <div style="width:7px;height:7px;border-radius:50%;background:#ef4444;animation:rdPulse 1.4s ease infinite"></div>
-      <span style="font-size:11px;font-weight:700;color:#ef4444;letter-spacing:.05em;text-transform:uppercase">Live on track</span>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--destructive);animation:rdPulse 1.4s ease infinite"></div>
+      <span style="font-size:11px;font-weight:700;color:var(--destructive);letter-spacing:.05em;text-transform:uppercase">Live on track</span>
     </div>
-    ${live.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(239,68,68,.12);font-size:13px">
+    ${live.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(var(--destructive-rgb),.12);font-size:13px">
       <span style="flex:1;font-weight:700">${esc(l.displayName||'Driver')}</span>
       <span style="color:var(--muted-fg);font-size:11px">${l.lapCount||0} laps</span>
       <span style="font-family:var(--font-mono);font-weight:700;color:var(--fg)">${fmtTime(l.elapsed||0)}</span>
@@ -755,7 +755,7 @@ function renderStintTab(c) {
   if (stintActive) { renderActiveStint(c); return; }
 
   const spInfo = rdd.startPointSet
-    ? `<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;margin-bottom:14px;font-size:13px;color:#22c55e">
+    ? `<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(var(--success-rgb),.08);border:1px solid rgba(var(--success-rgb),.2);border-radius:10px;margin-bottom:14px;font-size:13px;color:var(--success)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Start / finish point is set
        </div>`
@@ -794,7 +794,7 @@ function renderStintTab(c) {
       </div>
     </div>
     ${stintsHtml}
-    <button id="rd-start-btn" style="width:100%;padding:16px;border-radius:14px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;margin-top:14px;box-shadow:0 4px 15px rgba(34,197,94,.35);-webkit-tap-highlight-color:transparent">▶ Start My Stint</button>`;
+    <button id="rd-start-btn" style="width:100%;padding:16px;border-radius:14px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;margin-top:14px;box-shadow:0 4px 15px rgba(var(--success-rgb),.35);-webkit-tap-highlight-color:transparent">▶ Start My Stint</button>`;
 
   setTimeout(()=>initPreMap(),150);
   c.querySelector('#rd-start-btn')?.addEventListener('click', (e) => {
@@ -1031,7 +1031,7 @@ function addStartMarker(lat,lng) {
 function renderActiveStint(c) {
   c.innerHTML=`
     <div style="text-align:center;padding-top:8px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:#22c55e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">● STINT ACTIVE</div>
+      <div style="font-size:11px;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">● STINT ACTIVE</div>
       <div id="rd-timer" style="font-size:60px;font-weight:800;font-family:var(--font-mono);color:var(--fg);line-height:1">00:00</div>
       <div id="rd-sublabel" style="font-size:12px;color:var(--muted-fg);margin-top:4px">GPS connecting...</div>
     </div>
@@ -1041,12 +1041,12 @@ function renderActiveStint(c) {
       <div style="width:1px;height:14px;background:var(--border)"></div>
       <div style="text-align:center;min-width:0"><span id="rd-ll" style="font-size:14px;font-weight:800;color:var(--fg);font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">last</span></div>
       <div style="width:1px;height:14px;background:var(--border)"></div>
-      <div style="text-align:center;min-width:0"><span id="rd-bl" style="font-size:14px;font-weight:800;color:#22c55e;font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">best</span></div>
+      <div style="text-align:center;min-width:0"><span id="rd-bl" style="font-size:14px;font-weight:800;color:var(--success);font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">best</span></div>
     </div>
     <div id="rd-laplist" style="margin-bottom:10px;max-height:180px;overflow-y:auto"></div>
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button id="rd-tap-lap" style="flex:1;padding:14px;border-radius:12px;background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.35);color:#22c55e;font-size:14px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">Tap Lap</button>
-      <button id="rd-end-stint" style="flex:1;padding:14px;border-radius:12px;background:#ef4444;color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">End Stint</button>
+      <button id="rd-tap-lap" style="flex:1;padding:14px;border-radius:12px;background:rgba(var(--success-rgb),.10);border:1px solid rgba(var(--success-rgb),.35);color:var(--success);font-size:14px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">Tap Lap</button>
+      <button id="rd-end-stint" style="flex:1;padding:14px;border-radius:12px;background:var(--destructive);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">End Stint</button>
     </div>`;
 
   setTimeout(()=>{
@@ -1089,7 +1089,7 @@ function updateActive() {
   const sl=document.getElementById('rd-sublabel');
   if (sl) {
     if (stintGpsState === 'error') {
-      sl.innerHTML = '<span style="color:#f59e0b">GPS unavailable — tap laps manually.</span>';
+      sl.innerHTML = '<span style="color:var(--warning)">GPS unavailable — tap laps manually.</span>';
     } else if (stintGpsState === 'connecting') {
       sl.textContent = 'GPS connecting…';
     } else if (stintLaps.length > 0) {
@@ -1113,7 +1113,7 @@ function updateActive() {
         return `<div style="display:flex;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
           <span style="color:var(--muted-fg);width:54px">Lap ${n}</span>
           <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${isBest?'#22c55e':'var(--fg)'}">${fmtMs(lap.duration)}</span>
-          ${isBest?'<span style="font-size:10px;color:#22c55e;font-weight:700">BEST</span>':''}
+          ${isBest?'<span style="font-size:10px;color:var(--success);font-weight:700">BEST</span>':''}
         </div>`;
       }).join('');
     }
@@ -1180,7 +1180,7 @@ function renderStintSummary(c,stint) {
         <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">Laps</div>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:#22c55e">${best}</div>
+        <div style="font-size:22px;font-weight:800;color:var(--success)">${best}</div>
         <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">Best</div>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
@@ -1292,10 +1292,10 @@ export function updateRaceDayTabBar(active) {
       rdBtn.id='rd-tab-btn';
       rdBtn.className='tab-btn';
       rdBtn.innerHTML=`
-        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);display:flex;align-items:center;justify-content:center;margin:-4px auto 0;box-shadow:0 3px 10px rgba(239,68,68,.4)">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ef4444,#dc2626);display:flex;align-items:center;justify-content:center;margin:-4px auto 0;box-shadow:0 3px 10px rgba(var(--destructive-rgb),.4)">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
         </div>
-        <span class="tab-btn-label" style="color:#ef4444">Race</span>`;
+        <span class="tab-btn-label" style="color:var(--destructive)">Race</span>`;
       rdBtn.addEventListener('click',()=>openRaceDayOverlay());
       const racesTab=bar.querySelector('.tab-btn[data-page="races"]');
       if (racesTab) bar.insertBefore(rdBtn,racesTab); else bar.appendChild(rdBtn);

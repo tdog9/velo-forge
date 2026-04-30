@@ -501,8 +501,8 @@ if (typeof window !== 'undefined') {
 // parsing a small JSON tail from the assistant reply.
 const AI_WIDGET_KINDS = {
   tip:      { fg: '#3b82f6', bg: 'rgba(59,130,246,.08)',  border: 'rgba(59,130,246,.25)',  icon: '💡' },
-  metric:   { fg: '#22c55e', bg: 'rgba(34,197,94,.08)',   border: 'rgba(34,197,94,.25)',   icon: '📊' },
-  warning:  { fg: '#f59e0b', bg: 'rgba(245,158,11,.08)',  border: 'rgba(245,158,11,.25)',  icon: '⚠️' },
+  metric:   { fg: '#22c55e', bg: 'rgba(var(--success-rgb),.08)',   border: 'rgba(var(--success-rgb),.25)',   icon: '📊' },
+  warning:  { fg: '#f59e0b', bg: 'rgba(var(--warning-rgb),.08)',  border: 'rgba(var(--warning-rgb),.25)',  icon: '⚠️' },
   praise:   { fg: '#8b5cf6', bg: 'rgba(139,92,246,.08)',  border: 'rgba(139,92,246,.25)',  icon: '🎉' },
 };
 function loadAiWidgets() {
@@ -592,7 +592,7 @@ function renderMilestoneCard(totalWorkouts, streak, lvl, xp) {
   }
   if (cards.length === 0) return '';
   // Render + auto-write so we don't re-celebrate on next render.
-  const html = cards.map(c => `<div class="milestone-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:linear-gradient(135deg,rgba(249,115,22,.18),rgba(168,85,247,.12));border:1px solid rgba(249,115,22,.35);box-shadow:0 4px 18px rgba(249,115,22,.15)">
+  const html = cards.map(c => `<div class="milestone-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:linear-gradient(135deg,rgba(249,115,22,.18),rgba(var(--purple-rgb),.12));border:1px solid rgba(249,115,22,.35);box-shadow:0 4px 18px rgba(249,115,22,.15)">
     <div style="font-size:28px;flex-shrink:0">${c.icon}</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:14px;font-weight:800;color:var(--fg);margin-bottom:2px">${c.title}</div>
@@ -654,8 +654,8 @@ function renderRecoveryCard(workouts, healthData) {
   }
   if (!kind) return '';
   const colors = kind === 'rest'
-    ? { bg: 'rgba(245,158,11,.10)', border: 'rgba(245,158,11,.35)', fg: '#f59e0b', icon: '😴', title: 'Recovery first' }
-    : { bg: 'rgba(34,197,94,.10)',  border: 'rgba(34,197,94,.35)',  fg: '#22c55e', icon: '⚡', title: 'You\'re fresh' };
+    ? { bg: 'rgba(var(--warning-rgb),.10)', border: 'rgba(var(--warning-rgb),.35)', fg: '#f59e0b', icon: '😴', title: 'Recovery first' }
+    : { bg: 'rgba(var(--success-rgb),.10)',  border: 'rgba(var(--success-rgb),.35)',  fg: '#22c55e', icon: '⚡', title: 'You\'re fresh' };
   return `<div class="recovery-card" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:${colors.bg};border:1px solid ${colors.border}">
     <div style="font-size:24px;flex-shrink:0">${colors.icon}</div>
     <div style="flex:1;min-width:0">
@@ -683,10 +683,10 @@ function renderRpeBurnoutCard(workouts) {
   try { last = localStorage.getItem('tp_rpe_warn') || ''; } catch(e) {}
   const today = localDateKey();
   if (last === today) return '';
-  return `<div class="rpe-burnout-card" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.35)">
+  return `<div class="rpe-burnout-card" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:rgba(var(--warning-rgb),.10);border:1px solid rgba(var(--warning-rgb),.35)">
     <div style="font-size:24px;flex-shrink:0">⚠️</div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:800;color:#f59e0b;margin-bottom:2px">Stacking hard sessions</div>
+      <div style="font-size:13px;font-weight:800;color:var(--warning);margin-bottom:2px">Stacking hard sessions</div>
       <div style="font-size:12px;color:var(--fg);line-height:1.4">${hardCount} of your last ${recent.length} workouts were RPE 8+. Consider an easy spin or rest day before pushing again — adaptation happens during recovery.</div>
     </div>
     <button class="rpe-warn-dismiss" aria-label="Dismiss" style="background:none;border:none;color:var(--muted-fg);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
@@ -1169,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-r18';
+const APP_VERSION = '20260430-r19';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1225,7 +1225,7 @@ function showWelcomeSetup() {
         </button>
       </div>
       <button class="btn btn-primary" id="ws-done" style="width:100%;padding:12px;font-size:14px;font-weight:700;margin-top:12px;border-radius:10px">Let's Go!</button>
-      <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted-fg)">You can set these up later in Profile</div>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted-fg)">You can set these up later in Profile · or tap outside to dismiss</div>
     </div>`;
   document.body.appendChild(overlay);
   const markDone = (btn) => {
@@ -1959,9 +1959,9 @@ function openErrorDiagnostics(entry, showLog) {
   // Highlighted fix (first one, prominent)
   if (fixes.length > 0) {
     const primary = fixes[0];
-    html += `<div style="display:flex;gap:10px;padding:12px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.04));border:1.5px solid rgba(34,197,94,.25);border-radius:12px;margin-bottom:10px">
+    html += `<div style="display:flex;gap:10px;padding:12px;background:linear-gradient(135deg,rgba(var(--success-rgb),.08),rgba(var(--success-rgb),.04));border:1.5px solid rgba(var(--success-rgb),.25);border-radius:12px;margin-bottom:10px">
       <span style="font-size:24px;flex-shrink:0">${primary.icon}</span>
-      <div><div style="font-size:14px;font-weight:700;color:#22c55e;margin-bottom:3px">Try this first</div>
+      <div><div style="font-size:14px;font-weight:700;color:var(--success);margin-bottom:3px">Try this first</div>
       <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:2px">${primary.title}</div>
       <div style="font-size:12px;color:var(--muted-fg);line-height:1.5">${primary.fix}</div></div>
     </div>`;
@@ -1979,12 +1979,12 @@ function openErrorDiagnostics(entry, showLog) {
   }
   // ADMIN SECTION — extra diagnostics
   if (isAdmin) {
-    html += `<div style="margin-top:12px;padding:12px;background:rgba(239,68,68,.06);border:1.5px solid rgba(239,68,68,.2);border-radius:10px">
-      <div style="font-size:12px;font-weight:700;color:#ef4444;margin-bottom:8px;display:flex;align-items:center;gap:6px">🔧 Admin Diagnostics</div>`;
+    html += `<div style="margin-top:12px;padding:12px;background:rgba(var(--destructive-rgb),.06);border:1.5px solid rgba(var(--destructive-rgb),.2);border-radius:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--destructive);margin-bottom:8px;display:flex;align-items:center;gap:6px">🔧 Admin Diagnostics</div>`;
     // Admin-specific fixes
     if (adminFixes.length > 0) {
       adminFixes.forEach(f => {
-        html += `<div style="padding:8px;background:rgba(239,68,68,.05);border-radius:6px;margin-bottom:6px">
+        html += `<div style="padding:8px;background:rgba(var(--destructive-rgb),.05);border-radius:6px;margin-bottom:6px">
           <div style="font-size:12px;font-weight:600;color:var(--fg);margin-bottom:2px">${f.title}</div>
           <div style="font-size:11px;color:var(--muted-fg);line-height:1.4">${f.fix}</div>
         </div>`;
@@ -1994,7 +1994,7 @@ function openErrorDiagnostics(entry, showLog) {
     html += `<div style="font-size:11px;color:var(--muted-fg);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;font-family:var(--font-mono);line-height:1.6;word-break:break-all">
       <div><strong>Area:</strong> ${_esc(entry.area)}</div>
       <div><strong>Error:</strong> ${_esc(entry.message)}</div>
-      ${entry.code ? '<div><strong>Code:</strong> <span style="color:#ef4444">' + _esc(entry.code) + '</span></div>' : ''}
+      ${entry.code ? '<div><strong>Code:</strong> <span style="color:var(--destructive)">' + _esc(entry.code) + '</span></div>' : ''}
       <div><strong>Time:</strong> ${entry.time}</div>
       <div><strong>User:</strong> ${_esc(entry.user)} · <strong>Online:</strong> ${entry.online ? '✓' : '✗'} · <strong>Platform:</strong> ${entry.platform}</div>
       ${entry.context && Object.keys(entry.context).length > 0 ? '<div><strong>Context:</strong> ' + _esc(JSON.stringify(entry.context)) + '</div>' : ''}
@@ -2019,7 +2019,7 @@ function openErrorDiagnostics(entry, showLog) {
       html += `<div style="margin-top:8px"><div style="font-size:11px;font-weight:600;color:var(--muted-fg);margin-bottom:4px">Recent Errors (${errorLog.length})</div>`;
       errorLog.slice(0, 10).forEach((e, i) => {
         const isCurrent = e === entry;
-        html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);background:${isCurrent ? 'rgba(239,68,68,.1)' : 'transparent'};color:${isCurrent ? '#ef4444' : 'var(--muted-fg)'}">
+        html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);background:${isCurrent ? 'rgba(var(--destructive-rgb),.1)' : 'transparent'};color:${isCurrent ? '#ef4444' : 'var(--muted-fg)'}">
           ${e.time.split('T')[1]?.split('.')[0] || ''} · ${_esc(e.area)} · ${_esc((e.message || '').substring(0, 60))}${e.message?.length > 60 ? '...' : ''}
         </div>`;
       });
@@ -2039,7 +2039,7 @@ function openErrorDiagnostics(entry, showLog) {
     </details>`;
   }
   // AI diagnose button
-  html += `<button id="diag-ai-btn" class="btn" style="width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;color:#a855f7;display:flex;align-items:center;justify-content:center;gap:6px">
+  html += `<button id="diag-ai-btn" class="btn" style="width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;color:var(--purple);display:flex;align-items:center;justify-content:center;gap:6px">
     🤖 Ask AI to Diagnose
   </button>
   <div id="diag-ai-result" style="margin-top:8px"></div>`;
@@ -2072,7 +2072,7 @@ Context: ${JSON.stringify(entry.context || {})}`;
       const resp = await aiCoachFetch({ message: diagPrompt, context: 'ERROR_DIAGNOSIS. ' + (isAdmin ? 'User is admin. Include Firestore paths, env var names, and Netlify deploy steps. Be technical.' : 'Respond in 3-4 sentences. Be specific and practical. Use simple language a student would understand.') });
       const data = await resp.json();
       resultEl.innerHTML = `<div style="padding:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:13px;color:var(--fg);line-height:1.5">
-        <div style="font-size:12px;font-weight:600;color:#a855f7;margin-bottom:4px">AI Diagnosis${isAdmin ? ' (Admin)' : ''}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--purple);margin-bottom:4px">AI Diagnosis${isAdmin ? ' (Admin)' : ''}</div>
         ${_esc(data.reply || 'Could not diagnose. Try the suggestions above.')}
       </div>`;
     } catch(e) {
@@ -2217,7 +2217,7 @@ function renderCurrentPage() {
       if (target) {
         target.innerHTML = `<div class="empty-state">
           <div class="empty-state-title">Couldn't load ${name}</div>
-          <div class="empty-state-desc" style="font-family:var(--font-mono);font-size:11px;color:#ef4444;margin-top:8px;word-break:break-word">${escHtml(e.message || String(e))}</div>
+          <div class="empty-state-desc" style="font-family:var(--font-mono);font-size:11px;color:var(--destructive);margin-top:8px;word-break:break-word">${escHtml(e.message || String(e))}</div>
           <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
             <button class="btn btn-primary" id="render-retry-${name}" style="font-size:12px;padding:8px 16px">Retry</button>
             <button class="btn btn-secondary" id="render-reload-${name}" style="font-size:12px;padding:8px 16px">Hard reload</button>
@@ -3087,16 +3087,16 @@ function renderToday() {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
-        ${healthData.latestHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(239,68,68,.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:#ef4444">${healthData.latestHr}</div>
+        ${healthData.latestHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--destructive-rgb),.06);border-radius:10px">
+          <div style="font-size:22px;font-weight:800;color:var(--destructive)">${healthData.latestHr}</div>
           <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">❤️ bpm</div>
         </div>` : ''}
-        ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:rgba(34,197,94,.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:#22c55e">${healthData.latestSteps > 999 ? (healthData.latestSteps / 1000).toFixed(1) + 'k' : healthData.latestSteps}</div>
+        ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--success-rgb),.06);border-radius:10px">
+          <div style="font-size:22px;font-weight:800;color:var(--success)">${healthData.latestSteps > 999 ? (healthData.latestSteps / 1000).toFixed(1) + 'k' : healthData.latestSteps}</div>
           <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">👟 steps</div>
         </div>` : ''}
         ${healthData.latestSleep ? `<div style="text-align:center;padding:10px 4px;background:rgba(124,58,237,.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:#a855f7">${healthData.latestSleep}</div>
+          <div style="font-size:22px;font-weight:800;color:var(--purple)">${healthData.latestSleep}</div>
           <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">😴 hours</div>
         </div>` : ''}
         ${healthData.restingHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(59,130,246,.06);border-radius:10px">
@@ -3135,7 +3135,7 @@ function renderToday() {
         <div style="display:flex;gap:12px;margin-bottom:8px">
           <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${lwWorkouts.length}</div><div style="font-size:10px;color:var(--muted-fg)">sessions</div></div>
           <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--fg)">${lwMins}</div><div style="font-size:10px;color:var(--muted-fg)">mins</div></div>
-          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:#f59e0b">+${lwXp}</div><div style="font-size:10px;color:var(--muted-fg)">XP</div></div>
+          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--warning)">+${lwXp}</div><div style="font-size:10px;color:var(--muted-fg)">XP</div></div>
         </div>
         <div style="font-size:12px;color:var(--muted-fg);line-height:1.4">${goalText}</div>
       </div>`;
@@ -3172,9 +3172,9 @@ function renderToday() {
   if (racePhase) {
     const { phase, label, description, race, daysOut } = racePhase;
     const phaseColors = {
-      'base':      { bg: 'rgba(34,197,94,.10)',  border: 'rgba(34,197,94,.25)',  fg: '#22c55e' },
-      'build':     { bg: 'rgba(245,158,11,.10)', border: 'rgba(245,158,11,.25)', fg: '#f59e0b' },
-      'peak':      { bg: 'rgba(239,68,68,.10)',  border: 'rgba(239,68,68,.25)',  fg: '#ef4444' },
+      'base':      { bg: 'rgba(var(--success-rgb),.10)',  border: 'rgba(var(--success-rgb),.25)',  fg: '#22c55e' },
+      'build':     { bg: 'rgba(var(--warning-rgb),.10)', border: 'rgba(var(--warning-rgb),.25)', fg: '#f59e0b' },
+      'peak':      { bg: 'rgba(var(--destructive-rgb),.10)',  border: 'rgba(var(--destructive-rgb),.25)',  fg: '#ef4444' },
       'race-week': { bg: 'rgba(139,92,246,.12)', border: 'rgba(139,92,246,.30)', fg: '#8b5cf6' },
     };
     const pc = phaseColors[phase];
@@ -3296,7 +3296,7 @@ function renderToday() {
       // First-time onboarding — guided plan picker
       const year = userProfile?.yearLevel || 'Y9';
       const tier = userProfile?.fitnessLevel || 'basic';
-      html += `<div style="background:linear-gradient(135deg,rgba(249,115,22,.06),rgba(34,197,94,.04));border:1.5px solid rgba(249,115,22,.2);border-radius:12px;padding:16px;text-align:center">
+      html += `<div style="background:linear-gradient(135deg,rgba(249,115,22,.06),rgba(var(--success-rgb),.04));border:1.5px solid rgba(249,115,22,.2);border-radius:12px;padding:16px;text-align:center">
         <div style="font-size:28px;margin-bottom:6px">🚀</div>
         <div style="font-size:15px;font-weight:700;color:var(--fg);margin-bottom:4px">Welcome to TurboPrep!</div>
         <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px;line-height:1.4">Let's get you a training plan. We've matched one to your year level (${year}) and fitness tier (${capitalize(tier)}).</div>
@@ -3358,7 +3358,7 @@ function renderToday() {
     if (isSessionToday && diffMs > 0) timeLabel = diffHrs > 0 ? 'in ' + diffHrs + 'h ' + diffMins + 'm' : 'in ' + diffMins + 'm';
     else if (isSessionToday && diffMs <= 0) timeLabel = 'NOW';
     else { const d = sDate; timeLabel = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
-    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(249,115,22,.08),rgba(34,197,94,.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba(249,115,22,.25)' : 'var(--border)'};border-radius:10px">
+    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(249,115,22,.08),rgba(var(--success-rgb),.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba(249,115,22,.25)' : 'var(--border)'};border-radius:10px">
       <div style="display:flex;align-items:start;gap:10px">
         <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(249,115,22,.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
         <div style="flex:1;min-width:0">
@@ -3416,7 +3416,7 @@ function renderToday() {
           <div style="font-size:9px;color:var(--muted-fg)">km</div>
         </div>` : ''}
         <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:#f59e0b">+${rXp}</div>
+          <div style="font-size:20px;font-weight:800;color:var(--warning)">+${rXp}</div>
           <div style="font-size:9px;color:var(--muted-fg)">XP</div>
         </div>
       </div>
@@ -4406,9 +4406,9 @@ function showAiHelpMenu() {
   aiMsg.innerHTML = `What do you need help with?<br><br>
     <div class="ai-quick-btns" style="margin-top:6px">
       <button class="ai-quick-btn ai-help-opt" data-help="edit-plan" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.25);color:#3b82f6">✏️ Edit My Plan</button>
-      <button class="ai-quick-btn ai-help-opt" data-help="race-prep" style="background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#ef4444">🏁 Race Prep</button>
+      <button class="ai-quick-btn ai-help-opt" data-help="race-prep" style="background:rgba(var(--destructive-rgb),.12);border-color:rgba(var(--destructive-rgb),.25);color:var(--destructive)">🏁 Race Prep</button>
       <button class="ai-quick-btn ai-help-opt" data-help="injury-mod" style="background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.25);color:#f97316">🩹 Injury Mode</button>
-      <button class="ai-quick-btn ai-help-opt" data-help="form-check" style="background:rgba(168,85,247,.12);border-color:rgba(168,85,247,.25);color:#a855f7">🎥 Form Tips</button>
+      <button class="ai-quick-btn ai-help-opt" data-help="form-check" style="background:rgba(var(--purple-rgb),.12);border-color:rgba(var(--purple-rgb),.25);color:var(--purple)">🎥 Form Tips</button>
       <button class="ai-quick-btn ai-help-opt" data-help="pick-plan">🎯 Pick a Plan</button>
       <button class="ai-quick-btn ai-help-opt" data-help="sore">🦵 I'm Sore</button>
       <button class="ai-quick-btn ai-help-opt" data-help="warmup">🔥 Race Warm-up</button>
@@ -5498,6 +5498,17 @@ function openWorkoutSheet() {
     return fields[type] || fields.Ride;
   }
   function renderForm(type) {
+    // Snapshot the current values of every common field BEFORE we
+    // tear down the form. The `getTypeFields()` HTML for the new
+    // type ships with empty inputs, but if the field id exists across
+    // both types (e.g. wo-duration, wo-hr, wo-distance) we restore.
+    const carry = {};
+    ['wo-name','wo-notes','wo-duration','wo-laps','wo-distance','wo-speed',
+     'wo-vehicle','wo-location','wo-bestlap','wo-pace','wo-hr','wo-incline',
+     'wo-exercises','wo-activity','wo-date'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) carry[id] = el.value;
+    });
     const tf = getTypeFields(type);
     $('sheet-content').innerHTML = `
       <div class="sheet-title">Log Workout</div>
@@ -5506,7 +5517,7 @@ function openWorkoutSheet() {
         <div style="display:flex;gap:4px;flex-wrap:wrap" id="wo-type-btns">
           ${['HPR','Ride','Run','Treadmill','Strength','Cardio','Flexibility'].map(t => {
             const icons = {HPR:'🏎️',Ride:'🚴',Run:'🏃',Treadmill:'🏃‍♂️',Strength:'🏋️',Cardio:'❤️',Flexibility:'🧘'};
-            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'rgba(249,115,22,.12)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${icons[t]} ${t}</button>`;
+            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'var(--primary-dim)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${icons[t]} ${t}</button>`;
           }).join('')}
         </div>
       </div>
@@ -5540,6 +5551,11 @@ function openWorkoutSheet() {
       </div>
       <button class="btn btn-primary" style="width:100%;margin-top:4px" id="wo-save-btn">Save Workout</button>
     `;
+    // Restore any prior values that survived the type-switch.
+    Object.entries(carry).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== '') el.value = val;
+    });
     // Bind type switcher
     document.querySelectorAll('.wo-type-pick').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -5799,7 +5815,7 @@ function renderPlans() {
     });
     html += '</div>';
   }
-  html += `<button class="btn" id="plans-generate-btn" style="width:100%;margin-bottom:12px;padding:10px;font-size:13px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;color:#a855f7;display:flex;align-items:center;justify-content:center;gap:6px">✨ Generate Plan with AI</button>`;
+  html += `<button class="btn" id="plans-generate-btn" style="width:100%;margin-bottom:12px;padding:10px;font-size:13px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;color:var(--purple);display:flex;align-items:center;justify-content:center;gap:6px">✨ Generate Plan with AI</button>`;
   // Search bar
   html += `<div class="demo-search-wrap" style="margin-bottom:10px">
     <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -6121,7 +6137,7 @@ function renderPlanCard(plan, isActive) {
             <span class="badge badge-outline">${cadenceLabel}</span>
             <span class="badge" style="background:${tierColor}22;color:${tierColor}">${capitalize(plan.tier)}</span>
             ${isActive ? '<span class="badge badge-primary">Active</span>' : ''}
-            ${isCustomAi ? '<span class="badge" style="background:rgba(168,85,247,.12);color:#a855f7;border:1px solid rgba(168,85,247,.30)">AI</span>' : ''}
+            ${isCustomAi ? '<span class="badge" style="background:rgba(var(--purple-rgb),.12);color:var(--purple);border:1px solid rgba(var(--purple-rgb),.30)">AI</span>' : ''}
           </div>
           <button class="plan-explain-btn" data-explain-plan="${plan.id}" onclick="event.stopPropagation()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M12 2a8 8 0 0 1 8 8c0 3.1-1.7 5.8-4.3 7.1L12 22l-3.7-4.9A8 8 0 0 1 12 2z"/><circle cx="12" cy="10" r="2" fill="currentColor"/></svg>
@@ -6135,12 +6151,12 @@ function renderPlanCard(plan, isActive) {
           ${isActive ? `
             <div style="display:flex;gap:8px;align-items:center">
               <span class="badge badge-primary" style="flex:1;text-align:center;padding:8px 0;font-size:12px">✓ Active</span>
-              <button class="btn plan-cancel-btn" style="flex:1;color:#ef4444;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08)" data-plan-id="${plan.id}">Cancel</button>
+              <button class="btn plan-cancel-btn" style="flex:1;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),0.3);background:rgba(var(--destructive-rgb),0.08)" data-plan-id="${plan.id}">Cancel</button>
             </div>
           ` : `
             <div style="display:flex;gap:8px">
               <button class="btn btn-primary plan-activate-btn" style="flex:1" data-plan-id="${plan.id}">Activate Plan</button>
-              ${canDelete ? `<button class="btn plan-delete-btn" style="flex-shrink:0;padding:0 14px;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06)" data-delete-plan-id="${plan.id}" aria-label="Delete plan">Delete</button>` : ''}
+              ${canDelete ? `<button class="btn plan-delete-btn" style="flex-shrink:0;padding:0 14px;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06)" data-delete-plan-id="${plan.id}" aria-label="Delete plan">Delete</button>` : ''}
             </div>
           `}
         </div>
@@ -6215,7 +6231,7 @@ async function renderRaceDayHistory() {
               <div style="font-size:15px;font-weight:700">🏁 Race Day — ${day.date}</div>
               <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${stints.length} drivers · ${totalLaps} total laps</div>
             </div>
-            ${bestLap ? `<div style="text-align:right"><div style="font-size:11px;color:var(--muted-fg)">Best Lap</div><div style="font-size:18px;font-weight:800;color:#22c55e;font-family:var(--font-mono)">${fmtMs(bestLap)}</div></div>` : ''}
+            ${bestLap ? `<div style="text-align:right"><div style="font-size:11px;color:var(--muted-fg)">Best Lap</div><div style="font-size:18px;font-weight:800;color:var(--success);font-family:var(--font-mono)">${fmtMs(bestLap)}</div></div>` : ''}
           </div>`;
 
       // My stint summary
@@ -6226,7 +6242,7 @@ async function renderRaceDayHistory() {
           <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:6px">Your Stint</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px;text-align:center">
             <div><div style="font-size:16px;font-weight:800">${myStint.laps?.length||0}</div><div style="color:var(--muted-fg)">Laps</div></div>
-            <div><div style="font-size:16px;font-weight:800;color:#22c55e;font-family:var(--font-mono)">${myBest?fmtMs(myBest):'—'}</div><div style="color:var(--muted-fg)">Best</div></div>
+            <div><div style="font-size:16px;font-weight:800;color:var(--success);font-family:var(--font-mono)">${myBest?fmtMs(myBest):'—'}</div><div style="color:var(--muted-fg)">Best</div></div>
             <div><div style="font-size:16px;font-weight:800;font-family:var(--font-mono)">${myStint.duration?fmtTime(myStint.duration):'—'}</div><div style="color:var(--muted-fg)">Time</div></div>
           </div>
           ${myStint.laps?.length > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">${myStint.laps.map((l,i)=>`<span style="font-size:11px;font-family:var(--font-mono);margin-right:8px;color:${l.duration===myBest?'#22c55e':'var(--muted-fg)'}">L${i+1} ${fmtMs(l.duration)}</span>`).join('')}</div>` : ''}
@@ -6250,7 +6266,7 @@ async function renderRaceDayHistory() {
         html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);${isMe?'background:rgba(249,115,22,.04)':''}">
           <td style="padding:6px 0;font-weight:${isMe?'700':'400'}">${escHtml(s.displayName||'Driver')}${isMe?' ★':''}</td>
           <td style="text-align:right;font-variant-numeric:tabular-nums">${laps.length}</td>
-          <td style="text-align:right;font-family:var(--font-mono);color:#22c55e">${best}</td>
+          <td style="text-align:right;font-family:var(--font-mono);color:var(--success)">${best}</td>
           <td style="text-align:right;font-family:var(--font-mono)">${avg}</td>
         </tr>`;
       });
@@ -6918,8 +6934,8 @@ function renderTeamTab(c) {
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
         <button class="btn btn-secondary" style="width:100%" id="coach-manage-team-btn">Manage Team</button>
         ${getRaceDayActive()
-          ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:13px;cursor:pointer">End Race Day Mode</button>`
-          : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e;font-weight:700;font-size:13px;cursor:pointer">Activate Race Day Mode</button>`}
+          ? `<button id="coach-end-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;font-size:13px;cursor:pointer">End Race Day Mode</button>`
+          : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(var(--success-rgb),.1);border:1px solid rgba(var(--success-rgb),.3);color:var(--success);font-weight:700;font-size:13px;cursor:pointer">Activate Race Day Mode</button>`}
       </div>
     `;
   }
@@ -7176,7 +7192,7 @@ async function renderProfile() {
         html += '<div style="font-size:12px;color:var(--muted-fg)">' + mc + ' member' + (mc!==1?'s':'') + '</div>';
         html += '<div style="display:flex;gap:6px;width:100%;margin-top:2px">';
         html += '<button class="btn btn-secondary" style="flex:1;font-size:12px;padding:7px 0" data-league-manage="' + escHtml(lg.id) + '">Manage</button>';
-        html += '<button class="btn" style="flex:1;font-size:12px;padding:7px 0;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" data-league-delete="' + escHtml(lg.id) + '">Delete</button>';
+        html += '<button class="btn" style="flex:1;font-size:12px;padding:7px 0;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.08)" data-league-delete="' + escHtml(lg.id) + '">Delete</button>';
         html += '</div></div>';
       });
       html += '</div>';
@@ -7275,7 +7291,7 @@ async function renderProfile() {
   // tap the avatar to log out, which most never noticed. Surface it
   // at the bottom of the overlay where it's expected.
   html += `<div class="profile-section" style="margin-top:8px">
-    <button id="profile-signout-btn" class="btn" style="width:100%;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);padding:12px;font-size:13px;font-weight:700;border-radius:10px">Sign Out</button>
+    <button id="profile-signout-btn" class="btn" style="width:100%;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06);padding:12px;font-size:13px;font-weight:700;border-radius:10px">Sign Out</button>
   </div>`;
   el.innerHTML = html;
   // Bind god admin panel
@@ -7894,7 +7910,7 @@ async function openCoachAthleteSheet(uid) {
   // Stats row
   html += `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px">
     <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--primary)">${member.totalWorkouts || 0}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Workouts</div></div>
-    <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#22c55e">${member.streak || 0}d</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Streak</div></div>
+    <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--success)">${member.streak || 0}d</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Streak</div></div>
     <div class="card" style="padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:${hardCount >= 4 ? '#f59e0b' : 'var(--fg)'}">${avgRpe || '—'}</div><div style="font-size:9px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px">Avg RPE</div></div>
   </div>`;
   // Plan summary
@@ -7994,7 +8010,7 @@ function openPlanPickerForAthlete(uid, member) {
     : (yearMatch.length ? yearMatch : tierMatch).slice(0, 6);
   const others = visible.filter(p => !recommended.includes(p)).slice(0, 30);
   const renderCard = (p, recommended = false) => `<button class="coach-plan-pick" data-plan-id="${escHtml(p.id)}" style="display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:${recommended ? 'rgba(249,115,22,.06)' : 'var(--card)'};border:1px solid ${recommended ? 'rgba(249,115,22,.30)' : 'var(--border)'};border-radius:10px;cursor:pointer">
-    <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(p.name || 'Plan')}${member.activePlanId === p.id ? ' <span style="font-size:9px;color:#22c55e;font-weight:800;letter-spacing:.05em">CURRENT</span>' : ''}</div>
+    <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(p.name || 'Plan')}${member.activePlanId === p.id ? ' <span style="font-size:9px;color:var(--success);font-weight:800;letter-spacing:.05em">CURRENT</span>' : ''}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${escHtml(p.category || '')}${p.yearLevel ? ' · ' + escHtml(p.yearLevel) : ''}${p.tier ? ' · ' + escHtml(p.tier) : ''}</div>
   </button>`;
   $('sheet-content').innerHTML = `
@@ -8003,7 +8019,7 @@ function openPlanPickerForAthlete(uid, member) {
     ${recommended.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Recommended</div>' + recommended.map(p => renderCard(p, true)).join('') : ''}
     ${others.length ? '<div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px">All Plans</div><div style="max-height:340px;overflow-y:auto">' + others.map(p => renderCard(p, false)).join('') + '</div>' : ''}
     <div style="display:flex;gap:8px;margin-top:14px">
-      ${member.activePlanId ? '<button class="btn" id="coach-plan-clear" style="flex:1;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)">Cancel current plan</button>' : ''}
+      ${member.activePlanId ? '<button class="btn" id="coach-plan-clear" style="flex:1;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.08)">Cancel current plan</button>' : ''}
       <button class="btn btn-secondary" style="flex:1" id="coach-plan-back">Back</button>
     </div>
   `;
@@ -8283,9 +8299,9 @@ function openManageTeamSheet() {
         <span><div style="font-size:14px;font-weight:700;color:var(--fg)">Feature toggles</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Show / hide tabs for the team</div></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
-      <button class="btn mt-row" id="mt-delete" style="width:100%;margin-top:14px;text-align:left;padding:14px 14px;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06);display:flex;align-items:center;justify-content:space-between">
-        <span><div style="font-size:14px;font-weight:700;color:#ef4444">Delete team</div><div style="font-size:11px;color:rgba(239,68,68,.7);margin-top:2px;font-weight:500">Removes every member's team association</div></span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:#ef4444"><polyline points="9 18 15 12 9 6"/></svg>
+      <button class="btn mt-row" id="mt-delete" style="width:100%;margin-top:14px;text-align:left;padding:14px 14px;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06);display:flex;align-items:center;justify-content:space-between">
+        <span><div style="font-size:14px;font-weight:700;color:var(--destructive)">Delete team</div><div style="font-size:11px;color:rgba(var(--destructive-rgb),.7);margin-top:2px;font-weight:500">Removes every member's team association</div></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--destructive)"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
   `;
@@ -8510,7 +8526,7 @@ function openSubteamDetailSheet(subId) {
         <div style="font-size:13px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.displayName || 'Unknown')}${isSubCoach ? ' · <span style="color:var(--primary)">SUB-COACH</span>' : ''}</div>
         <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.email || '')}</div>
       </div>
-      <button class="sub-toggle" data-uid="${m.uid}" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid ${inSub ? 'rgba(34,197,94,.4)' : 'var(--border)'};background:${inSub ? 'rgba(34,197,94,.10)' : 'transparent'};color:${inSub ? '#22c55e' : 'var(--muted-fg)'};cursor:pointer">${inSub ? '✓ In' : '+ Add'}</button>
+      <button class="sub-toggle" data-uid="${m.uid}" style="padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid ${inSub ? 'rgba(var(--success-rgb),.4)' : 'var(--border)'};background:${inSub ? 'rgba(var(--success-rgb),.10)' : 'transparent'};color:${inSub ? '#22c55e' : 'var(--muted-fg)'};cursor:pointer">${inSub ? '✓ In' : '+ Add'}</button>
       ${inSub && !isSubCoach ? `<button class="sub-promote" data-uid="${m.uid}" title="Make sub-coach" style="padding:6px 8px;font-size:11px;border:1px solid var(--border);background:transparent;border-radius:8px;cursor:pointer;color:var(--muted-fg)">★</button>` : ''}
     </div>`;
   };
@@ -8521,7 +8537,7 @@ function openSubteamDetailSheet(subId) {
       ${teamMembers.filter(m => m.uid !== currentUser?.uid).map(renderMemberRow).join('') || '<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:12px">No team members to assign yet.</div>'}
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn" style="flex:1;color:#ef4444;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08)" id="subteam-delete-btn">Delete</button>
+      <button class="btn" style="flex:1;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.08)" id="subteam-delete-btn">Delete</button>
       <button class="btn btn-primary" style="flex:1" id="subteam-back-btn">Done</button>
     </div>
   `;
@@ -9244,7 +9260,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-r18';
+  const APP_VERSION = '20260430-r19';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9706,9 +9722,9 @@ function renderCoachRaceDay(el) {
       <div style="font-size:18px;font-weight:700;margin-bottom:8px">${isActive ? 'Race Day is LIVE' : 'Race Day Mode'}</div>
       <div style="font-size:13px;color:var(--muted-fg);margin-bottom:20px;line-height:1.5">${isActive ? 'All team members are in race day mode. Tap below to end.' : 'Activating race day mode locks all users into the race day interface for the day.'}</div>
       ${isActive
-        ? `<button id="coach-rd-end" style="width:100%;padding:14px;border-radius:12px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-weight:700;font-size:15px;cursor:pointer">End Race Day Mode</button>
+        ? `<button id="coach-rd-end" style="width:100%;padding:14px;border-radius:12px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;font-size:15px;cursor:pointer">End Race Day Mode</button>
            <button id="coach-rd-open" style="width:100%;padding:12px;border-radius:12px;background:var(--primary);color:var(--primary-fg);font-weight:700;font-size:14px;cursor:pointer;margin-top:8px">Open Race Day Interface</button>`
-        : `<button id="coach-rd-start" style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(34,197,94,.3)">🏁 Activate Race Day Mode</button>`
+        : `<button id="coach-rd-start" style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(var(--success-rgb),.3)">🏁 Activate Race Day Mode</button>`
       }
     </div>
   `;
@@ -9890,20 +9906,20 @@ function renderHealthTab() {
 
   // Stat cards
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">';
-  html += `<div style="text-align:center;padding:16px 8px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.1);border-radius:12px">
-    <div style="font-size:32px;font-weight:800;color:#ef4444">${h.latestHr || '--'}</div>
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(var(--destructive-rgb),.06);border:1px solid rgba(var(--destructive-rgb),.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:var(--destructive)">${h.latestHr || '--'}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">❤️ Heart Rate</div>
   </div>`;
   html += `<div style="text-align:center;padding:16px 8px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.1);border-radius:12px">
     <div style="font-size:32px;font-weight:800;color:#3b82f6">${h.restingHr || '--'}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">💓 Resting HR</div>
   </div>`;
-  html += `<div style="text-align:center;padding:16px 8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.1);border-radius:12px">
-    <div style="font-size:32px;font-weight:800;color:#22c55e">${h.latestSteps ? (h.latestSteps > 999 ? (h.latestSteps/1000).toFixed(1) + 'k' : h.latestSteps) : '--'}</div>
+  html += `<div style="text-align:center;padding:16px 8px;background:rgba(var(--success-rgb),.06);border:1px solid rgba(var(--success-rgb),.1);border-radius:12px">
+    <div style="font-size:32px;font-weight:800;color:var(--success)">${h.latestSteps ? (h.latestSteps > 999 ? (h.latestSteps/1000).toFixed(1) + 'k' : h.latestSteps) : '--'}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">👟 Steps</div>
   </div>`;
   html += `<div style="text-align:center;padding:16px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);border-radius:12px">
-    <div style="font-size:32px;font-weight:800;color:#a855f7">${h.latestSleep ? h.latestSleep + 'h' : '--'}</div>
+    <div style="font-size:32px;font-weight:800;color:var(--purple)">${h.latestSleep ? h.latestSleep + 'h' : '--'}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:4px">😴 Sleep</div>
   </div>`;
   html += '</div>';
@@ -9920,8 +9936,8 @@ function renderHealthTab() {
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <span style="font-size:11px;color:var(--muted-fg)">Avg: <strong style="color:var(--fg)">${Math.round(hrWorkouts.reduce((s,w)=>s+w.heartRate,0)/hrWorkouts.length)}</strong></span>
-        <span style="font-size:11px;color:var(--muted-fg)">Low: <strong style="color:#22c55e">${hrMin}</strong></span>
-        <span style="font-size:11px;color:var(--muted-fg)">High: <strong style="color:#ef4444">${hrMax}</strong></span>
+        <span style="font-size:11px;color:var(--muted-fg)">Low: <strong style="color:var(--success)">${hrMin}</strong></span>
+        <span style="font-size:11px;color:var(--muted-fg)">High: <strong style="color:var(--destructive)">${hrMax}</strong></span>
       </div>
       <div style="display:flex;align-items:end;gap:3px;height:80px">`;
     hrWorkouts.forEach(w => {
@@ -9938,9 +9954,9 @@ function renderHealthTab() {
     // HR zone legend
     html += `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
       <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3b82f6;margin-right:3px"></span>Low &lt;120</span>
-      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#22c55e;margin-right:3px"></span>Moderate 120-140</span>
-      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f59e0b;margin-right:3px"></span>Hard 140-160</span>
-      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ef4444;margin-right:3px"></span>Max &gt;160</span>
+      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--success);margin-right:3px"></span>Moderate 120-140</span>
+      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--warning);margin-right:3px"></span>Hard 140-160</span>
+      <span style="font-size:9px;color:var(--muted-fg)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--destructive);margin-right:3px"></span>Max &gt;160</span>
     </div>`;
     html += '</div>';
   }
@@ -10084,24 +10100,24 @@ function openHealthDashboard() {
   let html = '<div class="sheet-title">Health Dashboard</div>';
   // Current stats
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
-  if (h.latestHr) html += `<div style="text-align:center;padding:14px 8px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.1);border-radius:12px">
-    <div style="font-size:28px;font-weight:800;color:#ef4444">${h.latestHr}</div>
+  if (h.latestHr) html += `<div style="text-align:center;padding:14px 8px;background:rgba(var(--destructive-rgb),.06);border:1px solid rgba(var(--destructive-rgb),.1);border-radius:12px">
+    <div style="font-size:28px;font-weight:800;color:var(--destructive)">${h.latestHr}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Current HR</div>
   </div>`;
   if (h.restingHr) html += `<div style="text-align:center;padding:14px 8px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.1);border-radius:12px">
     <div style="font-size:28px;font-weight:800;color:#3b82f6">${h.restingHr}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Resting HR</div>
   </div>`;
-  if (h.latestSteps) html += `<div style="text-align:center;padding:14px 8px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.1);border-radius:12px">
-    <div style="font-size:28px;font-weight:800;color:#22c55e">${h.latestSteps > 999 ? (h.latestSteps / 1000).toFixed(1) + 'k' : h.latestSteps}</div>
+  if (h.latestSteps) html += `<div style="text-align:center;padding:14px 8px;background:rgba(var(--success-rgb),.06);border:1px solid rgba(var(--success-rgb),.1);border-radius:12px">
+    <div style="font-size:28px;font-weight:800;color:var(--success)">${h.latestSteps > 999 ? (h.latestSteps / 1000).toFixed(1) + 'k' : h.latestSteps}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Steps Today</div>
   </div>`;
   if (h.latestSleep) html += `<div style="text-align:center;padding:14px 8px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);border-radius:12px">
-    <div style="font-size:28px;font-weight:800;color:#a855f7">${h.latestSleep}h</div>
+    <div style="font-size:28px;font-weight:800;color:var(--purple)">${h.latestSleep}h</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Sleep</div>
   </div>`;
-  if (h.vo2max) html += `<div style="text-align:center;padding:14px 8px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.1);border-radius:12px">
-    <div style="font-size:28px;font-weight:800;color:#f59e0b">${h.vo2max}</div>
+  if (h.vo2max) html += `<div style="text-align:center;padding:14px 8px;background:rgba(var(--warning-rgb),.06);border:1px solid rgba(var(--warning-rgb),.1);border-radius:12px">
+    <div style="font-size:28px;font-weight:800;color:var(--warning)">${h.vo2max}</div>
     <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">VO2 Max</div>
   </div>`;
   html += '</div>';
@@ -10110,7 +10126,7 @@ function openHealthDashboard() {
     html += '<div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:8px">Workout Heart Rate</div>';
     html += `<div style="display:flex;gap:12px;margin-bottom:10px">
       ${avgHr ? `<div style="font-size:12px;color:var(--muted-fg)">Avg: <strong style="color:var(--fg)">${avgHr}</strong> bpm</div>` : ''}
-      ${maxHr ? `<div style="font-size:12px;color:var(--muted-fg)">Peak: <strong style="color:#ef4444">${maxHr}</strong> bpm</div>` : ''}
+      ${maxHr ? `<div style="font-size:12px;color:var(--muted-fg)">Peak: <strong style="color:var(--destructive)">${maxHr}</strong> bpm</div>` : ''}
     </div>`;
     // Simple bar chart of recent HR
     html += '<div style="display:flex;align-items:end;gap:3px;height:60px;margin-bottom:12px">';
@@ -10519,7 +10535,7 @@ function _ensureOfflineBanner() {
   if (document.getElementById('tp-offline-banner')) return;
   const el = document.createElement('div');
   el.id = 'tp-offline-banner';
-  el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:200;padding:6px 12px;background:rgba(245,158,11,.95);color:#0d0e12;font-size:12px;font-weight:700;text-align:center;letter-spacing:.04em';
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:200;padding:6px 12px;background:rgba(var(--warning-rgb),.95);color:#0d0e12;font-size:12px;font-weight:700;text-align:center;letter-spacing:.04em';
   el.textContent = '⚠ OFFLINE — saved actions will sync when you reconnect';
   document.body.appendChild(el);
   document.body.style.paddingTop = '26px';

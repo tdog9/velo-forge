@@ -46,7 +46,7 @@ export function renderAdmin() {
 
   const mo = A.globalSettings?.maintenanceMode;
   let html = '<div class="page-title" style="margin-bottom:8px">Admin</div>';
-  html += `<div id="admin-maintenance-bar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);display:flex;align-items:center;gap:10px">
+  html += `<div id="admin-maintenance-bar" style="margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(var(--destructive-rgb),.08);border:1px solid rgba(var(--destructive-rgb),.2);display:flex;align-items:center;gap:10px">
     <span style="font-size:13px;font-weight:600;flex:1;color:var(--fg)">🔧 Maintenance</span>
     <button id="quick-maintenance-toggle" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:${mo?'#ef4444':'var(--muted)'};color:${mo?'#fff':'var(--muted-fg)'}">${mo?'ON — Turn Off':'OFF — Turn On'}</button>
   </div>`;
@@ -124,7 +124,7 @@ async function renderAdminOverview() {
         <div style="font-size:11px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px;letter-spacing:.04em">Total Users</div>
       </div>
       <div class="card" style="padding:14px;text-align:center">
-        <div style="font-size:28px;font-weight:800;color:#22c55e">${activeToday}</div>
+        <div style="font-size:28px;font-weight:800;color:var(--success)">${activeToday}</div>
         <div style="font-size:11px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px;letter-spacing:.04em">Active Today</div>
       </div>
       <div class="card" style="padding:14px;text-align:center">
@@ -183,13 +183,13 @@ async function renderAdminRaceDay() {
     <div class="card" style="padding:14px;margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em">Today's Status</div>
-        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${rd?.active?'rgba(239,68,68,.12)':'rgba(255,255,255,.06)'};color:${rd?.active?'#ef4444':'var(--muted-fg)'}">${rd?.active?'● LIVE':'OFF'}</span>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;background:${rd?.active?'rgba(var(--destructive-rgb),.12)':'rgba(255,255,255,.06)'};color:${rd?.active?'#ef4444':'var(--muted-fg)'}">${rd?.active?'● LIVE':'OFF'}</span>
       </div>
       <div style="font-size:13px;color:var(--fg);margin-bottom:6px">${todayRace ? '🏁 ' + A.escHtml(todayRace.name) : 'No race scheduled today.'}</div>
       ${todayRace?.notes ? `<div style="font-size:11px;color:var(--muted-fg)">${A.escHtml(todayRace.notes)}</div>` : ''}
       <div style="display:flex;gap:8px;margin-top:12px">
         ${rd?.active
-          ? `<button class="btn btn-secondary" id="adm-rd-deactivate" style="flex:1;background:rgba(239,68,68,.15);color:#ef4444">■ End Race Day</button>`
+          ? `<button class="btn btn-secondary" id="adm-rd-deactivate" style="flex:1;background:rgba(var(--destructive-rgb),.15);color:var(--destructive)">■ End Race Day</button>`
           : `<button class="btn btn-primary" id="adm-rd-activate" style="flex:1">▶ Start Race Day${todayRace?' for '+A.escHtml(todayRace.name):''}</button>`}
       </div>
     </div>
@@ -210,7 +210,7 @@ async function renderAdminRaceDay() {
           return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
             <span style="flex:1;font-weight:600">${A.escHtml(s.displayName||s.uid)}</span>
             <span style="color:var(--muted-fg);font-size:11px">${s.laps?.length||0} laps</span>
-            <span style="font-family:var(--font-mono);color:#22c55e">${bestStr}</span>
+            <span style="font-family:var(--font-mono);color:var(--success)">${bestStr}</span>
           </div>`;
         }).join('')}
       <button class="btn btn-secondary" id="adm-rd-refresh" style="width:100%;margin-top:12px">↻ Refresh</button>
@@ -302,7 +302,7 @@ function renderAdminMaintenance() {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
           <button class="btn btn-primary" style="font-size:12px;background:linear-gradient(135deg,#22c55e,#16a34a);padding:10px" id="rd-activate-god">🏁 Activate</button>
-          <button class="btn btn-secondary" style="font-size:12px;color:#ef4444;border-color:rgba(239,68,68,.3);padding:10px" id="rd-deactivate-god">⬛ End</button>
+          <button class="btn btn-secondary" style="font-size:12px;color:var(--destructive);border-color:rgba(var(--destructive-rgb),.3);padding:10px" id="rd-deactivate-god">⬛ End</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
           <button class="btn btn-secondary" style="font-size:12px;padding:8px" id="rd-reset-map">🗺 Reset Map</button>
@@ -318,8 +318,8 @@ function renderAdminMaintenance() {
       ${errorLog.length === 0
         ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:16px">No errors logged.</div>'
         : errorLog.slice(-20).reverse().map(e => `
-          <div style="padding:8px 10px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:8px;margin-bottom:6px;font-size:11px;font-family:var(--font-mono)">
-            <div style="color:#ef4444;font-weight:600;margin-bottom:2px">${A.escHtml(e.message||'Unknown')}</div>
+          <div style="padding:8px 10px;background:rgba(var(--destructive-rgb),.06);border:1px solid rgba(var(--destructive-rgb),.15);border-radius:8px;margin-bottom:6px;font-size:11px;font-family:var(--font-mono)">
+            <div style="color:var(--destructive);font-weight:600;margin-bottom:2px">${A.escHtml(e.message||'Unknown')}</div>
             <div style="color:var(--muted-fg)">${A.escHtml(e.source||'')} · ${A.escHtml(e.timestamp||'')}</div>
           </div>`).join('')
       }
@@ -366,7 +366,7 @@ function renderAdminMaintenance() {
         const isActive = rdData?.active;
         if (badge) {
           badge.textContent = isActive ? '🔴 LIVE' : '⚪ Inactive';
-          badge.style.background = isActive ? 'rgba(239,68,68,.15)' : 'rgba(100,100,100,.15)';
+          badge.style.background = isActive ? 'rgba(var(--destructive-rgb),.15)' : 'rgba(100,100,100,.15)';
           badge.style.color = isActive ? '#ef4444' : 'var(--muted-fg)';
         }
 
@@ -449,7 +449,7 @@ export function renderHealthReports(el) {
     reports.slice(0,10).forEach(r => {
       const dt = new Date(r.timestamp).toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'});
       const ok = r.findingCount === 0;
-      html += `<div style="background:var(--card);border:1px solid ${ok?'var(--border)':'rgba(239,68,68,.2)'};border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px">
+      html += `<div style="background:var(--card);border:1px solid ${ok?'var(--border)':'rgba(var(--destructive-rgb),.2)'};border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
           <span style="font-size:11px;font-weight:700;color:${ok?'#22c55e':'#ef4444'}">${ok?'✓ PASSED':'✗ '+r.findingCount+' ISSUE'+(r.findingCount!==1?'S':'')}</span>
           <span style="font-size:11px;color:var(--muted-fg);flex:1">${dt}</span>
@@ -681,12 +681,12 @@ export async function renderCoachDashboard() {
     let html = `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${students.length} students registered</div>`;
 
     html += `<div style="display:flex;gap:8px;margin-bottom:12px">
-      <div style="flex:1;padding:10px;background:rgba(34,197,94,.1);border-radius:8px;text-align:center">
-        <div style="font-size:20px;font-weight:700;color:#22c55e">${activeCount}</div>
+      <div style="flex:1;padding:10px;background:rgba(var(--success-rgb),.1);border-radius:8px;text-align:center">
+        <div style="font-size:20px;font-weight:700;color:var(--success)">${activeCount}</div>
         <div style="font-size:10px;color:var(--muted-fg)">Trained in last 3 days</div>
       </div>
-      <div style="flex:1;padding:10px;background:rgba(239,68,68,.1);border-radius:8px;text-align:center">
-        <div style="font-size:20px;font-weight:700;color:#ef4444">${inactiveCount}</div>
+      <div style="flex:1;padding:10px;background:rgba(var(--destructive-rgb),.1);border-radius:8px;text-align:center">
+        <div style="font-size:20px;font-weight:700;color:var(--destructive)">${inactiveCount}</div>
         <div style="font-size:10px;color:var(--muted-fg)">No activity 7+ days</div>
       </div>
     </div>`;
@@ -694,8 +694,8 @@ export async function renderCoachDashboard() {
     // Inactive student alerts
     const inactiveStudents = students.filter(s => !s.lastActive || s.lastActive < sevenDaysAgo);
     if (inactiveStudents.length > 0) {
-      html += `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:13px;font-weight:600;color:#ef4444;margin-bottom:6px">⚠️ Students needing follow-up</div>
+      html += `<div style="background:rgba(var(--destructive-rgb),.08);border:1px solid rgba(var(--destructive-rgb),.2);border-radius:10px;padding:12px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;color:var(--destructive);margin-bottom:6px">⚠️ Students needing follow-up</div>
         <div style="font-size:12px;color:var(--muted-fg)">${inactiveStudents.map(s => escHtml(s.name) + ' (' + (s.lastActive ? Math.floor((now - s.lastActive) / 86400000) + 'd ago' : 'never') + ')').join(', ')}</div>
       </div>`;
     }
@@ -726,7 +726,7 @@ export async function renderCoachDashboard() {
       const isInactive = !s.lastActive || s.lastActive < sevenDaysAgo;
       const lastStr = s.lastActive ? timeAgo(s.lastActive) : 'Never';
       const tierColors = { basic:'#3b82f6', average:'#22c55e', intense:'#f97316' };
-      const borderStyle = isInactive ? 'border-color:rgba(239,68,68,.3)' : '';
+      const borderStyle = isInactive ? 'border-color:rgba(var(--destructive-rgb),.3)' : '';
       html += `<div class="coach-card" style="${borderStyle}">
         <div class="coach-card-top">
           <div class="coach-card-name">${escHtml(s.name)}</div>
@@ -740,7 +740,7 @@ export async function renderCoachDashboard() {
         </div>
         <div style="display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
           <button class="btn shoutout-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);color:var(--primary);border-radius:6px;cursor:pointer">👏 Shoutout</button>
-          <button class="btn nudge-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:#f59e0b;border-radius:6px;cursor:pointer">💬 Nudge</button>
+          <button class="btn nudge-btn" data-uid="${s.uid}" data-name="${escHtml(s.name)}" style="flex:1;padding:5px 8px;font-size:11px;font-weight:600;background:rgba(var(--warning-rgb),.08);border:1px solid rgba(var(--warning-rgb),.2);color:var(--warning);border-radius:6px;cursor:pointer">💬 Nudge</button>
         </div>
       </div>`;
     });
@@ -935,7 +935,7 @@ export async function renderCoachDashboard() {
     chHtml += `<div style="display:flex;gap:6px;margin-top:8px">
       <button id="ch-save-scores" class="btn btn-primary" style="flex:1;font-size:12px;padding:8px">Save Changes</button>
       <button id="ch-reset-scores" class="btn" style="font-size:12px;padding:8px;background:var(--surface);color:var(--muted-fg)">Reset Scores</button>
-      <button id="ch-end-challenge" class="btn" style="font-size:12px;padding:8px;background:rgba(239,68,68,.1);color:#ef4444">End</button>
+      <button id="ch-end-challenge" class="btn" style="font-size:12px;padding:8px;background:rgba(var(--destructive-rgb),.1);color:var(--destructive)">End</button>
     </div></div>`;
   } else {
     chHtml += '<div style="font-size:12px;color:var(--muted-fg);margin-bottom:8px">No active challenge. Create one below.</div>';
@@ -1092,7 +1092,7 @@ export async function renderCoachDashboard() {
         });
       }
     } catch(e) {
-      results.innerHTML = '<div style="color:#ef4444;font-size:12px">Error scanning: ' + escHtml(e.message) + '</div>';
+      results.innerHTML = '<div style="color:var(--destructive);font-size:12px">Error scanning: ' + escHtml(e.message) + '</div>';
       btn.textContent = 'Scan for Duplicates';
       btn.disabled = false;
       return;
@@ -1100,14 +1100,14 @@ export async function renderCoachDashboard() {
     btn.textContent = 'Scan for Duplicates';
     btn.disabled = false;
     if (totalDupes === 0) {
-      results.innerHTML = '<div style="color:#22c55e;font-size:12px;font-weight:600">✓ No duplicates found!</div>';
+      results.innerHTML = '<div style="color:var(--success);font-size:12px;font-weight:600">✓ No duplicates found!</div>';
       return;
     }
     let rHtml = '<div style="font-size:12px;color:var(--fg);margin-bottom:6px;font-weight:600">' + totalDupes + ' duplicate' + (totalDupes > 1 ? 's' : '') + ' found:</div>';
     dupeList.forEach((d, i) => {
       rHtml += '<div style="font-size:11px;color:var(--muted-fg);margin-bottom:2px">' + escHtml(d.userName) + ': "' + escHtml(d.dupeName) + '" on ' + d.dayKey + '</div>';
     });
-    rHtml += '<button id="cleanup-delete-btn" class="btn" style="margin-top:8px;font-size:12px;padding:8px 16px;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3)">Delete ' + totalDupes + ' Duplicate' + (totalDupes > 1 ? 's' : '') + '</button>';
+    rHtml += '<button id="cleanup-delete-btn" class="btn" style="margin-top:8px;font-size:12px;padding:8px 16px;background:rgba(var(--destructive-rgb),.1);color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3)">Delete ' + totalDupes + ' Duplicate' + (totalDupes > 1 ? 's' : '') + '</button>';
     results.innerHTML = rHtml;
     A.$('cleanup-delete-btn')?.addEventListener('click', async () => {
       const delBtn = A.$('cleanup-delete-btn');
@@ -1120,7 +1120,7 @@ export async function renderCoachDashboard() {
           deleted++;
         } catch(e) {}
       }
-      results.innerHTML = '<div style="color:#22c55e;font-size:12px;font-weight:600">✓ Deleted ' + deleted + ' duplicate' + (deleted > 1 ? 's' : '') + '</div>';
+      results.innerHTML = '<div style="color:var(--success);font-size:12px;font-weight:600">✓ Deleted ' + deleted + ' duplicate' + (deleted > 1 ? 's' : '') + '</div>';
     });
   });
 }
@@ -1154,6 +1154,7 @@ export function renderAdminAnnouncements() {
             <div class="admin-item-meta">${escHtml(a.message || '').substring(0, 80)}${(a.message||'').length > 80 ? '...' : ''}</div>
           </div>
           <button class="admin-toggle${a.active ? ' on' : ''}" data-ann-idx="${i}" title="${a.active ? 'Active' : 'Inactive'}"></button>
+          <button class="admin-del-btn" style="background:var(--secondary);color:var(--fg)" data-ann-edit="${i}">Edit</button>
           <button class="admin-del-btn" data-ann-del="${i}">Delete</button>
         </div>
       `;
@@ -1181,6 +1182,23 @@ export function renderAdminAnnouncements() {
     btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.annIdx);
       (A.adminAnnouncements||{})[idx].active = !(A.adminAnnouncements||{})[idx].active;
+      await saveAnnouncements();
+      renderAdminAnnouncements();
+    });
+  });
+
+  // Bind edits
+  el.querySelectorAll('[data-ann-edit]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.annEdit);
+      const list = A.adminAnnouncements || [];
+      const a = list[idx];
+      if (!a) return;
+      const title = prompt('Title:', a.title || '');
+      if (title === null) return;
+      const message = prompt('Message:', a.message || '');
+      if (message === null) return;
+      list[idx] = { ...a, title: title.trim() || a.title, message: message.trim() || a.message, updatedAt: new Date().toISOString() };
       await saveAnnouncements();
       renderAdminAnnouncements();
     });
@@ -1286,9 +1304,9 @@ export function renderAdminTraining() {
         <div style="font-size:12px;color:var(--muted-fg);margin-bottom:2px">${s.time || ''}${s.endTime ? ' - ' + s.endTime : ''}${s.location ? ' · ' + escHtml(s.location) : ''}</div>
         ${s.notes ? '<div style="font-size:11px;color:var(--muted-fg);line-height:1.4;margin-bottom:6px">' + escHtml(s.notes) + '</div>' : ''}
         <div style="display:flex;gap:6px">
-          <button class="btn ts-notify-btn" data-ts-id="${s.id}" style="flex:1;padding:6px;font-size:11px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:#a855f7;border-radius:6px">📢 Notify All</button>
+          <button class="btn ts-notify-btn" data-ts-id="${s.id}" style="flex:1;padding:6px;font-size:11px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:var(--purple);border-radius:6px">📢 Notify All</button>
           <button class="btn ts-edit-btn" data-ts-id="${s.id}" style="padding:6px 10px;font-size:11px;background:var(--surface);border:1px solid var(--border);color:var(--fg);border-radius:6px">Edit</button>
-          <button class="btn ts-delete-btn" data-ts-id="${s.id}" style="padding:6px 10px;font-size:11px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#ef4444;border-radius:6px">Delete</button>
+          <button class="btn ts-delete-btn" data-ts-id="${s.id}" style="padding:6px 10px;font-size:11px;background:rgba(var(--destructive-rgb),.08);border:1px solid rgba(var(--destructive-rgb),.2);color:var(--destructive);border-radius:6px">Delete</button>
         </div>
       </div>`;
     });
@@ -1681,13 +1699,19 @@ export function renderAdminRaces() {
   } else {
     html += '<div class="card">';
     races.forEach((r, i) => {
+      const isPast = r.date && r.date < (new Date()).toISOString().slice(0,10);
+      const archived = !!r.archived;
       html += `
-        <div class="admin-item">
+        <div class="admin-item" style="${archived ? 'opacity:.55' : ''}">
           <div class="admin-item-info">
-            <div class="admin-item-title">${escHtml(r.name)}</div>
-            <div class="admin-item-meta">${r.date} · ${escHtml(r.location || '')} · ${r.distance}km</div>
+            <div class="admin-item-title">${escHtml(r.name)}${archived ? ' <span style="font-size:10px;color:var(--muted-fg);font-weight:600">(archived)</span>' : ''}</div>
+            <div class="admin-item-meta">${r.date} · ${escHtml(r.location || '')} · ${r.distance}km${isPast ? ' · past' : ''}</div>
           </div>
-          <button class="admin-del-btn" data-race-del="${i}">Delete</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="admin-del-btn" style="background:var(--secondary);color:var(--fg)" data-race-edit="${i}">Edit</button>
+            <button class="admin-del-btn" style="background:var(--secondary);color:var(--fg)" data-race-archive="${i}">${archived ? 'Unarchive' : 'Archive'}</button>
+            <button class="admin-del-btn" data-race-del="${i}">Delete</button>
+          </div>
         </div>
       `;
     });
@@ -1709,6 +1733,45 @@ export function renderAdminRaces() {
     A.adminRaces = newRaces;
     await saveRaces();
     renderAdminRaces();
+  });
+
+  // Bind edit (uses prompt for now — quick win, no full sheet
+  // until a coach asks for it).
+  el.querySelectorAll('[data-race-edit]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.raceEdit);
+      const list = [...(A.adminRaces || A.RACES)];
+      const r = list[idx];
+      if (!r) return;
+      const name = prompt('Race name:', r.name);
+      if (name === null) return;
+      const date = prompt('Date (YYYY-MM-DD):', r.date);
+      if (date === null) return;
+      const location = prompt('Location:', r.location || '');
+      if (location === null) return;
+      const distanceStr = prompt('Distance (km):', String(r.distance || ''));
+      if (distanceStr === null) return;
+      list[idx] = { ...r, name: name.trim() || r.name, date: date.trim() || r.date,
+                    location: location.trim(), distance: parseInt(distanceStr) || r.distance };
+      list.sort((a, b) => a.date.localeCompare(b.date));
+      A.adminRaces = list;
+      await saveRaces();
+      renderAdminRaces();
+    });
+  });
+
+  // Bind archive — soft-hides past races so the upcoming list stays
+  // tidy without losing history.
+  el.querySelectorAll('[data-race-archive]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.raceArchive);
+      const list = [...(A.adminRaces || A.RACES)];
+      if (!list[idx]) return;
+      list[idx] = { ...list[idx], archived: !list[idx].archived };
+      A.adminRaces = list;
+      await saveRaces();
+      renderAdminRaces();
+    });
   });
 
   // Bind deletes
@@ -2616,7 +2679,7 @@ async function renderAdminRequests() {
     const snap = await A.getDocs(A.collection(A.db, 'team_requests'));
     requests = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
     requests.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-  } catch(e) { el.innerHTML = '<div style="padding:20px;color:#ef4444">Failed to load requests.</div>'; return; }
+  } catch(e) { el.innerHTML = '<div style="padding:20px;color:var(--destructive)">Failed to load requests.</div>'; return; }
 
   // Coach Pro requests render in the same admin tab. Render section first
   // (its DOM is replaced by renderAdminCoachProRequests below) so admins
@@ -2640,14 +2703,14 @@ async function renderAdminRequests() {
             <div style="font-size:15px;font-weight:700">${A.escHtml(r.clubName||'')}</div>
             <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${A.escHtml(r.coachName||'')} · ${A.escHtml(r.coachEmail||'')}</div>
           </div>
-          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${isApproved?'rgba(34,197,94,.15)':'rgba(249,115,22,.15)'};color:${isApproved?'#22c55e':'#f97316'}">${isApproved?'Approved':'Pending'}</span>
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${isApproved?'rgba(var(--success-rgb),.15)':'rgba(249,115,22,.15)'};color:${isApproved?'#22c55e':'#f97316'}">${isApproved?'Approved':'Pending'}</span>
         </div>
         ${r.clubDesc ? `<div style="font-size:13px;color:var(--muted-fg);margin-bottom:10px">${A.escHtml(r.clubDesc)}</div>` : ''}
         ${isPending ? `
           <button class="btn btn-primary" style="width:100%;font-size:13px" data-approve-req="${r._id}" data-club-name="${A.escHtml(r.clubName||'')}" data-club-desc="${A.escHtml(r.clubDesc||'')}" data-coach-uid="${A.escHtml(r.coachUid||'')}" data-coach-email="${A.escHtml(r.coachEmail||'')}">
             ✓ Approve & Create Team
           </button>
-        ` : '<div style="font-size:12px;color:#22c55e;text-align:center">✓ Team created and live</div>'}
+        ` : '<div style="font-size:12px;color:var(--success);text-align:center">✓ Team created and live</div>'}
       </div>
     `;
   });
@@ -2720,7 +2783,7 @@ async function renderAdminCoachProRequests() {
       return tb - ta;
     });
   } catch(e) {
-    el.innerHTML = '<div style="padding:16px;color:#ef4444;font-size:13px">Failed to load Coach Pro requests: ' + (e.message || '') + '</div>';
+    el.innerHTML = '<div style="padding:16px;color:var(--destructive);font-size:13px">Failed to load Coach Pro requests: ' + (e.message || '') + '</div>';
     return;
   }
 
@@ -2736,7 +2799,7 @@ async function renderAdminCoachProRequests() {
     const statusInfo = {
       pending:                   { label: 'Pending',           color: '#f97316', bg: 'rgba(249,115,22,.15)' },
       approved_pending_payment:  { label: 'Approved (billing)', color: '#3b82f6', bg: 'rgba(59,130,246,.15)' },
-      exempt:                    { label: 'Free (exempt)',     color: '#22c55e', bg: 'rgba(34,197,94,.15)' },
+      exempt:                    { label: 'Free (exempt)',     color: '#22c55e', bg: 'rgba(var(--success-rgb),.15)' },
       denied:                    { label: 'Denied',            color: '#9ca3af', bg: 'rgba(156,163,175,.15)' },
     }[status] || { label: status, color: '#9ca3af', bg: 'rgba(156,163,175,.15)' };
     const isPending = status === 'pending';
@@ -2754,11 +2817,11 @@ async function renderAdminCoachProRequests() {
         ${isPending ? `
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn btn-primary" style="flex:1;min-width:140px;font-size:12px;padding:8px 10px" data-pro-approve-bill="${r._id}">Approve & Bill ($2.99/mo)</button>
-            <button class="btn" style="flex:1;min-width:100px;font-size:12px;padding:8px 10px;background:rgba(34,197,94,.18);color:#22c55e;border:1px solid rgba(34,197,94,.4)" data-pro-grant-free="${r._id}">Grant Free</button>
+            <button class="btn" style="flex:1;min-width:100px;font-size:12px;padding:8px 10px;background:rgba(var(--success-rgb),.18);color:var(--success);border:1px solid rgba(var(--success-rgb),.4)" data-pro-grant-free="${r._id}">Grant Free</button>
             <button class="btn" style="flex:1;min-width:80px;font-size:12px;padding:8px 10px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)" data-pro-deny="${r._id}">Deny</button>
           </div>
         ` : (status === 'exempt' || status === 'approved_pending_payment') ? `
-          <button class="btn" style="width:100%;font-size:12px;padding:8px;background:var(--surface);color:#ef4444;border:1px solid var(--border)" data-pro-revoke="${r._id}">Revoke Coach Pro</button>
+          <button class="btn" style="width:100%;font-size:12px;padding:8px;background:var(--surface);color:var(--destructive);border:1px solid var(--border)" data-pro-revoke="${r._id}">Revoke Coach Pro</button>
         ` : ''}
       </div>
     `;

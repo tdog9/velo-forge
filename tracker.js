@@ -55,16 +55,23 @@ export function openActivityTracker() {
     </div>`;
   document.body.appendChild(overlay);
 
+  // Pull the live primary accent so the GPS line tracks Dark / Light /
+  // Venom themes (was hard-coded `#BFFF00` neon-green which clashed
+  // against the orange UI and was invisible on light tiles).
+  const accent = (typeof getComputedStyle !== 'undefined')
+    ? (getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#f97316')
+    : '#f97316';
+
   setTimeout(() => {
     try {
       if (typeof L !== 'undefined') {
         trackerMap = L.map('tracker-map-el', { zoomControl: false, attributionControl: false }).setView([-37.81, 144.96], 15);
         L.tileLayer(ctx.getMapTileUrl(), { maxZoom: 19 }).addTo(trackerMap);
-        trackerPolyline = L.polyline([], { color: '#BFFF00', weight: 4, opacity: 0.9 }).addTo(trackerMap);
+        trackerPolyline = L.polyline([], { color: accent, weight: 4, opacity: 0.9 }).addTo(trackerMap);
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(pos => {
             trackerMap.setView([pos.coords.latitude, pos.coords.longitude], 16);
-            trackerMarker = L.circleMarker([pos.coords.latitude, pos.coords.longitude], { radius: 8, fillColor: '#BFFF00', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
+            trackerMarker = L.circleMarker([pos.coords.latitude, pos.coords.longitude], { radius: 8, fillColor: accent, fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
           }, () => {}, { enableHighAccuracy: true });
         }
       } else {
@@ -118,7 +125,7 @@ function startTracking() {
             const ll = [latitude, longitude];
             trackerPolyline.addLatLng(ll);
             if (trackerMarker) trackerMarker.setLatLng(ll);
-            else if (typeof L !== 'undefined') trackerMarker = L.circleMarker(ll, { radius: 8, fillColor: '#BFFF00', fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
+            else if (typeof L !== 'undefined') trackerMarker = L.circleMarker(ll, { radius: 8, fillColor: accent, fillOpacity: 1, color: '#fff', weight: 2 }).addTo(trackerMap);
             trackerMap.panTo(ll);
           }
         } catch(e) {}
@@ -310,12 +317,15 @@ export function openActivityDetail(workoutIdx) {
   document.body.appendChild(ov);
 
   if (hasRoute && typeof L !== 'undefined') {
+    const accent2 = (typeof getComputedStyle !== 'undefined')
+      ? (getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#f97316')
+      : '#f97316';
     setTimeout(() => {
       try {
         const m = L.map('ad-map',{zoomControl:false,attributionControl:false});
         L.tileLayer(ctx.getMapTileUrl(),{maxZoom:18}).addTo(m);
         const ll = route.map(p=>[p[0],p[1]]);
-        const pl = L.polyline(ll,{color:'#BFFF00',weight:4,opacity:0.9}).addTo(m);
+        const pl = L.polyline(ll,{color:accent2,weight:4,opacity:0.9}).addTo(m);
         L.circleMarker(ll[0],{radius:7,fillColor:'#22c55e',fillOpacity:1,color:'#fff',weight:2}).addTo(m);
         L.circleMarker(ll[ll.length-1],{radius:7,fillColor:'#ef4444',fillOpacity:1,color:'#fff',weight:2}).addTo(m);
         m.fitBounds(pl.getBounds(),{padding:[20,20]});
