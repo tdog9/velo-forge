@@ -6682,7 +6682,9 @@ function renderTeamTab(c) {
   }
   const activeFilter = window._teamLbFilter;
   if (subteams.length > 0) {
-    const tabHtml = (label, key) => `<button class="lb-filter-tab${activeFilter === key ? ' active' : ''}" data-lb-filter="${escHtml(key)}" style="padding:6px 12px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid ${activeFilter === key ? 'var(--primary)' : 'var(--border)'};background:${activeFilter === key ? 'rgba(249,115,22,.12)' : 'transparent'};color:${activeFilter === key ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer;white-space:nowrap">${escHtml(label)}</button>`;
+    // Active state driven by .active class — was 9 inline declarations
+    // computed per render. CSS rule lives in layout-fix.css.
+    const tabHtml = (label, key) => `<button class="lb-filter-tab${activeFilter === key ? ' active' : ''}" data-lb-filter="${escHtml(key)}">${escHtml(label)}</button>`;
     const tabs = [tabHtml('Whole team', 'all')]
       .concat(subteams.map(s => tabHtml(s.name, s.id)));
     html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:4px 0;margin-bottom:10px;-webkit-overflow-scrolling:touch">${tabs.join('')}</div>`;

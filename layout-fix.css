@@ -1340,6 +1340,29 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   color:#ef4444;
 }
 
+/* Subteam filter pills on the Team page. Was rendered with 9 inline
+   declarations per pill, computed per-render with conditional
+   border / background / color. Class-based states are easier to
+   theme + scan. */
+.lb-filter-tab{
+  padding:6px 12px;
+  border-radius:99px;
+  font-size:12px;
+  font-weight:700;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--muted-fg);
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background .14s ease, color .14s ease, border-color .14s ease;
+}
+.lb-filter-tab:hover{ color:var(--fg); }
+.lb-filter-tab.active{
+  border-color:var(--primary);
+  background:var(--primary-soft);
+  color:var(--primary);
+}
+
 /* ============================================================
    BLUR KILL SWITCH
    Belt-and-braces — every fixed/sticky element on this app used to
