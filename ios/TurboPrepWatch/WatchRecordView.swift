@@ -116,12 +116,6 @@ struct RaceDayLapView: View {
     @EnvironmentObject private var state: WatchAppState
     @StateObject private var health = HealthKitService()
     @StateObject private var locator = WatchLocationService()
-    // HKWorkoutSession keeps the watch screen awake throughout the
-    // stint without the user needing to tap to wake before each lap.
-    // Was a major UX gap — the screen sleeped mid-race because we were
-    // only streaming HR via HealthKitService, which doesn't take an
-    // extended-runtime lock the way a workout session does.
-    @StateObject private var raceSession = WorkoutSessionService()
     @State private var lapStartedAt: Date = Date()
     @State private var now: Date = Date()
     // Timer is connected only while the view is visible; .autoconnect() on
@@ -311,19 +305,12 @@ struct RaceDayLapView: View {
                 health.startHeartRateStreaming()
             }
             locator.start()
-            // Start the HK workout session so watchOS keeps the screen
-            // awake + GPS active throughout the stint. Idempotent —
-            // start() guards on isActive.
-            await raceSession.start()
         }
         .onDisappear {
             tickCancellable?.cancel()
             tickCancellable = nil
             health.stopHeartRateStreaming()
             locator.stop()
-            // End the workout session so the activity ring + HKWorkout
-            // record reflects the stint duration. Fire-and-forget.
-            Task { await raceSession.end() }
         }
     }
 
