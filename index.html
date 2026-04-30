@@ -14,7 +14,7 @@
 <meta property="og:url" content="https://turboprep.app">
 <title>TurboPrep — HPR Training</title>
 <script>
-(function(){var VER='3.5.18-localDateKey',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
+(function(){var VER='3.5.21-restore-features',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
 </script>
 <script>
 (function(){
@@ -92,7 +92,27 @@
       <input class="input" type="password" id="login-password" placeholder="Your password" autocomplete="current-password">
     </div>
     <button class="btn btn-primary" style="width:100%;margin-top:4px" id="login-btn">Log In</button>
+    <div class="auth-switch"><a id="show-forgot">Forgot password?</a></div>
     <div class="auth-switch">No account? <a id="show-signup">Create one</a></div>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD -->
+<div id="auth-forgot" class="auth-screen hidden">
+  <div class="auth-identity">
+    <div class="auth-logo-mark">T</div>
+    <div class="auth-wordmark"><span>TURBO</span><span class="auth-wordmark-2">PREP</span></div>
+    <div class="auth-tagline">Reset your password</div>
+  </div>
+  <div class="auth-card">
+    <div id="forgot-error" class="auth-error hidden"></div>
+    <div id="forgot-success" class="auth-success hidden">Reset email sent. Check your inbox.</div>
+    <div class="form-group">
+      <label class="label" for="forgot-email">Email</label>
+      <input class="input" type="email" id="forgot-email" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px" id="forgot-btn">Send reset email</button>
+    <div class="auth-switch">Remembered? <a id="show-login-from-forgot">Back to login</a></div>
   </div>
 </div>
 
@@ -210,11 +230,11 @@
     <div id="page-today" class="page active"><div id="today-content"></div></div>
     <div id="page-fitness" class="page">
       <div class="fitness-sub-bar-sticky">
-        <div id="fitness-tabs" class="fitness-sub-bar" style="display:flex;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)">
-          <button class="fitness-sub-tab active" data-fitness-sub="workouts" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--primary);color:var(--primary-fg);border:none;cursor:pointer;transition:all .15s">Activities</button>
-          <button class="fitness-sub-tab" data-fitness-sub="plans" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Plans</button>
-          <button class="fitness-sub-tab" data-fitness-sub="health" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Health</button>
-          <button class="fitness-sub-tab" data-fitness-sub="demos" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;background:var(--secondary);color:var(--secondary-fg);border:none;cursor:pointer;transition:all .15s">Demos</button>
+        <div id="fitness-tabs" class="fitness-sub-bar" role="tablist" aria-label="Fitness views">
+          <button class="fitness-sub-tab active" data-fitness-sub="workouts" role="tab" aria-selected="true">Activities</button>
+          <button class="fitness-sub-tab" data-fitness-sub="plans" role="tab" aria-selected="false">Plans</button>
+          <button class="fitness-sub-tab" data-fitness-sub="health" role="tab" aria-selected="false">Health</button>
+          <button class="fitness-sub-tab" data-fitness-sub="demos" role="tab" aria-selected="false">Demos</button>
         </div>
       </div>
       <div id="workouts-content"></div>
@@ -392,6 +412,6 @@ if(window.location.search.includes('nuke=true')){
   Promise.all(p).then(function(){setTimeout(function(){window.location.href=window.location.pathname;},1500)}).catch(function(){setTimeout(function(){window.location.href=window.location.pathname;},1500)});
 }
 </script>
-<script type="module" src="app.js?v=3.5.18-localDateKey"></script>
+<script type="module" src="app.js?v=3.5.21-restore-features"></script>
 </body>
 </html>

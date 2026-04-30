@@ -51,7 +51,7 @@ let startAiPlanEdit = () => {}, sendAiPlanEdit = async () => {},
     initAiFeatures = () => {};
 let ALL_PLANS = [];
 let initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-    createUserWithEmailAndPassword, signOut, updateProfile,
+    createUserWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail,
     getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
     doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit,
     onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs,
@@ -146,7 +146,7 @@ Promise.allSettled([
 
 if (fbAppRes.status === 'fulfilled' && fbAuthRes.status === 'fulfilled' && fbFsRes.status === 'fulfilled') {
   initializeApp = fbAppRes.value.initializeApp;
-  ({ getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } = fbAuthRes.value);
+  ({ getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail } = fbAuthRes.value);
   ({ getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, addDoc, deleteDoc, serverTimestamp, Timestamp, where, getDocs, arrayUnion, arrayRemove } = fbFsRes.value);
 } else {
   console.error('Firebase SDK failed:', fbAppRes.reason || fbAuthRes.reason || fbFsRes.reason);
@@ -1125,7 +1125,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-localDateKey';
+const APP_VERSION = '20260430-restore-features';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1431,6 +1431,7 @@ function hideLoading() { hide('loading-overlay'); }
 function showAuthLogin() {
   show('auth-login');
   hide('auth-signup');
+  hide('auth-forgot');
   hide('main-app');
   hide('login-error');
   hide('ai-fab');
@@ -1439,12 +1440,28 @@ function showAuthLogin() {
 function showAuthSignup() {
   hide('auth-login');
   show('auth-signup');
+  hide('auth-forgot');
   hide('main-app');
   hide('signup-error');
   hide('ai-fab');
   $('signup-btn').disabled = false;
   // Load available teams into dropdown
   loadSignupTeams();
+}
+function showAuthForgot() {
+  hide('auth-login');
+  hide('auth-signup');
+  show('auth-forgot');
+  hide('main-app');
+  hide('forgot-error');
+  hide('forgot-success');
+  hide('ai-fab');
+  const fb = $('forgot-btn');
+  if (fb) fb.disabled = false;
+  // Pre-fill from login email if set
+  const loginEmail = $('login-email')?.value?.trim();
+  const fEmail = $('forgot-email');
+  if (fEmail && loginEmail && !fEmail.value) fEmail.value = loginEmail;
 }
 async function loadSignupTeams() {
   const select = $('signup-team');
@@ -1511,6 +1528,36 @@ function showMainApp() {
 // Auth event listeners
 $('show-signup')?.addEventListener('click', showAuthSignup);
 $('show-login')?.addEventListener('click', showAuthLogin);
+$('show-forgot')?.addEventListener('click', showAuthForgot);
+$('show-login-from-forgot')?.addEventListener('click', showAuthLogin);
+$('forgot-btn')?.addEventListener('click', async () => {
+  const email = $('forgot-email')?.value?.trim();
+  const errBox = $('forgot-error');
+  const okBox = $('forgot-success');
+  hide('forgot-error');
+  hide('forgot-success');
+  if (!email) {
+    errBox.textContent = 'Enter your email address.';
+    show('forgot-error');
+    return;
+  }
+  if (!auth || !sendPasswordResetEmail) {
+    errBox.textContent = 'Auth not loaded — check your connection.';
+    show('forgot-error');
+    return;
+  }
+  const btn = $('forgot-btn');
+  btn.disabled = true;
+  try {
+    await sendPasswordResetEmail(auth, email);
+    show('forgot-success');
+  } catch (e) {
+    btn.disabled = false;
+    errBox.textContent = friendlyError(e.code) || 'Couldn\'t send reset email.';
+    show('forgot-error');
+  }
+});
+$('forgot-email')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('forgot-btn').click(); });
 $('demo-mode-btn')?.addEventListener('click', enterDemoMode);
 // Role selector toggle
 document.querySelectorAll('.role-btn').forEach(btn => {
@@ -2140,28 +2187,28 @@ function renderFitness() {
   document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.fitnessSub === fitnessSubTab);
   });
-  // Show/hide content areas
+  // Show/hide content areas — guard each lookup so a missing container
+  // (e.g. an old SW-cached HTML) can't blank the whole tab.
   const wc = $('workouts-content');
   const pc = $('plans-content');
   const hc = $('health-content');
   const dc = $('demos-content');
-  wc.style.display = 'none';
-  pc.style.display = 'none';
-  hc.style.display = 'none';
-  dc.style.display = 'none';
-  
+  if (wc) wc.style.display = 'none';
+  if (pc) pc.style.display = 'none';
+  if (hc) hc.style.display = 'none';
+  if (dc) dc.style.display = 'none';
+
   if (fitnessSubTab === 'workouts') {
-    wc.style.display = '';
-    
+    if (wc) wc.style.display = '';
     renderWorkouts();
   } else if (fitnessSubTab === 'plans') {
-    pc.style.display = '';
+    if (pc) pc.style.display = '';
     renderPlans();
   } else if (fitnessSubTab === 'health') {
-    hc.style.display = '';
+    if (hc) hc.style.display = '';
     renderHealthTab();
   } else if (fitnessSubTab === 'demos') {
-    dc.style.display = '';
+    if (dc) dc.style.display = '';
     renderDemonstration();
   }
 }
@@ -6279,6 +6326,17 @@ function renderTeam() {
       if (userProfile?.teamId && typeof subscribeTeamChat === 'function') {
         subscribeTeamChat(userProfile.teamId, () => {
           if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
+        }, (err) => {
+          // Surface a real "connection lost" message in the chat error
+          // bar so users don't sit staring at an empty scroll forever.
+          const errBox = document.getElementById('team-chat-error');
+          if (errBox) {
+            const msg = err?.code === 'permission-denied'
+              ? 'You don\'t have permission to read this team\'s chat. Reload the app.'
+              : 'Chat connection lost — check your internet and try again.';
+            errBox.textContent = msg;
+            errBox.hidden = false;
+          }
         });
       }
     }
@@ -9064,7 +9122,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-localDateKey';
+  const APP_VERSION = '20260430-restore-features';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

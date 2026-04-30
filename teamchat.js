@@ -35,7 +35,9 @@ export function isMessageClean(text) {
 }
 
 /// Subscribe to live chat updates. Returns the unsubscribe fn.
-export function subscribeTeamChat(teamId, onUpdate) {
+/// onError(err) is called when Firestore can't keep the listener alive
+/// (perms denied, offline, etc.) so the UI can show "Chat connection lost".
+export function subscribeTeamChat(teamId, onUpdate, onError) {
   unsubscribeTeamChat();
   if (!A.db || !teamId) return null;
   try {
@@ -49,9 +51,14 @@ export function subscribeTeamChat(teamId, onUpdate) {
       try { onUpdate?.(chatCache); } catch(e) {}
     }, (err) => {
       console.warn('chat listener:', err);
+      try { onError?.(err); } catch(e) {}
     });
     return chatUnsub;
-  } catch(e) { console.warn('subscribeTeamChat:', e); return null; }
+  } catch(e) {
+    console.warn('subscribeTeamChat:', e);
+    try { onError?.(e); } catch(_) {}
+    return null;
+  }
 }
 
 export function unsubscribeTeamChat() {
