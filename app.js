@@ -1270,25 +1270,8 @@ const ADMIN_EMAIL = 'hearn.tenny@icloud.com';
 // globalSettings.defaultTeamId when a different team should be the
 // implicit destination.
 const DEFAULT_TEAM_ID = 'strava-club-1113130'; // Caulfield Grammar — HPR Team
-// Coach Pro entitlement check. The god-admin always has Pro; everyone else
-// must have coachProActive set true on their userProfile (the admin grants
-// this either via "Approve & Bill" once StoreKit ships, or "Grant Free" for
-// exempt comp accounts).
-function isCoachPro(profile) {
-  const p = profile || (typeof userProfile !== 'undefined' ? userProfile : null);
-  if (!p) return false;
-  if (currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-    // Admin can preview the base-tier UI by flipping a localStorage flag —
-    // useful for sanity-checking what regular coaches see without paying.
-    try { if (localStorage.getItem('tp_admin_view_base') === '1') return false; } catch(e) {}
-    return true;
-  }
-  return p.coachProActive === true;
-}
-function coachProRequestStatus(profile) {
-  const p = profile || (typeof userProfile !== 'undefined' ? userProfile : null);
-  return p?.coachProRequestStatus || 'none';
-}
+// (isCoachPro / coachProRequestStatus removed with the rest of the
+// Pro paywall — every coach now has access to every coach sub-tab.)
 let globalSettings = {}; // Live settings from Firestore global_settings/config — controlled by ADMIN_EMAIL
 let adminAnnouncements = [];
 let adminRaces = null; // null = use hardcoded, array = use Firestore
@@ -5104,6 +5087,15 @@ function renderWorkouts() {
 // Record moved to nav tab
 function openWorkoutSheet() {
   const today = localDateKey();
+  // Workout types collapsed from 7 (HPR / Ride / Run / Treadmill /
+  // Strength / Cardio / Flexibility) to 3 (HPR / Ride / Other) per
+  // simplification audit. The previous 4 type-specific clusters
+  // (treadmill incline, strength exercises textarea, cardio activity,
+  // flexibility focus area) added form-cruft for marginal benefit —
+  // a free-text "Other" type with name + duration + optional distance
+  // covers everything outside the core sport. Existing logged
+  // workouts with the legacy types still render correctly; only the
+  // new-log picker is simpler.
   function getTypeFields(type) {
     const fields = {
       HPR: { name: 'HPR Session', fields: `
@@ -5115,23 +5107,10 @@ function openWorkoutSheet() {
       Ride: { name: 'Ride', fields: `
         <div class="form-row"><div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="45" min="1"></div><div class="form-group"><label class="label">Distance (km)</label><input class="input" type="number" id="wo-distance" placeholder="Optional" min="0" step="0.1"></div></div>
         <div class="form-row"><div class="form-group"><label class="label">Avg Speed (km/h)</label><input class="input" type="number" id="wo-speed" placeholder="Optional" min="0" step="0.1"></div><div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div></div>` },
-      Run: { name: 'Run', fields: `
-        <div class="form-row"><div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="30" min="1"></div><div class="form-group"><label class="label">Distance (km)</label><input class="input" type="number" id="wo-distance" placeholder="5.0" min="0" step="0.1"></div></div>
-        <div class="form-row"><div class="form-group"><label class="label">Avg Pace (min/km)</label><input class="input" type="text" id="wo-pace" placeholder="e.g. 5:30"></div><div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div></div>` },
-      Treadmill: { name: 'Treadmill Run', fields: `
+      Other: { name: 'Workout', fields: `
         <div class="form-row"><div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="30" min="1"></div><div class="form-group"><label class="label">Distance (km)</label><input class="input" type="number" id="wo-distance" placeholder="Optional" min="0" step="0.1"></div></div>
-        <div class="form-row"><div class="form-group"><label class="label">Speed (km/h)</label><input class="input" type="number" id="wo-speed" placeholder="e.g. 10" min="0" step="0.1"></div><div class="form-group"><label class="label">Incline (%)</label><input class="input" type="number" id="wo-incline" placeholder="e.g. 2" min="0" step="0.5"></div></div>
-        <div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div>` },
-      Strength: { name: 'Strength Session', fields: `
-        <div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="45" min="1"></div>
-        <div class="form-group"><label class="label">Exercises</label><textarea class="input" id="wo-exercises" rows="3" placeholder="e.g. Squats 3x12, Push-ups 3x15, Plank 3x30s"></textarea><div style="font-size:10px;color:var(--muted-fg);margin-top:2px">List what you did — sets x reps or time</div></div>
-        <div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div>` },
-      Cardio: { name: 'Cardio Session', fields: `
-        <div class="form-row"><div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="30" min="1"></div><div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div></div>
-        <div class="form-group"><label class="label">Activity</label><input class="input" type="text" id="wo-activity" placeholder="e.g. Skipping, rowing, swimming"></div>` },
-      Flexibility: { name: 'Flexibility / Mobility', fields: `
-        <div class="form-group"><label class="label">Duration (min)</label><input class="input" type="number" id="wo-duration" placeholder="20" min="1"></div>
-        <div class="form-group"><label class="label">Focus Area</label><input class="input" type="text" id="wo-activity" placeholder="e.g. Hips, hamstrings, full body"></div>` }
+        <div class="form-group"><label class="label">What did you do?</label><input class="input" type="text" id="wo-activity" placeholder="e.g. Run, gym, swim, mobility"></div>
+        <div class="form-group"><label class="label">Avg Heart Rate</label><input class="input" type="number" id="wo-hr" placeholder="Optional" min="0"></div>` }
     };
     return fields[type] || fields.Ride;
   }
@@ -5141,11 +5120,8 @@ function openWorkoutSheet() {
       <div class="sheet-title">Log Workout</div>
       <div class="form-group">
         <label class="label" for="wo-type">Type</label>
-        <div style="display:flex;gap:4px;flex-wrap:wrap" id="wo-type-btns">
-          ${['HPR','Ride','Run','Treadmill','Strength','Cardio','Flexibility'].map(t => {
-            const icons = {HPR:'🏎️',Ride:'🚴',Run:'🏃',Treadmill:'🏃‍♂️',Strength:'🏋️',Cardio:'❤️',Flexibility:'🧘'};
-            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'rgba(249,115,22,.12)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${icons[t]} ${t}</button>`;
-          }).join('')}
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="wo-type-btns">
+          ${['HPR','Ride','Other'].map(t => `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}">${t}</button>`).join('')}
         </div>
       </div>
       <div class="form-group">
@@ -8895,31 +8871,31 @@ $('login-password')?.addEventListener('keydown', (e) => { if (e.key === 'Enter')
 $('signup-password')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('signup-btn').click(); });
 
 // ── Coach Page (bottom tab for coach accounts) ───────────────────────────────
+// Coach Pro paywall removed — gating Training scheduler + Race Day
+// dashboard behind a $2.99/mo upgrade in a school program is friction
+// without a real revenue path (the "Approve & Bill" admin flow had no
+// payment integration). Every coach tab is now available to any
+// account with userProfile.isCoach === true. The `coachProActive` /
+// `coachProRequestStatus` profile fields become legacy and are
+// ignored by the renderer.
 let coachPageTab = 'students';
-// Tabs marked PRO are locked behind isCoachPro(). Free tier gets Students
-// (read-only roster) + My Team (basic team info). Training scheduler and
-// the live Race Day dashboard are the carrots that drive the upgrade.
-const COACH_PRO_TABS = new Set(['training', 'raceday']);
 function renderCoachPage() {
   const c = $('coach-content');
   if (!c) return;
   const isMasterUser = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
   if (!userProfile?.isCoach && !isMasterUser) { c.innerHTML = '<div class="empty-state"><div class="empty-state-title">Coach Access Only</div><div class="empty-state-desc">This tab is for coach accounts. If you are a coach, contact TurboPrep to enable coach access.</div></div>'; return; }
 
-  const isPro = isCoachPro();
   const tabs = [
     { id: 'students', label: 'Students' },
-    { id: 'training', label: 'Training', pro: true },
+    { id: 'training', label: 'Training' },
     { id: 'team', label: 'My Team' },
-    { id: 'raceday', label: '🏁 Race Day', pro: true },
+    { id: 'raceday', label: 'Race Day' },
   ];
 
   let html = '<div class="page-title" style="margin-bottom:12px">Coach</div>';
-  if (!isPro) html += renderCoachProBanner();
   html += '<div class="fitness-sub-bar-sticky"><div class="fitness-sub-bar">';
   tabs.forEach(t => {
-    const lock = (t.pro && !isPro) ? ' 🔒' : '';
-    html += `<button class="fitness-sub-tab${coachPageTab===t.id?' active':''}" data-coach-sub="${t.id}">${t.label}${lock}</button>`;
+    html += `<button class="fitness-sub-tab${coachPageTab===t.id?' active':''}" data-coach-sub="${t.id}">${t.label}</button>`;
   });
   html += '</div></div>';
   html += `<div id="coach-sub-content"></div>`;
@@ -8931,15 +8907,8 @@ function renderCoachPage() {
       renderCoachPage();
     });
   });
-  const banner = c.querySelector('[data-coach-pro-request]');
-  if (banner) banner.addEventListener('click', requestCoachPro);
 
   const sub = $('coach-sub-content');
-  if (COACH_PRO_TABS.has(coachPageTab) && !isPro) {
-    sub.innerHTML = renderCoachProLockout(coachPageTab);
-    sub.querySelectorAll('[data-coach-pro-request]').forEach(b => b.addEventListener('click', requestCoachPro));
-    return;
-  }
   switch(coachPageTab) {
     case 'students': renderCoachStudents(sub); break;
     case 'training': renderCoachTraining(sub); break;
@@ -8948,100 +8917,8 @@ function renderCoachPage() {
   }
 }
 
-// Top-of-page upgrade banner — only shown to non-Pro coaches. The button
-// label and disabled state mirror the user's request status so they don't
-// re-submit while one is pending.
-function renderCoachProBanner() {
-  const status = coachProRequestStatus();
-  let cta = '<button class="btn btn-primary" data-coach-pro-request style="font-size:13px;padding:8px 14px;border-radius:8px">Upgrade to Coach Pro</button>';
-  let sub = 'Unlock the training scheduler, Race Day dashboard, bulk messaging, custom workouts and more — $2.99/mo.';
-  if (status === 'pending') {
-    cta = '<button class="btn" disabled style="font-size:13px;padding:8px 14px;border-radius:8px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)">Request pending</button>';
-    sub = 'We\'ve received your Coach Pro request — you\'ll get an email when it\'s approved.';
-  } else if (status === 'approved_pending_payment') {
-    cta = '<button class="btn" disabled style="font-size:13px;padding:8px 14px;border-radius:8px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)">Approved — payment opening soon</button>';
-    sub = 'Your request was approved. Payment will open shortly — check your email.';
-  } else if (status === 'denied') {
-    cta = '<button class="btn btn-primary" data-coach-pro-request style="font-size:13px;padding:8px 14px;border-radius:8px">Try again</button>';
-    sub = 'Your previous request was declined. You can re-submit or contact support.';
-  }
-  return `<div class="card card-pad" style="margin-bottom:12px;background:linear-gradient(135deg,rgba(249,115,22,.12),rgba(249,115,22,.04));border:1px solid rgba(249,115,22,.3)">
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:180px">
-        <div style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:4px">⚡ Coach Pro</div>
-        <div style="font-size:12px;color:var(--muted-fg);line-height:1.45">${sub}</div>
-      </div>
-      ${cta}
-    </div>
-  </div>`;
-}
-
-// Full-page lockout shown when a non-Pro coach taps a Pro tab.
-function renderCoachProLockout(tabId) {
-  const featureName = tabId === 'training' ? 'Training Scheduler'
-                    : tabId === 'raceday' ? 'Race Day Dashboard'
-                    : 'This feature';
-  const status = coachProRequestStatus();
-  let cta;
-  if (status === 'pending') {
-    cta = '<button class="btn" disabled style="margin-top:8px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)">Request pending</button>';
-  } else if (status === 'approved_pending_payment') {
-    cta = '<button class="btn" disabled style="margin-top:8px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)">Approved — payment opening soon</button>';
-  } else {
-    cta = '<button class="btn btn-primary" data-coach-pro-request style="margin-top:8px">Request Coach Pro</button>';
-  }
-  return `<div class="empty-state" style="text-align:center">
-    <div style="font-size:48px;margin-bottom:12px">🔒</div>
-    <div class="empty-state-title">${featureName} is a Coach Pro feature</div>
-    <div class="empty-state-desc" style="max-width:340px;margin:8px auto 0">$2.99/month unlocks training scheduling, the live Race Day dashboard, bulk messaging, custom workouts, per-athlete notes, AI insights and more. Approval is required.</div>
-    ${cta}
-  </div>`;
-}
-
-// Submit a Coach Pro upgrade request. Idempotent — re-submitting after a
-// 'denied' result clears the prior status. The doc ID is the user's uid so
-// admin can list pending requests with one query.
-async function requestCoachPro() {
-  if (!currentUser || !userProfile || !db) {
-    showToast('Sign in required.', 'warn');
-    return;
-  }
-  if (isCoachPro()) {
-    showToast('You already have Coach Pro.', 'info');
-    return;
-  }
-  const status = coachProRequestStatus();
-  if (status === 'pending' || status === 'approved_pending_payment') {
-    showToast('You already have a pending request.', 'info');
-    return;
-  }
-  try {
-    showLoading('Submitting...');
-    await setDoc(doc(db, 'coach_pro_requests', currentUser.uid), {
-      uid: currentUser.uid,
-      email: currentUser.email,
-      displayName: userProfile.displayName || '',
-      teamName: teamData?.name || userProfile.clubName || '',
-      status: 'pending',
-      requestedAt: serverTimestamp(),
-    });
-    await updateDoc(doc(db, 'users', currentUser.uid), {
-      coachProRequestStatus: 'pending',
-      coachProRequestedAt: serverTimestamp(),
-    });
-    if (userProfile) {
-      userProfile.coachProRequestStatus = 'pending';
-    }
-    hideLoading();
-    showToast('Request sent — we\'ll email you when it\'s approved.', 'success');
-    renderCoachPage();
-  } catch(e) {
-    hideLoading();
-    logError('requestCoachPro', e, { uid: currentUser.uid });
-    showToast('Could not submit: ' + (e.message || 'unknown error'), 'error');
-  }
-}
-
+// (Coach Pro paywall — banner / lockout / requestCoachPro removed.
+// All coach sub-tabs are now available to any coach account.)
 async function renderCoachStudents(el) {
   if (!el) return;
   el.innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';

@@ -1340,6 +1340,27 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   color:#ef4444;
 }
 
+/* Workout-type picker in the Log sheet (HPR / Ride / Other). Was
+   13 inline declarations per button computed per render with
+   conditional border / background / color. Class-based now. */
+.wo-type-pick{
+  padding:7px 14px;
+  font-size:12px;
+  font-weight:700;
+  border-radius:8px;
+  border:1.5px solid var(--border);
+  background:var(--card);
+  color:var(--muted-fg);
+  cursor:pointer;
+  transition:background .14s ease, color .14s ease, border-color .14s ease;
+}
+.wo-type-pick:hover{ color:var(--fg); }
+.wo-type-pick.active{
+  border-color:var(--primary);
+  background:var(--primary-soft);
+  color:var(--primary);
+}
+
 /* Today's session-length picker — extracted from a 13-declaration
    inline-style block computed per-render. Recommended duration is
    now sourced from the plan's expected workout for today instead of
