@@ -2340,7 +2340,8 @@ function extractAllExercises() {
   // ===== IN-VEHICLE PLANS (workout = exercise) =====
   ALL_PLANS.filter(p => p.category === 'invehicle').forEach(plan => {
     plan.workouts.forEach((w, wi) => {
-      const wd = getWorkoutData(plan.id, wi, w);
+      const wd = getWorkoutData(plan.id, wi, w) || (typeof w === 'object' ? w : null);
+      if (!wd || !wd.name) return;
       const key = 'invehicle_' + wd.name.toLowerCase().trim();
       if (!exerciseMap[key]) {
         exerciseMap[key] = {
