@@ -462,30 +462,11 @@ const AI_WIDGET_KINDS = {
 function loadAiWidgets() {
   try { return JSON.parse(localStorage.getItem('tp_ai_widgets') || '[]'); } catch(e) { return []; }
 }
-// Once-per-day proactive coach widget: generate a fresh insight on the first
-// Today render of each day if the user hasn't already received one. Avoids
-// nagging by keeping the cap at 1/day.
-function maybeAutoGenerateAiWidget() {
-  try {
-    const todayKey = localDateKey();
-    const lastAutoKey = localStorage.getItem('tp_ai_widget_last_auto');
-    if (lastAutoKey === todayKey) return;
-    // Only auto-generate if we have signal to give the coach: a logged
-    // workout OR an active plan. New-account opens shouldn't burn an AI call.
-    const hasSignal = (userWorkouts && userWorkouts.length > 0) || !!userProfile?.activePlanId;
-    if (!hasSignal) return;
-    // Mark today as "used" only on SUCCESS — was previously written
-    // before the request resolved, so a network failure permanently
-    // consumed today's auto slot and the user got no widget at all.
-    Promise.resolve(generateAiWidget())
-      .then((ok) => {
-        if (ok !== false) {
-          try { localStorage.setItem('tp_ai_widget_last_auto', todayKey); } catch(e) {}
-        }
-      })
-      .catch(() => {/* leave the slot open so user can retry tomorrow's open */});
-  } catch(e) {}
-}
+// (maybeAutoGenerateAiWidget removed — was firing an unsolicited
+// Claude call on every cold-load Today render. Users now ask the
+// coach explicitly via the Ask Coach button, which keeps AI usage
+// intentional and avoids burning calls on app opens that produced
+// no signal anyway.)
 // AI Coach v2 — event-triggered insights. Fires a contextual widget on
 // specific moments rather than waiting for the user to open Today. Each
 // trigger has its own cooldown to avoid coach-spam.
@@ -1116,29 +1097,10 @@ function showSelectModal(title, options, currentValue, onSave) {
   });
 }
 const APP_VERSION = '202604281114';
-const CHANGELOG = [
-  { version: '2.4.0', date: 'Mar 2026', items: [
-    '🎓 App tour for new users',
-    '🏅 14 achievement badges to earn',
-    '❤️ Heart rate zones from Strava',
-    '🏁 Race result logging with form',
-    '📱 AI Coach now gives app navigation help',
-    '⬡ Two-way Strava sync',
-    '🗂️ App split into modules for performance',
-    '☀️ Off-season & holiday plan generation'
-  ]},
-  { version: '2.3.0', date: 'Mar 2026', items: [
-    '📍 GPS activity tracker',
-    '🗺️ Dark/light map tiles',
-    '🏆 XP leaderboard',
-    '⚡ Auto team challenge scoring',
-    '📊 Activity detail view with route maps'
-  ]}
-];
-// Welcome setup replaces what's-new popup
-function showWhatsNew() {
-  // Disabled — replaced by welcome setup for new users
-}
+// (CHANGELOG array + showWhatsNew empty stub removed — the
+// "what's new" popup was already disabled in favor of showWelcomeSetup
+// for new users. Release notes belong in commit messages, not in a
+// hand-curated client-side array nobody updates.)
 function showWelcomeSetup() {
   const name = userProfile?.displayName || 'there';
   const overlay = document.createElement('div');
@@ -2733,40 +2695,8 @@ function renderGoals() {
   html += '</div>';
   return html;
 }
-// --- Team Challenge ---
-function renderTeamChallenge() {
-  if (!activeChallenge) return '';
-  const now = new Date();
-  const end = new Date(activeChallenge.endDate);
-  const daysLeft = Math.max(0, Math.ceil((end - now) / 86400000));
-  // Build teams array — handle both {name,score} and nested Firestore maps
-  const rawTeams = activeChallenge.teams || {};
-  const teams = [];
-  Object.entries(rawTeams).forEach(([key, val]) => {
-    if (val && typeof val === 'object') {
-      teams.push({ name: val.name || key, score: val.score || 0 });
-    } else {
-      teams.push({ name: key, score: 0 });
-    }
-  });
-  if (teams.length === 0) return '';
-  const maxScore = Math.max(1, ...teams.map(t => t.score));
-  const colors = ['#f97316', '#7c3aed', '#f97316', '#3b82f6', '#ec4899'];
-  let html = '<div class="challenge-card">';
-  html += '<div class="challenge-title">🏆 ' + escHtml(activeChallenge.title || 'Team Challenge') + '</div>';
-  html += '<div class="challenge-meta">' + (daysLeft > 0 ? daysLeft + ' day' + (daysLeft > 1 ? 's' : '') + ' remaining' : 'Challenge ended!') + ' · Mins + XP</div>';
-  teams.sort((a, b) => b.score - a.score);
-  teams.forEach((t, i) => {
-    const pct = maxScore > 0 ? Math.min(100, (t.score / maxScore) * 100) : 0;
-    html += '<div class="challenge-team">';
-    html += '<div class="challenge-team-name">' + (i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '') + escHtml(t.name) + '</div>';
-    html += '<div class="challenge-team-bar"><div class="challenge-team-fill" style="width:' + pct + '%;background:' + (colors[i] || colors[4]) + '"></div></div>';
-    html += '<div class="challenge-team-score">' + t.score + ' pts</div>';
-    html += '</div>';
-  });
-  html += '</div>';
-  return html;
-}
+// (renderTeamChallenge removed — duplicated the Team leaderboard and
+// required an admin-managed Firestore doc that no UI could create.)
 // --- Smart Plan Recommendation ---
 function renderPlanRecommendation() {
   if (!userProfile) return '';
@@ -2814,32 +2744,9 @@ function renderPlanRecommendation() {
   html += '</div>';
   return html;
 }
-// --- Team Activity Feed ---
-function renderTeamFeed() {
-  if (!teamFeedCache || teamFeedCache.length === 0) return '';
-  let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Team Activity</div>';
-  teamFeedCache.slice(0, 8).forEach((item, idx) => {
-    const initials = (item.name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
-    const reactKey = 'tp_react_' + (item.uid || 'u') + '_' + (item.workoutId || item.dateKey || idx);
-    let myReaction = '';
-    try { myReaction = localStorage.getItem(reactKey) || ''; } catch(e) {}
-    html += `<div class="feed-item">
-      <div class="feed-avatar">${initials}</div>
-      <div class="feed-body">
-        <div class="feed-name">${escHtml(item.name || 'Unknown')}</div>
-        <div class="feed-action">${escHtml(item.action)}</div>
-        <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
-          <div class="feed-time">${item.timeAgo}</div>
-          <div class="feed-reactions" style="display:flex;gap:2px;margin-left:auto">
-            ${['🔥','💪','👏','⚡'].map(emoji => `<button class="feed-react-btn${myReaction === emoji ? ' active' : ''}" data-react-key="${reactKey}" data-emoji="${emoji}" style="font-size:14px;padding:2px 5px;border-radius:6px;background:${myReaction === emoji ? 'rgba(249,115,22,.15)' : 'transparent'};border:1px solid ${myReaction === emoji ? 'var(--primary)' : 'transparent'};cursor:pointer;transition:all .15s">${emoji}</button>`).join('')}
-          </div>
-        </div>
-      </div>
-    </div>`;
-  });
-  html += '</div>';
-  return html;
-}
+// (renderTeamFeed removed — duplicated the Team Chat panel which
+// already shows workout posts via postWorkoutToTeamChat. Reactions
+// were localStorage-only so they never synced anyway.)
 function renderToday() {
   const c = $('today-content');
   if (!c) return;
@@ -3239,8 +3146,9 @@ function renderToday() {
       <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
     </div>`;
   }
-  // Team challenge (only if active)
-  if (activeChallenge) html += renderTeamChallenge();
+  // (Team challenge card removed — was undifferentiated from the
+  // Team leaderboard and required an admin to seed a Firestore doc
+  // no UI created. See simplification audit Round 13.)
   // AI insight (compact single line)
   if (totalWorkouts >= 5) {
     const insight = generateTrainingInsight();
@@ -3332,7 +3240,8 @@ function renderToday() {
     <div class="chart-row">${visibleWeeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? 'var(--primary)' : 'var(--muted)'}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
   }
   html += renderWorkoutCalendar(now);
-  html += renderTeamFeed();
+  // (renderTeamFeed removed — duplicated the Team Chat panel which
+  // already shows workout posts via postWorkoutToTeamChat.)
   html += '</div></div>';
   c.innerHTML = html;
   // Bind duration picker
@@ -4188,80 +4097,38 @@ function showCelebration(message) {
   }
   setTimeout(() => container.remove(), 3000);
 }
+// Replaced the HTML "Print / Save as PDF" report with a real CSV
+// export. The previous flow opened a Blob:url in a new window with a
+// browser-print-only button; iOS Safari refuses to download a Blob:
+// URL and the new tab just showed unfocused HTML the user couldn't
+// save. CSV is universally importable into Excel / Numbers / Sheets
+// and downloads cleanly on iOS.
 function exportTrainingReport() {
   const name = userProfile?.displayName || currentUser?.displayName || 'Athlete';
-  const year = userProfile?.yearLevel || '';
-  const tier = capitalize(userProfile?.fitnessLevel || 'basic');
-  const total = userWorkouts.length;
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
-  // Calc streak
-  let streak = 0;
-  if (total > 0) {
-    const check = new Date(now); check.setHours(0,0,0,0);
-    const dates = new Set();
-    userWorkouts.forEach(w => {
-      const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-      if (d) dates.add(d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate());
-    });
-    let k = check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate();
-    if (!dates.has(k)) check.setDate(check.getDate()-1);
-    while (dates.has(check.getFullYear()+'-'+(check.getMonth()+1)+'-'+check.getDate())) {
-      streak++; check.setDate(check.getDate()-1);
-    }
-  }
-  // Weekly data
-  const weeks = [];
-  for (let i = 7; i >= 0; i--) {
-    const wStart = new Date(now); wStart.setDate(now.getDate() - now.getDay() - (i*7)); wStart.setHours(0,0,0,0);
-    const wEnd = new Date(wStart); wEnd.setDate(wEnd.getDate()+7);
-    const count = userWorkouts.filter(w => {
-      const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
-      return d && d >= wStart && d < wEnd;
-    }).length;
-    weeks.push({ label: wStart.toLocaleDateString('en-AU',{day:'numeric',month:'short'}), count });
-  }
-  // Recent workouts (last 20)
-  const recent = userWorkouts.slice(0, 20);
-  const avgRpe = userWorkouts.filter(w => w.rpe).length > 0
-    ? (userWorkouts.filter(w => w.rpe).reduce((s, w) => s + w.rpe, 0) / userWorkouts.filter(w => w.rpe).length).toFixed(1)
-    : null;
-  let reportHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Training Report - ${escHtml(name)}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:40px;max-width:800px;margin:0 auto;color:#1a1a1a;font-size:14px}
-h1{font-size:24px;margin-bottom:4px}h2{font-size:16px;margin:24px 0 8px;color:#555;border-bottom:1px solid #ddd;padding-bottom:4px}
-.meta{color:#666;font-size:13px;margin-bottom:24px}.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:12px 0}
-.stat{background:#f5f5f5;padding:12px;border-radius:8px;text-align:center}.stat-val{font-size:22px;font-weight:700}.stat-lbl{font-size:11px;color:#888;text-transform:uppercase}
-table{width:100%;border-collapse:collapse;margin:8px 0}th,td{padding:6px 8px;text-align:left;border-bottom:1px solid #eee;font-size:12px}
-th{font-weight:600;color:#555;font-size:11px;text-transform:uppercase}.bar-row{display:flex;align-items:flex-end;gap:6px;height:60px;margin:12px 0}
-.bar-col{flex:1;text-align:center}.bar{background:#f97316;border-radius:3px 3px 0 0;min-height:2px;margin:0 auto;width:80%}.bar-lbl{font-size:9px;color:#888;margin-top:3px}
-.print-btn{margin-top:24px;padding:10px 24px;background:#f97316;border:none;font-weight:600;border-radius:6px;cursor:pointer;font-size:13px}
-@media print{.print-btn{display:none}}
-</style></head><body>
-<h1>TurboPrep Training Report</h1>
-<div class="meta">${escHtml(name)} · ${year} · ${tier} tier · Generated ${dateStr}</div>
-<div class="stat-grid">
-  <div class="stat"><div class="stat-val">${total}</div><div class="stat-lbl">Total Workouts</div></div>
-  <div class="stat"><div class="stat-val">${streak}</div><div class="stat-lbl">Day Streak</div></div>
-  <div class="stat"><div class="stat-val">${avgRpe || '—'}</div><div class="stat-lbl">Avg RPE</div></div>
-  <div class="stat"><div class="stat-val">${weeks[weeks.length-1]?.count || 0}</div><div class="stat-lbl">This Week</div></div>
-</div>
-<h2>Workouts Per Week (Last 8 Weeks)</h2>
-<div class="bar-row">
-${weeks.map(w => `<div class="bar-col"><div class="bar" style="height:${Math.max(2, (w.count / Math.max(...weeks.map(x=>x.count),1)) * 50)}px"></div><div class="bar-lbl">${w.label}</div></div>`).join('')}
-</div>
-<h2>Recent Workouts</h2>
-<table><thead><tr><th>Date</th><th>Name</th><th>Type</th><th>Duration</th><th>RPE</th></tr></thead><tbody>
-${recent.map(w => {
-  const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
-  return `<tr><td>${d.toLocaleDateString('en-AU',{day:'numeric',month:'short'})}</td><td>${escHtml(w.name||'')}</td><td>${escHtml(w.type||'')}</td><td>${w.duration||'—'} min</td><td>${w.rpe||'—'}</td></tr>`;
-}).join('')}
-</tbody></table>
-<button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
-</body></html>`;
-  const blob = new Blob([reportHtml], { type: 'text/html' });
+  const safeName = (name || 'athlete').replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+  const cols = ['date','name','type','duration_min','distance_km','heart_rate_bpm','rpe','laps','best_lap','source','notes'];
+  const csvEscape = (v) => {
+    if (v == null) return '';
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const rows = userWorkouts.map(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    const iso = d ? d.toISOString() : '';
+    return [iso, w.name, w.type, w.duration, w.distance, w.heartRate, w.rpe, w.laps, w.bestLap, w.source, w.notes].map(csvEscape).join(',');
+  });
+  const csv = [cols.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
+  const a = document.createElement('a');
+  const stamp = localDateKey();
+  a.href = url;
+  a.download = `turboprep_${safeName}_${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(rows.length + ' workouts exported.', 'success');
 }
 let aiChatHistory = [];
 function showAiHelpMenu() {
@@ -4947,103 +4814,9 @@ async function loadCustomPlans() {
   }
 }
 // AI PLAN EDITOR (natural language editing)
-// --- Team Activity Feed loader ---
-async function loadTeamFeed() {
-  teamFeedCache = [];
-  if (demoMode || !db || !currentUser || !userProfile?.teamId) return;
-  try {
-    const teamSnap = await getDoc(doc(db, 'teams', userProfile.teamId));
-    if (!teamSnap.exists()) return;
-    const team = teamSnap.data();
-    const memberIds = (team.members || []).filter(uid => uid !== currentUser.uid).slice(0, 15);
-    if (memberIds.length === 0) return;
-    // Parallelise — was 30 sequential round-trips at ~50ms each (~1.5s).
-    // Now 2 batches of 15 in parallel ≈ 100-150ms total.
-    const [workoutsResults, profileResults] = await Promise.all([
-      Promise.all(memberIds.map(uid =>
-        getDocs(query(collection(db, 'users', uid, 'workouts'), orderBy('date', 'desc'), limit(3)))
-          .catch(() => null)
-      )),
-      Promise.all(memberIds.map(uid => getDoc(doc(db, 'users', uid)).catch(() => null))),
-    ]);
-    const feed = [];
-    memberIds.forEach((uid, i) => {
-      const wSnap = workoutsResults[i];
-      const profileSnap = profileResults[i];
-      if (!wSnap) return;
-      const profile = profileSnap?.exists?.() ? profileSnap.data() : {};
-      const name = profile.displayName || 'Unknown';
-      wSnap.docs.forEach(d => {
-        const w = d.data();
-        const date = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : new Date();
-        feed.push({
-          name, uid, workoutId: d.id,
-          dateKey: date.toISOString().split('T')[0],
-          action: 'Logged ' + (w.name || 'a workout') + ' · ' + (w.duration || '?') + 'min',
-          date, timeAgo: timeAgo(date),
-        });
-      });
-    });
-    feed.sort((a, b) => b.date - a.date);
-    teamFeedCache = feed.slice(0, 10);
-  } catch(e) { console.error('Load team feed error:', e); }
-}
-// --- Team Challenge loader ---
-async function loadTeamChallenge() {
-  activeChallenge = null;
-  if (demoMode) {
-    activeChallenge = {
-      id: 'demo-challenge',
-      title: 'Monthly Challenge',
-      type: 'monthly',
-      repeat: true,
-      startDate: new Date(Date.now() - 3 * 86400000).toISOString(),
-      endDate: new Date(Date.now() + 27 * 86400000).toISOString(),
-      teams: {
-        team1: { name: 'Team Alpha', score: 245 },
-        team2: { name: 'Team Beta', score: 198 },
-        team3: { name: 'Team Gamma', score: 312 },
-        team4: { name: 'Team Delta', score: 156 },
-        team5: { name: 'Team Omega', score: 280 }
-      }
-    };
-    return;
-  }
-  if (!db || !currentUser) return;
-  try {
-    const challengeRef = doc(db, 'config', 'activeChallenge');
-    const snap = await getDoc(challengeRef);
-    if (!snap.exists()) return;
-    const data = snap.data();
-    const now = new Date();
-    const end = new Date(data.endDate);
-    if (end > now) {
-      // Challenge is still active
-      activeChallenge = data;
-    } else if (data.repeat) {
-      // Challenge expired but repeat is on — auto-create next month
-      const newStart = new Date(end);
-      const newEnd = new Date(end);
-      newEnd.setMonth(newEnd.getMonth() + 1);
-      // Reset all team scores to 0
-      const resetTeams = {};
-      Object.entries(data.teams || {}).forEach(([k, v]) => {
-        resetTeams[k] = { name: (v && v.name) || k, score: 0 };
-      });
-      const newChallenge = {
-        ...data,
-        startDate: newStart.toISOString(),
-        endDate: newEnd.toISOString(),
-        teams: resetTeams
-      };
-      // Save the new challenge back to Firestore
-      try {
-        await setDoc(challengeRef, newChallenge);
-      } catch(e) { console.error('Auto-repeat save error:', e); }
-      activeChallenge = newChallenge;
-    }
-  } catch(e) { console.error('Load challenge error:', e); }
-}
+// (loadTeamFeed + loadTeamChallenge removed — both renderers were
+// deleted upstream; their loaders were the only callers.
+// teamFeedCache and activeChallenge module variables stay null.)
 async function loadTrainingSessions() {
   trainingSessions = [];
   if (demoMode) {
@@ -9066,7 +8839,7 @@ function startApp() {
           loadVideoOverrides(), loadFirestoreRaces(), loadHiddenPlans(),
           loadRaceFootage(), loadRaceLogVideos(), loadExerciseOverrides(),
           loadPlanOverrides(), loadExerciseDemoVideos(), loadCustomPlans(),
-          loadTeamFeed(), loadTeamChallenge(), loadTrainingSessions()
+          loadTrainingSessions()
         ]).then(refresh);
       }, 500);
       // PHASE 4: Non-async finishers
@@ -9100,8 +8873,7 @@ function startApp() {
       if (!localStorage.getItem('tp_onboarded')) {
         setTimeout(() => showWelcomeSetup(), 800);
       }
-      // Check training reminders
-      checkTrainingReminder();
+      // (checkTrainingReminder removed — see deletion below.)
       // Request notification permission on first interaction
       requestNotificationPermission();
       // Check if any recent races need result logging
@@ -9900,38 +9672,16 @@ function addSessionToCalendar(session) {
     });
   });
 }
-function checkTrainingReminder() {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  // Skip when the page is hidden — Chrome / iOS Safari throttle
-  // setInterval but still fire occasionally; firing reminders against
-  // a backgrounded tab is wasteful + can race with stale state.
-  if (document.visibilityState === 'hidden') return;
-  if (!currentUser) return;  // user signed out — no point
-  const today = localDateKey();
-  const lastReminder = localStorage.getItem('tp_reminder_date');
-  if (lastReminder === today) return;
-  // Check upcoming training sessions
-  try {
-    const sessions = JSON.parse(localStorage.getItem('tp_training_sessions') || '[]');
-    const now = new Date();
-    const todaySessions = sessions.filter(s => s.date === today && new Date(s.date + 'T' + (s.time || '16:00')) > new Date(now.getTime() - 3600000));
-    if (todaySessions.length > 0) {
-      localStorage.setItem('tp_reminder_date', today);
-      const s = todaySessions[0];
-      const msg = s.title + (s.location ? ' at ' + s.location : '') + (s.time ? ' — ' + s.time : '');
-      try {
-        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-          navigator.serviceWorker.ready.then(reg => {
-            reg.showNotification('Training Session Today', { body: msg, tag: 'training-session', data: { url: '/' } });
-          });
-        } else {
-          new Notification('Training Session Today', { body: msg, tag: 'training-session' });
-        }
-      } catch(e) {}
-    }
-  } catch(e) {}
-}
-setInterval(checkTrainingReminder, 15 * 60 * 1000);
+// (checkTrainingReminder + its 15-minute setInterval removed — fired
+// browser notifications for upcoming training sessions that competed
+// with the active-plan card on Today and the announcements banner.
+// The Today render already surfaces the next session inline; coaches
+// who want their athletes to know about a session post it as an
+// announcement, which goes through the proper APNs path with rate-
+// limiting + opt-out preferences. The local setInterval was still
+// firing every 15 minutes for the entire session lifetime even after
+// signOut — pure waste for users who never granted Notification
+// permission anyway.)
 function setupAnnouncementListener() {
   if (!db) return;
   try {
@@ -9997,37 +9747,10 @@ let plansSubTab = 'manage'; // manage | workouts | videos
 let usersSubTab = 'all'; // all | permissions
 // RACE LOG (all users)
 // GPS Tracker — imported from tracker.js (see import at top of file)
-async function autoUpdateChallengeScore(minutes, xpEarned) {
-  if (!activeChallenge) return;
-  const totalPoints = Math.round((minutes || 0) + (xpEarned || 0));
-  if (totalPoints <= 0) return;
-  if (demoMode || !db || !currentUser) return;
-  // Find user's team
-  const teamId = userProfile?.teamId;
-  if (!teamId) return;
-  // Match teamId to a challenge team key
-  const teams = activeChallenge.teams || {};
-  let matchKey = null;
-  if (teams[teamId]) { matchKey = teamId; }
-  else {
-    if (teamData?.name) {
-      const entry = Object.entries(teams).find(([k, v]) => v.name && v.name.toLowerCase() === teamData.name.toLowerCase());
-      if (entry) matchKey = entry[0];
-    }
-  }
-  if (!matchKey) return;
-  try {
-    const challengeRef = doc(db, 'config', 'activeChallenge');
-    const snap = await getDoc(challengeRef);
-    if (!snap.exists()) return;
-    const data = snap.data();
-    if (data.teams && data.teams[matchKey]) {
-      data.teams[matchKey].score = (data.teams[matchKey].score || 0) + totalPoints;
-      await setDoc(challengeRef, data);
-      activeChallenge = data;
-    }
-  } catch(e) { console.error('Challenge score update error:', e); }
-}
+// (autoUpdateChallengeScore removed with the rest of the team-
+// challenge feature. Workouts no longer write into the legacy
+// `config/activeChallenge` doc.)
+async function autoUpdateChallengeScore() { /* no-op stub kept for callers; remove in next pass once all sites are gone */ }
 function checkRaceResultPrompt() {
   const allRaces = getActiveRaces();
   const today = localDateKey();
