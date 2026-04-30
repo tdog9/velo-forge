@@ -381,9 +381,39 @@ export function generateTrainingInsight() {
   return insights.length > 0 ? insights[Math.floor(Math.random() * insights.length)] : null;
 }
 
-// renderSeasonPhase removed — was a static month → phase lookup that
-// duplicated info already in the race-phase banner on Today (which
-// is event-driven, not calendar-driven, so it's actually accurate).
+// Seasonal Periodisation Phase
+export function renderSeasonPhase() {
+  const now = new Date();
+  const month = now.getMonth(); // 0-11
+  // Australian school HPV season: Feb-Nov
+  // Phases: Off-season (Dec-Jan), Base (Feb-Mar), Build (Apr-Jun), Peak (Jul-Sep), Race (Oct-Nov)
+  const phases = [
+    { name: 'Off-Season', months: [11, 0], color: '#94a3b8', icon: '☀️', desc: 'Rest and cross-training. Keep active but have fun.' },
+    { name: 'Base Phase', months: [1, 2], color: '#3b82f6', icon: '🧱', desc: 'Build your aerobic foundation with steady, easy-moderate sessions.' },
+    { name: 'Build Phase', months: [3, 4, 5], color: '#22c55e', icon: '📈', desc: 'Increase intensity. Add harder intervals and strength work.' },
+    { name: 'Peak Phase', months: [6, 7, 8], color: '#f59e0b', icon: '⚡', desc: 'Highest training loads. Race-specific sessions and time trials.' },
+    { name: 'Race Phase', months: [9, 10], color: '#ef4444', icon: '🏁', desc: 'Race prep mode — maintain intensity, reduce volume the week before each race.' }
+  ];
+  const current = phases.find(p => p.months.includes(month)) || phases[0];
+  const allPhaseNames = ['Off-Season', 'Base Phase', 'Build Phase', 'Peak Phase', 'Race Phase'];
+  const currentIdx = allPhaseNames.indexOf(current.name);
+
+  let html = `<div class="card" style="margin-top:10px;overflow:hidden"><div class="card-pad" style="padding:12px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:16px">${current.icon}</span>
+      <span style="font-size:13px;font-weight:700;color:var(--text)">${current.name}</span>
+      <span style="font-size:11px;color:var(--muted-fg);margin-left:auto">Season Phase</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted-fg);line-height:1.4;margin-bottom:8px">${current.desc}</div>
+    <div style="display:flex;gap:3px;height:4px">`;
+  allPhaseNames.forEach((name, i) => {
+    const p = phases.find(pp => pp.name === name);
+    const isActive = i === currentIdx;
+    html += `<div style="flex:1;border-radius:2px;background:${isActive ? p.color : 'rgba(255,255,255,.06)'}${isActive ? ';box-shadow:0 0 6px ' + p.color + '40' : ''}"></div>`;
+  });
+  html += '</div></div></div>';
+  return html;
+}
 
 // AI Form/Technique Checker
 export function startAiFormCheck() {
@@ -424,8 +454,26 @@ export function startAiFormCheck() {
   });
 }
 
-// generateCoachSummary removed — was a stub that admitted in its own
-// comment that it's "for the coach's own view — in a real deployment,
-// coach would see all students. For now, generate based on available
-// data." The output (an array of alert strings) was returned but no
-// caller rendered them anywhere.
+// Coach Notification Summary — generates a summary of student activity for coaches
+export function generateCoachSummary() {
+  if (!A.isAdmin && !(A.userProfile?.role === 'coach')) return null;
+  if (!(A.userWorkouts||[]).length) return null;
+  // This is for the coach's own view — in a real deployment, coach would see all students
+  // For now, generate based on available data
+  const now = Date.now();
+  const fiveDaysAgo = now - 5 * 86400000;
+  const recentWorkouts = (A.userWorkouts||[]).filter(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    return d && d.getTime() > fiveDaysAgo;
+  });
+  const streak = A.calcStreak();
+  const alerts = [];
+  if (recentWorkouts.length === 0) alerts.push('⚠️ No training logged in the last 5 days');
+  if (streak >= 7) alerts.push('🔥 ' + streak + '-day training streak — keep it up!');
+  if (recentWorkouts.length >= 5) alerts.push('💪 5+ sessions in last 5 days — strong volume');
+  const avgRpe = recentWorkouts.filter(w => w.rpe).length > 0
+    ? (recentWorkouts.filter(w => w.rpe).reduce((s, w) => s + w.rpe, 0) / recentWorkouts.filter(w => w.rpe).length).toFixed(1)
+    : null;
+  if (avgRpe && avgRpe > 8.5) alerts.push('🔴 High average RPE (' + avgRpe + ') — possible overtraining risk');
+  return alerts;
+}
