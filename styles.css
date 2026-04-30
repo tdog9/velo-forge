@@ -206,22 +206,40 @@ body { -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transpare
   --surface-raised:#e8e5de;
 }
 
-/* Venom theme — KEEP all the black backgrounds from Dark theme.
-   Only swap the orange accent for symbiote acid green. Result: same
-   familiar dark UI, just green icons / borders / buttons / wordmark. */
+/* Venom theme — fully green per spec. Deep blackish-green backgrounds,
+   acid-green accent, green-tinted cards and borders. */
 .venom-theme{
+  --bg:#03130a;
+  --bg-elevated:#06200f;
+  --fg:#d8ffe8;
+  --card:#082a16;
+  --card-hover:#0b3520;
+  --border:rgba(34,255,136,.18);
+  --border-strong:rgba(34,255,136,.36);
   --primary:#22ff88;
-  --primary-fg:#03110a;
+  --primary-fg:#03130a;
   --primary-hover:#1ce277;
   --primary-rgb:34,255,136;
-  --primary-dim:rgba(34,255,136,.14);
+  --primary-dim:rgba(34,255,136,.16);
   --primary-soft:rgba(34,255,136,.10);
-  --primary-edge:rgba(34,255,136,.32);
+  --primary-edge:rgba(34,255,136,.36);
+  --muted:#0e2d1c;
+  --muted-fg:#7fcfa0;
+  --secondary:#0e2d1c;
+  --secondary-fg:#cdebd6;
+  --surface:#06200f;
+  --surface-raised:#0b3520;
 }
 .venom-theme .auth-wordmark{color:#22ff88}
 .venom-theme .auth-wordmark-2{color:rgba(34,255,136,.55)}
-/* Re-tint the AI Coach FAB so the accent feels symbiote-green. */
+.venom-theme .auth-logo-mark{background:linear-gradient(135deg,#22ff88,#0a8b46);color:#03130a}
 .venom-theme .ai-fab{background:linear-gradient(135deg,#22ff88,#0a8b46)}
+.venom-theme body{
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(34,255,136,.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(34,255,136,.04), transparent 60%),
+    #03130a !important;
+}
 
 /* ===== Base ===== */
 html{

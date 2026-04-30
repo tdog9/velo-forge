@@ -259,14 +259,21 @@ body{
   box-shadow:none !important;
   z-index:25 !important;
 }
-.fitness-sub-bar{
+/* Unified pill-tab style — Fitness / Coach / Admin / Team all share
+   the same look. Driven by the Team-tab visual that the user prefers. */
+.fitness-sub-bar,
+.team-tab-strip,
+.admin-tabs{
   background:var(--surface) !important;
   border:1px solid var(--border) !important;
   border-radius:12px !important;
   padding:4px !important;
   gap:4px !important;
+  display:flex !important;
 }
-.fitness-sub-tab{
+.fitness-sub-tab,
+.lb-sub-tab,
+.admin-tab{
   flex:1;
   padding:10px 14px !important;
   font-size:13px !important;
@@ -278,8 +285,12 @@ body{
   border-radius:8px !important;
   transition:color .15s ease, background .15s ease, box-shadow .2s ease !important;
 }
-.fitness-sub-tab:hover{ color:var(--fg) !important; }
-.fitness-sub-tab.active{
+.fitness-sub-tab:hover,
+.lb-sub-tab:hover,
+.admin-tab:hover{ color:var(--fg) !important; }
+.fitness-sub-tab.active,
+.lb-sub-tab.active,
+.admin-tab.active{
   background:var(--primary) !important;
   color:var(--primary-fg) !important;
   box-shadow:0 4px 12px rgba(var(--primary-rgb),.25), 0 0 0 1px rgba(var(--primary-rgb),.3) inset;

@@ -1183,7 +1183,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-r28';
+const APP_VERSION = '20260430-r29';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1965,47 +1965,47 @@ function openErrorDiagnostics(entry, showLog) {
   const ov = document.createElement('div');
   ov.id = 'error-diag-overlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;padding:0';
-  let html = `<div style="background:'var(--bg)';border-top:1px solid 'var(--border)';border-radius:16px 16px 0 0;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px;padding-bottom:calc(20px + 'var(--safe-b)')">
+  let html = `<div style="background:var(--bg);border-top:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px;padding-bottom:calc(20px + var(--safe-b))">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:16px;font-weight:700">Something went wrong</div>
-      <button id="diag-close" style="background:none;border:none;color:'var(--muted-fg)';font-size:20px;cursor:pointer;padding:4px">✕</button>
+      <button id="diag-close" style="background:none;border:none;color:var(--muted-fg);font-size:20px;cursor:pointer;padding:4px">✕</button>
     </div>`;
   // Highlighted fix (first one, prominent)
   if (fixes.length > 0) {
     const primary = fixes[0];
-    html += `<div style="display:flex;gap:10px;padding:12px;background:linear-gradient(135deg,'rgba(var(--success-rgb),.08)','rgba(var(--success-rgb),.04)');border:1.5px solid 'rgba(var(--success-rgb),.25)';border-radius:12px;margin-bottom:10px">
+    html += `<div style="display:flex;gap:10px;padding:12px;background:linear-gradient(135deg,rgba(var(--success-rgb),.08),rgba(var(--success-rgb),.04));border:1.5px solid rgba(var(--success-rgb),.25);border-radius:12px;margin-bottom:10px">
       <span style="font-size:24px;flex-shrink:0">${primary.icon}</span>
-      <div><div style="font-size:14px;font-weight:700;color:'var(--success)';margin-bottom:3px">Try this first</div>
-      <div style="font-size:13px;font-weight:600;color:'var(--fg)';margin-bottom:2px">${primary.title}</div>
-      <div style="font-size:12px;color:'var(--muted-fg)';line-height:1.5">${primary.fix}</div></div>
+      <div><div style="font-size:14px;font-weight:700;color:var(--success);margin-bottom:3px">Try this first</div>
+      <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:2px">${primary.title}</div>
+      <div style="font-size:12px;color:var(--muted-fg);line-height:1.5">${primary.fix}</div></div>
     </div>`;
   }
   // Other fixes
   if (fixes.length > 1) {
     html += '<div style="font-size:11px;font-weight:600;color:var(--muted-fg);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Other things to try</div>';
     fixes.slice(1).forEach(f => {
-      html += `<div style="display:flex;gap:10px;padding:8px 10px;background:'var(--card)';border:1px solid 'var(--border)';border-radius:8px;margin-bottom:6px">
+      html += `<div style="display:flex;gap:10px;padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
         <span style="font-size:16px;flex-shrink:0">${f.icon}</span>
-        <div><div style="font-size:12px;font-weight:600;color:'var(--fg)'">${f.title}</div>
-        <div style="font-size:11px;color:'var(--muted-fg)';line-height:1.4">${f.fix}</div></div>
+        <div><div style="font-size:12px;font-weight:600;color:var(--fg)">${f.title}</div>
+        <div style="font-size:11px;color:var(--muted-fg);line-height:1.4">${f.fix}</div></div>
       </div>`;
     });
   }
   // ADMIN SECTION — extra diagnostics
   if (isAdmin) {
-    html += `<div style="margin-top:12px;padding:12px;background:'rgba(var(--destructive-rgb),.06)';border:1.5px solid 'rgba(var(--destructive-rgb),.2)';border-radius:10px">
-      <div style="font-size:12px;font-weight:700;color:'var(--destructive)';margin-bottom:8px;display:flex;align-items:center;gap:6px">🔧 Admin Diagnostics</div>`;
+    html += `<div style="margin-top:12px;padding:12px;background:rgba(var(--destructive-rgb),.06);border:1.5px solid rgba(var(--destructive-rgb),.2);border-radius:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--destructive);margin-bottom:8px;display:flex;align-items:center;gap:6px">🔧 Admin Diagnostics</div>`;
     // Admin-specific fixes
     if (adminFixes.length > 0) {
       adminFixes.forEach(f => {
-        html += `<div style="padding:8px;background:'rgba(var(--destructive-rgb),.05)';border-radius:6px;margin-bottom:6px">
-          <div style="font-size:12px;font-weight:600;color:'var(--fg)';margin-bottom:2px">${f.title}</div>
-          <div style="font-size:11px;color:'var(--muted-fg)';line-height:1.4">${f.fix}</div>
+        html += `<div style="padding:8px;background:rgba(var(--destructive-rgb),.05);border-radius:6px;margin-bottom:6px">
+          <div style="font-size:12px;font-weight:600;color:var(--fg);margin-bottom:2px">${f.title}</div>
+          <div style="font-size:11px;color:var(--muted-fg);line-height:1.4">${f.fix}</div>
         </div>`;
       });
     }
     // Full technical info (open by default for admins)
-    html += `<div style="font-size:11px;color:'var(--muted-fg)';background:'var(--card)';border:1px solid 'var(--border)';border-radius:6px;padding:8px;margin-top:6px;font-family:'var(--font-mono)';line-height:1.6;word-break:break-all">
+    html += `<div style="font-size:11px;color:var(--muted-fg);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;font-family:var(--font-mono);line-height:1.6;word-break:break-all">
       <div><strong>Area:</strong> ${_esc(entry.area)}</div>
       <div><strong>Error:</strong> ${_esc(entry.message)}</div>
       ${entry.code ? '<div><strong>Code:</strong> <span style="color:var(--destructive)">' + _esc(entry.code) + '</span></div>' : ''}
@@ -2026,14 +2026,14 @@ function openErrorDiagnostics(entry, showLog) {
       promise: 'Unhandled async error — likely a network request or Firebase operation'
     };
     if (docHints[entry.area]) {
-      html += `<div style="font-size:10px;color:'var(--muted-fg)';margin-top:6px;font-family:'var(--font-mono)'">📁 ${docHints[entry.area]}</div>`;
+      html += `<div style="font-size:10px;color:var(--muted-fg);margin-top:6px;font-family:var(--font-mono)">📁 ${docHints[entry.area]}</div>`;
     }
     // Error log viewer (all recent errors)
     if (errorLog.length > 1) {
-      html += `<div style="margin-top:8px"><div style="font-size:11px;font-weight:600;color:'var(--muted-fg)';margin-bottom:4px">Recent Errors (${errorLog.length})</div>`;
+      html += `<div style="margin-top:8px"><div style="font-size:11px;font-weight:600;color:var(--muted-fg);margin-bottom:4px">Recent Errors (${errorLog.length})</div>`;
       errorLog.slice(0, 10).forEach((e, i) => {
         const isCurrent = e === entry;
-        html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:'var(--font-mono)';background:${isCurrent ? 'rgba(var(--destructive-rgb),.1)' : 'transparent'};color:${isCurrent ? 'var(--destructive)' : 'var(--muted-fg)'}">
+        html += `<div class="diag-log-item" data-log-idx="${i}" style="font-size:10px;padding:4px 6px;margin-bottom:2px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);background:${isCurrent ? 'rgba(var(--destructive-rgb),.1)' : 'transparent'};color:${isCurrent ? 'var(--destructive)' : 'var(--muted-fg)'}">
           ${e.time.split('T')[1]?.split('.')[0] || ''} · ${_esc(e.area)} · ${_esc((e.message || '').substring(0, 60))}${e.message?.length > 60 ? '...' : ''}
         </div>`;
       });
@@ -2043,8 +2043,8 @@ function openErrorDiagnostics(entry, showLog) {
   } else {
     // Non-admin: collapsed technical details
     html += `<details style="margin-top:8px">
-      <summary style="font-size:12px;color:'var(--muted-fg)';cursor:pointer;padding:6px 0;user-select:none">Technical Details</summary>
-      <div style="font-size:11px;color:'var(--muted-fg)';background:'var(--card)';border:1px solid 'var(--border)';border-radius:8px;padding:10px;margin-top:4px;font-family:'var(--font-mono)';line-height:1.5;word-break:break-all">
+      <summary style="font-size:12px;color:var(--muted-fg);cursor:pointer;padding:6px 0;user-select:none">Technical Details</summary>
+      <div style="font-size:11px;color:var(--muted-fg);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:4px;font-family:var(--font-mono);line-height:1.5;word-break:break-all">
         <div><strong>Area:</strong> ${_esc(entry.area)}</div>
         <div><strong>Error:</strong> ${_esc(entry.message)}</div>
         ${entry.code ? '<div><strong>Code:</strong> ' + _esc(entry.code) + '</div>' : ''}
@@ -2053,7 +2053,7 @@ function openErrorDiagnostics(entry, showLog) {
     </details>`;
   }
   // AI diagnose button
-  html += `<button id="diag-ai-btn" class="btn" style="width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;color:'var(--purple)';display:flex;align-items:center;justify-content:center;gap:6px">
+  html += `<button id="diag-ai-btn" class="btn" style="width:100%;margin-top:10px;padding:12px;font-size:13px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;color:var(--purple);display:flex;align-items:center;justify-content:center;gap:6px">
     🤖 Ask AI to Diagnose
   </button>
   <div id="diag-ai-result" style="margin-top:8px"></div>`;
@@ -2085,8 +2085,8 @@ Platform: ${entry.platform}
 Context: ${JSON.stringify(entry.context || {})}`;
       const resp = await aiCoachFetch({ message: diagPrompt, context: 'ERROR_DIAGNOSIS. ' + (isAdmin ? 'User is admin. Include Firestore paths, env var names, and Netlify deploy steps. Be technical.' : 'Respond in 3-4 sentences. Be specific and practical. Use simple language a student would understand.') });
       const data = await resp.json();
-      resultEl.innerHTML = `<div style="padding:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:13px;color:'var(--fg)';line-height:1.5">
-        <div style="font-size:12px;font-weight:600;color:'var(--purple)';margin-bottom:4px">AI Diagnosis${isAdmin ? ' (Admin)' : ''}</div>
+      resultEl.innerHTML = `<div style="padding:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:13px;color:var(--fg);line-height:1.5">
+        <div style="font-size:12px;font-weight:600;color:var(--purple);margin-bottom:4px">AI Diagnosis${isAdmin ? ' (Admin)' : ''}</div>
         ${_esc(data.reply || 'Could not diagnose. Try the suggestions above.')}
       </div>`;
     } catch(e) {
@@ -2231,7 +2231,7 @@ function renderCurrentPage() {
       if (target) {
         target.innerHTML = `<div class="empty-state">
           <div class="empty-state-title">Couldn't load ${name}</div>
-          <div class="empty-state-desc" style="font-family:'var(--font-mono)';font-size:11px;color:'var(--destructive)';margin-top:8px;word-break:break-word">${escHtml(e.message || String(e))}</div>
+          <div class="empty-state-desc" style="font-family:var(--font-mono);font-size:11px;color:var(--destructive);margin-top:8px;word-break:break-word">${escHtml(e.message || String(e))}</div>
           <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
             <button class="btn btn-primary" id="render-retry-${name}" style="font-size:12px;padding:8px 16px">Retry</button>
             <button class="btn btn-secondary" id="render-reload-${name}" style="font-size:12px;padding:8px 16px">Hard reload</button>
@@ -2643,7 +2643,7 @@ function renderDemonstration() {
                 <span style="color:${typeColor}">${ex.exerciseType || ex.catLabel}</span>
               </div>
             </div>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:'var(--muted-fg)';flex-shrink:0;transition:transform .15s" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--muted-fg);flex-shrink:0;transition:transform .15s" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="demo-ex-body" id="demos-body-${i}">
             ${embedUrl ? `
@@ -2654,7 +2654,7 @@ function renderDemonstration() {
             ${ex.description ? '<div class="demo-ex-desc">' + escHtml(ex.description) + '</div>' : ''}
             ${!embedUrl ? `
               <div class="demo-ex-no-video">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:'var(--muted-fg)';margin-bottom:4px"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--muted-fg);margin-bottom:4px"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                 No video added yet
               </div>
             ` : ''}
@@ -3042,11 +3042,11 @@ function renderToday() {
   html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
     <div class="today-date" style="margin:0">${dateStr}</div>
     <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:12px;font-weight:700;color:'var(--primary)'">${lvl.icon} ${xp} XP</span>
-      <button id="today-customize" style="background:none;border:none;color:'var(--muted-fg)';cursor:pointer;padding:2px;font-size:14px" title="Customize widgets">⚙️</button>
+      <span style="font-size:12px;font-weight:700;color:var(--primary)">${lvl.icon} ${xp} XP</span>
+      <button id="today-customize" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:2px;font-size:14px" title="Customize widgets">⚙️</button>
     </div>
   </div>`;
-  html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,'var(--primary)',#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
+  html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
   // Engagement chips removed — they restated information already
   // present in the XP / streak header (XP value + level + progress bar
   // already convey "log today for more XP", and freezes show on the
@@ -3067,17 +3067,17 @@ function renderToday() {
         <img src="${_iconUrl}" style="width:52px;height:52px;margin:-8px" alt="${escHtml(_w.desc)}">
         <div style="flex:1">
           <div style="display:flex;align-items:baseline;gap:6px">
-            <span style="font-size:32px;font-weight:800;color:'var(--fg)';line-height:1">${_w.temp}°</span>
-            <span style="font-size:13px;color:'var(--muted-fg)';text-transform:capitalize">${escHtml(_w.desc)}</span>
+            <span style="font-size:32px;font-weight:800;color:var(--fg);line-height:1">${_w.temp}°</span>
+            <span style="font-size:13px;color:var(--muted-fg);text-transform:capitalize">${escHtml(_w.desc)}</span>
           </div>
-          <div style="font-size:12px;color:'var(--muted-fg)';margin-top:2px">Feels ${_w.feels}°${_w.city ? ' · ' + escHtml(_w.city) : ''}</div>
+          <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">Feels ${_w.feels}°${_w.city ? ' · ' + escHtml(_w.city) : ''}</div>
         </div>
       </div>
       <div style="display:flex;gap:12px;margin-bottom:6px">
-        <span style="font-size:11px;color:'var(--muted-fg)'">💨 ${_w.wind} km/h</span>
-        <span style="font-size:11px;color:'var(--muted-fg)'">💧 ${_w.humidity}%</span>
+        <span style="font-size:11px;color:var(--muted-fg)">💨 ${_w.wind} km/h</span>
+        <span style="font-size:11px;color:var(--muted-fg)">💧 ${_w.humidity}%</span>
       </div>
-      <div style="font-size:12px;font-weight:600;color:'var(--fg)'">${_advice}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--fg)">${_advice}</div>
     </div></div>`;
   } else {
     html += `<div id="weather-card" style="margin-bottom:10px">
@@ -3092,33 +3092,33 @@ function renderToday() {
   if (isWidgetOn('health')) {
   const healthData = userProfile?.health;
   if (healthData && (healthData.latestHr || healthData.latestSteps || healthData.latestSleep)) {
-    html += `<div id="health-card-tap" style="background:'var(--card)';border:1px solid 'var(--border)';border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer">
+    html += `<div id="health-card-tap" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:'var(--fg)'">❤️ Health Sync</div>
+        <div style="font-size:13px;font-weight:700;color:var(--fg)">❤️ Health Sync</div>
         <div style="display:flex;align-items:center;gap:6px">
           ${healthData.lastSync ? '<span style="font-size:10px;color:var(--muted-fg)">' + timeAgo(new Date(healthData.lastSync)) + '</span>' : ''}
-          <span style="font-size:12px;color:'var(--muted-fg)'">›</span>
+          <span style="font-size:12px;color:var(--muted-fg)">›</span>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
-        ${healthData.latestHr ? `<div style="text-align:center;padding:10px 4px;background:'rgba(var(--destructive-rgb),.06)';border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:'var(--destructive)'">${healthData.latestHr}</div>
-          <div style="font-size:10px;color:'var(--muted-fg)';margin-top:2px">❤️ bpm</div>
+        ${healthData.latestHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--destructive-rgb),.06);border-radius:10px">
+          <div style="font-size:22px;font-weight:800;color:var(--destructive)">${healthData.latestHr}</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">❤️ bpm</div>
         </div>` : ''}
-        ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:'rgba(var(--success-rgb),.06)';border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:'var(--success)'">${healthData.latestSteps > 999 ? (healthData.latestSteps / 1000).toFixed(1) + 'k' : healthData.latestSteps}</div>
-          <div style="font-size:10px;color:'var(--muted-fg)';margin-top:2px">👟 steps</div>
+        ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--success-rgb),.06);border-radius:10px">
+          <div style="font-size:22px;font-weight:800;color:var(--success)">${healthData.latestSteps > 999 ? (healthData.latestSteps / 1000).toFixed(1) + 'k' : healthData.latestSteps}</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">👟 steps</div>
         </div>` : ''}
         ${healthData.latestSleep ? `<div style="text-align:center;padding:10px 4px;background:rgba(124,58,237,.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:'var(--purple)'">${healthData.latestSleep}</div>
-          <div style="font-size:10px;color:'var(--muted-fg)';margin-top:2px">😴 hours</div>
+          <div style="font-size:22px;font-weight:800;color:var(--purple)">${healthData.latestSleep}</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">😴 hours</div>
         </div>` : ''}
         ${healthData.restingHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(59,130,246,.06);border-radius:10px">
           <div style="font-size:22px;font-weight:800;color:#3b82f6">${healthData.restingHr}</div>
-          <div style="font-size:10px;color:'var(--muted-fg)';margin-top:2px">💓 resting</div>
+          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">💓 resting</div>
         </div>` : ''}
       </div>
-      <div style="text-align:center;margin-top:8px;font-size:11px;color:'var(--muted-fg)'">Tap for details</div>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted-fg)">Tap for details</div>
     </div>`;
   }
   }
@@ -3141,17 +3141,17 @@ function renderToday() {
     const lwXp = lwWorkouts.length * 10;
     if (lwWorkouts.length > 0) {
       const goalText = lwWorkouts.length < 3 ? 'Push for 3 sessions this week!' : lwWorkouts.length < 5 ? 'Great week — aim for ' + (lwWorkouts.length + 1) + ' this week!' : 'Incredible consistency — keep it up!';
-      html += `<div class="last-week-card" style="background:'var(--card)';border:1px solid 'var(--border)';border-radius:10px;padding:12px;margin-bottom:10px">
+      html += `<div class="last-week-card" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-size:13px;font-weight:700;color:'var(--fg)'">Last Week</div>
-          <button id="dismiss-weekly" style="background:none;border:none;color:'var(--muted-fg)';font-size:16px;cursor:pointer;padding:2px" aria-label="Dismiss">×</button>
+          <div style="font-size:13px;font-weight:700;color:var(--fg)">Last Week</div>
+          <button id="dismiss-weekly" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px" aria-label="Dismiss">×</button>
         </div>
         <div style="display:flex;gap:12px;margin-bottom:8px">
-          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:'var(--primary)'">${lwWorkouts.length}</div><div style="font-size:10px;color:'var(--muted-fg)'">sessions</div></div>
-          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:'var(--fg)'">${lwMins}</div><div style="font-size:10px;color:'var(--muted-fg)'">mins</div></div>
-          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:'var(--warning)'">+${lwXp}</div><div style="font-size:10px;color:'var(--muted-fg)'">XP</div></div>
+          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${lwWorkouts.length}</div><div style="font-size:10px;color:var(--muted-fg)">sessions</div></div>
+          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--fg)">${lwMins}</div><div style="font-size:10px;color:var(--muted-fg)">mins</div></div>
+          <div style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--warning)">+${lwXp}</div><div style="font-size:10px;color:var(--muted-fg)">XP</div></div>
         </div>
-        <div style="font-size:12px;color:'var(--muted-fg)';line-height:1.4">${goalText}</div>
+        <div style="font-size:12px;color:var(--muted-fg);line-height:1.4">${goalText}</div>
       </div>`;
     }
   }
@@ -8407,6 +8407,14 @@ function openEditTeamSheet() {
 // --- Manage Subteams ---
 function openAddCoCoachSheet() {
   if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
+  // Permission gate — only the head coach (or master admin) can promote
+  // co-coaches. Mirrors the gate on Manage Team so a stray call site
+  // can't bypass the UI.
+  const isMaster = isMasterAccount(currentUser?.email);
+  if (teamData.createdBy !== currentUser?.uid && !isAdmin && !isMaster) {
+    showToast('Only the head coach can add co-coaches.', 'warn');
+    return;
+  }
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Add Co-Coach</div>
     <p style="font-size:13px;color:var(--muted-fg);margin-bottom:12px">
@@ -8453,6 +8461,13 @@ function openAddCoCoachSheet() {
 
 async function promoteToCoach(uid, btn) {
   if (!uid || !teamData?.id) return;
+  // Permission gate — Firestore rules also enforce, but check client-side
+  // so a stray call can't kick off a doomed write that confuses the UI.
+  const isMaster = isMasterAccount(currentUser?.email);
+  if (teamData.createdBy !== currentUser?.uid && !isAdmin && !isMaster) {
+    showToast('Only the head coach can promote co-coaches.', 'warn');
+    return;
+  }
   btn.disabled = true; btn.textContent = '…';
   try {
     if (!demoMode && db) {
@@ -9274,7 +9289,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-r28';
+  const APP_VERSION = '20260430-r29';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
