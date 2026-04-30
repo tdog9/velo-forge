@@ -1169,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-r25';
+const APP_VERSION = '20260430-r26';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1968,7 +1968,7 @@ function openErrorDiagnostics(entry, showLog) {
   }
   // Other fixes
   if (fixes.length > 1) {
-    html += '<div style="font-size:11px;font-weight:600;color:'var(--muted-fg)';margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Other things to try</div>';
+    html += '<div style="font-size:11px;font-weight:600;color:var(--muted-fg);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Other things to try</div>';
     fixes.slice(1).forEach(f => {
       html += `<div style="display:flex;gap:10px;padding:8px 10px;background:'var(--card)';border:1px solid 'var(--border)';border-radius:8px;margin-bottom:6px">
         <span style="font-size:16px;flex-shrink:0">${f.icon}</span>
@@ -1994,11 +1994,11 @@ function openErrorDiagnostics(entry, showLog) {
     html += `<div style="font-size:11px;color:'var(--muted-fg)';background:'var(--card)';border:1px solid 'var(--border)';border-radius:6px;padding:8px;margin-top:6px;font-family:'var(--font-mono)';line-height:1.6;word-break:break-all">
       <div><strong>Area:</strong> ${_esc(entry.area)}</div>
       <div><strong>Error:</strong> ${_esc(entry.message)}</div>
-      ${entry.code ? '<div><strong>Code:</strong> <span style="color:'var(--destructive)'">' + _esc(entry.code) + '</span></div>' : ''}
+      ${entry.code ? '<div><strong>Code:</strong> <span style="color:var(--destructive)">' + _esc(entry.code) + '</span></div>' : ''}
       <div><strong>Time:</strong> ${entry.time}</div>
       <div><strong>User:</strong> ${_esc(entry.user)} · <strong>Online:</strong> ${entry.online ? '✓' : '✗'} · <strong>Platform:</strong> ${entry.platform}</div>
       ${entry.context && Object.keys(entry.context).length > 0 ? '<div><strong>Context:</strong> ' + _esc(JSON.stringify(entry.context)) + '</div>' : ''}
-      ${entry.stack ? '<div style="margin-top:4px;white-space:pre-wrap;font-size:10px;opacity:.7;border-top:1px solid 'var(--border)';padding-top:4px">' + _esc(entry.stack) + '</div>' : ''}
+      ${entry.stack ? '<div style="margin-top:4px;white-space:pre-wrap;font-size:10px;opacity:.7;border-top:1px solid var(--border);padding-top:4px">' + _esc(entry.stack) + '</div>' : ''}
     </div>`;
     // Firestore doc path hint
     const docHints = {
@@ -2076,7 +2076,7 @@ Context: ${JSON.stringify(entry.context || {})}`;
         ${_esc(data.reply || 'Could not diagnose. Try the suggestions above.')}
       </div>`;
     } catch(e) {
-      resultEl.innerHTML = '<div style="font-size:12px;color:'var(--muted-fg)';padding:8px">AI diagnosis unavailable — try the suggestions above.</div>';
+      resultEl.innerHTML = '<div style="font-size:12px;color:var(--muted-fg);padding:8px">AI diagnosis unavailable — try the suggestions above.</div>';
     }
     btn.style.display = 'none';
   });
@@ -2624,7 +2624,7 @@ function renderDemonstration() {
         <div class="demo-ex-card">
           <div class="demo-ex-header" data-demos-expand="${i}">
             <div class="demo-ex-info">
-              <div class="demo-ex-name">${escHtml(ex.name)}${hasVideo ? ' <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;vertical-align:-1px;color:'var(--primary)';display:inline" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>' : ''}</div>
+              <div class="demo-ex-name">${escHtml(ex.name)}${hasVideo ? ' <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;vertical-align:-1px;color:var(--primary);display:inline" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>' : ''}</div>
               <div class="demo-ex-meta">
                 <span style="color:${typeColor}">${ex.exerciseType || ex.catLabel}</span>
               </div>
@@ -2795,8 +2795,8 @@ function renderGoals() {
   loadGoals();
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">My Goals</div>';
   if (userGoals.length === 0) {
-    html += '<div style="font-size:13px;font-weight:600;color:'var(--fg)';padding:4px 0;margin-bottom:4px">🎯 Pick a goal — earn bonus XP for hitting it</div>';
-    html += '<div style="font-size:11px;color:'var(--muted-fg)';margin-bottom:10px">Tap any below to get started:</div>';
+    html += '<div style="font-size:13px;font-weight:600;color:var(--fg);padding:4px 0;margin-bottom:4px">🎯 Pick a goal — earn bonus XP for hitting it</div>';
+    html += '<div style="font-size:11px;color:var(--muted-fg);margin-bottom:10px">Tap any below to get started:</div>';
     html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
       <button class="goal-tpl-btn" data-tpl="weekly_workouts" data-target="4" data-label="4 workouts this week" data-type="workouts_week">📅 4 workouts this week</button>
       <button class="goal-tpl-btn" data-tpl="month_workouts" data-target="12" data-label="12 workouts this month" data-type="workouts_month">🎯 12 workouts this month</button>
@@ -3082,7 +3082,7 @@ function renderToday() {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:13px;font-weight:700;color:'var(--fg)'">❤️ Health Sync</div>
         <div style="display:flex;align-items:center;gap:6px">
-          ${healthData.lastSync ? '<span style="font-size:10px;color:'var(--muted-fg)'">' + timeAgo(new Date(healthData.lastSync)) + '</span>' : ''}
+          ${healthData.lastSync ? '<span style="font-size:10px;color:var(--muted-fg)">' + timeAgo(new Date(healthData.lastSync)) + '</span>' : ''}
           <span style="font-size:12px;color:'var(--muted-fg)'">›</span>
         </div>
       </div>
@@ -3847,7 +3847,7 @@ function renderChecklistItem(workout, key, isChecked) {
   if (hasExercises && setsTotal === 0) {
     setsTotal = workout.exercises.reduce((s, ex) => s + (ex.sets || 1), 0);
   }
-  const progressText = setsTotal > 0 ? `<span style="font-size:10px;color:${setsDone >= setsTotal ? ''var(--primary)'' : ''var(--muted-fg)''};margin-left:4px">${setsDone}/${setsTotal}</span>` : '';
+  const progressText = setsTotal > 0 ? `<span style="font-size:10px;color:${setsDone >= setsTotal ? 'var(--primary)' : 'var(--muted-fg)'};margin-left:4px">${setsDone}/${setsTotal}</span>` : '';
   return `
     <div class="checklist-item${isChecked?' checked':''}">
       <div class="cl-check" data-key="${key}">
@@ -9260,7 +9260,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-r25';
+  const APP_VERSION = '20260430-r26';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

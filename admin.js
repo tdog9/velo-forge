@@ -862,13 +862,13 @@ export async function renderCoachDashboard() {
     el.querySelectorAll('.bulk-target-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         el.querySelectorAll('.bulk-target-btn').forEach(b => {
-          b.style.background = ''var(--surface)'';
-          b.style.color = ''var(--muted-fg)'';
-          b.style.borderColor = ''var(--border)'';
+          b.style.background = 'var(--surface)';
+          b.style.color = 'var(--muted-fg)';
+          b.style.borderColor = 'var(--border)';
         });
-        btn.style.background = ''var(--primary)'';
-        btn.style.color = ''var(--primary-fg)'';
-        btn.style.borderColor = ''var(--primary)'';
+        btn.style.background = 'var(--primary)';
+        btn.style.color = 'var(--primary-fg)';
+        btn.style.borderColor = 'var(--primary)';
         bulkTarget = btn.dataset.bulkTarget;
       });
     });
@@ -913,7 +913,7 @@ export async function renderCoachDashboard() {
 
   // --- Challenge Manager (below student list) ---
   const challengeEl = document.createElement('div');
-  challengeEl.style.cssText = 'margin-top:16px;border-top:1px solid 'var(--border)';padding-top:16px';
+  challengeEl.style.cssText = 'margin-top:16px;border-top:1px solid var(--border);padding-top:16px';
   let chHtml = '<div style="font-size:15px;font-weight:700;color:var(--fg);margin-bottom:10px">🏆 Team Challenge Manager</div>';
 
   if (A.activeChallenge) {
@@ -1046,7 +1046,7 @@ export async function renderCoachDashboard() {
   });
   // --- Duplicate Workout Cleanup Tool ---
   const cleanupEl = document.createElement('div');
-  cleanupEl.style.cssText = 'margin-top:16px;border-top:1px solid 'var(--border)';padding-top:16px';
+  cleanupEl.style.cssText = 'margin-top:16px;border-top:1px solid var(--border);padding-top:16px';
   cleanupEl.innerHTML = `
     <div style="font-size:15px;font-weight:700;color:var(--fg);margin-bottom:8px">🧹 Cleanup Tools</div>
     <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
