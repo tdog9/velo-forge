@@ -1,6 +1,13 @@
 // TurboPrep Admin Panel Module
 // All state accessed via A (app context set by initAdmin)
-import { escHtml, capitalize, getXpLevel, timeAgo, localDateKey } from './state.js';
+import * as _state from './state.js';
+const { escHtml, capitalize, getXpLevel, timeAgo } = _state;
+// Defensive fallback — see app.js for context.
+const localDateKey = _state.localDateKey || function(d = new Date()) {
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt)) return '';
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+};
 
 // Default A with working $ so render functions don't hard-crash if init hasn't
 // run yet (module load race, demo mode bypass, etc.). initAdmin replaces this.

@@ -1,7 +1,17 @@
 // TurboPrep HPR Training App
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { initRaceDay, loadRaceDayState, getRaceDayActive, getTodayStints, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay, checkRaceDaySchedule } from './raceday.js';
-import { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS, localDateKey } from './state.js';
+import * as _state from './state.js';
+const { escHtml, capitalize, timeAgo, haversine, decodePolyline, getXpLevel, XP_LEVELS } = _state;
+// Defensive fallback: if a stale service worker serves an older
+// state.js that doesn't yet export localDateKey, the previous named
+// import would throw SyntaxError at parse time and brick the entire
+// app. Namespace import + runtime fallback keeps the app loadable.
+const localDateKey = _state.localDateKey || function(d = new Date()) {
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt)) return '';
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+};
 import { maybeRunHealthCheck, initHealthErrorCollector, forceHealthCheck, getLastHealthReport } from './healthcheck.js';
 initHealthErrorCollector();
 // Dynamic imports — load ALL modules in PARALLEL (not sequential)

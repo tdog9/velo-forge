@@ -1,5 +1,14 @@
 // TurboPrep AI Features Module — Plan editing, weekly review, race prep, injury mode
-import { escHtml, localDateKey } from './state.js';
+import * as _state from './state.js';
+const { escHtml } = _state;
+// Defensive fallback — if a stale service-worker cache serves an older
+// state.js that doesn't export localDateKey, the named import would
+// throw a parse-time SyntaxError and the whole module fails to load.
+const localDateKey = _state.localDateKey || function(d = new Date()) {
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt)) return '';
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+};
 
 // Default A with working $ so render functions don't crash if init hasn't run.
 let A = { $: (id) => document.getElementById(id) };

@@ -1,5 +1,12 @@
 // TurboPrep Race Log Module
-import { escHtml, localDateKey } from './state.js';
+import * as _state from './state.js';
+const { escHtml } = _state;
+// Defensive fallback — see aifeatures.js for context.
+const localDateKey = _state.localDateKey || function(d = new Date()) {
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt)) return '';
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+};
 
 let A = { $: (id) => document.getElementById(id) };
 export function initRaceLog(ctx) { A = ctx; }
