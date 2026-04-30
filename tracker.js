@@ -96,6 +96,10 @@ export function openActivityTracker() {
 }
 
 function startTracking() {
+  // Reentrancy guard — fast double-tap of Start/Resume used to fire two
+  // startTracking() calls before the button re-rendered, scheduling
+  // duplicate intervals and corrupting the elapsed timer.
+  if (trackerState === 'tracking') return;
   trackerState = 'tracking';
   trackerStartTime = Date.now() - (trackerElapsed * 1000);
   ctx.haptic('medium');

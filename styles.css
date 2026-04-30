@@ -201,17 +201,10 @@ body { -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transpare
   --surface-raised:#e8e5de;
 }
 
-/* Venom theme — dark green + black, primary is acid green to match
-   the Marvel symbiote palette. Header + tab bar + accents pick this
-   up automatically since they all read from the CSS vars. */
+/* Venom theme — KEEP all the black backgrounds from Dark theme.
+   Only swap the orange accent for symbiote acid green. Result: same
+   familiar dark UI, just green icons / borders / buttons / wordmark. */
 .venom-theme{
-  --bg:#03110a;
-  --bg-elevated:#061a10;
-  --fg:#e8fff0;
-  --card:#082016;
-  --card-hover:#0a2a1c;
-  --border:rgba(0,255,128,.15);
-  --border-strong:rgba(0,255,128,.30);
   --primary:#22ff88;
   --primary-fg:#03110a;
   --primary-hover:#1ce277;
@@ -219,17 +212,10 @@ body { -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transpare
   --primary-dim:rgba(34,255,136,.14);
   --primary-soft:rgba(34,255,136,.10);
   --primary-edge:rgba(34,255,136,.32);
-  --muted:#0c2a1d;
-  --muted-fg:#7fcfa0;
-  --secondary:#0c2a1d;
-  --secondary-fg:#cdebd6;
-  --surface:#061a10;
-  --surface-raised:#0a2a1c;
 }
 .venom-theme .auth-wordmark{color:#22ff88}
 .venom-theme .auth-wordmark-2{color:rgba(34,255,136,.55)}
-/* Re-tint the in-app logo wordmark + the AI Coach FAB so the
-   accent really feels symbiote-green when Venom is on. */
+/* Re-tint the AI Coach FAB so the accent feels symbiote-green. */
 .venom-theme .ai-fab{background:linear-gradient(135deg,#22ff88,#0a8b46)}
 
 /* ===== Base ===== */
@@ -506,8 +492,8 @@ select.input{
 }
   /* Swipe down to close */
 .sheet-handle{
-  width:36px;height:4px;border-radius:2px;
-  background:var(--muted-fg);margin:10px auto 16px;opacity:.35;
+  width:40px;height:5px;border-radius:3px;
+  background:var(--muted-fg);margin:10px auto 16px;opacity:.7;
 }
 .sheet-title{font-size:18px;font-weight:700;font-family:var(--font-sans);margin-bottom:18px}
 
@@ -717,7 +703,7 @@ select.input{
 .ai-typing span:nth-child(3){animation-delay:.4s}
 @keyframes aiDot{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
 .ai-input-bar{display:flex;gap:8px;padding:12px 16px;padding-bottom:calc(12px + var(--safe-b));border-top:1px solid var(--border);background:var(--bg)}
-.ai-input{flex:1;padding:10px 14px;border-radius:20px;border:1px solid var(--border-strong);background:var(--card);font-size:14px;color:var(--fg);outline:none}
+.ai-input{flex:1;padding:10px 14px;border-radius:20px;border:1px solid var(--border-strong);background:var(--card);font-size:16px;color:var(--fg);outline:none}
 .ai-input:focus{border-color:var(--primary)}
 .ai-send{width:40px;height:40px;border-radius:50%;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:none}
 .ai-send:active{opacity:.8}
@@ -899,7 +885,7 @@ select.input{
 .record-tab{flex:0 0 auto;position:relative}
 .record-tab-circle{
   width:44px;height:44px;border-radius:50%;
-  background:linear-gradient(135deg,var(--primary),#ea580c);
+  background:linear-gradient(135deg,var(--primary),var(--primary-hover));
   display:flex;align-items:center;justify-content:center;
   margin:-10px auto 2px;
   box-shadow:0 4px 12px rgba(var(--primary-rgb),.4);
@@ -1070,8 +1056,10 @@ select.input{
 .setup-box p{font-size:13px;color:var(--muted-fg);margin-bottom:10px;line-height:1.5}
 .setup-box code{display:block;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-family:var(--font-mono);font-size:11px;color:var(--primary);margin-bottom:10px;white-space:pre;overflow-x:auto;text-align:left}
 .loading-overlay{position:fixed;inset:0;z-index:400;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
-.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:16px}
-.tutorial-overlay{position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:24px}
+/* Stronger scrim so the page-behind doesn't bleed through and make
+   the modal content (especially welcome / tutorial cards) hard to read. */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px}
+.tutorial-overlay{position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px}
 
 /* Toast container */
 .toast-container{position:fixed;top:calc(var(--header-h) + var(--safe-t) + 8px);left:50%;transform:translateX(-50%);z-index:500;display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:calc(100vw - 32px)}
@@ -1292,7 +1280,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* ===== Modal ===== */
 .modal-backdrop{position:fixed;inset:0;background:transparent}
-.modal-card{background:var(--card);border-radius:var(--radius-lg);padding:20px;max-width:340px;width:100%;box-shadow:var(--shadow-lg)}
+.modal-card{background:var(--card);border:1px solid var(--border-strong);border-radius:var(--radius-lg);padding:20px;max-width:340px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04) inset}
 .modal-title{font-size:18px;font-weight:700;margin-bottom:8px}
 .modal-body{font-size:14px;color:var(--muted-fg);line-height:1.5;margin-bottom:16px}
 .modal-btns{display:flex;gap:8px}

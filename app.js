@@ -1169,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-audit-fixes';
+const APP_VERSION = '20260430-r18';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1230,7 +1230,7 @@ function showWelcomeSetup() {
   document.body.appendChild(overlay);
   const markDone = (btn) => {
     btn.style.borderColor = 'var(--primary)';
-    btn.style.background = 'rgba(249,115,22,.06)';
+    btn.style.background = 'rgba(var(--primary-rgb),.10)';
     btn.querySelector('span:last-child').textContent = '✓';
     btn.querySelector('span:last-child').style.color = 'var(--primary)';
   };
@@ -5512,7 +5512,7 @@ function openWorkoutSheet() {
       </div>
       <div class="form-group">
         <label class="label" for="wo-name">Name</label>
-        <input class="input" type="text" id="wo-name" placeholder="${tf.name}" value="${$('wo-name')?.value || ''}">
+        <input class="input" type="text" id="wo-name" placeholder="${tf.name}" value="${$('wo-name')?.value || ''}" required maxlength="80">
       </div>
       <div id="wo-type-fields">${tf.fields}</div>
       <div class="form-group">
@@ -9244,7 +9244,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-audit-fixes';
+  const APP_VERSION = '20260430-r18';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

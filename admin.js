@@ -1135,8 +1135,8 @@ export function renderAdminAnnouncements() {
     <div class="card" style="margin-bottom:12px">
       <div class="admin-form">
         <div class="label">New Announcement</div>
-        <input class="input" type="text" id="ann-title" placeholder="Title">
-        <textarea class="input" id="ann-message" placeholder="Message for all students"></textarea>
+        <input class="input" type="text" id="ann-title" placeholder="Title" required maxlength="80">
+        <textarea class="input" id="ann-message" placeholder="Message for all students" required maxlength="500"></textarea>
         <button class="btn btn-primary" id="ann-add-btn" style="align-self:flex-start">Post Announcement</button>
       </div>
     </div>
@@ -1666,7 +1666,7 @@ export function renderAdminRaces() {
     <div class="card" style="margin-bottom:12px">
       <div class="admin-form">
         <div class="label">Add Race</div>
-        <input class="input" type="text" id="race-name" placeholder="Race name">
+        <input class="input" type="text" id="race-name" placeholder="Race name" required maxlength="80">
         <input class="input" type="date" id="race-date">
         <input class="input" type="text" id="race-location" placeholder="Location">
         <input class="input" type="number" id="race-distance" placeholder="Distance (km)">
@@ -2600,7 +2600,6 @@ export function getVideoUrl(planId, workoutIdx, defaultUrl) {
   return defaultUrl;
 }
 
-let demoExpandedPlan = null;
 
 // (Demo links now rendered within renderAdminPlansMerged → renderPlansVideos)
 

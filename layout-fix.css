@@ -341,12 +341,12 @@ body{
 
 /* Challenge team fill — smoother */
 .challenge-team-fill{
-  background:linear-gradient(90deg, var(--primary), #ffa552) !important;
+  background:linear-gradient(90deg, var(--primary), var(--primary-hover)) !important;
 }
 
 /* XP bar — glow */
 .xp-fill{
-  background:linear-gradient(90deg, var(--primary), #ffa552) !important;
+  background:linear-gradient(90deg, var(--primary), var(--primary-hover)) !important;
   box-shadow:0 0 12px rgba(var(--primary-rgb),.4);
 }
 
@@ -480,7 +480,7 @@ body{
     var(--bg) !important;
 }
 .auth-logo-mark{
-  background:linear-gradient(135deg, var(--primary), #ffa552) !important;
+  background:linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
   box-shadow:
     0 8px 32px rgba(var(--primary-rgb),.35),
     0 0 0 1px rgba(var(--primary-rgb),.4) inset,
@@ -1275,7 +1275,7 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   border:1px solid var(--border);
   background:var(--card);
   color:var(--fg);
-  font-size:14px;
+  font-size:16px;
   line-height:1.35;
   font-family:inherit;
   min-height:40px;
