@@ -1169,7 +1169,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260430-venom';
+const APP_VERSION = '20260430-audit5';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -2209,7 +2209,30 @@ function renderCurrentPage() {
     catch(e) {
       logError('render-' + name, e);
       const target = $(name === 'admin' ? 'admin-content' : name === 'coach' ? 'coach-content' : 'content');
-      if (target) target.innerHTML = `<div class="empty-state"><div class="empty-state-title">Couldn't load ${name}</div><div class="empty-state-desc" style="font-family:var(--font-mono);font-size:11px;color:#ef4444;margin-top:8px;word-break:break-word">${escHtml(e.message || String(e))}</div></div>`;
+      if (target) {
+        target.innerHTML = `<div class="empty-state">
+          <div class="empty-state-title">Couldn't load ${name}</div>
+          <div class="empty-state-desc" style="font-family:var(--font-mono);font-size:11px;color:#ef4444;margin-top:8px;word-break:break-word">${escHtml(e.message || String(e))}</div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+            <button class="btn btn-primary" id="render-retry-${name}" style="font-size:12px;padding:8px 16px">Retry</button>
+            <button class="btn btn-secondary" id="render-reload-${name}" style="font-size:12px;padding:8px 16px">Hard reload</button>
+          </div>
+        </div>`;
+        document.getElementById('render-retry-' + name)?.addEventListener('click', () => renderCurrentPage());
+        document.getElementById('render-reload-' + name)?.addEventListener('click', async () => {
+          try {
+            if ('serviceWorker' in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(regs.map(r => r.unregister()));
+            }
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map(k => caches.delete(k)));
+            }
+          } catch(_) {}
+          window.location.reload();
+        });
+      }
     }
   }
   switch(currentPage) {
@@ -2217,12 +2240,17 @@ function renderCurrentPage() {
     case 'fitness': safeRender('fitness', renderFitness); break;
     case 'races': safeRender('races', () => { renderRaces(); renderRaceLog(); renderRaceDayHistory().catch(e => console.warn('raceday history:', e)); }); break;
     case 'team': safeRender('team', renderTeam); break;
-    case 'admin':
-      if (!isAdmin) {
+    case 'admin': {
+      // Master account is always admin even if Firestore profile didn't
+      // sync the flag yet — was a frequent source of "Admin Access Required"
+      // showing for the master on a fresh device.
+      const isMaster = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      if (!isAdmin && !isMaster) {
         const ac = $('admin-content');
         if (ac) ac.innerHTML = '<div class="empty-state"><div class="empty-state-title">Admin Access Required</div><div class="empty-state-desc">Sign in with an admin account to view this tab.</div></div>';
       } else safeRender('admin', renderAdmin);
       break;
+    }
     case 'coach': safeRender('coach', renderCoachPage); break;
   }
 }
@@ -9181,7 +9209,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260430-venom';
+  const APP_VERSION = '20260430-audit5';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

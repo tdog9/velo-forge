@@ -17,8 +17,17 @@ let plansSubTab = 'manage';
 export function initAdmin(ctx) { A = ctx; }
 
 export function renderAdmin() {
-  if (!A.isAdmin) return;
   const c = A.$('admin-content');
+  if (!c) return;
+  // Don't bail silently — the parent page wrapper already gates on
+  // isAdmin/isMaster. If we end up here without isAdmin, that means
+  // ctx hasn't been re-bound after auth — render an explicit message
+  // instead of leaving the tab visually empty.
+  const isMaster = A.currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+  if (!A.isAdmin && !isMaster) {
+    c.innerHTML = '<div class="empty-state"><div class="empty-state-title">Admin Access Required</div><div class="empty-state-desc">Sign in with an admin account to view this tab.</div></div>';
+    return;
+  }
 
   // God mode tabs — hearn.tenny only
   const tabs = [
