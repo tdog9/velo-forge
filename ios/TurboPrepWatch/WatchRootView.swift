@@ -7,12 +7,13 @@ struct WatchRootView: View {
         ZStack {
             Theme.bg.ignoresSafeArea()
             // SIGN-IN GATE
-            // The Watch can't authenticate on its own (no Firebase SDK
-            // on watchOS); auth lives on the iPhone and mirrors via
-            // WCSession. If the iPhone hasn't reported a signed-in
-            // user, replace the entire UI with a clear "open iPhone to
-            // sign in" gate + Refresh button (which pings the iPhone).
-            if !state.iPhoneSignedIn {
+            // Two paths to skip the gate:
+            //   1) iPhoneSignedIn — live snapshot says iPhone has a user.
+            //   2) watchPaired — user already paired this Watch (locally
+            //      persisted in UserDefaults). Stays true forever, so a
+            //      backgrounded / unreachable iPhone can't drag the gate
+            //      back up after first pair.
+            if !state.iPhoneSignedIn && !state.watchPaired {
                 WatchSignInGate()
             } else if state.raceDayActive {
                 // RACE-MODE LOCK
@@ -101,18 +102,26 @@ struct WatchSignInGate: View {
                     Button {
                         let code = pairCode.filter { $0.isNumber }
                         guard code.count >= 4 else { return }
+                        // Persist the pairing locally IMMEDIATELY. This
+                        // is what makes the gate "stay closed forever".
+                        // The state object's didSet writes to
+                        // UserDefaults so a relaunch keeps the pair.
+                        WatchAppState.shared.setWatchPaired(code: code)
+                        // ALSO send to iPhone so the web can validate +
+                        // push the actual user data over WCSession. If
+                        // the iPhone is unreachable, the local pair
+                        // still sticks and the user data trickles in
+                        // when the phone next reaches us.
                         ConnectivityService.shared.sendPairAttempt(code: code)
                         UserDefaults.standard.set(code, forKey: "tp_watch_last_paired_code")
                         lastPaired = code
-                        // Visual feedback — gate dissolves on its own
-                        // when iPhone pushes signed-in state back.
                         refreshing = true
                         lastTry = Date()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                             refreshing = false
                         }
                     } label: {
-                        Text(refreshing ? "Pairing…" : "Pair")
+                        Text(refreshing ? "Paired ✓" : "Pair")
                             .font(.system(size: 12, weight: .heavy))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 7)

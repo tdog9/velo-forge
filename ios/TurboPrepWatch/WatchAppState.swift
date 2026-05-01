@@ -41,6 +41,26 @@ final class WatchAppState: ObservableObject {
     @Published var iPhoneUserEmail: String?
     @Published var iPhoneUserDisplayName: String?
 
+    /// Local pairing flag — once the user taps Pair on the sign-in
+    /// gate, the Watch is considered "paired with this iPhone" forever
+    /// (until the user explicitly unpairs from Watch Settings → Sign
+    /// out). The gate uses this OR iPhoneSignedIn, so a backgrounded
+    /// or unreachable iPhone can't bring the gate back.
+    @Published var watchPaired: Bool = UserDefaults.standard.bool(forKey: "tp_watch_paired") {
+        didSet { UserDefaults.standard.set(watchPaired, forKey: "tp_watch_paired") }
+    }
+    @Published var pairedWithCode: String = UserDefaults.standard.string(forKey: "tp_watch_paired_code") ?? "" {
+        didSet { UserDefaults.standard.set(pairedWithCode, forKey: "tp_watch_paired_code") }
+    }
+    func setWatchPaired(code: String) {
+        self.pairedWithCode = code
+        self.watchPaired = true
+    }
+    func clearWatchPaired() {
+        self.watchPaired = false
+        self.pairedWithCode = ""
+    }
+
     /// First initial for the avatar circle in BrandHeader. Falls back
     /// through display-name → email → "?" so the UI never shows a
     /// completely blank circle.

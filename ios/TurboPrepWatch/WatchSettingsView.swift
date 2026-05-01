@@ -96,17 +96,40 @@ struct WatchSettingsView: View {
     }
 
     private var signedInState: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Sign-in")
             if state.iPhoneSignedIn {
                 Text("Signed in via iPhone.")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.fg.opacity(0.7))
+            } else if state.watchPaired {
+                Text("Paired with iPhone (code \(state.pairedWithCode)). User data syncs when iPhone is reachable.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.fg.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("Open TurboPrep on your iPhone to sign in. The Watch mirrors the iPhone's auth.")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.fg.opacity(0.7))
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            if state.watchPaired {
+                Button {
+                    state.clearWatchPaired()
+                } label: {
+                    HStack {
+                        Image(systemName: "iphone.slash").font(.system(size: 10, weight: .heavy))
+                        Text("Unpair this Watch")
+                            .font(.system(size: 11, weight: .heavy))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(Color.red.opacity(0.15))
+                    .foregroundStyle(Color.red)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
             }
         }
     }
