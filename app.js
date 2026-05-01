@@ -1190,7 +1190,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r40';
+const APP_VERSION = '20260501-r41';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -9401,7 +9401,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r40';
+  const APP_VERSION = '20260501-r41';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9691,6 +9691,10 @@ function renderCoachPage() {
     btn.addEventListener('click', () => {
       coachPageTab = btn.dataset.coachSub;
       try { localStorage.setItem('tp_coachPageTab', coachPageTab); } catch (e) {}
+      // Reset Coach Manage to its home view whenever the user switches
+      // tabs — otherwise they'd land on a stale sub-view (e.g. Edit
+      // form) when reopening the Manage tab.
+      _coachManageMode = 'home';
       renderCoachPage();
     });
   });
@@ -9708,6 +9712,7 @@ function renderCoachPage() {
     case 'training': renderCoachTraining(sub); break;
     case 'team': renderCoachTeam(sub); break;
     case 'manage': renderCoachManage(sub); break;
+    // (mode reset handled inside renderCoachManage when first entered)
     case 'raceday': renderCoachRaceDay(sub); break;
   }
 }
@@ -9716,6 +9721,12 @@ function renderCoachPage() {
 /// sheet flow. Each row directly opens the relevant sheet without
 /// going through the aggregator that was crashing. If a downstream
 /// sheet still throws, the user gets a toast naming the failure.
+// Inline coach-manage panel. NO sheet system — every "section" renders
+// directly into the same Coach → Manage container, with a Back button
+// to return to the home view. Bypasses every prior failure mode of
+// the sheet aggregator.
+let _coachManageMode = 'home';
+
 function renderCoachManage(el) {
   if (!el) return;
   if (!teamData) {
@@ -9731,6 +9742,17 @@ function renderCoachManage(el) {
     el.innerHTML = `<div class="empty-state"><div class="empty-state-title">Coaches only</div><div class="empty-state-desc" style="margin:8px auto 0">Only the head coach or co-coaches can manage the team.</div></div>`;
     return;
   }
+  const goHome = () => { _coachManageMode = 'home'; renderCoachManage(el); };
+  switch (_coachManageMode) {
+    case 'edit':     return renderCoachManageEdit(el, goHome);
+    case 'cocoach':  return renderCoachManageCoCoach(el, goHome);
+    case 'subteams': return renderCoachManageSubteams(el, goHome);
+    case 'features': return renderCoachManageFeatures(el, goHome);
+    default:         return renderCoachManageHome(el);
+  }
+}
+
+function renderCoachManageHome(el) {
   const memberCount = Array.isArray(teamMembers) ? teamMembers.length : 0;
   const subteamCount = Array.isArray(teamData.subteams) ? teamData.subteams.length : 0;
   const coachCount = Array.isArray(teamData.coaches) ? teamData.coaches.length : 0;
@@ -9748,54 +9770,272 @@ function renderCoachManage(el) {
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${rdActive
-        ? `<button class="btn cm-row" id="cm-rd-end" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between;background:rgba(var(--destructive-rgb),.10);border:1px solid rgba(var(--destructive-rgb),.30);color:var(--destructive)"><span><div style="font-size:14px;font-weight:700">⏹ End Race Day Mode</div><div style="font-size:11px;font-weight:500;opacity:.85;margin-top:2px">Currently active — tap to end for everyone</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="9 18 15 12 9 6"/></svg></button>`
-        : `<button class="btn cm-row" id="cm-rd-start" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(var(--success-rgb),.12),rgba(var(--success-rgb),.05));border:1px solid rgba(var(--success-rgb),.30);color:var(--success)"><span><div style="font-size:14px;font-weight:700">🏁 Activate Race Day Mode</div><div style="font-size:11px;font-weight:500;opacity:.85;margin-top:2px">Locks all members into the race day interface</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="9 18 15 12 9 6"/></svg></button>`}
-      <button class="btn btn-secondary cm-row" id="cm-edit" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700;color:var(--fg)">Edit team details</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Name, description, invite blurb</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg></button>
-      <button class="btn btn-secondary cm-row" id="cm-cocoach" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700;color:var(--fg)">Add a co-coach</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Promote an existing team member</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg></button>
-      <button class="btn btn-secondary cm-row" id="cm-subteams" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700;color:var(--fg)">Manage subteams</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Create, rename, assign athletes</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg></button>
-      <button class="btn btn-secondary cm-row" id="cm-features" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700;color:var(--fg)">Feature toggles</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Show / hide tabs for the team</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg></button>
-      <button class="btn cm-row" id="cm-delete" style="width:100%;margin-top:12px;text-align:left;padding:14px;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06);display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700">Delete team</div><div style="font-size:11px;opacity:.7;margin-top:2px;font-weight:500">Removes every member's team association</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="9 18 15 12 9 6"/></svg></button>
+        ? `<button type="button" class="cm-row" data-cm-act="rd-end" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(var(--destructive-rgb),.10);border:1px solid rgba(var(--destructive-rgb),.30);color:var(--destructive);cursor:pointer"><span><div style="font-size:14px;font-weight:700">⏹ End Race Day Mode</div><div style="font-size:11px;font-weight:500;opacity:.85;margin-top:2px">Currently active — tap to end for everyone</div></span><span style="font-size:18px;opacity:.6">›</span></button>`
+        : `<button type="button" class="cm-row" data-cm-act="rd-start" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(var(--success-rgb),.12),rgba(var(--success-rgb),.05));border:1px solid rgba(var(--success-rgb),.30);color:var(--success);cursor:pointer"><span><div style="font-size:14px;font-weight:700">🏁 Activate Race Day Mode</div><div style="font-size:11px;font-weight:500;opacity:.85;margin-top:2px">Locks all members into the race day interface</div></span><span style="font-size:18px;opacity:.6">›</span></button>`}
+      <button type="button" class="cm-row" data-cm-act="edit" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);color:var(--fg);cursor:pointer"><span><div style="font-size:14px;font-weight:700">Edit team details</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Name, description, invite blurb</div></span><span style="font-size:18px;color:var(--muted-fg)">›</span></button>
+      <button type="button" class="cm-row" data-cm-act="cocoach" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);color:var(--fg);cursor:pointer"><span><div style="font-size:14px;font-weight:700">Add a co-coach</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Promote an existing team member</div></span><span style="font-size:18px;color:var(--muted-fg)">›</span></button>
+      <button type="button" class="cm-row" data-cm-act="subteams" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);color:var(--fg);cursor:pointer"><span><div style="font-size:14px;font-weight:700">Manage subteams</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Create, rename, assign athletes</div></span><span style="font-size:18px;color:var(--muted-fg)">›</span></button>
+      <button type="button" class="cm-row" data-cm-act="features" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);color:var(--fg);cursor:pointer"><span><div style="font-size:14px;font-weight:700">Feature toggles</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Show / hide tabs for the team</div></span><span style="font-size:18px;color:var(--muted-fg)">›</span></button>
+      <button type="button" class="cm-row" data-cm-act="delete" style="width:100%;margin-top:12px;text-align:left;padding:14px;border-radius:10px;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06);display:flex;align-items:center;justify-content:space-between;cursor:pointer"><span><div style="font-size:14px;font-weight:700">Delete team</div><div style="font-size:11px;opacity:.7;margin-top:2px;font-weight:500">Removes every member's team association</div></span><span style="font-size:18px;opacity:.6">›</span></button>
     </div>
   `;
-  // Each row directly invokes its destination wrapped in try/catch so a
-  // downstream sheet failure surfaces as a clear toast instead of a
-  // dead button. No closeSheet/setTimeout dance — sheets open straight.
-  const safeFire = (fn, label) => () => {
-    try { fn(); }
-    catch (err) {
-      console.error('[coach-manage] ' + label + ' threw:', err);
-      showToast(label + ' failed: ' + (err?.message || 'unknown'), 'error');
+  // Single delegated click — no per-button bindings, no chance of a
+  // missed querySelector. Walks up to the .cm-row ancestor in case the
+  // click landed on a nested span.
+  el.addEventListener('click', _coachManageHomeClick);
+}
+
+// Module-level so we can reuse the same listener every render and not
+// stack duplicates. Each render replaces el.innerHTML which removes
+// the old listener attachment automatically (we re-add via the home
+// renderer above).
+async function _coachManageHomeClick(ev) {
+  const row = ev.target.closest('[data-cm-act]');
+  if (!row) return;
+  const act = row.dataset.cmAct;
+  const sub = $('coach-sub-content');
+  if (!sub) { showToast('Coach panel missing — reload.', 'error'); return; }
+  try {
+    if (act === 'edit')      { _coachManageMode = 'edit';     renderCoachManage(sub); return; }
+    if (act === 'cocoach')   { _coachManageMode = 'cocoach';  renderCoachManage(sub); return; }
+    if (act === 'subteams')  { _coachManageMode = 'subteams'; renderCoachManage(sub); return; }
+    if (act === 'features')  { _coachManageMode = 'features'; renderCoachManage(sub); return; }
+    if (act === 'delete') {
+      if (typeof deleteTeam === 'function') await deleteTeam();
+      return;
     }
-  };
-  el.querySelector('#cm-edit')?.addEventListener('click', safeFire(openEditTeamSheet, 'Edit team'));
-  el.querySelector('#cm-cocoach')?.addEventListener('click', safeFire(openAddCoCoachSheet, 'Add co-coach'));
-  el.querySelector('#cm-subteams')?.addEventListener('click', safeFire(openManageSubteamsSheet, 'Manage subteams'));
-  el.querySelector('#cm-features')?.addEventListener('click', safeFire(openFeatureTogglesSheet, 'Feature toggles'));
-  el.querySelector('#cm-delete')?.addEventListener('click', safeFire(deleteTeam, 'Delete team'));
-  el.querySelector('#cm-rd-start')?.addEventListener('click', async () => {
-    try {
+    if (act === 'rd-start') {
       const races = (typeof getActiveRaces === 'function') ? (getActiveRaces() || []) : [];
       const todayRace = races.find(r => r.date === localDateKey()) || null;
       const ok = await activateRaceDay(todayRace?.id || null);
       if (ok) {
         showToast('Race day mode activated.', 'success');
         try { updateRaceDayTabBar(true); } catch(e) {}
-        openRaceDayOverlay();
-        renderCoachManage(el);
+        try { openRaceDayOverlay(); } catch(e) {}
       } else {
         showToast('Could not activate race day.', 'error');
       }
-    } catch (err) { showToast('Activate failed: ' + (err?.message || 'unknown'), 'error'); }
-  });
-  el.querySelector('#cm-rd-end')?.addEventListener('click', async () => {
-    try {
+      renderCoachManage(sub);
+      return;
+    }
+    if (act === 'rd-end') {
       const ok = await deactivateRaceDay();
       try { updateRaceDayTabBar(false); } catch(e) {}
       const ov = document.getElementById('raceday-overlay');
       if (ov) ov.remove();
       if (ok) showToast('Race day mode ended.', 'info');
-      renderCoachManage(el);
-    } catch (err) { showToast('End failed: ' + (err?.message || 'unknown'), 'error'); }
+      renderCoachManage(sub);
+      return;
+    }
+  } catch (err) {
+    console.error('[coach-manage]', act, err);
+    showToast(act + ' failed: ' + (err?.message || 'unknown'), 'error');
+  }
+}
+
+function _cmHeader(title, onBack) {
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <button type="button" data-cm-back="1" style="width:36px;height:36px;border-radius:50%;background:var(--muted);border:none;color:var(--fg);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center" aria-label="Back">‹</button>
+    <div style="font-size:16px;font-weight:700;color:var(--fg)">${escHtml(title)}</div>
+  </div>`;
+}
+
+function _bindBack(el, goHome) {
+  el.querySelector('[data-cm-back]')?.addEventListener('click', goHome);
+}
+
+function renderCoachManageEdit(el, goHome) {
+  const cur = {
+    name: teamData.name || '',
+    description: teamData.description || '',
+    inviteBlurb: teamData.inviteBlurb || '',
+  };
+  el.innerHTML = `
+    ${_cmHeader('Edit team details', goHome)}
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">Changes appear instantly for every member.</div>
+    <label style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Team name</label>
+    <input class="input" id="cm-name" type="text" maxlength="60" value="${escHtml(cur.name)}" style="margin:6px 0 14px;width:100%;font-size:16px">
+    <label style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Description</label>
+    <textarea class="input" id="cm-desc" rows="3" maxlength="240" placeholder="Short description shown on the team header" style="margin:6px 0 14px;width:100%;resize:vertical;font-family:inherit;font-size:16px">${escHtml(cur.description)}</textarea>
+    <label style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Invite blurb</label>
+    <textarea class="input" id="cm-blurb" rows="2" maxlength="280" placeholder="Custom message included when sharing the join code" style="margin:6px 0 14px;width:100%;resize:vertical;font-family:inherit;font-size:16px">${escHtml(cur.inviteBlurb)}</textarea>
+    <div style="font-size:11px;color:var(--muted-fg);margin-bottom:6px">Team code <span style="font-family:var(--font-mono);color:var(--fg);font-weight:700">${escHtml(teamData.code || '')}</span> · cannot be changed</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button type="button" class="btn btn-secondary" id="cm-cancel" style="flex:1">Back</button>
+      <button type="button" class="btn btn-primary" id="cm-save" style="flex:1">Save</button>
+    </div>
+  `;
+  _bindBack(el, goHome);
+  el.querySelector('#cm-cancel')?.addEventListener('click', goHome);
+  el.querySelector('#cm-save')?.addEventListener('click', async () => {
+    const btn = el.querySelector('#cm-save');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const patch = {
+        name: (el.querySelector('#cm-name')?.value || '').trim() || teamData.name,
+        description: (el.querySelector('#cm-desc')?.value || '').trim(),
+        inviteBlurb: (el.querySelector('#cm-blurb')?.value || '').trim(),
+      };
+      if (db) await updateDoc(doc(db, 'teams', teamData.id), patch);
+      Object.assign(teamData, patch);
+      showToast('Team updated.', 'success');
+      goHome();
+    } catch (err) {
+      console.error('[cm-edit] save:', err);
+      btn.disabled = false; btn.textContent = 'Save';
+      showToast('Save failed: ' + (err?.message || 'unknown'), 'error');
+    }
+  });
+}
+
+function renderCoachManageCoCoach(el, goHome) {
+  const coachesSet = new Set(Array.isArray(teamData.coaches) ? teamData.coaches : []);
+  const candidates = (teamMembers || []).filter(m => m.uid !== teamData.createdBy);
+  el.innerHTML = `
+    ${_cmHeader('Add a co-coach', goHome)}
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">Promote a team member to co-coach. They get coach controls but can't delete the team.</div>
+    ${candidates.length === 0
+      ? `<div class="empty-state"><div class="empty-state-title">No members yet</div><div class="empty-state-desc">Invite people to your team first.</div></div>`
+      : `<div style="display:flex;flex-direction:column;gap:6px">${candidates.map(m => {
+          const promoted = coachesSet.has(m.uid);
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:14px;font-weight:600;color:var(--fg)">${escHtml(m.displayName || 'Member')}</div>
+              <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${escHtml(m.email || '')}</div>
+            </div>
+            ${promoted
+              ? `<span style="font-size:11px;font-weight:700;color:var(--success);padding:4px 10px;background:rgba(var(--success-rgb),.12);border-radius:99px">✓ Co-coach</span>`
+              : `<button type="button" class="btn btn-primary" data-cm-promote="${escHtml(m.uid)}" style="font-size:12px;padding:6px 12px">Promote</button>`}
+          </div>`;
+        }).join('')}</div>`}
+  `;
+  _bindBack(el, goHome);
+  el.querySelectorAll('[data-cm-promote]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const uid = btn.dataset.cmPromote;
+      btn.disabled = true; btn.textContent = '…';
+      try {
+        if (db) {
+          await updateDoc(doc(db, 'users', uid), { isCoach: true });
+          const list = Array.isArray(teamData.coaches) ? teamData.coaches : [];
+          if (!list.includes(uid)) {
+            const newList = [...list, uid];
+            await updateDoc(doc(db, 'teams', teamData.id), { coaches: newList });
+            teamData.coaches = newList;
+          }
+        }
+        showToast('Promoted to co-coach.', 'success');
+        renderCoachManageCoCoach(el, goHome);
+      } catch (err) {
+        console.error('[cm-cocoach]', err);
+        btn.disabled = false; btn.textContent = 'Promote';
+        showToast('Promote failed: ' + (err?.message || 'unknown'), 'error');
+      }
+    });
+  });
+}
+
+function renderCoachManageSubteams(el, goHome) {
+  const subteams = Array.isArray(teamData.subteams) ? teamData.subteams : [];
+  el.innerHTML = `
+    ${_cmHeader('Manage subteams', goHome)}
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">Create groups within your team (e.g. "Venom"). Useful for race-day rosters.</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input class="input" id="cm-st-name" type="text" maxlength="40" placeholder="New subteam name" style="flex:1;font-size:16px">
+      <button type="button" class="btn btn-primary" id="cm-st-add">Add</button>
+    </div>
+    ${subteams.length === 0
+      ? `<div class="empty-state"><div class="empty-state-title">No subteams yet</div></div>`
+      : `<div style="display:flex;flex-direction:column;gap:8px">${subteams.map(s => {
+          const memCount = Array.isArray(s.members) ? s.members.length : 0;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:14px;font-weight:700;color:var(--fg)">${escHtml(s.name)}</div>
+              <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${memCount} member${memCount===1?'':'s'}</div>
+            </div>
+            <button type="button" class="btn btn-secondary" data-cm-st-edit="${escHtml(s.id)}" style="font-size:11px;padding:5px 10px">Edit</button>
+            <button type="button" class="btn" data-cm-st-del="${escHtml(s.id)}" style="font-size:11px;padding:5px 10px;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06)">Delete</button>
+          </div>`;
+        }).join('')}</div>`}
+  `;
+  _bindBack(el, goHome);
+  el.querySelector('#cm-st-add')?.addEventListener('click', async () => {
+    const name = (el.querySelector('#cm-st-name')?.value || '').trim();
+    if (!name) { showToast('Enter a name.', 'warn'); return; }
+    try {
+      const newSub = { id: 'sub_' + Date.now(), name, members: [], subCoachUid: null, createdAt: new Date().toISOString() };
+      const list = Array.isArray(teamData.subteams) ? teamData.subteams : [];
+      const updated = [...list, newSub];
+      if (db) await updateDoc(doc(db, 'teams', teamData.id), { subteams: updated });
+      teamData.subteams = updated;
+      showToast('Subteam created.', 'success');
+      renderCoachManageSubteams(el, goHome);
+    } catch (err) {
+      console.error('[cm-st-add]', err);
+      showToast('Create failed: ' + (err?.message || 'unknown'), 'error');
+    }
+  });
+  el.querySelectorAll('[data-cm-st-del]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.cmStDel;
+      const sub = (teamData.subteams || []).find(s => s.id === id);
+      if (!sub) return;
+      if (!confirm('Delete subteam "' + sub.name + '"?')) return;
+      try {
+        const updated = (teamData.subteams || []).filter(s => s.id !== id);
+        if (db) await updateDoc(doc(db, 'teams', teamData.id), { subteams: updated });
+        teamData.subteams = updated;
+        showToast('Subteam deleted.', 'info');
+        renderCoachManageSubteams(el, goHome);
+      } catch (err) {
+        showToast('Delete failed: ' + (err?.message || 'unknown'), 'error');
+      }
+    });
+  });
+  el.querySelectorAll('[data-cm-st-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.cmStEdit;
+      const sub = (teamData.subteams || []).find(s => s.id === id);
+      if (!sub) return;
+      const newName = prompt('Rename subteam:', sub.name);
+      if (newName === null) return;
+      const trimmed = newName.trim();
+      if (!trimmed) return;
+      (async () => {
+        try {
+          const updated = (teamData.subteams || []).map(s => s.id === id ? { ...s, name: trimmed } : s);
+          if (db) await updateDoc(doc(db, 'teams', teamData.id), { subteams: updated });
+          teamData.subteams = updated;
+          showToast('Renamed.', 'success');
+          renderCoachManageSubteams(el, goHome);
+        } catch (err) { showToast('Rename failed: ' + (err?.message || 'unknown'), 'error'); }
+      })();
+    });
+  });
+}
+
+function renderCoachManageFeatures(el, goHome) {
+  el.innerHTML = `
+    ${_cmHeader('Feature toggles', goHome)}
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">Show or hide tabs for everyone on the team. Saves immediately.</div>
+    <div style="display:flex;flex-direction:column;gap:10px">${renderCoachFeatureToggles()}</div>
+  `;
+  _bindBack(el, goHome);
+  el.querySelectorAll('.coach-feat-toggle').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const feat = btn.dataset.feat;
+      const current = teamData.features?.[feat] !== false;
+      const newVal = !current;
+      btn.classList.toggle('on', newVal);
+      try {
+        if (db) await updateDoc(doc(db, 'teams', teamData.id), { ['features.' + feat]: newVal });
+        if (!teamData.features) teamData.features = {};
+        teamData.features[feat] = newVal;
+      } catch (err) {
+        btn.classList.toggle('on', current);
+        showToast('Toggle failed: ' + (err?.message || 'unknown'), 'error');
+      }
+    });
   });
 }
 
