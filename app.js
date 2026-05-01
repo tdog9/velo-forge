@@ -1190,7 +1190,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r38';
+const APP_VERSION = '20260501-r39';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -9375,7 +9375,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r38';
+  const APP_VERSION = '20260501-r39';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9646,6 +9646,7 @@ function renderCoachPage() {
     { id: 'students', label: 'Students' },
     { id: 'training', label: 'Training', pro: true },
     { id: 'team', label: 'My Team' },
+    { id: 'manage', label: 'Manage' },
     { id: 'raceday', label: '🏁 Race Day', pro: true },
   ];
 
@@ -9680,8 +9681,96 @@ function renderCoachPage() {
     case 'students': renderCoachStudents(sub); break;
     case 'training': renderCoachTraining(sub); break;
     case 'team': renderCoachTeam(sub); break;
+    case 'manage': renderCoachManage(sub); break;
     case 'raceday': renderCoachRaceDay(sub); break;
   }
+}
+
+/// Standalone team-management panel — replaces the broken Manage Team
+/// sheet flow. Each row directly opens the relevant sheet without
+/// going through the aggregator that was crashing. If a downstream
+/// sheet still throws, the user gets a toast naming the failure.
+function renderCoachManage(el) {
+  if (!el) return;
+  if (!teamData) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-title">No team yet</div><div class="empty-state-desc" style="margin:8px auto 0;max-width:320px">Join a team or request a new one from the Team tab to access management.</div></div>`;
+    return;
+  }
+  const teamCoachesSet = Array.isArray(teamData?.coaches) ? new Set(teamData.coaches) : new Set();
+  const isHead = teamData.createdBy === currentUser?.uid;
+  const isCoCoach = teamCoachesSet.has(currentUser?.uid);
+  const isMaster = isMasterAccount(currentUser?.email);
+  const canManage = isHead || isCoCoach || isAdmin || isMaster;
+  if (!canManage) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-title">Coaches only</div><div class="empty-state-desc" style="margin:8px auto 0">Only the head coach or co-coaches can manage the team.</div></div>`;
+    return;
+  }
+  const memberCount = Array.isArray(teamMembers) ? teamMembers.length : 0;
+  const subteamCount = Array.isArray(teamData.subteams) ? teamData.subteams.length : 0;
+  const coachCount = Array.isArray(teamData.coaches) ? teamData.coaches.length : 0;
+  const rdActive = getRaceDayActive();
+  el.innerHTML = `
+    <div style="background:linear-gradient(135deg,rgba(var(--primary-rgb),.10),rgba(var(--primary-rgb),.04));border:1px solid rgba(var(--primary-rgb),.25);border-radius:14px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Team</div>
+      <div style="font-size:18px;font-weight:800;color:var(--fg);margin-bottom:2px">${escHtml(teamData.name || 'Team')}</div>
+      <div style="font-size:12px;color:var(--muted-fg);font-family:var(--font-mono)">Code: ${escHtml(teamData.code || '—')}</div>
+      <div style="display:flex;gap:14px;margin-top:10px;font-size:12px">
+        <div><strong style="color:var(--fg);font-size:14px">${memberCount}</strong> <span style="color:var(--muted-fg)">members</span></div>
+        <div><strong style="color:var(--fg);font-size:14px">${coachCount}</strong> <span style="color:var(--muted-fg)">co-coaches</span></div>
+        <div><strong style="color:var(--fg);font-size:14px">${subteamCount}</strong> <span style="color:var(--muted-fg)">subteams</span></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${rdActive
+        ? `<button class="btn cm-row" id="cm-rd-end" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between;background:rgba(var(--destructive-rgb),.10);border:1px solid rgba(var(--destructive-rgb),.30);color:var(--destructive)"><span><div style="font-size:14px;font-weight:700">⏹ End Race Day Mode</div><div style="font-size:11px;font-weight:500;opacity:.85;margin-top:2px">Currently active — tap to end for everyone</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="9 18 15 12 9 6"/></svg></button>`
+        : `<button class="btn cm-row" id="cm-rd-start" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(var(--success-rgb),.12),rgba(var(--success-rgb),.05));border:1px solid rgba(var(--success-rgb),.30);color:var(--success)"><span><div style="font-size:14px;font-weight:700">🏁 Activate Race Day Mode</div><div style="font-size:11px;font-weight:500;opacity:.85;margin-top:2px">Locks all members into the race day interface</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="9 18 15 12 9 6"/></svg></button>`}
+      <button class="btn btn-secondary cm-row" id="cm-edit" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700;color:var(--fg)">Edit team details</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Name, description, invite blurb</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg></button>
+      <button class="btn btn-secondary cm-row" id="cm-cocoach" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700;color:var(--fg)">Add a co-coach</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Promote an existing team member</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg></button>
+      <button class="btn btn-secondary cm-row" id="cm-subteams" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700;color:var(--fg)">Manage subteams</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Create, rename, assign athletes</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg></button>
+      <button class="btn btn-secondary cm-row" id="cm-features" style="width:100%;text-align:left;padding:14px;display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700;color:var(--fg)">Feature toggles</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Show / hide tabs for the team</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg)"><polyline points="9 18 15 12 9 6"/></svg></button>
+      <button class="btn cm-row" id="cm-delete" style="width:100%;margin-top:12px;text-align:left;padding:14px;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06);display:flex;align-items:center;justify-content:space-between"><span><div style="font-size:14px;font-weight:700">Delete team</div><div style="font-size:11px;opacity:.7;margin-top:2px;font-weight:500">Removes every member's team association</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+  `;
+  // Each row directly invokes its destination wrapped in try/catch so a
+  // downstream sheet failure surfaces as a clear toast instead of a
+  // dead button. No closeSheet/setTimeout dance — sheets open straight.
+  const safeFire = (fn, label) => () => {
+    try { fn(); }
+    catch (err) {
+      console.error('[coach-manage] ' + label + ' threw:', err);
+      showToast(label + ' failed: ' + (err?.message || 'unknown'), 'error');
+    }
+  };
+  el.querySelector('#cm-edit')?.addEventListener('click', safeFire(openEditTeamSheet, 'Edit team'));
+  el.querySelector('#cm-cocoach')?.addEventListener('click', safeFire(openAddCoCoachSheet, 'Add co-coach'));
+  el.querySelector('#cm-subteams')?.addEventListener('click', safeFire(openManageSubteamsSheet, 'Manage subteams'));
+  el.querySelector('#cm-features')?.addEventListener('click', safeFire(openFeatureTogglesSheet, 'Feature toggles'));
+  el.querySelector('#cm-delete')?.addEventListener('click', safeFire(deleteTeam, 'Delete team'));
+  el.querySelector('#cm-rd-start')?.addEventListener('click', async () => {
+    try {
+      const races = (typeof getActiveRaces === 'function') ? (getActiveRaces() || []) : [];
+      const todayRace = races.find(r => r.date === localDateKey()) || null;
+      const ok = await activateRaceDay(todayRace?.id || null);
+      if (ok) {
+        showToast('Race day mode activated.', 'success');
+        try { updateRaceDayTabBar(true); } catch(e) {}
+        openRaceDayOverlay();
+        renderCoachManage(el);
+      } else {
+        showToast('Could not activate race day.', 'error');
+      }
+    } catch (err) { showToast('Activate failed: ' + (err?.message || 'unknown'), 'error'); }
+  });
+  el.querySelector('#cm-rd-end')?.addEventListener('click', async () => {
+    try {
+      const ok = await deactivateRaceDay();
+      try { updateRaceDayTabBar(false); } catch(e) {}
+      const ov = document.getElementById('raceday-overlay');
+      if (ov) ov.remove();
+      if (ok) showToast('Race day mode ended.', 'info');
+      renderCoachManage(el);
+    } catch (err) { showToast('End failed: ' + (err?.message || 'unknown'), 'error'); }
+  });
 }
 
 // Top-of-page upgrade banner — only shown to non-Pro coaches. The button
