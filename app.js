@@ -1208,7 +1208,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r45';
+const APP_VERSION = '20260501-r46';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -7402,14 +7402,37 @@ async function renderProfile() {
   $('prof-strava-disconnect')?.addEventListener('click', () => stravaDisconnect());
   $('prof-fitbit-connect')?.addEventListener('click', () => fitbitStartAuth());
   $('prof-fitbit-disconnect')?.addEventListener('click', () => fitbitDisconnect());
-  // Connect Watch — push state via WCSession bridge + regenerate code
-  $('prof-watch-push')?.addEventListener('click', () => {
-    const status = $('prof-watch-status');
+  // Connect Watch — write code to Firestore so the Watch can claim it
+  // via /.netlify/functions/watch-pair (no iPhone needed after that).
+  const persistPairCodeToFirestore = async (code) => {
+    if (!db || !currentUser?.uid || !code) return false;
     try {
-      pushWatchState();
+      await setDoc(doc(db, 'watch_pair_codes', code), {
+        uid: currentUser.uid,
+        createdAt: serverTimestamp(),
+        expiresAt: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
+      }, { merge: true });
+      return true;
+    } catch (e) { console.warn('persistPairCode:', e); return false; }
+  };
+  // Persist the visible code on profile render so a Watch user can
+  // claim it immediately, even before they tap "Send to Watch".
+  try {
+    const visibleCode = $('prof-pair-code')?.textContent?.trim();
+    if (visibleCode) persistPairCodeToFirestore(visibleCode);
+  } catch (e) {}
+  $('prof-watch-push')?.addEventListener('click', async () => {
+    const status = $('prof-watch-status');
+    if (status) { status.textContent = 'Saving code…'; status.style.color = 'var(--muted-fg)'; }
+    try {
+      const code = $('prof-pair-code')?.textContent?.trim() || '';
+      const ok = await persistPairCodeToFirestore(code);
+      try { pushWatchState(); } catch (e) {}
       if (status) {
-        status.textContent = '✓ Sent. Open the Watch app — the sign-in gate should clear.';
-        status.style.color = 'var(--success)';
+        status.textContent = ok
+          ? '✓ Code is live. Type it on the Watch sign-in gate.'
+          : '✗ Save failed — check connection.';
+        status.style.color = ok ? 'var(--success)' : 'var(--destructive)';
       }
     } catch (err) {
       if (status) {
@@ -7418,11 +7441,12 @@ async function renderProfile() {
       }
     }
   });
-  $('prof-pair-regen')?.addEventListener('click', () => {
+  $('prof-pair-regen')?.addEventListener('click', async () => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     try { localStorage.setItem('tp_watch_pair_code', code); } catch (e) {}
     const codeEl = $('prof-pair-code');
     if (codeEl) codeEl.textContent = code;
+    try { await persistPairCodeToFirestore(code); } catch (e) {}
   });
   $('prof-garmin-pick')?.addEventListener('click', () => $('prof-garmin-file')?.click());
   $('prof-garmin-file')?.addEventListener('change', async (e) => {
@@ -9469,7 +9493,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r45';
+  const APP_VERSION = '20260501-r46';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

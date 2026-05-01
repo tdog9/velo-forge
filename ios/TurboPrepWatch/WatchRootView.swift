@@ -51,6 +51,7 @@ struct WatchSignInGate: View {
     @State private var lastTry: Date?
     @State private var pairCode: String = ""
     @State private var lastPaired: String = UserDefaults.standard.string(forKey: "tp_watch_last_paired_code") ?? ""
+    @State private var pairError: String? = nil
 
     var body: some View {
         ScrollView {
@@ -102,24 +103,28 @@ struct WatchSignInGate: View {
                     Button {
                         let code = pairCode.filter { $0.isNumber }
                         guard code.count >= 4 else { return }
-                        // Persist the pairing locally IMMEDIATELY. This
-                        // is what makes the gate "stay closed forever".
-                        // The state object's didSet writes to
-                        // UserDefaults so a relaunch keeps the pair.
-                        WatchAppState.shared.setWatchPaired(code: code)
-                        // ALSO send to iPhone so the web can validate +
-                        // push the actual user data over WCSession. If
-                        // the iPhone is unreachable, the local pair
-                        // still sticks and the user data trickles in
-                        // when the phone next reaches us.
-                        ConnectivityService.shared.sendPairAttempt(code: code)
-                        UserDefaults.standard.set(code, forKey: "tp_watch_last_paired_code")
-                        lastPaired = code
                         refreshing = true
                         lastTry = Date()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        // PRIMARY path: hit the Netlify function
+                        // directly — fully iPhone-independent. On
+                        // success the service updates WatchAppState
+                        // (display name, email, signed-in flag).
+                        WatchPairingService.shared.claim(code: code) { result in
                             refreshing = false
+                            switch result {
+                            case .success:
+                                WatchAppState.shared.setWatchPaired(code: code)
+                                UserDefaults.standard.set(code, forKey: "tp_watch_last_paired_code")
+                                lastPaired = code
+                            case .failure(let err):
+                                pairError = err.localizedDescription
+                            }
                         }
+                        // BEST-EFFORT secondary: also nudge the iPhone
+                        // over WCSession so any cached state pushes too.
+                        // Failure here doesn't matter — Netlify call is
+                        // the source of truth now.
+                        ConnectivityService.shared.sendPairAttempt(code: code)
                     } label: {
                         Text(refreshing ? "Paired ✓" : "Pair")
                             .font(.system(size: 12, weight: .heavy))
@@ -131,6 +136,13 @@ struct WatchSignInGate: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(pairCode.count < 4 || refreshing)
+                    if let err = pairError, !err.isEmpty {
+                        Text(err)
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color.red)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .padding(.vertical, 4)
 

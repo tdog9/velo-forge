@@ -345,6 +345,20 @@ service cloud.firestore {
         || (isSignedIn() && resource.data.createdBy == request.auth.uid);
     }
 
+    // Watch pairing codes. The web app writes a doc here when the user
+    // views Profile → Connect Watch; the Netlify function `watch-pair`
+    // reads it (with admin SDK, bypasses rules) to validate the code
+    // the Watch user typed.
+    // - Create/update: signed-in user, but only if uid in body matches
+    //   their auth uid (so a user can only claim their OWN code).
+    // - Read/delete: server-side only (function uses admin); clients
+    //   don't need to read these.
+    match /watch_pair_codes/{code} {
+      allow read: if false;
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
     match /race_day/{date} {
       // Race day coordination doc — admin starts/ends the day. Everyone
       // signed in can read the active state.
