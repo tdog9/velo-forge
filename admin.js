@@ -295,7 +295,7 @@ function renderAdminMaintenance() {
         </div>
         <div style="margin-bottom:8px">
           <label style="font-size:11px;color:var(--muted-fg);display:block;margin-bottom:4px">Linked Race (optional)</label>
-          <select class="input" id="rd-race-select" style="font-size:12px">
+          <select class="input" id="rd-race-select" style="${1}16$3">
             <option value="">— No linked race —</option>
             ${(A.getActiveRaces?A.getActiveRaces():[]).map(r=>`<option value="${A.escHtml(r.id)}">${A.escHtml(r.name)} (${r.date})</option>`).join('')}
           </select>
@@ -708,7 +708,7 @@ export async function renderCoachDashboard() {
         ${['Y7','Y8','Y9','Y10','Y11','Y12'].map(y => `<button class="bulk-target-btn" data-bulk-target="${y}" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer">${y}</button>`).join('')}
         <button class="bulk-target-btn" data-bulk-target="inactive" style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer">Inactive Only</button>
       </div>
-      <textarea id="bulk-msg-text" class="input" placeholder="Type your message to students..." style="width:100%;min-height:60px;resize:vertical;font-size:13px;margin-bottom:8px"></textarea>
+      <textarea id="bulk-msg-text" class="input" placeholder="Type your message to students..." style="width:100%;min-height:60px;resize:vertical;${1}16$3;margin-bottom:8px"></textarea>
       <button class="btn btn-primary" id="bulk-msg-send" style="font-size:12px;padding:8px 16px">Post as Announcement</button>
     </div>`;
 
@@ -928,8 +928,8 @@ export async function renderCoachDashboard() {
       const tName = (val && val.name) || key;
       const tScore = (val && val.score) || 0;
       chHtml += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <input class="input ch-team-name" data-ch-key="${key}" value="${escHtml(tName)}" style="flex:1;font-size:12px;padding:6px 8px">
-        <input class="input ch-team-score" data-ch-key="${key}" type="number" value="${tScore}" style="width:70px;font-size:12px;padding:6px 8px;text-align:center">
+        <input class="input ch-team-name" data-ch-key="${key}" value="${escHtml(tName)}" style="flex:1;${1}16$3;padding:6px 8px">
+        <input class="input ch-team-score" data-ch-key="${key}" type="number" value="${tScore}" style="width:70px;${1}16$3;padding:6px 8px;text-align:center">
       </div>`;
     });
     chHtml += `<div style="display:flex;gap:6px;margin-top:8px">
@@ -944,14 +944,14 @@ export async function renderCoachDashboard() {
   // Create new challenge form
   chHtml += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px">
     <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:8px">${A.activeChallenge ? 'Start New Challenge' : 'Create Challenge'}</div>
-    <input class="input" id="ch-new-title" type="text" placeholder="Challenge title" value="Monthly Challenge" style="margin-bottom:6px;width:100%;font-size:12px">
+    <input class="input" id="ch-new-title" type="text" placeholder="Challenge title" value="Monthly Challenge" style="margin-bottom:6px;width:100%;${1}16$3">
     <div style="display:flex;gap:6px;margin-bottom:6px">
-      <select class="input" id="ch-new-duration" style="flex:1;font-size:12px;padding:6px"><option value="7">1 Week</option><option value="14">2 Weeks</option><option value="30" selected>1 Month</option><option value="60">2 Months</option></select>
-      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted-fg);white-space:nowrap"><input type="checkbox" id="ch-new-repeat" checked> Auto-repeat</label>
+      <select class="input" id="ch-new-duration" style="flex:1;${1}16$3;padding:6px"><option value="7">1 Week</option><option value="14">2 Weeks</option><option value="30" selected>1 Month</option><option value="60">2 Months</option></select>
+      <label style="display:flex;align-items:center;gap:4px;${1}16$3;color:var(--muted-fg);white-space:nowrap"><input type="checkbox" id="ch-new-repeat" checked> Auto-repeat</label>
     </div>
     <div id="ch-new-teams" style="margin-bottom:8px">
       <div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Teams:</div>
-      ${[1,2,3,4,5].map(n => `<input class="input ch-new-team-name" type="text" placeholder="Team ${n} name" value="Team ${n}" style="margin-bottom:4px;width:100%;font-size:12px;padding:6px 8px">`).join('')}
+      ${[1,2,3,4,5].map(n => `<input class="input ch-new-team-name" type="text" placeholder="Team ${n} name" value="Team ${n}" style="margin-bottom:4px;width:100%;${1}16$3;padding:6px 8px">`).join('')}
     </div>
     <button id="ch-create-btn" class="btn btn-primary" style="width:100%;font-size:12px;padding:8px">Create Challenge</button>
   </div>`;
@@ -1532,8 +1532,8 @@ function renderRaceFootageSection(parentEl) {
         </div>
         <div style="font-size:11px;color:var(--muted-fg);margin-bottom:6px">${existing.length} link${existing.length !== 1 ? 's' : ''} attached</div>
         <div style="display:flex;gap:6px">
-          <input class="input" type="url" placeholder="Paste stream/footage URL" style="flex:1;font-size:12px" data-footage-url="${race.id}">
-          <input class="input" type="text" placeholder="Label" style="width:80px;font-size:12px" data-footage-label="${race.id}">
+          <input class="input" type="url" placeholder="Paste stream/footage URL" style="flex:1;${1}16$3" data-footage-url="${race.id}">
+          <input class="input" type="text" placeholder="Label" style="width:80px;${1}16$3" data-footage-label="${race.id}">
           <button class="admin-edit-btn" data-footage-add="${race.id}" style="flex-shrink:0">Add</button>
         </div>
         ${existing.length > 0 ? '<div style="margin-top:6px">' + existing.map((f, fi) => `
@@ -1599,10 +1599,10 @@ export function renderAdminRaceLogVideos(parentEl) {
   // Add video form
   html += `
     <div style="margin-bottom:12px">
-      <input class="input" type="url" id="admin-video-url" placeholder="Paste video URL (YouTube, Vimeo, etc.)" style="font-size:12px;margin-bottom:6px">
-      <input class="input" type="text" id="admin-video-title" placeholder="Video title" style="font-size:12px;margin-bottom:6px">
+      <input class="input" type="url" id="admin-video-url" placeholder="Paste video URL (YouTube, Vimeo, etc.)" style="${1}16$3;margin-bottom:6px">
+      <input class="input" type="text" id="admin-video-title" placeholder="Video title" style="${1}16$3;margin-bottom:6px">
       <div style="display:flex;gap:6px;align-items:center">
-        <select class="input" id="admin-video-race" style="font-size:12px;flex:1">
+        <select class="input" id="admin-video-race" style="${1}16$3;flex:1">
           <option value="">Link to race (optional)</option>
           ${races.map(r => '<option value="' + r.id + '">' + escHtml(r.name) + '</option>').join('')}
         </select>
@@ -1885,10 +1885,10 @@ async function renderUsersAll(el) {
               <div class="admin-user-stat">Team: <strong>${escHtml(u.teamName || 'None')}</strong></div>
             </div>
             <div style="display:flex;gap:6px;margin-top:8px">
-              <select class="input admin-year-select" data-uid="${u.uid}" style="flex:1;padding:6px 8px;font-size:12px">
+              <select class="input admin-year-select" data-uid="${u.uid}" style="flex:1;padding:6px 8px;${1}16$3">
                 ${['Y7','Y8','Y9','Y10','Y11','Y12'].map(y => `<option value="${y}"${u.yearLevel === y ? ' selected' : ''}>${y}</option>`).join('')}
               </select>
-              <select class="input admin-tier-select" data-uid="${u.uid}" style="flex:1;padding:6px 8px;font-size:12px">
+              <select class="input admin-tier-select" data-uid="${u.uid}" style="flex:1;padding:6px 8px;${1}16$3">
                 ${['basic','average','intense'].map(t => `<option value="${t}"${u.fitnessLevel === t ? ' selected' : ''}>${capitalize(t)}</option>`).join('')}
               </select>
               <button class="admin-edit-btn" data-user-save="${u.uid}">Save</button>
@@ -2194,7 +2194,7 @@ function openPlanEditSheet(plan) {
     </div>
     <div class="form-group">
       <label class="label" for="plan-edit-desc">Description</label>
-      <textarea class="input" id="plan-edit-desc" rows="4" style="font-size:13px;line-height:1.5">${escHtml(desc)}</textarea>
+      <textarea class="input" id="plan-edit-desc" rows="4" style="${1}16$3;line-height:1.5">${escHtml(desc)}</textarea>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -2255,7 +2255,7 @@ function renderPlansWorkouts(el) {
   const visiblePlans = A.getVisiblePlans();
   let html = '';
   html += '<div class="label" style="margin-bottom:6px">Select Plan to Edit Workouts</div>';
-  html += '<select class="input" id="admin-exercise-plan-select" style="font-size:13px;margin-bottom:12px">';
+  html += '<select class="input" id="admin-exercise-plan-select" style="${1}16$3;margin-bottom:12px">';
   html += '<option value="">— Choose a plan —</option>';
   visiblePlans.forEach(p => {
     html += '<option value="' + p.id + '"' + (exerciseAdminPlan === p.id ? ' selected' : '') + '>' + escHtml(p.name) + ' (' + p.yearLevel + ' ' + capitalize(p.tier) + ')</option>';
@@ -2359,7 +2359,7 @@ function renderPlansVideos(el) {
             <div class="admin-item-title" style="font-size:13px">${escHtml(ex.name)} ${currentUrl ? '<span style="color:#f97316;font-size:10px">has video</span>' : ''}</div>
           </div>
           <div style="display:flex;gap:4px;flex:2;min-width:200px">
-            <input class="input" type="url" value="${escHtml(currentUrl)}" placeholder="YouTube URL" data-vid-key="${ex.key}" style="flex:1;height:36px;font-size:12px;padding:0 10px">
+            <input class="input" type="url" value="${escHtml(currentUrl)}" placeholder="YouTube URL" data-vid-key="${ex.key}" style="flex:1;height:36px;${1}16$3;padding:0 10px">
             ${currentUrl ? '<button class="admin-del-btn" data-vid-clear="' + ex.key + '" style="height:36px;padding:0 8px;font-size:11px">Clear</button>' : ''}
           </div>
         </div>
@@ -2582,7 +2582,7 @@ function openExerciseEditSheet(key, originalWorkout, currentOverride) {
     </div>
     <div class="form-group">
       <label class="label" for="ex-edit-desc">Description</label>
-      <textarea class="input" id="ex-edit-desc" rows="5" style="font-size:13px;line-height:1.5">${escHtml(desc)}</textarea>
+      <textarea class="input" id="ex-edit-desc" rows="5" style="${1}16$3;line-height:1.5">${escHtml(desc)}</textarea>
     </div>
     <div class="form-row">
       <div class="form-group">

@@ -1190,7 +1190,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r34';
+const APP_VERSION = '20260501-r35';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -7012,8 +7012,11 @@ function renderTeamTab(c) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
     });
   });
-  // Bind coach features
-  if (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid) {
+  // Bind coach features. Gate matches the render gate (canManageTeam)
+  // so co-coaches and admins who SEE the Manage Team button can also
+  // CLICK it. Was previously head-coach-only, so co-coaches got a
+  // dead button — silent crash because no listener fires.
+  if (canManageTeam) {
     c.querySelectorAll('.coach-feat-toggle').forEach(btn => {
       btn.addEventListener('click', async () => {
         const feat = btn.dataset.feat;
@@ -8184,9 +8187,13 @@ function bindTeamChatPanel(c) {
       // Always scroll to the freshly-sent message — user is unambiguously
       // at the end of the thread when they send.
       try { scrollChatToBottom(); } catch(e) {}
-    } else if (!ok && !errBox?.textContent) {
-      showErr('Send failed. Check your connection or try again.');
     }
+    // Note: no generic "Send failed" fallback here. sendChatMessage
+    // surfaces its own context errors via showToast (no team / not
+    // signed in), and any actual write failure lands in the catch
+    // block above which already populates errBox via showErr. A
+    // double "Send failed" was firing on every successful send when
+    // errBox was missing from the DOM (optional-chaining false alarm).
   });
   // Send on Enter (Shift+Enter inserts a newline). Mobile keyboards that
   // submit on Enter feel right; long messages can use Shift+Enter.
@@ -8290,11 +8297,13 @@ function renderCoachFeatureToggles() {
 // to duplicate any logic.
 function openManageTeamSheet() {
   if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
-  // Admin + master can manage any team for support purposes; otherwise
-  // restricted to the head coach (createdBy of the team doc).
+  // Admin + master + co-coaches in teamData.coaches[] + head coach.
   const isMaster = isMasterAccount(currentUser?.email);
-  if (teamData.createdBy !== currentUser?.uid && !isAdmin && !isMaster) {
-    showToast('Only the head coach can manage the team.', 'warn');
+  const teamCoachesSet = Array.isArray(teamData?.coaches) ? new Set(teamData.coaches) : new Set();
+  const isHead = teamData.createdBy === currentUser?.uid;
+  const isCoCoach = teamCoachesSet.has(currentUser?.uid);
+  if (!isHead && !isCoCoach && !isAdmin && !isMaster) {
+    showToast('Only coaches can manage the team.', 'warn');
     return;
   }
   $('sheet-content').innerHTML = `
@@ -9311,7 +9320,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r34';
+  const APP_VERSION = '20260501-r35';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

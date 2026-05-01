@@ -808,7 +808,7 @@ select.input{
 .admin-item-meta{font-size:12px;color:var(--muted-fg)}
 .admin-badge-active{background:rgba(var(--success-rgb),.12);color:#22c55e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
 .admin-badge-inactive{background:var(--surface);color:var(--muted-fg);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
-.admin-form .input{background:var(--surface);border:1px solid var(--border-strong);color:var(--fg);padding:10px 12px;border-radius:8px;font-size:14px;width:100%}
+.admin-form .input{background:var(--surface);border:1px solid var(--border-strong);color:var(--fg);padding:10px 12px;border-radius:8px;font-size:16px;width:100%}
 .admin-form .label{font-size:12px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em}
 .admin-empty{text-align:center;padding:30px;color:var(--muted-fg);font-size:14px}
 .admin-user-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px}
@@ -1412,7 +1412,7 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .admin-user-stat{font-size:12px;color:var(--muted-fg)}
 .admin-user-stat strong{color:var(--fg)}
 .admin-perm-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(var(--primary-rgb),.15);color:var(--primary)}
-.admin-tier-select,.admin-year-select{font-size:12px;padding:6px 8px;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--fg);cursor:pointer}
+.admin-tier-select,.admin-year-select{font-size:16px;padding:6px 8px;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--fg);cursor:pointer}
 .admin-empty{text-align:center;padding:24px;font-size:13px;color:var(--muted-fg)}
 
 /* ===== Permissions ===== */
