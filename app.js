@@ -1190,7 +1190,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r41';
+const APP_VERSION = '20260501-r42';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -7302,6 +7302,34 @@ async function renderProfile() {
   html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px">
     <strong style="color:var(--fg)">Apple Watch (built-in)</strong> — the TurboPrep iOS app reads heart rate, steps, and sleep from HealthKit. Open the iOS app once and grant Health permission.
   </div>`;
+  // Connect Watch — pairing code + push-now button. Used when WCSession
+  // hasn't propagated state to the Watch automatically (e.g. fresh
+  // install). User reads the code on the phone, types it on the
+  // Watch sign-in gate, and the Watch saves the pairing then asks
+  // the iPhone to push fresh state.
+  let pairCode = '';
+  try { pairCode = localStorage.getItem('tp_watch_pair_code') || ''; } catch (e) {}
+  if (!pairCode) {
+    pairCode = String(Math.floor(100000 + Math.random() * 900000));
+    try { localStorage.setItem('tp_watch_pair_code', pairCode); } catch (e) {}
+  }
+  html += `<div style="background:linear-gradient(135deg,rgba(var(--primary-rgb),.10),rgba(var(--primary-rgb),.04));border:1px solid rgba(var(--primary-rgb),.25);border-radius:12px;padding:12px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">⌚</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px;color:var(--fg)">Connect Watch</div>
+        <div style="font-size:11px;color:var(--muted-fg)">Type this code on your Watch, then tap Send.</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;background:var(--bg);border:1px dashed var(--border-strong);border-radius:10px;margin-bottom:10px">
+      <span style="font-family:var(--font-mono);font-size:28px;font-weight:800;letter-spacing:.2em;color:var(--primary)" id="prof-pair-code">${escHtml(pairCode)}</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" id="prof-pair-regen" style="flex:1;font-size:12px;padding:8px 10px">New code</button>
+      <button class="btn btn-primary" id="prof-watch-push" style="flex:2;font-size:12px;padding:8px 10px">Send to Watch</button>
+    </div>
+    <div id="prof-watch-status" style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:8px;min-height:14px"></div>
+  </div>`;
   // Show latest health data if available
   const health = userProfile?.health;
   if (health) {
@@ -7356,6 +7384,28 @@ async function renderProfile() {
   $('prof-strava-disconnect')?.addEventListener('click', () => stravaDisconnect());
   $('prof-fitbit-connect')?.addEventListener('click', () => fitbitStartAuth());
   $('prof-fitbit-disconnect')?.addEventListener('click', () => fitbitDisconnect());
+  // Connect Watch — push state via WCSession bridge + regenerate code
+  $('prof-watch-push')?.addEventListener('click', () => {
+    const status = $('prof-watch-status');
+    try {
+      pushWatchState();
+      if (status) {
+        status.textContent = '✓ Sent. Open the Watch app — the sign-in gate should clear.';
+        status.style.color = 'var(--success)';
+      }
+    } catch (err) {
+      if (status) {
+        status.textContent = '✗ Send failed: ' + (err?.message || 'unknown');
+        status.style.color = 'var(--destructive)';
+      }
+    }
+  });
+  $('prof-pair-regen')?.addEventListener('click', () => {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    try { localStorage.setItem('tp_watch_pair_code', code); } catch (e) {}
+    const codeEl = $('prof-pair-code');
+    if (codeEl) codeEl.textContent = code;
+  });
   $('prof-garmin-pick')?.addEventListener('click', () => $('prof-garmin-file')?.click());
   $('prof-garmin-file')?.addEventListener('change', async (e) => {
     const f = e.target.files?.[0];
@@ -9401,7 +9451,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r41';
+  const APP_VERSION = '20260501-r42';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9726,6 +9776,9 @@ function renderCoachPage() {
 // to return to the home view. Bypasses every prior failure mode of
 // the sheet aggregator.
 let _coachManageMode = 'home';
+// When editing a specific subteam, the id is stashed here so the
+// renderer knows which subteam to load into the form.
+let _coachManageSubteamId = null;
 
 function renderCoachManage(el) {
   if (!el) return;
@@ -9744,11 +9797,12 @@ function renderCoachManage(el) {
   }
   const goHome = () => { _coachManageMode = 'home'; renderCoachManage(el); };
   switch (_coachManageMode) {
-    case 'edit':     return renderCoachManageEdit(el, goHome);
-    case 'cocoach':  return renderCoachManageCoCoach(el, goHome);
-    case 'subteams': return renderCoachManageSubteams(el, goHome);
-    case 'features': return renderCoachManageFeatures(el, goHome);
-    default:         return renderCoachManageHome(el);
+    case 'edit':         return renderCoachManageEdit(el, goHome);
+    case 'cocoach':      return renderCoachManageCoCoach(el, goHome);
+    case 'subteams':     return renderCoachManageSubteams(el, goHome);
+    case 'subteam-edit': return renderCoachManageSubteamEdit(el, _coachManageSubteamId, () => { _coachManageMode = 'subteams'; renderCoachManage(el); });
+    case 'features':     return renderCoachManageFeatures(el, goHome);
+    default:             return renderCoachManageHome(el);
   }
 }
 
@@ -9937,28 +9991,73 @@ function renderCoachManageCoCoach(el, goHome) {
 
 function renderCoachManageSubteams(el, goHome) {
   const subteams = Array.isArray(teamData.subteams) ? teamData.subteams : [];
+  // Pre-created teams from the monthly challenge live in
+  // `activeChallenge.teams` as a `{ teamId: { name, score } }` map.
+  // The user wants those auto-imported as subteams so coaches don't
+  // have to type names manually.
+  const challengeTeams = (activeChallenge && activeChallenge.teams && typeof activeChallenge.teams === 'object')
+    ? Object.entries(activeChallenge.teams).map(([id, v]) => ({ challengeId: id, name: (v && v.name) || id }))
+    : [];
+  const haveChallenge = challengeTeams.length > 0;
+  // Subteams whose name matches a challenge team are considered already-imported.
+  const existingNames = new Set(subteams.map(s => (s.name || '').trim().toLowerCase()));
+  const unimported = challengeTeams.filter(t => !existingNames.has((t.name || '').trim().toLowerCase()));
+
   el.innerHTML = `
     ${_cmHeader('Manage subteams', goHome)}
-    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px">Create groups within your team (e.g. "Venom"). Useful for race-day rosters.</div>
+    <div style="font-size:13px;color:var(--fg);margin-bottom:6px;font-weight:600">What are subteams?</div>
+    <div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:14px">Subteams are smaller groups inside your team — typically each "team" in the monthly challenge (e.g. <em>Venom</em>, <em>Alpha</em>). Athletes assigned to a subteam appear together on the Race Day roster and on the leaderboard filter.</div>
+    ${haveChallenge && unimported.length > 0 ? `
+      <div style="background:linear-gradient(135deg,rgba(var(--primary-rgb),.10),rgba(var(--primary-rgb),.04));border:1px solid rgba(var(--primary-rgb),.25);border-radius:10px;padding:12px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:4px">Monthly Challenge sync</div>
+        <div style="font-size:12px;color:var(--muted-fg);margin-bottom:10px">Pre-create subteams from this month's challenge: <strong style="color:var(--fg)">${unimported.map(t => escHtml(t.name)).join(', ')}</strong></div>
+        <button type="button" class="btn btn-primary" id="cm-st-sync" style="width:100%;font-size:12px;padding:8px">Import ${unimported.length} subteam${unimported.length===1?'':'s'} from challenge</button>
+      </div>
+    ` : ''}
+    <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Add manually</div>
     <div style="display:flex;gap:8px;margin-bottom:14px">
-      <input class="input" id="cm-st-name" type="text" maxlength="40" placeholder="New subteam name" style="flex:1;font-size:16px">
+      <input class="input" id="cm-st-name" type="text" maxlength="40" placeholder="Subteam name (e.g. Venom)" style="flex:1;font-size:16px">
       <button type="button" class="btn btn-primary" id="cm-st-add">Add</button>
     </div>
+    <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Existing (${subteams.length})</div>
     ${subteams.length === 0
-      ? `<div class="empty-state"><div class="empty-state-title">No subteams yet</div></div>`
+      ? `<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:20px">No subteams yet. Use the manual add or the Monthly Challenge sync above.</div>`
       : `<div style="display:flex;flex-direction:column;gap:8px">${subteams.map(s => {
           const memCount = Array.isArray(s.members) ? s.members.length : 0;
-          return `<div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px">
+          return `<button type="button" data-cm-st-pick="${escHtml(s.id)}" style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;text-align:left;cursor:pointer;color:var(--fg);width:100%">
             <div style="flex:1;min-width:0">
-              <div style="font-size:14px;font-weight:700;color:var(--fg)">${escHtml(s.name)}</div>
-              <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${memCount} member${memCount===1?'':'s'}</div>
+              <div style="font-size:14px;font-weight:700">${escHtml(s.name)}</div>
+              <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${memCount} student${memCount===1?'':'s'} assigned</div>
             </div>
-            <button type="button" class="btn btn-secondary" data-cm-st-edit="${escHtml(s.id)}" style="font-size:11px;padding:5px 10px">Edit</button>
-            <button type="button" class="btn" data-cm-st-del="${escHtml(s.id)}" style="font-size:11px;padding:5px 10px;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06)">Delete</button>
-          </div>`;
+            <span style="font-size:18px;color:var(--muted-fg)">›</span>
+          </button>`;
         }).join('')}</div>`}
   `;
   _bindBack(el, goHome);
+  el.querySelector('#cm-st-sync')?.addEventListener('click', async () => {
+    try {
+      const list = Array.isArray(teamData.subteams) ? [...teamData.subteams] : [];
+      let added = 0;
+      for (const t of unimported) {
+        list.push({
+          id: 'sub_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          name: t.name,
+          members: [],
+          subCoachUid: null,
+          challengeId: t.challengeId,
+          createdAt: new Date().toISOString(),
+        });
+        added++;
+      }
+      if (added > 0 && db) await updateDoc(doc(db, 'teams', teamData.id), { subteams: list });
+      teamData.subteams = list;
+      showToast(added + ' subteam' + (added===1?'':'s') + ' imported from challenge.', 'success');
+      renderCoachManageSubteams(el, goHome);
+    } catch (err) {
+      console.error('[cm-st-sync]', err);
+      showToast('Import failed: ' + (err?.message || 'unknown'), 'error');
+    }
+  });
   el.querySelector('#cm-st-add')?.addEventListener('click', async () => {
     const name = (el.querySelector('#cm-st-name')?.value || '').trim();
     if (!name) { showToast('Enter a name.', 'warn'); return; }
@@ -9975,42 +10074,115 @@ function renderCoachManageSubteams(el, goHome) {
       showToast('Create failed: ' + (err?.message || 'unknown'), 'error');
     }
   });
-  el.querySelectorAll('[data-cm-st-del]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.cmStDel;
-      const sub = (teamData.subteams || []).find(s => s.id === id);
-      if (!sub) return;
-      if (!confirm('Delete subteam "' + sub.name + '"?')) return;
-      try {
-        const updated = (teamData.subteams || []).filter(s => s.id !== id);
-        if (db) await updateDoc(doc(db, 'teams', teamData.id), { subteams: updated });
-        teamData.subteams = updated;
-        showToast('Subteam deleted.', 'info');
-        renderCoachManageSubteams(el, goHome);
-      } catch (err) {
-        showToast('Delete failed: ' + (err?.message || 'unknown'), 'error');
-      }
+  // Tap a subteam to drill into the editor (rename + assign students)
+  el.querySelectorAll('[data-cm-st-pick]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _coachManageSubteamId = btn.dataset.cmStPick;
+      _coachManageMode = 'subteam-edit';
+      renderCoachManage(el.parentElement || el);
     });
   });
-  el.querySelectorAll('[data-cm-st-edit]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.cmStEdit;
-      const sub = (teamData.subteams || []).find(s => s.id === id);
-      if (!sub) return;
-      const newName = prompt('Rename subteam:', sub.name);
-      if (newName === null) return;
-      const trimmed = newName.trim();
-      if (!trimmed) return;
-      (async () => {
-        try {
-          const updated = (teamData.subteams || []).map(s => s.id === id ? { ...s, name: trimmed } : s);
-          if (db) await updateDoc(doc(db, 'teams', teamData.id), { subteams: updated });
-          teamData.subteams = updated;
-          showToast('Renamed.', 'success');
-          renderCoachManageSubteams(el, goHome);
-        } catch (err) { showToast('Rename failed: ' + (err?.message || 'unknown'), 'error'); }
-      })();
+}
+
+/// Subteam editor — rename + multi-select student checkboxes. Saves
+/// the subteam in place and returns to the subteams list on Save/Back.
+function renderCoachManageSubteamEdit(el, subId, goBack) {
+  const sub = (teamData.subteams || []).find(s => s.id === subId);
+  if (!sub) {
+    showToast('Subteam not found.', 'warn');
+    goBack();
+    return;
+  }
+  const memberSet = new Set(Array.isArray(sub.members) ? sub.members : []);
+  // teamMembers includes head coach + all team members. Pull them into
+  // a sortable list with display name + role hint.
+  const members = (teamMembers || []).slice().sort((a, b) =>
+    (a.displayName || a.email || '').localeCompare(b.displayName || b.email || '')
+  );
+  el.innerHTML = `
+    ${_cmHeader('Edit "' + (sub.name || 'Subteam') + '"', goBack)}
+    <label style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Subteam name</label>
+    <input class="input" id="cm-stedit-name" type="text" maxlength="40" value="${escHtml(sub.name || '')}" style="margin:6px 0 14px;width:100%;font-size:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <label style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em">Students <span id="cm-stedit-count">(${memberSet.size})</span></label>
+      <div style="display:flex;gap:6px">
+        <button type="button" class="btn" id="cm-stedit-all" style="font-size:11px;padding:4px 10px;background:var(--surface);border:1px solid var(--border);color:var(--fg)">All</button>
+        <button type="button" class="btn" id="cm-stedit-none" style="font-size:11px;padding:4px 10px;background:var(--surface);border:1px solid var(--border);color:var(--fg)">None</button>
+      </div>
+    </div>
+    ${members.length === 0
+      ? `<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:20px">No team members yet. Invite people via the team code first.</div>`
+      : `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;max-height:50vh;overflow-y:auto">${members.map(m => {
+          const checked = memberSet.has(m.uid);
+          return `<label class="cm-stedit-row" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${checked ? 'rgba(var(--primary-rgb),.08)' : 'var(--card)'};border:1px solid ${checked ? 'rgba(var(--primary-rgb),.30)' : 'var(--border)'};border-radius:10px;cursor:pointer">
+            <input type="checkbox" data-cm-stedit-uid="${escHtml(m.uid)}" ${checked ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--primary);flex-shrink:0">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;color:var(--fg)">${escHtml(m.displayName || m.email || 'Member')}</div>
+              <div style="font-size:11px;color:var(--muted-fg)">${escHtml(m.email || '')}${m.yearLevel?' · '+escHtml(m.yearLevel):''}${m.fitnessLevel?' · '+escHtml(m.fitnessLevel):''}</div>
+            </div>
+          </label>`;
+        }).join('')}</div>`}
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button type="button" class="btn" id="cm-stedit-delete" style="flex:1;color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.3);background:rgba(var(--destructive-rgb),.06)">Delete subteam</button>
+      <button type="button" class="btn btn-primary" id="cm-stedit-save" style="flex:2">Save</button>
+    </div>
+  `;
+  _bindBack(el, goBack);
+  const refreshCount = () => {
+    const checked = el.querySelectorAll('[data-cm-stedit-uid]:checked').length;
+    const ct = el.querySelector('#cm-stedit-count');
+    if (ct) ct.textContent = '(' + checked + ')';
+  };
+  // Update card highlight + count on every check change
+  el.querySelectorAll('[data-cm-stedit-uid]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const row = cb.closest('label');
+      if (row) {
+        if (cb.checked) {
+          row.style.background = 'rgba(var(--primary-rgb),.08)';
+          row.style.borderColor = 'rgba(var(--primary-rgb),.30)';
+        } else {
+          row.style.background = 'var(--card)';
+          row.style.borderColor = 'var(--border)';
+        }
+      }
+      refreshCount();
     });
+  });
+  el.querySelector('#cm-stedit-all')?.addEventListener('click', () => {
+    el.querySelectorAll('[data-cm-stedit-uid]').forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event('change')); });
+  });
+  el.querySelector('#cm-stedit-none')?.addEventListener('click', () => {
+    el.querySelectorAll('[data-cm-stedit-uid]').forEach(cb => { cb.checked = false; cb.dispatchEvent(new Event('change')); });
+  });
+  el.querySelector('#cm-stedit-save')?.addEventListener('click', async () => {
+    const btn = el.querySelector('#cm-stedit-save');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const newName = (el.querySelector('#cm-stedit-name')?.value || '').trim() || sub.name;
+      const newMembers = Array.from(el.querySelectorAll('[data-cm-stedit-uid]:checked')).map(cb => cb.dataset.cmSteditUid);
+      const updated = (teamData.subteams || []).map(s => s.id === subId ? { ...s, name: newName, members: newMembers } : s);
+      if (db) await updateDoc(doc(db, 'teams', teamData.id), { subteams: updated });
+      teamData.subteams = updated;
+      showToast('Subteam saved.', 'success');
+      goBack();
+    } catch (err) {
+      console.error('[cm-stedit] save:', err);
+      btn.disabled = false; btn.textContent = 'Save';
+      showToast('Save failed: ' + (err?.message || 'unknown'), 'error');
+    }
+  });
+  el.querySelector('#cm-stedit-delete')?.addEventListener('click', async () => {
+    if (!confirm('Delete subteam "' + (sub.name || 'this') + '"? Students will be unassigned.')) return;
+    try {
+      const updated = (teamData.subteams || []).filter(s => s.id !== subId);
+      if (db) await updateDoc(doc(db, 'teams', teamData.id), { subteams: updated });
+      teamData.subteams = updated;
+      showToast('Subteam deleted.', 'info');
+      goBack();
+    } catch (err) {
+      showToast('Delete failed: ' + (err?.message || 'unknown'), 'error');
+    }
   });
 }
 
