@@ -1190,7 +1190,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r36';
+const APP_VERSION = '20260501-r37';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6805,7 +6805,13 @@ function renderGlobalLeaderboard(el) {
   }
 }
 // --- TEAM TAB (your team sub-tab) ---
-function renderTeamTab(c) {
+function renderTeamTab(c, opts) {
+  // `opts.showManageControls` decides whether the Manage Team button +
+  // Race Day toggle render. The Team tab itself shows a clean, read-
+  // only-feeling team view; coach controls live in the Coach tab so
+  // the same visual frame works for everyone. renderCoachTeam passes
+  // showManageControls:true to surface the controls there.
+  const showManageControls = !!(opts && opts.showManageControls);
   let html = '';
   if (teamLoading) {
     html += '<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
@@ -6953,7 +6959,11 @@ function renderTeamTab(c) {
   const isHeadCoachOfTeam = userProfile?.isCoach && teamData?.createdBy === currentUser?.uid;
   const isCoCoachOfTeam = userProfile?.isCoach && teamCoachesSet.has(currentUser?.uid);
   const canManageTeam = isHeadCoachOfTeam || isCoCoachOfTeam || isAdmin || isMasterAccount(currentUser?.email);
-  if (canManageTeam) {
+  // Manage Team + Race Day controls live in the Coach tab now; the
+  // Team tab itself renders the same view for everyone (athletes see
+  // it identically). showManageControls is only true when this is
+  // called from renderCoachTeam.
+  if (showManageControls && canManageTeam) {
     html += `
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
         <button class="btn btn-secondary" style="width:100%" id="coach-manage-team-btn">Manage Team</button>
@@ -7019,11 +7029,10 @@ function renderTeamTab(c) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
     });
   });
-  // Bind coach features. Gate matches the render gate (canManageTeam)
-  // so co-coaches and admins who SEE the Manage Team button can also
-  // CLICK it. Was previously head-coach-only, so co-coaches got a
-  // dead button — silent crash because no listener fires.
-  if (canManageTeam) {
+  // Bind coach features only when the manage controls were rendered
+  // (i.e. we're inside the Coach tab). The Team tab UI doesn't include
+  // these buttons at all now, so binding is a no-op there.
+  if (showManageControls && canManageTeam) {
     c.querySelectorAll('.coach-feat-toggle').forEach(btn => {
       btn.addEventListener('click', async () => {
         const feat = btn.dataset.feat;
@@ -9327,7 +9336,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r36';
+  const APP_VERSION = '20260501-r37';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9763,21 +9772,21 @@ function renderCoachTraining(el) {
 // bottom-tab "My Team" routes there instead.
 function renderCoachTeam(el) {
   if (!el) return;
-  el.innerHTML = `
-    <div class="empty-state" style="text-align:center">
-      <div class="empty-state-title">Team management lives on the Team tab</div>
-      <div class="empty-state-desc" style="margin:8px auto 16px;max-width:320px">All your coach controls — Edit Team, Add Co-Coach, Manage Subteams, Feature Toggles, Race Day, Delete Team — are on the Team tab's Coach Settings panel.</div>
-      <button class="btn btn-primary" id="coach-go-team" style="min-width:180px">Open Team Tab</button>
-    </div>
-  `;
-  el.querySelector('#coach-go-team')?.addEventListener('click', () => {
-    currentPage = 'team';
-    lbSubTab = 'team';
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === 'team'));
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    $('page-team')?.classList.add('active');
-    renderTeam();
-  });
+  // Coach tab "My Team" now renders the EXACT same view athletes see
+  // on the Team tab — same hero, same members table, same subteam
+  // filter — but with Manage Team + Race Day controls surfaced at the
+  // bottom. One UI to maintain; coaches stay oriented to what their
+  // athletes are looking at.
+  if (!teamData) {
+    el.innerHTML = `
+      <div class="empty-state" style="text-align:center">
+        <div class="empty-state-title">No team yet</div>
+        <div class="empty-state-desc" style="margin:8px auto 0;max-width:320px">Join a team or request a new one from the Team tab to access coach controls.</div>
+      </div>
+    `;
+    return;
+  }
+  renderTeamTab(el, { showManageControls: true });
 }
 
 function renderCoachRaceDay(el) {
