@@ -743,7 +743,7 @@ function renderAiWidgets() {
 }
 async function generateAiWidget(extraContext) {
   const btn = $('ai-widget-generate');
-  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.querySelector('span').textContent = 'Thinking…'; }
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; const sp = btn.querySelector('span'); if (sp) sp.textContent = 'Thinking…'; }
   try {
     // Build a compact state snapshot for the prompt
     const phase = computeRacePhase();
@@ -1190,7 +1190,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r35';
+const APP_VERSION = '20260501-r36';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1252,8 +1252,15 @@ function showWelcomeSetup() {
   const markDone = (btn) => {
     btn.style.borderColor = 'var(--primary)';
     btn.style.background = 'rgba(var(--primary-rgb),.10)';
-    btn.querySelector('span:last-child').textContent = '✓';
-    btn.querySelector('span:last-child').style.color = 'var(--primary)';
+    // Last span = the trailing chevron / status icon. Guarded — if the
+    // button HTML changed structure, querySelector can return null and
+    // `null.textContent = …` was throwing "Cannot set properties of
+    // null" into the error log on every welcome-step completion.
+    const tail = btn.querySelector('span:last-child');
+    if (tail) {
+      tail.textContent = '✓';
+      tail.style.color = 'var(--primary)';
+    }
   };
   $('ws-strava')?.addEventListener('click', () => {
     stravaStartAuth();
@@ -9320,7 +9327,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r35';
+  const APP_VERSION = '20260501-r36';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

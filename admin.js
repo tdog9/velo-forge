@@ -462,8 +462,20 @@ export function renderHealthReports(el) {
   if (window._hcLastMailto) {
     html += `<a href="${escHtml(window._hcLastMailto)}" style="display:block;padding:10px;background:var(--primary);color:var(--primary-fg);border-radius:var(--radius-sm);text-align:center;font-size:13px;font-weight:700;text-decoration:none;margin-top:8px">📧 Send Latest Report</a>`;
   }
-  html += `<button onclick="localStorage.removeItem('tp_hc_reports');this.closest('[id]').innerHTML='<div style=\"text-align:center;padding:12px;font-size:12px;color:var(--muted-fg)\">Cleared</div>'" style="width:100%;margin-top:8px;padding:8px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);color:var(--muted-fg);font-size:12px;cursor:pointer">Clear Reports</button>`;
+  // Inline onclick replaced with proper addEventListener — the previous
+  // version's `this.closest('[id]').innerHTML = ...` could throw if no
+  // ancestor with an id existed, AND the raw HTML in the onclick attr
+  // was bleeding into the error-log display.
+  html += `<button id="admin-clear-hc-reports" style="width:100%;margin-top:8px;padding:8px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border);color:var(--muted-fg);font-size:12px;cursor:pointer">Clear Reports</button>`;
   el.innerHTML = html;
+  el.querySelector('#admin-clear-hc-reports')?.addEventListener('click', (ev) => {
+    try { localStorage.removeItem('tp_hc_reports'); } catch (e) {}
+    const btn = ev.currentTarget;
+    const wrap = btn?.closest('[id]') || btn?.parentElement;
+    if (wrap) {
+      wrap.innerHTML = '<div style="text-align:center;padding:12px;font-size:12px;color:var(--muted-fg)">Cleared</div>';
+    }
+  });
 }
 
 // ── System tab (god mode settings) ──────────────────────────────────────────
