@@ -37,9 +37,20 @@ final class WatchAppState: ObservableObject {
     /// Firebase Firestore directly (no watchOS support) and keychain auth
     /// sharing requires paid-team signing, so the iPhone is the source of
     /// truth for "is the user signed in" via the WatchConnectivity bridge.
-    @Published var iPhoneSignedIn: Bool = false
-    @Published var iPhoneUserEmail: String?
-    @Published var iPhoneUserDisplayName: String?
+    // Persisted to UserDefaults so a relaunch (or a temporarily
+    // unreachable iPhone after pairing) doesn't drop the user back to
+    // "not signed in" — we cache the last-known user identity and
+    // restore it on init. Live snapshots from iPhone refresh these
+    // and re-persist via the didSet hooks.
+    @Published var iPhoneSignedIn: Bool = UserDefaults.standard.bool(forKey: "tp_watch_iphone_signed_in") {
+        didSet { UserDefaults.standard.set(iPhoneSignedIn, forKey: "tp_watch_iphone_signed_in") }
+    }
+    @Published var iPhoneUserEmail: String? = UserDefaults.standard.string(forKey: "tp_watch_iphone_email") {
+        didSet { UserDefaults.standard.set(iPhoneUserEmail, forKey: "tp_watch_iphone_email") }
+    }
+    @Published var iPhoneUserDisplayName: String? = UserDefaults.standard.string(forKey: "tp_watch_iphone_name") {
+        didSet { UserDefaults.standard.set(iPhoneUserDisplayName, forKey: "tp_watch_iphone_name") }
+    }
 
     /// Local pairing flag — once the user taps Pair on the sign-in
     /// gate, the Watch is considered "paired with this iPhone" forever
@@ -55,10 +66,22 @@ final class WatchAppState: ObservableObject {
     func setWatchPaired(code: String) {
         self.pairedWithCode = code
         self.watchPaired = true
+        // Optimistically flip iPhoneSignedIn so the rest of the Watch
+        // UI ("you're signed in" copy, profile circle) updates the
+        // moment the user finishes pairing — we don't have to wait
+        // for the iPhone's next snapshot push to arrive. The next
+        // applyRemoteSnapshot will refresh the user details (display
+        // name, email) once it lands.
+        self.iPhoneSignedIn = true
     }
     func clearWatchPaired() {
         self.watchPaired = false
         self.pairedWithCode = ""
+        // Also drop cached iPhone identity — pairing was the gate to
+        // that data on the Watch; if it's torn down, the data goes too.
+        self.iPhoneSignedIn = false
+        self.iPhoneUserEmail = nil
+        self.iPhoneUserDisplayName = nil
     }
 
     /// First initial for the avatar circle in BrandHeader. Falls back
