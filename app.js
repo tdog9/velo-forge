@@ -402,6 +402,24 @@ if (typeof window !== 'undefined') {
   window.tpNative.requestWatchSnapshot = function() {
     try { pushWatchState(); } catch (e) { console.warn('requestWatchSnapshot:', e); }
   };
+  // Watch pair-code validator. iPhone forwards the digits the user
+  // typed on the Watch sign-in gate; we compare against the code shown
+  // in Profile (persisted in localStorage). On match: push state so
+  // the gate dissolves, plus toast confirmation. On mismatch: warn.
+  window.tpNative.checkWatchPairCode = function(code) {
+    try {
+      let stored = '';
+      try { stored = localStorage.getItem('tp_watch_pair_code') || ''; } catch (_) {}
+      const trimmed = String(code || '').trim();
+      if (!stored || !trimmed) return;
+      if (trimmed === stored) {
+        pushWatchState();
+        try { showToast('Watch paired ✓', 'success'); } catch (_) {}
+      } else {
+        try { showToast("Watch pair code didn't match.", 'warn'); } catch (_) {}
+      }
+    } catch (e) { console.warn('checkWatchPairCode:', e); }
+  };
   // Native → web: HealthKit summary from the Watch. Merges into userProfile.health
   // and writes back to Firestore so the web's health card sees Watch data.
   window.tpNative.onHealthSummary = async function(summary) {
@@ -1190,7 +1208,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r42';
+const APP_VERSION = '20260501-r43';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -9451,7 +9469,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r42';
+  const APP_VERSION = '20260501-r43';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

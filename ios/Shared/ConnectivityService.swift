@@ -29,6 +29,11 @@ final class ConnectivityService: NSObject, ObservableObject {
     /// should respond by re-pushing its current state via the
     /// applicationContext / userInfo path.
     var onSnapshotRequested: (() -> Void)?
+    /// iPhone-side: called when the Watch submits a pair-code attempt.
+    /// `body` contains `{ code: "123456" }`. iPhone should hand the
+    /// code to the web, which validates against localStorage and on
+    /// match pushes a fresh state snapshot back to the Watch.
+    var onWatchPairAttempt: (([String: Any]) -> Void)?
 
     override init() {
         super.init()
@@ -187,6 +192,8 @@ extension ConnectivityService: WCSessionDelegate {
             onHealthSummaryReceived?(body)
         case "requestSnapshot":
             onSnapshotRequested?()
+        case "watchPairAttempt":
+            onWatchPairAttempt?(body)
         default:
             break
         }
@@ -197,5 +204,13 @@ extension ConnectivityService: WCSessionDelegate {
     /// false and the user wants to retry pulling auth state.
     func requestSnapshot() {
         send(["payload": "requestSnapshot", "data": [:] as [String: Any]])
+    }
+
+    /// Watch-side: submit the 6-digit pairing code the user typed on
+    /// the sign-in gate. iPhone validates against the code stored in
+    /// the web's localStorage and, on match, pushes a fresh state
+    /// snapshot back over WCSession to dismiss the gate.
+    func sendPairAttempt(code: String) {
+        send(["payload": "watchPairAttempt", "data": ["code": code] as [String: Any]])
     }
 }

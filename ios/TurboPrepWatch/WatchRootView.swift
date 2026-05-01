@@ -48,73 +48,126 @@ struct WatchRootView: View {
 struct WatchSignInGate: View {
     @State private var refreshing = false
     @State private var lastTry: Date?
+    @State private var pairCode: String = ""
+    @State private var lastPaired: String = UserDefaults.standard.string(forKey: "tp_watch_last_paired_code") ?? ""
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 14) {
+            VStack(spacing: 12) {
                 HStack(spacing: 0) {
                     Text("Turbo").foregroundStyle(Theme.fg)
                     Text("Prep").foregroundStyle(Theme.primary)
                 }
                 .font(.system(.title3, design: .rounded, weight: .heavy))
-                .padding(.top, 6)
+                .padding(.top, 4)
+
                 Image(systemName: "iphone")
-                    .font(.system(size: 36))
+                    .font(.system(size: 30))
                     .foregroundStyle(Theme.primary)
-                    .padding(.top, 4)
-                Text("Sign in on your iPhone")
-                    .font(.system(size: 14, weight: .heavy))
+
+                Text("Connect to iPhone")
+                    .font(.system(size: 13, weight: .heavy))
                     .foregroundStyle(Theme.fg)
                     .multilineTextAlignment(.center)
-                Text("The Watch follows your iPhone. Open TurboPrep on your phone and sign in there.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.fg.opacity(0.7))
+
+                if !lastPaired.isEmpty {
+                    Text("Last paired with code \(lastPaired)")
+                        .font(.system(size: 9))
+                        .foregroundStyle(Theme.fg.opacity(0.55))
+                        .multilineTextAlignment(.center)
+                }
+
+                // Pair code entry — primary path. User reads the 6-digit
+                // code from Profile → Connect Watch on the iPhone, types
+                // it here, taps Pair. iPhone validates and pushes state.
+                VStack(spacing: 6) {
+                    Text("Enter 6-digit code from iPhone Profile")
+                        .font(.system(size: 9, weight: .heavy))
+                        .foregroundStyle(Theme.fg.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                    TextField("000000", text: $pairCode)
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: 22, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(Theme.primary)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 10)
+                        .background(Theme.fg.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .onChange(of: pairCode) { _, newValue in
+                            // Trim to digits only, max 8 chars.
+                            let digits = newValue.filter { $0.isNumber }
+                            if digits != newValue { pairCode = String(digits.prefix(8)) }
+                        }
+                    Button {
+                        let code = pairCode.filter { $0.isNumber }
+                        guard code.count >= 4 else { return }
+                        ConnectivityService.shared.sendPairAttempt(code: code)
+                        UserDefaults.standard.set(code, forKey: "tp_watch_last_paired_code")
+                        lastPaired = code
+                        // Visual feedback — gate dissolves on its own
+                        // when iPhone pushes signed-in state back.
+                        refreshing = true
+                        lastTry = Date()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            refreshing = false
+                        }
+                    } label: {
+                        Text(refreshing ? "Pairing…" : "Pair")
+                            .font(.system(size: 12, weight: .heavy))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                            .background(pairCode.count >= 4 ? Theme.primary : Theme.fg.opacity(0.15))
+                            .foregroundStyle(pairCode.count >= 4 ? Theme.bg : Theme.fg.opacity(0.4))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(pairCode.count < 4 || refreshing)
+                }
+                .padding(.vertical, 4)
+
+                Divider().background(Theme.fg.opacity(0.1))
+
+                Text("Or just sign in on iPhone — Watch syncs automatically.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.fg.opacity(0.55))
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 6)
+
                 Button {
                     refreshing = true
                     lastTry = Date()
                     ConnectivityService.shared.requestSnapshot()
-                    // Visual stop after 2s — gives the iPhone time to
-                    // respond and the Watch state to actually update.
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                         refreshing = false
                     }
                 } label: {
-                    HStack(spacing: 6) {
-                        if refreshing {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 11, weight: .heavy))
-                        }
-                        Text(refreshing ? "Refreshing…" : "Refresh")
-                            .font(.system(size: 12, weight: .heavy))
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .heavy))
+                        Text("Refresh from iPhone")
+                            .font(.system(size: 11, weight: .heavy))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(Theme.primary)
-                    .foregroundStyle(Theme.bg)
+                    .padding(.vertical, 7)
+                    .background(Theme.fg.opacity(0.08))
+                    .foregroundStyle(Theme.fg)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .disabled(refreshing)
+
                 if let lastTry, Date().timeIntervalSince(lastTry) > 8 {
-                    Text("iPhone not reachable. Make sure both devices are unlocked and on the same Wi-Fi.")
-                        .font(.system(size: 10))
+                    Text("iPhone not reachable. Both devices need to be unlocked.")
+                        .font(.system(size: 9))
                         .foregroundStyle(Theme.fg.opacity(0.55))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 4)
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
         }
         .onAppear {
-            // Auto-fire one refresh on appear so the user doesn't have
-            // to tap if the iPhone is already signed in but state
-            // hadn't propagated yet (e.g. fresh app install).
             ConnectivityService.shared.requestSnapshot()
         }
     }

@@ -134,6 +134,19 @@ struct WebViewContainer: UIViewRepresentable {
                     let js = "if (window.tpNative && typeof window.tpNative.requestWatchSnapshot === 'function') { window.tpNative.requestWatchSnapshot(); }"
                     webView.evaluateJavaScript(js, completionHandler: nil)
                 }
+                // Watch pair-code attempt: hand the digits to the web
+                // app, which compares against localStorage and on
+                // match pushes a fresh state snapshot back to the Watch.
+                ConnectivityService.shared.onWatchPairAttempt = { [weak webView] body in
+                    guard let webView else { return }
+                    let code = (body["code"] as? String) ?? ""
+                    // Sanitize: keep digits only, max 8 chars. The web
+                    // also validates, but defence-in-depth.
+                    let safe = code.filter { $0.isNumber }.prefix(8)
+                    let escaped = String(safe).replacingOccurrences(of: "'", with: "")
+                    let js = "if (window.tpNative && typeof window.tpNative.checkWatchPairCode === 'function') { window.tpNative.checkWatchPairCode('\(escaped)'); }"
+                    webView.evaluateJavaScript(js, completionHandler: nil)
+                }
             }
         }
 
