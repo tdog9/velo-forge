@@ -1190,7 +1190,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r39';
+const APP_VERSION = '20260501-r40';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -8397,6 +8397,16 @@ function openManageTeamSheet() {
 // Feature toggles, extracted into their own sheet (was inline on the
 // Team page as a card with a list of seven on/off rows).
 function openFeatureTogglesSheet() {
+  if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
+  // Permission gate — head coach, co-coaches, admin, master account.
+  const teamCoachesSet = Array.isArray(teamData?.coaches) ? new Set(teamData.coaches) : new Set();
+  const isHead = teamData.createdBy === currentUser?.uid;
+  const isCoCoach = teamCoachesSet.has(currentUser?.uid);
+  const isMaster = isMasterAccount(currentUser?.email);
+  if (!isHead && !isCoCoach && !isAdmin && !isMaster) {
+    showToast('Only coaches can change features.', 'warn');
+    return;
+  }
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Feature Toggles</div>
     <p style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">Hide or show tabs for everyone on the team. Changes take effect immediately for all members.</p>
@@ -8422,8 +8432,15 @@ function openFeatureTogglesSheet() {
 
 function openEditTeamSheet() {
   if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
-  if (teamData.createdBy !== currentUser?.uid) {
-    showToast('Only the head coach can edit team details.', 'warn');
+  // Widened gate: head coach, co-coaches, admin, master account can
+  // all edit. Was head-coach-only — silently blocked everyone else
+  // with a confusing toast even though they had legitimate access.
+  const teamCoachesSet = Array.isArray(teamData?.coaches) ? new Set(teamData.coaches) : new Set();
+  const isHead = teamData.createdBy === currentUser?.uid;
+  const isCoCoach = teamCoachesSet.has(currentUser?.uid);
+  const isMaster = isMasterAccount(currentUser?.email);
+  if (!isHead && !isCoCoach && !isAdmin && !isMaster) {
+    showToast('Only coaches can edit team details.', 'warn');
     return;
   }
   const cur = {
@@ -8474,12 +8491,13 @@ function openEditTeamSheet() {
 // --- Manage Subteams ---
 function openAddCoCoachSheet() {
   if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
-  // Permission gate — only the head coach (or master admin) can promote
-  // co-coaches. Mirrors the gate on Manage Team so a stray call site
-  // can't bypass the UI.
+  // Permission gate — head coach, co-coaches, admin, master account.
+  const teamCoachesSet = Array.isArray(teamData?.coaches) ? new Set(teamData.coaches) : new Set();
+  const isHead = teamData.createdBy === currentUser?.uid;
+  const isCoCoach = teamCoachesSet.has(currentUser?.uid);
   const isMaster = isMasterAccount(currentUser?.email);
-  if (teamData.createdBy !== currentUser?.uid && !isAdmin && !isMaster) {
-    showToast('Only the head coach can add co-coaches.', 'warn');
+  if (!isHead && !isCoCoach && !isAdmin && !isMaster) {
+    showToast('Only coaches can add co-coaches.', 'warn');
     return;
   }
   $('sheet-content').innerHTML = `
@@ -8715,6 +8733,14 @@ function openSubteamDetailSheet(subId) {
 async function deleteTeam() {
   const tid = userProfile?.teamId;
   if (!currentUser || !tid) return;
+  // Destructive — head coach + admin + master only. Co-coaches can
+  // edit team details but can't nuke the whole team.
+  const isHead = teamData?.createdBy === currentUser?.uid;
+  const isMaster = isMasterAccount(currentUser?.email);
+  if (!isHead && !isAdmin && !isMaster) {
+    showToast('Only the head coach can delete the team.', 'warn');
+    return;
+  }
   if (demoMode) {
     teamData = null; teamMembers = []; userProfile.teamId = null; userProfile.teamName = null;
     window._teamLbFilter = undefined;
@@ -9375,7 +9401,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r39';
+  const APP_VERSION = '20260501-r40';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
