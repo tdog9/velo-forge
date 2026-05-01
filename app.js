@@ -1190,7 +1190,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r37';
+const APP_VERSION = '20260501-r38';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -5314,11 +5314,14 @@ function renderWorkouts() {
                   // / laps / pace / incline) that wrapped to 3 rows on
                   // phones. Priority: duration → distance → laps → hr
                   // → speed → pace → rpe → incline.
+                  // HR moved up so it ALWAYS shows when present — riders
+                  // care about it more than laps/incline/etc, and the
+                  // 4-slot slice was clipping it before.
                   const all = [
                     w.duration ? `<span><strong>${w.duration}</strong> min</span>` : '',
                     w.distance ? `<span><strong>${w.distance}</strong> km</span>` : '',
+                    w.heartRate ? `<span style="color:var(--destructive)">❤ <strong>${w.heartRate}</strong> bpm</span>` : '',
                     w.laps ? `<span><strong>${w.laps}</strong> laps</span>` : '',
-                    w.heartRate ? `<span><strong>${w.heartRate}</strong> bpm</span>` : '',
                     w.avgSpeed ? `<span><strong>${w.avgSpeed}</strong> km/h</span>` : '',
                     w.pace ? `<span><strong>${w.pace}</strong> /km</span>` : '',
                     w.rpe ? `<span>RPE <strong>${w.rpe}</strong>/10</span>` : '',
@@ -7046,7 +7049,17 @@ function renderTeamTab(c, opts) {
         } catch(e) { console.warn('feature toggle:', e); }
       });
     });
-    $('coach-manage-team-btn')?.addEventListener('click', openManageTeamSheet);
+    // Use querySelector scoped to the just-rendered container so we
+    // never accidentally bind to a stale button left in the DOM from
+    // a prior render of the OTHER tab. Also wrap in try/catch + toast
+    // so a button click can never produce a silent crash.
+    c.querySelector('#coach-manage-team-btn')?.addEventListener('click', () => {
+      try { openManageTeamSheet(); }
+      catch (err) {
+        console.error('[coach] Manage Team click threw:', err);
+        showToast('Manage Team error: ' + (err?.message || 'unknown'), 'error');
+      }
+    });
     $('coach-start-rd')?.addEventListener('click', async () => {
       // Pick the most-imminent active race today as the raceId so the
       // overlay header has a label. Was previously called with no arg,
@@ -8312,6 +8325,10 @@ function renderCoachFeatureToggles() {
 // Team page. Each row routes to its existing sheet so we don't have
 // to duplicate any logic.
 function openManageTeamSheet() {
+  // Wrap the entire body in try/catch so a hidden bug surfaces as a
+  // toast instead of a silent crash. Was: silently doing nothing on
+  // tap because errors were swallowed by the addEventListener.
+  try {
   if (!teamData?.id) { showToast('No team yet.', 'warn'); return; }
   // Admin + master + co-coaches in teamData.coaches[] + head coach.
   const isMaster = isMasterAccount(currentUser?.email);
@@ -8322,7 +8339,12 @@ function openManageTeamSheet() {
     showToast('Only coaches can manage the team.', 'warn');
     return;
   }
-  $('sheet-content').innerHTML = `
+  const sheetEl = $('sheet-content');
+  if (!sheetEl) {
+    showToast('Sheet container missing — reload the app.', 'error');
+    return;
+  }
+  sheetEl.innerHTML = `
     <div class="sheet-title">Manage Team</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
       <button class="btn btn-secondary mt-row" id="mt-edit" style="width:100%;text-align:left;padding:14px 14px;display:flex;align-items:center;justify-content:space-between">
@@ -8348,11 +8370,28 @@ function openManageTeamSheet() {
     </div>
   `;
   openSheet();
-  $('mt-edit')?.addEventListener('click', () => { closeSheet(); setTimeout(openEditTeamSheet, 80); });
-  $('mt-cocoach')?.addEventListener('click', () => { closeSheet(); setTimeout(openAddCoCoachSheet, 80); });
-  $('mt-subteams')?.addEventListener('click', () => { closeSheet(); setTimeout(openManageSubteamsSheet, 80); });
-  $('mt-features')?.addEventListener('click', () => { closeSheet(); setTimeout(openFeatureTogglesSheet, 80); });
-  $('mt-delete')?.addEventListener('click', () => { closeSheet(); setTimeout(deleteTeam, 80); });
+  // Wrap each row's handler in try/catch so a downstream sheet failure
+  // (e.g. openEditTeamSheet throws on a missing field) shows a toast
+  // instead of looking like Manage Team did nothing.
+  const safeRoute = (fn, label) => () => {
+    closeSheet();
+    setTimeout(() => {
+      try { fn(); }
+      catch (err) {
+        console.error('[manage-team] ' + label + ' threw:', err);
+        showToast(label + ' failed: ' + (err?.message || 'unknown error'), 'error');
+      }
+    }, 80);
+  };
+  $('mt-edit')?.addEventListener('click', safeRoute(openEditTeamSheet, 'Edit team'));
+  $('mt-cocoach')?.addEventListener('click', safeRoute(openAddCoCoachSheet, 'Add co-coach'));
+  $('mt-subteams')?.addEventListener('click', safeRoute(openManageSubteamsSheet, 'Manage subteams'));
+  $('mt-features')?.addEventListener('click', safeRoute(openFeatureTogglesSheet, 'Feature toggles'));
+  $('mt-delete')?.addEventListener('click', safeRoute(deleteTeam, 'Delete team'));
+  } catch (err) {
+    console.error('[manage-team] open threw:', err);
+    showToast('Manage Team error: ' + (err?.message || 'unknown'), 'error');
+  }
 }
 
 // Feature toggles, extracted into their own sheet (was inline on the
@@ -9336,7 +9375,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r37';
+  const APP_VERSION = '20260501-r38';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
