@@ -34,19 +34,43 @@ struct WatchRootView: View {
     }
 }
 
-/// "TurboPrep" wordmark — split-color matches the web header treatment.
-/// Long-press toggles race-day mode locally on the Watch.
+/// "TurboPrep" wordmark + profile circle — matches the iPhone header
+/// treatment. Wordmark on the left, primary-coloured circle with the
+/// user's first initial on the right. Tap the circle to open Settings.
+/// Long-press the wordmark still toggles race-day for dev.
 struct BrandHeader: View {
     @EnvironmentObject private var state: WatchAppState
+    @State private var showSettings = false
     var body: some View {
-        HStack(spacing: 0) {
-            Text("Turbo").foregroundStyle(Theme.fg)
-            Text("Prep").foregroundStyle(Theme.primary)
+        HStack(spacing: 6) {
+            HStack(spacing: 0) {
+                Text("Turbo").foregroundStyle(Theme.fg)
+                Text("Prep").foregroundStyle(Theme.primary)
+            }
+            .font(.system(.title3, design: .rounded, weight: .heavy))
+            .contentShape(Rectangle())
+            .onLongPressGesture(minimumDuration: 1.5) {
+                state.toggleRaceDayForDev()
+            }
+            Spacer(minLength: 4)
+            Button {
+                showSettings = true
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(Theme.primary)
+                        .frame(width: 22, height: 22)
+                    Text(state.userInitial)
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Theme.bg)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open settings")
         }
-        .font(.system(.title3, design: .rounded, weight: .heavy))
-        .contentShape(Rectangle())
-        .onLongPressGesture(minimumDuration: 1.5) {
-            state.toggleRaceDayForDev()
+        .sheet(isPresented: $showSettings) {
+            WatchSettingsView()
+                .environmentObject(state)
         }
     }
 }

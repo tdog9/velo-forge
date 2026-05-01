@@ -505,9 +505,19 @@ async function showRdTab(ov,tab) {
 // ── Roster Tab ────────────────────────────────────────────────────────────────
 function renderRoster(c) {
   const mgr=ctx.userProfile?.isCoach||ctx.userProfile?.isManager;
-  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+  // Coach can also bulk-add an entire subteam to the roster — saves
+  // typing every driver name on race morning. Subteams come from
+  // ctx.teamData.subteams (loaded by app.js).
+  const subteams = (mgr && Array.isArray(ctx.teamData?.subteams)) ? ctx.teamData.subteams : [];
+  let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">
     <div style="font-size:16px;font-weight:700">Driver Roster</div>
-    ${mgr?`<button id="rd-add-driver" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--primary);color:var(--primary);background:none;font-weight:600;cursor:pointer">+ Add Driver</button>`:''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      ${subteams.length > 0 ? `<select id="rd-subteam-pick" style="font-size:12px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer">
+        <option value="">+ Subteam…</option>
+        ${subteams.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}
+      </select>` : ''}
+      ${mgr?`<button id="rd-add-driver" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--primary);color:var(--primary);background:none;font-weight:600;cursor:pointer">+ Add Driver</button>`:''}
+    </div>
   </div>`;
 
   if (rosterData.length===0) {
@@ -535,6 +545,47 @@ function renderRoster(c) {
   initDrag(c);
   c.querySelector('#rd-add-driver')?.addEventListener('click',()=>openAddDriver(c));
   c.querySelectorAll('.rd-edit-btn').forEach(btn=>btn.addEventListener('click',()=>openEditDriver(parseInt(btn.dataset.idx),c)));
+  c.querySelector('#rd-subteam-pick')?.addEventListener('change', async (e) => {
+    const subId = e.target.value;
+    if (!subId) return;
+    e.target.value = ''; // reset so picking the same subteam again works
+    await populateRosterFromSubteam(subId, c);
+  });
+}
+
+/// Bulk-add every member of a subteam to today's roster. Skips members
+/// already on the roster (case-insensitive name match). Persists with
+/// `uid` on each entry so we can later detect overlap with auth users.
+async function populateRosterFromSubteam(subId, c) {
+  const sub = (ctx.teamData?.subteams || []).find(s => s.id === subId);
+  if (!sub) { ctx.showToast?.('Subteam not found.', 'warn'); return; }
+  const existing = new Set(rosterData.map(d => (d.name || '').trim().toLowerCase()));
+  let added = 0, skipped = 0;
+  const members = Array.isArray(sub.members) ? sub.members : [];
+  for (const uid of members) {
+    const member = (ctx.teamMembers || []).find(m => m.uid === uid);
+    if (!member) continue;
+    const displayName = member.displayName || member.email || 'Driver';
+    const key = displayName.trim().toLowerCase();
+    if (existing.has(key)) { skipped++; continue; }
+    rosterData.push({
+      id: 'drv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      name: displayName,
+      uid,            // track source for future filter / dedup
+      duration: 3600,
+      notes: ''
+    });
+    existing.add(key);
+    added++;
+  }
+  if (added === 0 && skipped === 0) {
+    ctx.showToast?.('Subteam has no members yet.', 'warn');
+    return;
+  }
+  await saveRoster();
+  renderRoster(c);
+  const msg = added + ' added' + (skipped ? ' · ' + skipped + ' already on roster' : '');
+  ctx.showToast?.(msg, 'success');
 }
 
 function initDrag(c) {

@@ -41,6 +41,17 @@ final class WatchAppState: ObservableObject {
     @Published var iPhoneUserEmail: String?
     @Published var iPhoneUserDisplayName: String?
 
+    /// First initial for the avatar circle in BrandHeader. Falls back
+    /// through display-name → email → "?" so the UI never shows a
+    /// completely blank circle.
+    var userInitial: String {
+        if let n = iPhoneUserDisplayName?.trimmingCharacters(in: .whitespaces),
+           let c = n.first { return String(c).uppercased() }
+        if let e = iPhoneUserEmail?.trimmingCharacters(in: .whitespaces),
+           let c = e.first { return String(c).uppercased() }
+        return "?"
+    }
+
     private static let kRaceDayActive  = "tp_watch_rd_active"
     private static let kRaceDayStarted = "tp_watch_rd_started"
     private static let kRaceDayLaps    = "tp_watch_rd_laps"
