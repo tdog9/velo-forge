@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WatchRootView: View {
     @StateObject private var state = WatchAppState.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -39,6 +40,16 @@ struct WatchRootView: View {
         }
         .environmentObject(state)
         .preferredColorScheme(.dark)
+        .onChange(of: scenePhase) { _, newPhase in
+            // Force-refresh race-day state the moment the Watch wakes.
+            // The 15s poll cadence is fine for steady-state but feels
+            // sluggish when the rider raises their wrist after the
+            // coach has just activated race-day. Free; race conditions
+            // (overlapping fetches) are guarded inside pokeNow.
+            if newPhase == .active {
+                WatchRaceDayPoller.shared.pokeNow()
+            }
+        }
     }
 }
 

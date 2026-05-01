@@ -1208,7 +1208,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r48';
+const APP_VERSION = '20260501-r49';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -7089,6 +7089,7 @@ function renderTeamTab(c, opts) {
       if (ok) {
         showToast('Race day mode activated.', 'success');
         try { updateRaceDayTabBar(true); } catch(e) {}
+        try { pushWatchState(); } catch(e) {}
         openRaceDayOverlay();
       } else {
         showToast('Could not activate race day.', 'error');
@@ -7100,6 +7101,7 @@ function renderTeamTab(c, opts) {
       // — even on partial failure — so the user isn't stuck with a dead
       // tab pointing at nothing.
       try { updateRaceDayTabBar(false); } catch(e) {}
+      try { pushWatchState(); } catch(e) {}
       const ov = document.getElementById('raceday-overlay');
       if (ov) ov.remove();
       const ma = document.getElementById('main-app');
@@ -9493,7 +9495,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r48';
+  const APP_VERSION = '20260501-r49';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9907,6 +9909,7 @@ async function _coachManageHomeClick(ev) {
       if (ok) {
         showToast('Race day mode activated.', 'success');
         try { updateRaceDayTabBar(true); } catch(e) {}
+        try { pushWatchState(); } catch(e) {}
         try { openRaceDayOverlay(); } catch(e) {}
       } else {
         showToast('Could not activate race day.', 'error');
@@ -9917,6 +9920,7 @@ async function _coachManageHomeClick(ev) {
     if (act === 'rd-end') {
       const ok = await deactivateRaceDay();
       try { updateRaceDayTabBar(false); } catch(e) {}
+      try { pushWatchState(); } catch(e) {}
       const ov = document.getElementById('raceday-overlay');
       if (ov) ov.remove();
       if (ok) showToast('Race day mode ended.', 'info');
@@ -10414,10 +10418,15 @@ function renderCoachRaceDay(el) {
   `;
   el.querySelector('#coach-rd-start')?.addEventListener('click', async () => {
     const ok = await activateRaceDay();
-    if (ok) { showToast('Race day activated!','success'); openRaceDayOverlay(); }
+    if (ok) {
+      try { pushWatchState(); } catch(e) {}
+      showToast('Race day activated!','success');
+      openRaceDayOverlay();
+    }
   });
   el.querySelector('#coach-rd-end')?.addEventListener('click', async () => {
     await deactivateRaceDay();
+    try { pushWatchState(); } catch(e) {}
     renderCoachPage();
   });
   el.querySelector('#coach-rd-open')?.addEventListener('click', () => openRaceDayOverlay());

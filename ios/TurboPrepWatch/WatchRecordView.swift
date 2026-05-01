@@ -159,8 +159,10 @@ struct RaceDayView: View {
     }
 
     // MARK: - Active stint screen ──────────────────────────────────────────
-    /// Single-page, no scroll, no swipe. Top half = numbers, bottom half =
-    /// tap-to-lap button. Fits a 41 / 45mm watch face without truncation.
+    /// Single-page, no scroll, no swipe. Lap detection is fully automatic
+    /// via GPS — the location service pins the start/finish line and
+    /// fires recordLap() whenever the rider crosses within 30m. The
+    /// rider never has to look down or interact mid-stint.
     private var activeStintView: some View {
         VStack(spacing: 6) {
             // Header row: lap counter + stint countdown.
@@ -200,25 +202,12 @@ struct RaceDayView: View {
                 )
             }
 
-            // Tap-to-lap fills remaining vertical space.
-            Button(action: recordLap) {
-                Text("TAP TO LAP")
-                    .font(.system(size: 12, weight: .heavy))
-                    .tracking(1.0)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(
-                        LinearGradient(
-                            colors: [Theme.primary, Theme.primary.opacity(0.78)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .frame(maxHeight: .infinity)
+            // Last-lap + best-lap pills, OR the auto-lap status banner
+            // before any laps are in. The banner tells the rider what the
+            // GPS lap detector is doing so they don't worry that nothing
+            // is being recorded.
+            lapStatusView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Compact finish button — small enough not to compete with
             // tap-to-lap, but always visible so the rider doesn't have to
@@ -253,6 +242,66 @@ struct RaceDayView: View {
             locator.start()
             await raceSession.start()
         }
+    }
+
+    /// Bottom panel — replaces the old tap-to-lap button.
+    /// Before any laps: a status line explaining that auto-lap is armed
+    /// (or pending if the GPS pin hasn't landed yet).
+    /// After laps: last-lap pill + best-lap pill, side by side.
+    @ViewBuilder
+    private var lapStatusView: some View {
+        if state.raceDayLaps.isEmpty {
+            VStack(spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: locator.startFinishCoord == nil ? "scope" : "flag.checkered")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(locator.startFinishCoord == nil ? Theme.mutedFg : Theme.primary)
+                    Text(locator.startFinishCoord == nil ? "Auto-lap arming…" : "Auto-lap ready")
+                        .font(.system(size: 12, weight: .heavy))
+                        .tracking(0.4)
+                        .foregroundStyle(locator.startFinishCoord == nil ? Theme.mutedFg : Theme.primary)
+                }
+                Text(locator.startFinishCoord == nil
+                     ? "Crossing line will pin start/finish"
+                     : "Lap fires automatically across the line")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Theme.mutedFg)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 4)
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        } else {
+            HStack(spacing: 6) {
+                lapPill(label: "LAST",
+                        value: format(state.raceDayLaps.first?.durationSeconds ?? 0),
+                        color: Theme.fg)
+                lapPill(label: "BEST",
+                        value: format(state.raceDayLaps.map(\.durationSeconds).min() ?? 0),
+                        color: Theme.primary)
+            }
+        }
+    }
+
+    private func lapPill(label: String, value: String, color: Color) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 8, weight: .heavy))
+                .tracking(0.6)
+                .foregroundStyle(Theme.mutedFg)
+            Text(value)
+                .font(.system(.title3, design: .rounded, weight: .heavy))
+                .monospacedDigit()
+                .foregroundStyle(color)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, minHeight: 38)
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func statCell(icon: String, iconColor: Color, value: String, unit: String) -> some View {

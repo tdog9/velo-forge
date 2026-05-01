@@ -42,6 +42,13 @@ final class WatchRaceDayPoller {
         timer = nil
     }
 
+    /// Force an immediate fetch — used when the Watch comes back to
+    /// foreground (raise-to-wake, switch from another app), so the
+    /// rider doesn't see stale state for up to 15s after wake.
+    func pokeNow() {
+        Task { await self.tick() }
+    }
+
     private func tick() async {
         // Only poll while paired — no point hitting the network if the
         // rider hasn't connected to a TurboPrep account.
