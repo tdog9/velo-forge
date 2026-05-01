@@ -824,6 +824,35 @@ function renderStintTab(c) {
     const live = await loadLiveStints();
     const panel = document.getElementById('rd-live-panel');
     if (panel) panel.innerHTML = renderLivePanel(live);
+    // Stint locking — if ANY other driver is currently on track, lock
+    // the Start button so two teammates can't run a stint at the same
+    // time. The lock only blocks OTHERS; if YOU are the one live (e.g.
+    // page reload mid-stint), the button stays clickable so you can
+    // re-enter your own stint.
+    const myUid = ctx.currentUser?.uid;
+    const othersLive = (live || []).filter(l => l.uid && l.uid !== myUid);
+    const startBtn = document.getElementById('rd-start-btn');
+    if (startBtn) {
+      if (othersLive.length > 0) {
+        const driver = othersLive[0].displayName || 'A teammate';
+        startBtn.disabled = true;
+        startBtn.dataset.locked = '1';
+        startBtn.style.opacity = '0.55';
+        startBtn.style.cursor = 'not-allowed';
+        startBtn.style.background = 'linear-gradient(135deg,var(--muted),var(--muted))';
+        startBtn.style.boxShadow = 'none';
+        startBtn.textContent = '🔒 ' + driver + ' is on track — wait';
+      } else if (startBtn.dataset.locked === '1') {
+        // Track was just freed — reset the button.
+        startBtn.disabled = false;
+        delete startBtn.dataset.locked;
+        startBtn.style.opacity = '';
+        startBtn.style.cursor = 'pointer';
+        startBtn.style.background = 'linear-gradient(135deg,var(--success),#16a34a)';
+        startBtn.style.boxShadow = '0 4px 15px rgba(var(--success-rgb),.35)';
+        startBtn.textContent = '▶ Start My Stint';
+      }
+    }
     if (!document.getElementById('rd-start-btn')) {
       try { clearInterval(spectatorInterval); } catch(e) {}
       try { clearTimeout(spectatorInterval); } catch(e) {}
@@ -857,7 +886,23 @@ function initPreMap() {
   } catch(e){}
 }
 
-function startStint(c) {
+async function startStint(c) {
+  // Server-side lock — read the latest live stints right before flipping
+  // local state. If ANY other driver is live, abort and re-render the
+  // pre-stint UI with the lock banner. This catches a fast double-tap
+  // that beats the spectator-poll refresh.
+  try {
+    const live = await loadLiveStints();
+    const myUid = ctx.currentUser?.uid;
+    const others = (live || []).filter(l => l.uid && l.uid !== myUid);
+    if (others.length > 0) {
+      const driver = others[0].displayName || 'a teammate';
+      ctx.showToast?.('Wait — ' + driver + ' is on track.', 'warn');
+      // Re-render the pre-stint UI so the user sees the live panel update.
+      renderStintTab(c);
+      return;
+    }
+  } catch (e) { /* lock check is best-effort; fall through if Firestore unreachable */ }
   stintActive=true; stintStartTime=Date.now();
   // Persist so a JS context loss / reload doesn't leave stintStartTime
   // null. Without this, endStint() would compute Date.now() - null =
@@ -1053,6 +1098,14 @@ function renderActiveStint(c) {
     try {
       if (typeof L==='undefined') return;
       const el=document.getElementById('rd-live-map'); if(!el) return;
+      // Tear down any prior stint map/polyline before creating a new one.
+      // Re-rendering the active-stint view (e.g. on lap completion or
+      // route polling) used to stack a second polyline on top of the
+      // first, drawing the GPS line twice. removeLayer + map.remove()
+      // keeps a single set of tiles + line per stint.
+      if (stintMap) { try { stintMap.remove(); } catch(e) {} stintMap = null; }
+      stintPolyline = null;
+      stintMarker = null;
       stintMap=L.map('rd-live-map',{zoomControl:false,attributionControl:false});
       L.tileLayer(ctx.getMapTileUrl(),{maxZoom:19}).addTo(stintMap);
       stintPolyline=L.polyline([],{color:'#f97316',weight:4,opacity:.9}).addTo(stintMap);

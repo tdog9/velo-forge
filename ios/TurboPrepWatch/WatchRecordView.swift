@@ -116,6 +116,11 @@ struct RaceDayLapView: View {
     @EnvironmentObject private var state: WatchAppState
     @StateObject private var health = HealthKitService()
     @StateObject private var locator = WatchLocationService()
+    // HKWorkoutSession wrapper — required for the watch screen to stay
+    // awake (Always-On display) and for HealthKit to keep streaming HR
+    // mid-stint. Without this, the screen blacks out after a few seconds
+    // and the rider loses lap-time visibility.
+    @StateObject private var raceSession = WorkoutSessionService()
     @State private var lapStartedAt: Date = Date()
     @State private var now: Date = Date()
     // Timer is connected only while the view is visible; .autoconnect() on
@@ -305,12 +310,21 @@ struct RaceDayLapView: View {
                 health.startHeartRateStreaming()
             }
             locator.start()
+            // Start the workout session — this is what unlocks watchOS
+            // Always-On display for this view AND keeps the screen
+            // active. The session continues until .end() is called on
+            // disappear (or finishStint).
+            await raceSession.start()
         }
         .onDisappear {
             tickCancellable?.cancel()
             tickCancellable = nil
             health.stopHeartRateStreaming()
             locator.stop()
+            // End the workout session so the system stops attributing
+            // battery + HR samples to it. Fire-and-forget; the await
+            // is intentional in a Task to avoid blocking onDisappear.
+            Task { _ = await raceSession.end() }
         }
     }
 
@@ -391,8 +405,9 @@ struct RaceDayLapView: View {
         // failed dispatch would silently lose data.
         state.archiveCurrentStint()
         if let last = state.pastStints.first, !last.synced {
+            let stintId = last.id
             let payload: [String: Any] = [
-                "stintId":        last.id.uuidString,
+                "stintId":        stintId.uuidString,
                 "stintStartedAt": last.startedAt.timeIntervalSince1970,
                 "stintEndedAt":   last.endedAt.timeIntervalSince1970,
                 "laps": last.laps.map { lap in
@@ -403,13 +418,20 @@ struct RaceDayLapView: View {
                     ] as [String: Any]
                 },
             ]
+            // Mark only THIS stint synced on success — was previously
+            // markAllStintsSynced which would flip pending earlier stints
+            // to "synced" even though only the latest was dispatched.
             ConnectivityService.shared.sendRaceDayLaps(payload, onSent: { @MainActor success in
-                if success { WatchAppState.shared.markAllStintsSynced() }
+                if success { WatchAppState.shared.markStintSynced(stintId: stintId) }
             })
         }
+        // Reset live race state — past stint already lives in pastStints,
+        // so this only clears the in-flight banner. End the workout
+        // session so the screen-wake / HR streaming releases.
         state.raceDayLaps.removeAll()
         state.raceDayActive = false
         state.raceDayStartedAt = nil
+        Task { _ = await raceSession.end() }
     }
 
     private var currentLapText: String {

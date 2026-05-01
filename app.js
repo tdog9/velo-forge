@@ -1183,7 +1183,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r31';
+const APP_VERSION = '20260501-r32';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6932,12 +6932,13 @@ function renderTeamTab(c) {
   // immediate-action and useful at a glance). Feature toggles, edit
   // details, add co-coach, manage subteams, delete team — all live in
   // the sheet now.
-  // Manage Team is now visible for: head coach OR admin OR master
-  // account (hearn.tenny@icloud.com). Was head-coach-only, which left
-  // testers + the master unable to manage their own test team.
-  const canManageTeam = (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid)
-    || isAdmin
-    || (isMasterAccount(currentUser?.email));
+  // Manage Team is now visible for: head coach, co-coaches in
+  // teamData.coaches[], admin, or the master account. Co-coaches were
+  // missing previously, blocking them from creating subteams etc.
+  const teamCoachesSet = Array.isArray(teamData?.coaches) ? new Set(teamData.coaches) : new Set();
+  const isHeadCoachOfTeam = userProfile?.isCoach && teamData?.createdBy === currentUser?.uid;
+  const isCoCoachOfTeam = userProfile?.isCoach && teamCoachesSet.has(currentUser?.uid);
+  const canManageTeam = isHeadCoachOfTeam || isCoCoachOfTeam || isAdmin || isMasterAccount(currentUser?.email);
   if (canManageTeam) {
     html += `
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:8px">
@@ -8488,6 +8489,16 @@ async function promoteToCoach(uid, btn) {
 }
 
 function openManageSubteamsSheet() {
+  // Permission gate — head coach, co-coach (in teamData.coaches[]),
+  // admin, or master account. Was previously open to any caller, so a
+  // direct function call could let any team member manage subteams.
+  const teamCoaches = Array.isArray(teamData?.coaches) ? new Set(teamData.coaches) : new Set();
+  const isHeadCoach = teamData?.createdBy === currentUser?.uid;
+  const isCoCoach = teamCoaches.has(currentUser?.uid);
+  if (!isHeadCoach && !isCoCoach && !isAdmin && !isMasterAccount(currentUser?.email)) {
+    showToast('Only coaches can manage subteams.', 'warn');
+    return;
+  }
   const subteams = teamData?.subteams || [];
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Manage Subteams</div>
@@ -8537,6 +8548,15 @@ function openManageSubteamsSheet() {
 
 /// Detail sheet — head coach can edit a subteam's members + sub-coach + delete.
 function openSubteamDetailSheet(subId) {
+  // Gate matches openManageSubteamsSheet — head coach, co-coach, admin,
+  // master account.
+  const teamCoaches = Array.isArray(teamData?.coaches) ? new Set(teamData.coaches) : new Set();
+  const isHeadCoach = teamData?.createdBy === currentUser?.uid;
+  const isCoCoach = teamCoaches.has(currentUser?.uid);
+  if (!isHeadCoach && !isCoCoach && !isAdmin && !isMasterAccount(currentUser?.email)) {
+    showToast('Only coaches can manage subteams.', 'warn');
+    return;
+  }
   const subteams = teamData?.subteams || [];
   const sub = subteams.find(s => s.id === subId);
   if (!sub) { showToast('Subteam not found.', 'warn'); return; }
@@ -9284,7 +9304,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r31';
+  const APP_VERSION = '20260501-r32';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

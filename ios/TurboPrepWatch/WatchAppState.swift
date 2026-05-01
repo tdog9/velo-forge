@@ -112,6 +112,23 @@ final class WatchAppState: ObservableObject {
         savePastStints()
     }
 
+    /// Mark a single stint as synced — used after finishStint where only
+    /// the most recent stint's payload was dispatched. Was previously
+    /// using `markAllStintsSynced` which incorrectly flipped pending
+    /// stints to "synced" even though only the latest was actually sent.
+    func markStintSynced(stintId: UUID) {
+        guard !pastStints.isEmpty else { return }
+        var found = false
+        pastStints = pastStints.map { stint in
+            if stint.id == stintId {
+                found = true
+                var s = stint; s.synced = true; return s
+            }
+            return stint
+        }
+        if found { savePastStints() }
+    }
+
     // MARK: - Persistence
 
     /// Debounce — schedule a save 200ms out, cancelling any pending save.
@@ -197,11 +214,20 @@ final class WatchAppState: ObservableObject {
         if let active = dict["raceDayActive"] as? Bool {
             // Only mutate raceDayActive when an explicit value arrives; preserve
             // local laps if the iPhone is just refreshing other state.
+            //
+            // CRITICAL: Don't wipe `raceDayLaps` on every false→true
+            // transition — the iPhone re-broadcasts state on every
+            // refresh, and a page reload there used to silently clear
+            // all in-flight laps recorded on the Watch. Only reset on
+            // first entry (no startedAt yet).
             if active != self.raceDayActive {
                 self.raceDayActive = active
                 if active {
-                    self.raceDayStartedAt = Date()
-                    self.raceDayLaps.removeAll()
+                    if self.raceDayStartedAt == nil {
+                        self.raceDayStartedAt = Date()
+                        self.raceDayLaps.removeAll()
+                    }
+                    // else: race already in progress on Watch, preserve laps.
                 } else {
                     self.raceDayStartedAt = nil
                 }
