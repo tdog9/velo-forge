@@ -69,7 +69,11 @@ exports.handler = async (event) => {
     if (!uid) {
       return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: false, error: 'invalid code' }) };
     }
-    if (expiresAt && expiresAt < Date.now()) {
+    // Tightened: reject if expiresAt is missing/zero OR already past.
+    // Was `if (expiresAt && expiresAt < Date.now())` — a missing/zero
+    // expiresAt would skip the check and let the code live forever,
+    // which is worse than rejecting one fresh-but-malformed write.
+    if (!expiresAt || expiresAt < Date.now()) {
       return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: false, error: 'code expired' }) };
     }
 
