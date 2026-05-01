@@ -123,6 +123,17 @@ struct WebViewContainer: UIViewRepresentable {
                     let js = "if (window.tpNative && typeof window.tpNative.onHealthSummary === 'function') { window.tpNative.onHealthSummary(\(json)); }"
                     webView.evaluateJavaScript(js, completionHandler: nil)
                 }
+                // Watch sign-in gate: when the Watch's Refresh button
+                // pings us via WCSession, ask the web app to re-publish
+                // its current state snapshot. The web has a
+                // `tpNative.requestWatchSnapshot()` hook (no-op if absent)
+                // that triggers the same `watch-state` post the page
+                // sends on auth changes.
+                ConnectivityService.shared.onSnapshotRequested = { [weak webView] in
+                    guard let webView else { return }
+                    let js = "if (window.tpNative && typeof window.tpNative.requestWatchSnapshot === 'function') { window.tpNative.requestWatchSnapshot(); }"
+                    webView.evaluateJavaScript(js, completionHandler: nil)
+                }
             }
         }
 

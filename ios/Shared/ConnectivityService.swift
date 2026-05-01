@@ -24,6 +24,11 @@ final class ConnectivityService: NSObject, ObservableObject {
     var onHealthSummaryReceived: (([String: Any]) -> Void)?
     /// Watch-only: invoked when the iPhone pushes a fresh state snapshot.
     var onStateSnapshotReceived: (([String: Any]) -> Void)?
+    /// iPhone-side: called when the Watch sends a "requestSnapshot" ping
+    /// (e.g. user tapped Refresh on the Watch sign-in gate). The iPhone
+    /// should respond by re-pushing its current state via the
+    /// applicationContext / userInfo path.
+    var onSnapshotRequested: (() -> Void)?
 
     override init() {
         super.init()
@@ -180,8 +185,17 @@ extension ConnectivityService: WCSessionDelegate {
             onRaceDayLapsReceived?(body)
         case "healthSummary":
             onHealthSummaryReceived?(body)
+        case "requestSnapshot":
+            onSnapshotRequested?()
         default:
             break
         }
+    }
+
+    /// Watch-side: ask the iPhone to re-push its current state. Used by
+    /// the Watch sign-in gate's Refresh button when iPhoneSignedIn is
+    /// false and the user wants to retry pulling auth state.
+    func requestSnapshot() {
+        send(["payload": "requestSnapshot", "data": [:] as [String: Any]])
     }
 }

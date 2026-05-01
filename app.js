@@ -395,6 +395,13 @@ function pushWatchState() {
 // Wires up here so it exists by the time Watch sends anything.
 if (typeof window !== 'undefined') {
   window.tpNative = window.tpNative || {};
+  // Watch sign-in gate refresh hook — iPhone calls this when the Watch
+  // taps "Refresh" on its sign-in gate. We re-push the current state
+  // (auth flags + plan + race day) via pushWatchState so the Watch's
+  // gate dissolves once iPhoneSignedIn flips true.
+  window.tpNative.requestWatchSnapshot = function() {
+    try { pushWatchState(); } catch (e) { console.warn('requestWatchSnapshot:', e); }
+  };
   // Native → web: HealthKit summary from the Watch. Merges into userProfile.health
   // and writes back to Firestore so the web's health card sees Watch data.
   window.tpNative.onHealthSummary = async function(summary) {
@@ -1183,7 +1190,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r33';
+const APP_VERSION = '20260501-r34';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -9304,7 +9311,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r33';
+  const APP_VERSION = '20260501-r34';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

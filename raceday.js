@@ -753,19 +753,79 @@ async function loadLiveStints() {
   } catch(e) { return []; }
 }
 
+// Per-uid Leaflet instances so re-rendering the live panel doesn't
+// re-create the map every 5s (would cause flicker + tile reloads).
+// Keyed by the driver's uid; cleared when the panel goes empty or the
+// driver disappears from the live array.
+let liveDriverMaps = {};
+
 function renderLivePanel(live) {
-  if (!live || live.length === 0) return '';
+  if (!live || live.length === 0) {
+    // Tear down any leftover maps so we don't leak Leaflet instances
+    // when the panel becomes empty.
+    Object.keys(liveDriverMaps).forEach(uid => {
+      try { liveDriverMaps[uid].map.remove(); } catch(e) {}
+    });
+    liveDriverMaps = {};
+    return '';
+  }
   return `<div style="background:linear-gradient(135deg,rgba(var(--destructive-rgb),.10),rgba(var(--destructive-rgb),.04));border:1px solid rgba(var(--destructive-rgb),.25);border-radius:12px;padding:12px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
       <div style="width:7px;height:7px;border-radius:50%;background:var(--destructive);animation:rdPulse 1.4s ease infinite"></div>
       <span style="font-size:11px;font-weight:700;color:var(--destructive);letter-spacing:.05em;text-transform:uppercase">Live on track</span>
     </div>
-    ${live.map(l => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(var(--destructive-rgb),.12);font-size:13px">
-      <span style="flex:1;font-weight:700">${esc(l.displayName||'Driver')}</span>
-      <span style="color:var(--muted-fg);font-size:11px">${l.lapCount||0} laps</span>
-      <span style="font-family:var(--font-mono);font-weight:700;color:var(--fg)">${fmtTime(l.elapsed||0)}</span>
-    </div>`).join('')}
+    ${live.map(l => {
+      const safeId = String(l.uid || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+      return `<div style="padding:6px 0;border-top:1px solid rgba(var(--destructive-rgb),.12)">
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px">
+          <span style="flex:1;font-weight:700">${esc(l.displayName||'Driver')}</span>
+          <span style="color:var(--muted-fg);font-size:11px">${l.lapCount||0} laps</span>
+          <span style="font-family:var(--font-mono);font-weight:700;color:var(--fg)">${fmtTime(l.elapsed||0)}</span>
+        </div>
+        ${l.coord ? `<div id="rd-live-map-${safeId}" data-uid="${esc(l.uid||'')}" data-lat="${l.coord.lat}" data-lng="${l.coord.lng}" style="width:100%;height:120px;border-radius:8px;overflow:hidden;background:#0a1628"></div>` : `<div style="font-size:10px;color:var(--muted-fg);font-style:italic">Waiting for GPS…</div>`}
+      </div>`;
+    }).join('')}
   </div>`;
+}
+
+/// After renderLivePanel writes its HTML, init/update Leaflet for each
+/// live driver's mini-map. Re-uses existing instances by uid so the
+/// 5-second poll doesn't tear down + rebuild the map on every refresh.
+function initLiveDriverMaps(live) {
+  if (typeof L === 'undefined') return;
+  const liveUids = new Set((live || []).map(l => l.uid).filter(Boolean));
+  // Tear down maps for drivers who are no longer live (stint ended).
+  Object.keys(liveDriverMaps).forEach(uid => {
+    if (!liveUids.has(uid)) {
+      try { liveDriverMaps[uid].map.remove(); } catch(e) {}
+      delete liveDriverMaps[uid];
+    }
+  });
+  (live || []).forEach(l => {
+    if (!l.coord || !l.uid) return;
+    const safeId = String(l.uid).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const el = document.getElementById('rd-live-map-' + safeId);
+    if (!el) return;
+    let entry = liveDriverMaps[l.uid];
+    if (!entry || !document.body.contains(entry.el)) {
+      // First time seeing this driver, OR DOM was rebuilt — make a new map.
+      try {
+        if (entry) { try { entry.map.remove(); } catch(e) {} }
+        const map = L.map(el, { zoomControl: false, attributionControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false });
+        L.tileLayer(ctx.getMapTileUrl(), { maxZoom: 19 }).addTo(map);
+        map.setView([l.coord.lat, l.coord.lng], 17);
+        const marker = L.circleMarker([l.coord.lat, l.coord.lng], { radius: 9, fillColor: 'var(--primary)', fillOpacity: 1, color: '#fff', weight: 3 });
+        marker.addTo(map);
+        liveDriverMaps[l.uid] = { map, marker, el };
+      } catch (e) { /* leaflet init can fail if container detached */ }
+    } else {
+      // Already have a map — just slide marker + recenter.
+      try {
+        entry.marker.setLatLng([l.coord.lat, l.coord.lng]);
+        entry.map.panTo([l.coord.lat, l.coord.lng], { animate: true, duration: 0.6 });
+      } catch (e) {}
+    }
+  });
 }
 
 function renderUpNextPanel() {
@@ -874,7 +934,13 @@ function renderStintTab(c) {
   const refreshLive = async () => {
     const live = await loadLiveStints();
     const panel = document.getElementById('rd-live-panel');
-    if (panel) panel.innerHTML = renderLivePanel(live);
+    if (panel) {
+      panel.innerHTML = renderLivePanel(live);
+      // Init / update each live driver's mini-map after the DOM is in
+      // place. Existing maps are reused — only the marker position
+      // moves on each 5s poll, so there's no tile-reload flicker.
+      try { initLiveDriverMaps(live); } catch (e) { /* leaflet may not be loaded yet */ }
+    }
     // Stint locking — if ANY other driver is currently on track, lock
     // the Start button so two teammates can't run a stint at the same
     // time. The lock only blocks OTHERS; if YOU are the one live (e.g.
@@ -1016,6 +1082,13 @@ async function publishLiveStint() {
   if (!ctx?.db || !rdd.date || !ctx.currentUser) return;
   try {
     const best = stintLaps.length ? Math.min(...stintLaps.map(l=>l.duration)) : null;
+    // Latest GPS sample so locked teammates can see the live driver's
+    // current position on a mini-map. Falls back to null if GPS hasn't
+    // produced a fix yet (e.g. first 2-3s of stint).
+    const last = stintPositions.length > 0 ? stintPositions[stintPositions.length - 1] : null;
+    const coord = last && Number.isFinite(last.lat) && Number.isFinite(last.lng)
+      ? { lat: last.lat, lng: last.lng, ts: last.time || Date.now() }
+      : null;
     await ctx.setDoc(ctx.doc(ctx.db,'race_day',rdd.date,'live',ctx.currentUser.uid), {
       uid: ctx.currentUser.uid,
       displayName: ctx.userProfile?.displayName || 'Driver',
@@ -1025,6 +1098,7 @@ async function publishLiveStint() {
       lapCount: stintLaps.length,
       bestLap: best,
       lastLap: stintLaps.length ? stintLaps[stintLaps.length-1].duration : null,
+      coord,
       updatedAt: ctx.serverTimestamp(),
     });
   } catch(e) {}
