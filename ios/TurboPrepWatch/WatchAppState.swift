@@ -22,13 +22,38 @@ final class WatchAppState: ObservableObject {
     @Published var todayWorkouts: [WatchPlanWorkout] = []
     @Published var completedWorkouts: [WatchLoggedWorkout] = []
 
-    /// Race-day live state. When `active`, the Record tab swaps to a lap
-    /// timer; the iPhone's race-day controller is the authority and pushes
-    /// this state to the Watch.
+    /// Race-day live state. When `active`, the Watch locks into the
+    /// race-day screen. The iPhone's race-day controller (or our own
+    /// /race-day-public poller) is the authority for `raceDayActive`.
+    /// `raceDayStartedAt` is set ONLY when the rider taps Start Stint —
+    /// activating race-day no longer auto-starts the stint timer.
     @Published var raceDayActive: Bool = false { didSet { scheduleRaceDaySave() } }
     @Published var raceDayLaps: [WatchLap] = [] { didSet { scheduleRaceDaySave() } }
     @Published var raceDayStartedAt: Date? { didSet { scheduleRaceDaySave() } }
     @Published var raceDayLeaderboard: [WatchLeaderboardEntry] = []
+
+    /// Pre-set stint duration in minutes. Drives the countdown timer on
+    /// the active-stint screen. Default 30 — typical Vic HPR stint length.
+    @Published var stintDurationMinutes: Int = max(5, UserDefaults.standard.integer(forKey: "tp_watch_stint_min") == 0 ? 30 : UserDefaults.standard.integer(forKey: "tp_watch_stint_min")) {
+        didSet { UserDefaults.standard.set(stintDurationMinutes, forKey: "tp_watch_stint_min") }
+    }
+
+    /// `startedAt + stintDurationMinutes`. nil if no stint is in flight.
+    var stintEndsAt: Date? {
+        guard let started = raceDayStartedAt else { return nil }
+        return started.addingTimeInterval(TimeInterval(stintDurationMinutes) * 60)
+    }
+
+    /// True iff a stint is currently being recorded (race-day mode is on
+    /// AND the rider has tapped Start Stint).
+    var stintInProgress: Bool { raceDayStartedAt != nil }
+
+    /// Begin a new stint right now. Clears any leftover laps and locks
+    /// in the start time used by the lap-anchor + countdown.
+    func startStint() {
+        raceDayLaps.removeAll()
+        raceDayStartedAt = Date()
+    }
 
     /// Finished stints kept on the Watch so the athlete can review laps
     /// after the test — survives app restart via UserDefaults. Newest first.
@@ -109,9 +134,11 @@ final class WatchAppState: ObservableObject {
         loadPastStints()
     }
 
-    /// Long-press the wordmark — start or end a race-day stint locally.
-    /// Ending records the stint into pastStints (keeps lap data for review)
-    /// rather than wiping it.
+    /// Long-press the wordmark — toggle race-day mode locally for dev.
+    /// Activating just enables race-day mode (locks the Watch into the
+    /// race screen); the rider still has to tap Start Stint to begin
+    /// the lap timer + stint countdown. Deactivating archives the
+    /// in-flight stint so review data is preserved.
     func toggleRaceDayForDev() {
         if raceDayActive {
             archiveCurrentStint()
@@ -120,7 +147,7 @@ final class WatchAppState: ObservableObject {
             raceDayLaps.removeAll()
         } else {
             raceDayActive = true
-            raceDayStartedAt = Date()
+            raceDayStartedAt = nil
             raceDayLaps.removeAll()
         }
     }
@@ -269,20 +296,18 @@ final class WatchAppState: ObservableObject {
             // Only mutate raceDayActive when an explicit value arrives; preserve
             // local laps if the iPhone is just refreshing other state.
             //
-            // CRITICAL: Don't wipe `raceDayLaps` on every false→true
-            // transition — the iPhone re-broadcasts state on every
-            // refresh, and a page reload there used to silently clear
-            // all in-flight laps recorded on the Watch. Only reset on
-            // first entry (no startedAt yet).
+            // Activating race-day mode locks the Watch into the race
+            // screen but does NOT auto-start a stint — the rider taps
+            // Start Stint when they're ready. Deactivating archives any
+            // in-flight stint so a coach toggling race-day off doesn't
+            // silently throw away the rider's lap data.
             if active != self.raceDayActive {
                 self.raceDayActive = active
-                if active {
-                    if self.raceDayStartedAt == nil {
-                        self.raceDayStartedAt = Date()
-                        self.raceDayLaps.removeAll()
+                if !active {
+                    if self.raceDayStartedAt != nil {
+                        self.archiveCurrentStint()
                     }
-                    // else: race already in progress on Watch, preserve laps.
-                } else {
+                    self.raceDayLaps.removeAll()
                     self.raceDayStartedAt = nil
                 }
             }

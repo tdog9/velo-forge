@@ -14,6 +14,11 @@ struct TurboPrepWatchApp: App {
         ConnectivityService.shared.onStateSnapshotReceived = { snapshot in
             WatchAppState.shared.applyRemoteSnapshot(snapshot)
         }
+        // Race-day state — iPhone-independent fallback. Polls
+        // /race-day-public every 15s so the Watch flips into
+        // race-day mode the moment a coach activates it on the web,
+        // without needing WCSession to be reachable.
+        Task { @MainActor in WatchRaceDayPoller.shared.start() }
     }
 
     var body: some Scene {

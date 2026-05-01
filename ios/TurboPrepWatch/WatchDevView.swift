@@ -90,9 +90,11 @@ struct WatchDevView: View {
     // MARK: - Actions
 
     private func startStint() {
+        // Dev shortcut — flip race-day mode AND begin a stint in one
+        // tap. Production flow keeps these separate (race-day mode
+        // arrives from the iPhone, stint starts on the rider's tap).
         state.raceDayActive = true
-        state.raceDayStartedAt = Date()
-        state.raceDayLaps.removeAll()
+        state.startStint()
         WKInterfaceDevice.current().play(.start)
     }
 
