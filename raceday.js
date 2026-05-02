@@ -958,7 +958,7 @@ function renderStintTab(c) {
         startBtn.style.cursor = 'not-allowed';
         startBtn.style.background = 'linear-gradient(135deg,var(--muted),var(--muted))';
         startBtn.style.boxShadow = 'none';
-        startBtn.textContent = '🔒 ' + driver + ' is on track — wait';
+        startBtn.textContent = driver + ' is on track — wait';
       } else if (startBtn.dataset.locked === '1') {
         // Track was just freed — reset the button.
         startBtn.disabled = false;
@@ -1031,7 +1031,7 @@ async function startStint(c) {
   renderActiveStint(c);
   stintInterval=setInterval(()=>updateActive(),1000);
   // Live progress publish — every 15s push current state so teammates see live laps/elapsed
-  stintLiveInterval=setInterval(()=>publishLiveStint(),15000);
+  stintLiveInterval=setInterval(()=>publishLiveStint(),3000);
   publishLiveStint(); // initial
   if (navigator.geolocation) {
     stintWatchId=navigator.geolocation.watchPosition(

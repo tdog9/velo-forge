@@ -1347,6 +1347,40 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   line-height:1.4;
   box-shadow:0 4px 14px rgba(var(--destructive-rgb),.25);
 }
+
+/* Subteam scope chips above the chat thread (coach view only).
+   Horizontal-scrollable strip — taps switch the active channel. */
+.chat-scope-row{
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  padding:6px 2px 10px;
+  margin:0 0 8px;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.chat-scope-row::-webkit-scrollbar{ display:none; }
+.chat-scope-chip{
+  flex-shrink:0;
+  padding:6px 12px;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.02em;
+  border-radius:99px;
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--muted-fg);
+  cursor:pointer;
+  transition:background .12s, color .12s, border-color .12s;
+  -webkit-tap-highlight-color:transparent;
+}
+.chat-scope-chip:hover{ color:var(--fg); }
+.chat-scope-chip.active{
+  background:var(--primary);
+  color:var(--primary-fg);
+  border-color:var(--primary);
+}
+.msg-composer-hint strong{ color:var(--fg); font-weight:700; }
 .msg-composer-error[hidden]{ display:none; }
 .msg-composer-error::before{
   content:"⚠ ";

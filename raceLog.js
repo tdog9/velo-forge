@@ -131,8 +131,21 @@ export function renderRaceLog() {
   }
 
   if (A.userRaceLogs.length > 0) {
-    if (needsLog.length > 0) html += '<div style="font-size:13px;font-weight:700;color:var(--text);margin:16px 0 8px">Your Race History</div>';
+    if (needsLog.length > 0) html += '<div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:18px 0 8px">Your Race History</div>';
     html += '<div class="space-y">';
+    const trackIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>';
+    const fmtDate = (d) => {
+      if (!d) return '';
+      try {
+        const dt = new Date(d + 'T00:00:00');
+        return isNaN(dt) ? d : dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch(e) { return d; }
+    };
+    const stat = (label, value, cls) => `
+      <div class="race-log-stat">
+        <div class="race-log-stat-label">${label}</div>
+        <div class="race-log-stat-value${cls ? ' ' + cls : ''}">${value || '<span class="race-log-stat-value muted" style="font-size:14px">—</span>'}</div>
+      </div>`;
     A.userRaceLogs.forEach((entry, i) => {
       // Find matching race for footage
       const matchingRace = A.getActiveRaces().find(r => {
@@ -146,18 +159,18 @@ export function renderRaceLog() {
       html += `
         <div class="race-log-card">
           <div class="race-log-header">
-            <div class="race-log-track">${escHtml(entry.trackName || 'Unknown Track')}</div>
-            <div class="race-log-date">${entry.date || ''}</div>
+            <div class="race-log-track">${trackIcon}<span>${escHtml(entry.trackName || 'Unknown Track')}</span></div>
+            <div class="race-log-date">${escHtml(fmtDate(entry.date))}</div>
           </div>
           <div class="race-log-grid">
-            <div class="race-log-stat">Avg Lap<br><strong>${entry.avgLapTime || '—'}</strong></div>
-            <div class="race-log-stat">Fastest Lap<br><strong>${entry.fastestLap || '—'}</strong></div>
-            <div class="race-log-stat">Total Laps<br><strong>${entry.totalLaps || '—'}</strong></div>
-            <div class="race-log-stat">Total Time<br><strong>${entry.totalTime || '—'}</strong></div>
-            <div class="race-log-stat">Avg HR<br><strong>${entry.avgHR || '—'}</strong></div>
-            <div class="race-log-stat">Max HR<br><strong>${entry.maxHR || '—'}</strong></div>
+            ${stat('Avg Lap', entry.avgLapTime ? escHtml(entry.avgLapTime) : '', 'accent')}
+            ${stat('Fastest', entry.fastestLap ? escHtml(entry.fastestLap) : '', 'accent')}
+            ${stat('Laps', entry.totalLaps != null ? entry.totalLaps : '')}
+            ${stat('Total Time', entry.totalTime ? escHtml(entry.totalTime) : '')}
+            ${stat('Avg HR', entry.avgHR != null ? entry.avgHR + '<small style="font-size:10px;color:var(--muted-fg);margin-left:2px">bpm</small>' : '', 'hr')}
+            ${stat('Max HR', entry.maxHR != null ? entry.maxHR + '<small style="font-size:10px;color:var(--muted-fg);margin-left:2px">bpm</small>' : '', 'hr')}
           </div>
-          ${entry.notes ? '<div class="race-log-notes">"' + escHtml(entry.notes) + '"</div>' : ''}
+          ${entry.notes ? '<div class="race-log-notes">' + escHtml(entry.notes) + '</div>' : ''}
           ${raceId ? renderFootageLinks(raceId) : ''}
           <div class="race-log-actions">
             <button class="admin-edit-btn" data-racelog-edit="${i}">Edit</button>

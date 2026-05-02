@@ -250,7 +250,15 @@ service cloud.firestore {
           // coach banner can't be impersonated by a member typing
           // someone else's name into displayName.
           && request.resource.data.displayName is string
-          && request.resource.data.displayName.size() <= 80;
+          && request.resource.data.displayName.size() <= 80
+          // subteamId is the channel scope. '' (or missing) = whole-team
+          // channel; otherwise must be a string ≤ 64 chars referencing one
+          // of the team's subteam ids. Membership enforcement is in the
+          // app — rules just enforce shape so a malformed scope can't be
+          // injected by a custom client.
+          && (!('subteamId' in request.resource.data)
+              || (request.resource.data.subteamId is string
+                  && request.resource.data.subteamId.size() <= 64));
         allow update: if isSignedIn()
           && (resource.data.uid == request.auth.uid
               || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy);

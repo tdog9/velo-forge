@@ -28,7 +28,7 @@ function localTodayKey() {
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Cache-Control': 'public, max-age=5',
+    'Cache-Control': 'public, max-age=2',
     'Content-Type': 'application/json',
   };
   if (!admin.apps.length) {
@@ -77,7 +77,11 @@ exports.handler = async (event) => {
         displayName: d.displayName || 'Driver',
         lapCount: d.lapCount || 0,
         bestMs: d.bestLap || null,
+        lastMs: d.lastLap || null,
         elapsed: d.elapsed || 0,
+        coord: d.coord && Number.isFinite(d.coord.lat) && Number.isFinite(d.coord.lng)
+          ? { lat: d.coord.lat, lng: d.coord.lng }
+          : null,
       }));
     // Stints (completed)
     const stintsSnap = await fs.collection('race_day').doc(date).collection('stints').get();

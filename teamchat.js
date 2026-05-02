@@ -1,10 +1,17 @@
-// Team chat — lightweight in-app feed for a single team. Three message
-// kinds: 'chat' (athletes typing), 'workout' (auto-posted when a member
-// finishes a workout), 'coach' (head-coach broadcast that can optionally
-// trigger a push notification).
+// Team chat — subteam-scoped feed. Three message kinds: 'chat' (athletes
+// typing), 'workout' (auto-posted on workout save), 'coach' (head-coach
+// broadcast, optionally with a push notification).
 //
 // Path: /teams/{teamId}/chat/{messageId}
-// Schema: { uid, displayName, text, kind, createdAt, broadcastPush?, workoutSummary? }
+// Schema: { uid, displayName, text, kind, createdAt, subteamId,
+//           broadcastPush?, workoutSummary? }
+//
+// Scope:
+//   - subteamId is the conversation channel.
+//   - subteamId = '' (or null/missing) means the whole-team channel.
+//   - Athletes can only post into their own subteam (or whole-team if they
+//     have no subteam yet).
+//   - Coaches can post into any subteam OR target the whole team.
 //
 // Mod: a profanity filter blocks the worst words client-side. Server-side
 // validation (Firestore rules) enforces uid match + size limit.
@@ -67,8 +74,25 @@ export function unsubscribeTeamChat() {
 
 export function getTeamChatCache() { return chatCache; }
 
-/// Athlete sends a chat message (silent — no push).
-export async function sendChatMessage(teamId, text) {
+/// Filter chat messages to those visible to a viewer in a given scope.
+/// scope === '' means "whole team channel" (athletes' broadcasts default).
+/// Coaches with `coachSeesAll` get every message regardless of scope.
+export function filterMessagesForScope(messages, { scope = '', coachSeesAll = false } = {}) {
+  if (!Array.isArray(messages)) return [];
+  if (coachSeesAll && !scope) return messages;
+  const want = String(scope || '');
+  return messages.filter(m => {
+    const ms = String(m.subteamId || '');
+    if (coachSeesAll) return ms === want;
+    // Athletes: see messages addressed to their subteam OR addressed to
+    // the whole team (empty subteamId).
+    return ms === want || ms === '';
+  });
+}
+
+/// Athlete sends a chat message (silent — no push). subteamId scopes the
+/// message to a single subteam channel; '' (or null) targets the whole team.
+export async function sendChatMessage(teamId, text, { subteamId = '' } = {}) {
   if (!A.db || !A.currentUser || !teamId) {
     console.warn('[chat] send aborted — missing context', { hasDb: !!A.db, hasUser: !!A.currentUser, teamId });
     A.showToast?.('Not signed in or no team yet.', 'error');
@@ -94,6 +118,7 @@ export async function sendChatMessage(teamId, text) {
       displayName: A.userProfile?.displayName || A.currentUser.email || 'Member',
       text: trimmed,
       kind: 'chat',
+      subteamId: String(subteamId || ''),
       createdAt: A.serverTimestamp(),
     });
     return true;
@@ -110,9 +135,10 @@ export async function sendChatMessage(teamId, text) {
   }
 }
 
-/// Coach broadcast — same path, but kind:'coach' AND optionally fires a
-/// push notification to all team members.
-export async function sendCoachBroadcast(teamId, text, { push = false } = {}) {
+/// Coach broadcast — kind:'coach' AND optionally fires a push notification.
+/// subteamId targets a single subteam channel; '' (or null) targets the
+/// whole team. Push goes to recipients of the chosen scope.
+export async function sendCoachBroadcast(teamId, text, { push = false, subteamId = '' } = {}) {
   if (!A.db || !A.currentUser || !teamId) {
     console.warn('[chat] coach broadcast aborted — missing context', { hasDb: !!A.db, hasUser: !!A.currentUser, teamId });
     A.showToast?.('Not signed in or no team yet.', 'error');
@@ -129,19 +155,32 @@ export async function sendCoachBroadcast(teamId, text, { push = false } = {}) {
   // not by automated word-list (which trips on "Scunthorpe" / "ass" in
   // "passion" anyway).
   try {
+    const scope = String(subteamId || '');
     await A.addDoc(A.collection(A.db, 'teams', teamId, 'chat'), {
       uid: A.currentUser.uid,
       displayName: A.userProfile?.displayName || 'Coach',
       text: trimmed,
       kind: 'coach',
+      subteamId: scope,
       broadcastPush: !!push,
       createdAt: A.serverTimestamp(),
     });
     if (push) {
-      // Fire push to all team members via the existing send-push function.
+      // Fire push to recipients in scope. Whole-team scope (empty) hits
+      // every member; subteam scope hits only that subteam's members.
       try {
         const teamSnap = await A.getDoc(A.doc(A.db, 'teams', teamId));
-        const members = teamSnap.exists() ? (teamSnap.data().members || []) : [];
+        const teamDoc = teamSnap.exists() ? teamSnap.data() : null;
+        let members = teamDoc?.members || [];
+        if (scope) {
+          const subs = Array.isArray(teamDoc?.subteams) ? teamDoc.subteams : [];
+          const sub = subs.find(s => s.id === scope);
+          if (sub) {
+            const ids = new Set(sub.members || []);
+            if (sub.subCoachUid) ids.add(sub.subCoachUid);
+            members = Array.from(ids);
+          }
+        }
         // Server-side rate limiting / per-recipient caps not yet implemented;
         // for now we rely on coach discretion + a confirm() before sending.
         const token = await A.currentUser.getIdToken().catch(() => null);
@@ -177,8 +216,10 @@ export async function sendCoachBroadcast(teamId, text, { push = false } = {}) {
 /// Auto-post a "X just finished a workout" entry into the team chat. Fired
 /// from the workout-save path. Silent (no push). Server-side rules require
 /// uid == request.auth.uid so the message is attributed to whoever logged
-/// the workout.
-export async function postWorkoutToTeamChat(teamId, workout) {
+/// the workout. subteamId scopes the post to the athlete's own subteam so
+/// it doesn't spam other groups; falls back to whole-team if athlete has
+/// no subteam yet.
+export async function postWorkoutToTeamChat(teamId, workout, { subteamId = '' } = {}) {
   if (!A.db || !A.currentUser || !teamId || !workout) return;
   try {
     const dur = workout.duration ? Math.round(workout.duration) : null;
@@ -193,6 +234,7 @@ export async function postWorkoutToTeamChat(teamId, workout) {
       displayName: A.userProfile?.displayName || A.currentUser.email || 'Member',
       text: 'just finished ' + summary,
       kind: 'workout',
+      subteamId: String(subteamId || ''),
       workoutSummary: {
         name: workout.name || null,
         type: workout.type || null,

@@ -756,6 +756,217 @@ select.input{
 
 .badge-complete{display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(var(--success-rgb),.12);color:#22c55e;white-space:nowrap}
 
+/* ===== Race Log cards ===== */
+.race-log-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  transition:border-color .15s, transform .15s;
+}
+.race-log-card:hover{ border-color:rgba(var(--primary-rgb),.35); }
+.race-log-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+.race-log-track{
+  font-size:15px;
+  font-weight:700;
+  color:var(--fg);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  flex:1;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.race-log-track svg{ width:16px; height:16px; color:var(--primary); flex-shrink:0; }
+.race-log-date{
+  font-size:11px;
+  font-weight:700;
+  color:var(--muted-fg);
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  padding:3px 9px;
+  border-radius:999px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+}
+.race-log-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:8px;
+}
+.race-log-stat{
+  background:rgba(0,0,0,.20);
+  border:1px solid rgba(255,255,255,.04);
+  border-radius:10px;
+  padding:10px 8px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.race-log-stat-label{
+  font-size:10px;
+  font-weight:700;
+  color:var(--muted-fg);
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.race-log-stat-value{
+  font-size:16px;
+  font-weight:800;
+  color:var(--fg);
+  font-variant-numeric:tabular-nums;
+  line-height:1.1;
+}
+.race-log-stat-value.accent{ color:var(--primary); }
+.race-log-stat-value.muted{ color:var(--muted-fg); font-weight:700; font-size:14px; }
+.race-log-stat-value.hr{ color:#ef4444; }
+.race-log-notes{
+  font-size:13px;
+  line-height:1.45;
+  color:var(--fg);
+  background:rgba(var(--primary-rgb),.05);
+  border-left:3px solid rgba(var(--primary-rgb),.6);
+  padding:10px 12px;
+  border-radius:6px;
+  font-style:italic;
+}
+.race-log-actions{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+}
+.race-log-actions button{
+  font-size:12px;
+  font-weight:600;
+  padding:6px 12px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--muted-fg);
+  cursor:pointer;
+  transition:color .12s, border-color .12s, background .12s;
+}
+.race-log-actions button:hover{ color:var(--fg); border-color:var(--fg); }
+.race-log-actions .admin-del-btn:hover{ color:#fecaca; border-color:rgba(var(--destructive-rgb),.6); background:rgba(var(--destructive-rgb),.08); }
+
+/* Race-prompt cards (completed races needing logs) */
+.race-prompt-card{
+  background:linear-gradient(135deg, rgba(var(--primary-rgb),.06), rgba(var(--primary-rgb),.02));
+  border:1px solid rgba(var(--primary-rgb),.25);
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:10px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.race-prompt-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.race-prompt-track{
+  font-size:15px;
+  font-weight:700;
+  color:var(--fg);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.race-prompt-track svg{ width:16px; height:16px; color:var(--primary); flex-shrink:0; }
+.race-prompt-badge{
+  font-size:10.5px;
+  font-weight:700;
+  color:var(--primary);
+  background:rgba(var(--primary-rgb),.15);
+  border:1px solid rgba(var(--primary-rgb),.30);
+  padding:3px 9px;
+  border-radius:999px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.race-prompt-date{ font-size:12px; color:var(--muted-fg); }
+.race-prompt-desc{ font-size:13px; color:var(--fg); line-height:1.45; }
+
+/* Race videos panel */
+.race-video-section{
+  margin-top:18px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.race-video-heading{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:11px;
+  font-weight:800;
+  color:var(--muted-fg);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  padding:6px 2px;
+}
+.race-video-card{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  text-decoration:none;
+  color:inherit;
+  transition:border-color .12s, background .12s;
+}
+.race-video-card:hover{ border-color:rgba(var(--primary-rgb),.35); background:rgba(var(--primary-rgb),.03); }
+.race-video-thumb{
+  flex-shrink:0;
+  width:38px;
+  height:38px;
+  border-radius:8px;
+  background:rgba(var(--destructive-rgb),.12);
+  color:#ef4444;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.race-video-info{ flex:1; min-width:0; }
+.race-video-title{ font-size:13.5px; font-weight:700; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.race-video-meta{ font-size:11px; color:var(--muted-fg); margin-top:2px; }
+
+/* Race footage links section (under prompts and logs) */
+.race-footage-section{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.race-footage-link{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:9px 12px;
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--border);
+  border-radius:10px;
+  text-decoration:none;
+  color:var(--fg);
+  font-size:13px;
+  transition:background .12s, border-color .12s;
+}
+.race-footage-link:hover{ background:rgba(var(--primary-rgb),.06); border-color:rgba(var(--primary-rgb),.30); }
+.race-footage-link svg{ color:var(--primary); flex-shrink:0; }
+.race-footage-label{ display:flex; flex-direction:column; gap:1px; }
+.race-footage-label small{ font-size:10.5px; color:var(--muted-fg); font-weight:500; }
+
 /* ===== Leaderboard ===== */
 .lb-table{width:100%;border-collapse:collapse;font-size:13px}
 .lb-table thead th{padding:6px 4px;font-size:11px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);text-align:left}
@@ -1384,8 +1595,68 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .tracker-save-card{padding:20px 16px}
 .tracker-save-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
 .tracker-save-stat{background:var(--surface);border-radius:8px;padding:10px;text-align:center}
+.tracker-save-stat .val{font-size:16px;font-weight:800;color:var(--fg);font-variant-numeric:tabular-nums;line-height:1.15;word-break:break-word}
+.tracker-save-stat .lbl{font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
 .tracker-save-stat .tracker-stat-val{font-size:18px}
 .tracker-save-stat .tracker-stat-lbl{font-size:10px;color:var(--muted-fg)}
+.tracker-save-type{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:rgba(var(--primary-rgb),.12);border:1px solid rgba(var(--primary-rgb),.30);color:var(--primary);font-size:12px;font-weight:700;margin-bottom:14px}
+.tracker-save-type svg{width:14px;height:14px}
+
+/* Type-bar buttons: SVG glyph + label, primary on active */
+.tracker-type-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px}
+.tt-ic{width:16px;height:16px;flex-shrink:0;color:currentColor}
+.tracker-type-btn .tt-ic{width:14px;height:14px}
+.tracker-type-btn.active{background:var(--primary);border-color:var(--primary);color:var(--primary-fg)}
+
+/* Active state for stat tile + RPE chip */
+.tracker-btn.start{background:var(--primary);color:var(--primary-fg);box-shadow:0 6px 18px rgba(var(--primary-rgb),.35)}
+.tracker-btn.pause{background:rgba(var(--warning-rgb),.18);color:var(--warning);border:1px solid rgba(var(--warning-rgb),.45)}
+.tracker-btn.resume{background:var(--primary);color:var(--primary-fg)}
+.tracker-btn.stop{background:rgba(var(--destructive-rgb),.18);color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.55)}
+.tracker-btn.discard{width:48px;height:48px;background:transparent;color:var(--muted-fg);border:1px solid var(--border)}
+.tracker-btn svg{width:30px;height:30px}
+.tracker-btn.discard svg{width:18px;height:18px}
+
+/* Body wrapper so we can swap map / no-map / gym-setup / gym-runtime */
+.tracker-body{flex:1;display:flex;flex-direction:column;min-height:0}
+
+/* HR tile gets a red accent so it's visually distinct from the others */
+.tracker-stat.t-tone-hr .tracker-stat-val{color:var(--destructive)}
+.tracker-stat.big{grid-column:1 / -1}
+.tracker-stat.big .tracker-stat-val{font-size:36px;font-weight:800;letter-spacing:.02em}
+.tracker-stats.no-map{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:1fr;gap:1px;align-content:start}
+.tracker-stats.no-map .tracker-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 12px}
+.tracker-stats.no-map .tracker-stat-val{font-size:30px}
+.tracker-stats.no-map .tracker-stat.big{grid-column:1 / -1}
+.tracker-stats.no-map .tracker-stat.big .tracker-stat-val{font-size:48px}
+.tracker-no-map-pad{height:8px;flex-shrink:0}
+
+/* Gym setup screen */
+.tracker-gym-setup{flex:1;overflow-y:auto;padding:16px;display:flex;align-items:flex-start;justify-content:center}
+.gym-setup-card{width:100%;max-width:380px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.gym-setup-h{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-top:4px}
+.gym-setup-input{font-size:16px;padding:11px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--border);color:var(--fg);width:100%;box-sizing:border-box}
+.gym-setup-input:focus{outline:none;border-color:var(--primary)}
+.gym-mode-row{display:flex;gap:8px}
+.gym-mode-btn{flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);font-size:13px;font-weight:700;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.gym-mode-btn.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.gym-setup-hint{font-size:12px;color:var(--muted-fg);line-height:1.45;margin-top:6px}
+
+/* Gym runtime: huge HR + huge timer */
+.tracker-gym-runtime{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;gap:12px}
+.gym-runtime-label{font-size:18px;font-weight:800;color:var(--fg);text-align:center;letter-spacing:.01em}
+.gym-runtime-sub{font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em}
+.gym-runtime-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:520px;margin-top:8px}
+.gym-runtime-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 12px;text-align:center}
+.gym-runtime-card.primary{background:rgba(var(--primary-rgb),.06);border-color:rgba(var(--primary-rgb),.30)}
+.gym-runtime-val{font-size:46px;font-weight:800;color:var(--fg);font-variant-numeric:tabular-nums;line-height:1.05}
+.gym-runtime-card.primary .gym-runtime-val{color:var(--primary)}
+.gym-runtime-card:not(.primary) .gym-runtime-val{color:var(--destructive)}
+.gym-runtime-lbl{font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
+
+/* RPE chips on save screen — pill-style, accent on selected */
+.t-rpe-btn{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);font-size:11px;font-weight:700;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.t-rpe-btn.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
 
 /* ===== Plan filter pills ===== */
 .pill-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid var(--border-strong);background:var(--surface);color:var(--fg);cursor:pointer;white-space:nowrap;transition:all .15s;display:inline-flex;align-items:center;gap:4px}

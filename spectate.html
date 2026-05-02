@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Race Day Spectate · TurboPrep</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     --bg: #0a0b0f;
@@ -33,22 +35,37 @@
   @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(1.4); } }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
   .section-title { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-fg); margin-bottom: 10px; }
-  .row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid var(--border); cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .row:last-child { border-bottom: none; }
+  .row:hover { background: rgba(255,255,255,.02); }
+  .row.active { background: rgba(249,115,22,.08); }
   .rank { width: 24px; font-weight: 800; color: var(--muted-fg); font-variant-numeric: tabular-nums; }
   .rank.top { color: var(--primary); }
   .name { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .laps { font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; }
   .best { color: var(--muted-fg); font-size: 12px; font-variant-numeric: tabular-nums; min-width: 50px; text-align: right; }
-  .live-row { background: rgba(239,68,68,.06); border-left: 2px solid var(--pulse); padding: 8px 10px; margin: 6px 0; border-radius: 8px; display: flex; align-items: center; gap: 10px; }
+  .live-row { background: rgba(239,68,68,.06); border-left: 2px solid var(--pulse); padding: 10px 12px; margin: 8px 0; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .live-row:hover { background: rgba(239,68,68,.10); }
+  .live-row.expanded { background: rgba(239,68,68,.10); }
+  .live-row-head { display: flex; align-items: center; gap: 10px; }
   .live-row .name { font-weight: 700; }
   .live-row .lap-elapsed { color: var(--pulse); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .live-row-detail { margin-top: 10px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+  .stat { background: rgba(0,0,0,.25); border-radius: 8px; padding: 8px 10px; text-align: center; }
+  .stat-label { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-fg); margin-bottom: 2px; }
+  .stat-value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--fg); }
+  .stat-value.accent { color: var(--primary); }
+  .live-map { width: 100%; height: 180px; border-radius: 10px; overflow: hidden; background: #0a1628; }
+  .chevron { color: var(--muted-fg); font-size: 11px; transition: transform .15s; }
+  .live-row.expanded .chevron { transform: rotate(90deg); }
   .empty { text-align: center; padding: 30px 16px; color: var(--muted-fg); font-size: 13px; }
   .footer-note { text-align: center; padding: 14px 0; color: var(--muted-fg); font-size: 11px; }
   a { color: var(--primary); text-decoration: none; }
   a:hover { text-decoration: underline; }
   .race-name { font-size: 16px; font-weight: 700; color: var(--fg); }
   .team-name { font-size: 12px; color: var(--muted-fg); margin-top: 2px; }
+  .leaflet-container { background: #0a1628; }
 </style>
 </head>
 <body>
@@ -65,7 +82,7 @@
   <div id="content" class="empty">Loading…</div>
 
   <div class="footer-note">
-    Refreshes every 5 seconds.<br>
+    Updates every 2 seconds.<br>
     Want your own race tracking? Visit <a href="https://turboprep.app">turboprep.app</a>.
   </div>
 </div>
@@ -77,6 +94,16 @@
   const date = params.get('date') || '';
   const content = document.getElementById('content');
   const liveBadge = document.getElementById('live-status');
+
+  // Per-driver Leaflet instances, keyed by displayName (uid is intentionally
+  // not exposed by the public endpoint). Reused across polls so the 2s
+  // refresh doesn't tear down + rebuild the map every cycle.
+  const liveMaps = {};
+  // Which live row is currently expanded (displayName). Persisted across
+  // polls so a user "watching someone" doesn't get collapsed every refresh.
+  let expanded = null;
+
+  const TILE_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 
   function fmtMs(ms) {
     if (ms == null || isNaN(ms)) return '—';
@@ -91,70 +118,152 @@
   function escHtml(s) {
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+  function safeId(s) {
+    return String(s||'').replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+
+  function teardownStaleMaps(liveNames) {
+    Object.keys(liveMaps).forEach(k => {
+      if (!liveNames.has(k)) {
+        try { liveMaps[k].map.remove(); } catch(e) {}
+        delete liveMaps[k];
+      }
+    });
+  }
+
+  function syncMaps(live) {
+    if (typeof L === 'undefined') return;
+    live.forEach(l => {
+      if (!l.coord) return;
+      const id = safeId(l.displayName);
+      const el = document.getElementById('live-map-' + id);
+      if (!el) return;
+      let entry = liveMaps[l.displayName];
+      if (!entry || !document.body.contains(entry.el)) {
+        try {
+          if (entry) { try { entry.map.remove(); } catch(e) {} }
+          const map = L.map(el, { zoomControl: false, attributionControl: false });
+          L.tileLayer(TILE_URL, { maxZoom: 19 }).addTo(map);
+          map.setView([l.coord.lat, l.coord.lng], 17);
+          const marker = L.circleMarker([l.coord.lat, l.coord.lng], { radius: 10, fillColor: '#f97316', fillOpacity: 1, color: '#fff', weight: 3 });
+          marker.addTo(map);
+          liveMaps[l.displayName] = { map, marker, el };
+        } catch(e) {}
+      } else {
+        try {
+          entry.marker.setLatLng([l.coord.lat, l.coord.lng]);
+          entry.map.panTo([l.coord.lat, l.coord.lng], { animate: true, duration: 0.6 });
+          // Force size recalc in case container was hidden then shown.
+          setTimeout(() => { try { entry.map.invalidateSize(); } catch(e) {} }, 50);
+        } catch(e) {}
+      }
+    });
+  }
+
+  function bindRowToggles() {
+    document.querySelectorAll('[data-live-name]').forEach(el => {
+      el.addEventListener('click', () => {
+        const name = el.getAttribute('data-live-name');
+        expanded = expanded === name ? null : name;
+        render(lastData);
+      });
+    });
+  }
+
+  let lastData = null;
+
+  function render(data) {
+    lastData = data;
+    if (!data || !data.active) {
+      // No race — clear any maps so we don't leak Leaflet instances.
+      teardownStaleMaps(new Set());
+      liveBadge.classList.add('idle');
+      liveBadge.innerHTML = 'OFFLINE';
+      content.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:36px;height:36px;color:var(--muted-fg);margin-bottom:8px"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><div>No race day in progress.</div><small>Check back when the team kicks off.</small></div>';
+      return;
+    }
+    liveBadge.classList.remove('idle');
+    liveBadge.innerHTML = '<span class="live-dot"></span>LIVE';
+
+    let html = '';
+    if (data.raceName || data.teamName) {
+      html += '<div class="card" style="text-align:center">';
+      if (data.raceName) html += '<div class="race-name">' + escHtml(data.raceName) + '</div>';
+      if (data.teamName) html += '<div class="team-name">' + escHtml(data.teamName) + '</div>';
+      html += '</div>';
+    }
+
+    const live = data.live || [];
+    const liveNames = new Set(live.map(l => l.displayName));
+    if (expanded && !liveNames.has(expanded)) expanded = null;
+
+    if (live.length > 0) {
+      html += '<div class="card"><div class="section-title">Live on track · tap to watch</div>';
+      live.forEach(l => {
+        const id = safeId(l.displayName);
+        const isOpen = expanded === l.displayName;
+        html += '<div class="live-row' + (isOpen ? ' expanded' : '') + '" data-live-name="' + escHtml(l.displayName) + '">' +
+          '<div class="live-row-head">' +
+            '<span class="name">' + escHtml(l.displayName) + '</span>' +
+            '<span class="laps">' + l.lapCount + ' lap' + (l.lapCount === 1 ? '' : 's') + '</span>' +
+            '<span class="lap-elapsed">' + fmtElapsed(l.elapsed) + '</span>' +
+            '<span class="chevron">▶</span>' +
+          '</div>';
+        if (isOpen) {
+          html += '<div class="live-row-detail">' +
+            '<div class="stat-grid">' +
+              '<div class="stat"><div class="stat-label">Last</div><div class="stat-value">' + fmtMs(l.lastMs) + '</div></div>' +
+              '<div class="stat"><div class="stat-label">Best</div><div class="stat-value accent">' + fmtMs(l.bestMs) + '</div></div>' +
+              '<div class="stat"><div class="stat-label">Laps</div><div class="stat-value">' + l.lapCount + '</div></div>' +
+            '</div>' +
+            (l.coord
+              ? '<div class="live-map" id="live-map-' + id + '"></div>'
+              : '<div class="empty" style="padding:20px">Waiting for GPS…</div>') +
+          '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    teardownStaleMaps(liveNames);
+
+    if (data.leaderboard && data.leaderboard.length > 0) {
+      html += '<div class="card"><div class="section-title">Leaderboard</div>';
+      data.leaderboard.forEach((row, i) => {
+        html += '<div class="row">' +
+          '<span class="rank' + (i < 3 ? ' top' : '') + '">' + (i + 1) + '</span>' +
+          '<span class="name">' + escHtml(row.displayName) + '</span>' +
+          '<span class="laps">' + row.lapCount + '</span>' +
+          '<span class="best">' + (row.bestMs ? fmtMs(row.bestMs) : '—') + '</span>' +
+        '</div>';
+      });
+      html += '</div>';
+    } else if (live.length === 0) {
+      html += '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;color:var(--muted-fg);margin-bottom:8px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div>Waiting for first lap…</div></div>';
+    }
+
+    content.innerHTML = html;
+    bindRowToggles();
+    syncMaps(live);
+  }
 
   async function refresh() {
     try {
       const url = '/.netlify/functions/race-day-public' + (teamId ? '?teamId=' + encodeURIComponent(teamId) : '') + (date ? (teamId ? '&' : '?') + 'date=' + encodeURIComponent(date) : '');
-      const resp = await fetch(url);
+      const resp = await fetch(url, { cache: 'no-store' });
       if (!resp.ok) {
-        content.innerHTML = '<div class="empty">Couldn\'t reach race-day server.</div>';
+        if (!lastData) content.innerHTML = '<div class="empty">Couldn\'t reach race-day server.</div>';
         return;
       }
-      const data = await resp.json();
-      if (!data.active) {
-        liveBadge.classList.add('idle');
-        liveBadge.innerHTML = 'OFFLINE';
-        content.innerHTML = '<div class="empty"><div style="font-size:32px;margin-bottom:8px">🏁</div>No race day in progress.<br><small>Check back when the team kicks off.</small></div>';
-        return;
-      }
-      liveBadge.classList.remove('idle');
-      liveBadge.innerHTML = '<span class="live-dot"></span>LIVE';
-
-      let html = '';
-      if (data.raceName || data.teamName) {
-        html += '<div class="card" style="text-align:center">';
-        if (data.raceName) html += '<div class="race-name">🏁 ' + escHtml(data.raceName) + '</div>';
-        if (data.teamName) html += '<div class="team-name">' + escHtml(data.teamName) + '</div>';
-        html += '</div>';
-      }
-
-      // Live now
-      if (data.live && data.live.length > 0) {
-        html += '<div class="card"><div class="section-title">Live on track</div>';
-        data.live.forEach(l => {
-          html += '<div class="live-row">' +
-            '<span class="name">' + escHtml(l.displayName) + '</span>' +
-            '<span class="laps">' + l.lapCount + ' lap' + (l.lapCount === 1 ? '' : 's') + '</span>' +
-            '<span class="lap-elapsed">' + fmtElapsed(l.elapsed) + '</span>' +
-          '</div>';
-        });
-        html += '</div>';
-      }
-
-      // Leaderboard
-      if (data.leaderboard && data.leaderboard.length > 0) {
-        html += '<div class="card"><div class="section-title">Leaderboard</div>';
-        data.leaderboard.forEach((row, i) => {
-          html += '<div class="row">' +
-            '<span class="rank' + (i < 3 ? ' top' : '') + '">' + (i + 1) + '</span>' +
-            '<span class="name">' + escHtml(row.displayName) + '</span>' +
-            '<span class="laps">' + row.lapCount + '</span>' +
-            '<span class="best">' + (row.bestMs ? fmtMs(row.bestMs) : '—') + '</span>' +
-          '</div>';
-        });
-        html += '</div>';
-      } else {
-        html += '<div class="empty"><div style="font-size:32px;margin-bottom:8px">⏳</div>Waiting for first lap…</div>';
-      }
-
-      content.innerHTML = html;
+      render(await resp.json());
     } catch(e) {
-      content.innerHTML = '<div class="empty">Network error — retrying…</div>';
+      if (!lastData) content.innerHTML = '<div class="empty">Network error — retrying…</div>';
     }
   }
 
   refresh();
-  setInterval(refresh, 5000);
+  setInterval(refresh, 2000);
 })();
 </script>
 </body>

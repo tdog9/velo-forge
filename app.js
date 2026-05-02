@@ -36,7 +36,8 @@ let initGarmin = () => {}, importGarminFile = async () => {};
 let initTeamChat = () => {}, subscribeTeamChat = () => null, unsubscribeTeamChat = () => {},
     getTeamChatCache = () => [], sendChatMessage = async () => false,
     sendCoachBroadcast = async () => false, postWorkoutToTeamChat = async () => {},
-    deleteChatMessage = async () => {}, renderChatPanel = () => '', isMessageClean = () => false;
+    deleteChatMessage = async () => {}, renderChatPanel = () => '', isMessageClean = () => false,
+    filterMessagesForScope = (m) => m;
 let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     openRaceLogForm = () => {}, getFootageForRace = () => [],
     getStreamForRace = () => null, renderFootageLinks = () => '',
@@ -139,6 +140,7 @@ Promise.allSettled([
       sendChatMessage = sendChatMessage, sendCoachBroadcast = sendCoachBroadcast,
       postWorkoutToTeamChat = postWorkoutToTeamChat, deleteChatMessage = deleteChatMessage,
       renderChatPanel = renderChatPanel, isMessageClean = isMessageClean,
+      filterMessagesForScope = filterMessagesForScope,
     } = m);
   }, e => console.warn('teamchat.js load failed:', e)),
   importWithTimeout('./raceLog.js').then(m => {
@@ -1208,7 +1210,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260501-r49';
+const APP_VERSION = '20260502-r52';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -3235,8 +3237,21 @@ function renderToday() {
         { id: 'rw-fuel',    label: 'Pre-race meal + race-day nutrition planned' },
         { id: 'rw-kit',     label: 'Race kit packed — helmet, gloves, spares' },
       ];
+      // Gear-check state is scoped to the current race. Once we move past
+      // this race (next race takes over, or no race), the saved checks
+      // belong to a different race-week and must reset to unchecked.
       let gearState = {};
-      try { gearState = JSON.parse(localStorage.getItem('tp_race_gear') || '{}'); } catch(e) {}
+      try {
+        const raw = JSON.parse(localStorage.getItem('tp_race_gear') || '{}');
+        if (raw && raw.raceId === race.id) gearState = raw.items || {};
+        else if (raw && raw.raceId && raw.raceId !== race.id) {
+          // Race changed — drop old state.
+          localStorage.removeItem('tp_race_gear');
+        } else if (raw && !raw.raceId && Object.keys(raw).length) {
+          // Legacy un-scoped state from earlier versions — clear once.
+          localStorage.removeItem('tp_race_gear');
+        }
+      } catch(e) {}
       gearHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px solid ${pc.border}">
         <div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:${pc.fg};margin-bottom:6px">PRE-RACE CHECK</div>
         ${gearCheckItems.map(g => `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;cursor:pointer;color:var(--fg)">
@@ -3404,9 +3419,13 @@ function renderToday() {
     if (isSessionToday && diffMs > 0) timeLabel = diffHrs > 0 ? 'in ' + diffHrs + 'h ' + diffMins + 'm' : 'in ' + diffMins + 'm';
     else if (isSessionToday && diffMs <= 0) timeLabel = 'NOW';
     else { const d = sDate; timeLabel = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
+    const sessionIconSvg = isSessionToday
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+    const sessionIconColor = isSessionToday ? 'var(--primary)' : '#3b82f6';
     html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(var(--primary-rgb),.08),rgba(var(--success-rgb),.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba(var(--primary-rgb),.25)' : 'var(--border)'};border-radius:10px">
       <div style="display:flex;align-items:start;gap:10px">
-        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(var(--primary-rgb),.15)' : 'rgba(59,130,246,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">${isSessionToday ? '🏃' : '📅'}</div>
+        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(var(--primary-rgb),.15)' : 'rgba(59,130,246,.1)'};color:${sessionIconColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">${sessionIconSvg}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
             <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(nextSession.title)}</div>
@@ -3523,13 +3542,18 @@ function renderToday() {
       renderCurrentPage();
     });
   });
-  // Bind race-week gear check (persists per-item in localStorage)
+  // Bind race-week gear check. Persists scoped to the active race id so
+  // it auto-resets when the next race-week begins.
   document.querySelectorAll('[data-gear-check]').forEach(cb => {
     cb.addEventListener('change', () => {
-      let gs = {};
-      try { gs = JSON.parse(localStorage.getItem('tp_race_gear') || '{}'); } catch(e) {}
-      gs[cb.dataset.gearCheck] = cb.checked;
-      localStorage.setItem('tp_race_gear', JSON.stringify(gs));
+      const phaseNow = computeRacePhase(new Date());
+      const raceId = phaseNow?.race?.id || '';
+      if (!raceId) return;
+      let raw = {};
+      try { raw = JSON.parse(localStorage.getItem('tp_race_gear') || '{}'); } catch(e) {}
+      const items = (raw.raceId === raceId && raw.items) ? raw.items : {};
+      items[cb.dataset.gearCheck] = cb.checked;
+      localStorage.setItem('tp_race_gear', JSON.stringify({ raceId, items }));
       haptic('light');
     });
   });
@@ -5565,8 +5589,7 @@ function openWorkoutSheet() {
         <label class="label" for="wo-type">Type</label>
         <div style="display:flex;gap:4px;flex-wrap:wrap" id="wo-type-btns">
           ${['HPR','Ride','Run','Treadmill','Strength','Cardio','Flexibility'].map(t => {
-            const icons = {HPR:'🏎️',Ride:'🚴',Run:'🏃',Treadmill:'🏃‍♂️',Strength:'🏋️',Cardio:'❤️',Flexibility:'🧘'};
-            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'var(--primary-dim)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${icons[t]} ${t}</button>`;
+            return `<button class="wo-type-pick${t === type ? ' active' : ''}" data-wotype="${t}" style="padding:6px 10px;font-size:11px;font-weight:600;border-radius:8px;border:1.5px solid ${t === type ? 'var(--primary)' : 'var(--border)'};background:${t === type ? 'var(--primary-dim)' : 'var(--card)'};color:${t === type ? 'var(--primary)' : 'var(--muted-fg)'};cursor:pointer">${t}</button>`;
           }).join('')}
         </div>
       </div>
@@ -5746,10 +5769,15 @@ async function saveWorkout(rpe, photoData, workoutType) {
     const oldXp = calcXp();
     showToast('Workout logged!', 'success');
     // Auto-post into team chat (silent — no push). Best-effort; never
-    // blocks the workout save.
+    // blocks the workout save. Scoped to the athlete's own subteam so it
+    // doesn't spam other groups.
     if (userProfile?.teamId) {
       try {
-        postWorkoutToTeamChat(userProfile.teamId, { name, type, duration, distance, gpsTrack: extra?.routeId || null });
+        postWorkoutToTeamChat(
+          userProfile.teamId,
+          { name, type, duration, distance, gpsTrack: extra?.routeId || null },
+          { subteamId: getMySubteamId() }
+        );
       } catch(e) {}
     }
     // Estimate new XP and check for level up
@@ -6513,6 +6541,33 @@ function renderTeam() {
   }
 }
 
+/// My subteam id within the active team, or '' if I'm not in any subteam.
+function getMySubteamId() {
+  const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+  const myUid = currentUser?.uid;
+  const sub = subs.find(s => Array.isArray(s.members) && s.members.includes(myUid));
+  return sub ? sub.id : '';
+}
+
+/// Active chat scope: '' = whole-team channel, '<subteamId>' = a specific
+/// subteam channel. Athletes are pinned to their own subteam (or whole-team
+/// if they have none). Coaches can switch via chips; choice is persisted
+/// to localStorage so the next visit keeps their last scope.
+function getChatScope() {
+  const isCoachUser = !!userProfile?.isCoach;
+  const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+  if (!isCoachUser) return getMySubteamId();
+  const stored = localStorage.getItem('tp_chat_scope') || '';
+  if (!stored) return ''; // default whole-team for coaches
+  if (stored === '__all') return '';
+  if (subs.some(s => s.id === stored)) return stored;
+  return ''; // stale → whole-team
+}
+
+function setChatScope(scope) {
+  try { localStorage.setItem('tp_chat_scope', scope ? scope : '__all'); } catch(e) {}
+}
+
 /// Render the chat panel into the Team page's chat container (which lives
 /// in index.html so the sub-tab strip can sit above it cleanly).
 function renderTeamChatPanelInto(el) {
@@ -6523,24 +6578,74 @@ function renderTeamChatPanelInto(el) {
   }
   const isHeadCoachLocal = userProfile?.isCoach && teamData?.createdBy === currentUser?.uid;
   const isCoachUser = !!userProfile?.isCoach;
-  const messages = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+  const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+  const mySubteamId = getMySubteamId();
+  const scope = getChatScope();
+  const allMessages = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+  // Athletes see their subteam channel + whole-team broadcasts merged into
+  // one feed. Coaches see exactly the scope they've selected so they can
+  // moderate each subteam's chatter individually.
+  const visible = (typeof filterMessagesForScope === 'function')
+    ? filterMessagesForScope(allMessages, { scope, coachSeesAll: isCoachUser })
+    : allMessages;
   const panel = (typeof renderChatPanel === 'function')
-    ? renderChatPanel(messages, { isCoach: isHeadCoachLocal, myUid: currentUser?.uid })
+    ? renderChatPanel(visible, { isCoach: isHeadCoachLocal, myUid: currentUser?.uid })
     : '<div style="text-align:center;padding:40px;color:var(--muted-fg)">Chat loading…</div>';
+
+  // Scope chips — coaches only. Athletes are auto-scoped (their feed already
+  // contains their subteam plus whole-team broadcasts).
+  let scopeChips = '';
+  if (isCoachUser && subs.length > 0) {
+    const chip = (label, key, isActive) =>
+      `<button class="chat-scope-chip${isActive ? ' active' : ''}" data-chat-scope="${escHtml(key)}" type="button">${escHtml(label)}</button>`;
+    scopeChips = '<div class="chat-scope-row">'
+      + chip('Whole team', '__all', !scope)
+      + subs.map(s => chip(s.name || 'Subteam', s.id, scope === s.id)).join('')
+      + '</div>';
+  }
+
+  // Compose target label — what athletes/coaches see as "you are sending to".
+  let targetLabel = 'whole team';
+  if (scope) {
+    const sub = subs.find(s => s.id === scope);
+    targetLabel = sub ? (sub.name || 'subteam') : 'subteam';
+  } else if (!isCoachUser && mySubteamId) {
+    const sub = subs.find(s => s.id === mySubteamId);
+    targetLabel = sub ? (sub.name || 'your subteam') : 'your subteam';
+  }
+  const placeholder = `Message ${targetLabel}…`;
+
   el.innerHTML = `
+    ${scopeChips}
     ${panel}
     <div class="msg-composer">
       <div id="team-chat-error" class="msg-composer-error" hidden></div>
       <div class="msg-composer-row">
-        <textarea id="team-chat-input" class="msg-composer-input" placeholder="Message your team…" maxlength="500" rows="1" aria-label="Type a message"></textarea>
+        <textarea id="team-chat-input" class="msg-composer-input" placeholder="${escHtml(placeholder)}" maxlength="500" rows="1" aria-label="Type a message"></textarea>
         ${isCoachUser ? `<label class="msg-composer-push" title="Send as push notification"><input type="checkbox" id="team-chat-push"><span>Push</span></label>` : ''}
         <button id="team-chat-send" class="msg-composer-send" aria-label="Send" type="button">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
-      <div class="msg-composer-hint">${isCoachUser ? 'Tick Push to also send as a notification.' : 'Coaches can broadcast as notifications.'}</div>
+      <div class="msg-composer-hint">${
+        isCoachUser
+          ? `Sending to <strong>${escHtml(targetLabel)}</strong> · Tick Push to also send as a notification.`
+          : (mySubteamId
+              ? `Sending to <strong>${escHtml(targetLabel)}</strong>. Coach broadcasts appear here too.`
+              : 'Sending to <strong>whole team</strong>. Ask your coach to assign you to a subteam.')
+      }</div>
     </div>
   `;
+
+  // Bind scope chip clicks (coach only).
+  el.querySelectorAll('[data-chat-scope]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.getAttribute('data-chat-scope');
+      setChatScope(k === '__all' ? '' : k);
+      renderTeamChatPanelInto(el);
+    });
+  });
+
   bindTeamChatPanel(el);
   // Subscription is established by setLbSubTab when the chat tab opens.
   // Don't subscribe here — re-subscribing on every paint causes the
@@ -6582,12 +6687,14 @@ function refreshTeamChatList() {
   const cc = document.getElementById('lb-chat-content');
   if (!cc) return;
   const list = cc.querySelector('#team-chat-list');
-  const messages = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
-  // Empty cache: if the panel is currently showing messages (list
-  // exists), repaint to surface the empty-state placeholder — otherwise
-  // a coach who deletes the last message gets no visual feedback.
-  // If no list element exists yet, nothing to do (empty state already
-  // painted by renderTeamChatPanelInto).
+  const allMessages = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+  const isCoachUser = !!userProfile?.isCoach;
+  const scope = getChatScope();
+  const messages = (typeof filterMessagesForScope === 'function')
+    ? filterMessagesForScope(allMessages, { scope, coachSeesAll: isCoachUser })
+    : allMessages;
+  // Empty visible set: surface the empty-state placeholder. (We keep
+  // checking the `list` to know if a prior repaint is needed.)
   if (messages.length === 0) {
     if (list) renderTeamChatPanelInto(cc);
     return;
@@ -8266,19 +8373,28 @@ function bindTeamChatPanel(c) {
     sendBtn.style.opacity = '0.55';
     const pushChecked = !!c.querySelector('#team-chat-push')?.checked;
     let ok = false;
+    // Resolve target scope. Athletes are pinned to their own subteam (or
+    // whole-team if they have none). Coaches send into whichever scope the
+    // chips currently select.
+    const targetScope = isCoachUser ? getChatScope() : (getMySubteamId() || '');
+    const targetLabel = (() => {
+      if (!targetScope) return 'whole team';
+      const sub = (teamData?.subteams || []).find(s => s.id === targetScope);
+      return sub ? (sub.name || 'subteam') : 'subteam';
+    })();
     try {
       // Coach with push ticked → broadcast banner + push notification.
       // Coach without push ticked → plain chat bubble (was previously
       // posting as kind:'coach' / orange banner regardless, with no path
       // to send a normal message). Plain athlete → chat.
       if (isCoachUser && pushChecked) {
-        if (!confirm('Send this as a push notification to every team member?')) {
+        if (!confirm(`Send this as a push notification to ${targetLabel}?`)) {
           ok = false;
         } else {
-          ok = await sendCoachBroadcast(teamId, text, { push: true });
+          ok = await sendCoachBroadcast(teamId, text, { push: true, subteamId: targetScope });
         }
       } else {
-        ok = await sendChatMessage(teamId, text);
+        ok = await sendChatMessage(teamId, text, { subteamId: targetScope });
       }
     } catch (err) {
       console.error('[chat] send handler threw:', err);
@@ -9311,7 +9427,7 @@ function buildModuleCtx() {
     get isAdmin() { return isAdmin; },
     // Firebase functions
     doc, getDoc, setDoc, updateDoc, collection, getDocs, addDoc, deleteDoc,
-    serverTimestamp, Timestamp, where, query, orderBy, onSnapshot, arrayUnion, arrayRemove,
+    serverTimestamp, Timestamp, where, query, orderBy, limit, onSnapshot, arrayUnion, arrayRemove,
     // State (getters)
     get adminAnnouncements() { return adminAnnouncements; }, set adminAnnouncements(v) { adminAnnouncements = v; },
     get adminRaces() { return adminRaces; }, set adminRaces(v) { adminRaces = v; },
@@ -9495,7 +9611,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260501-r49';
+  const APP_VERSION = '20260502-r52';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9618,6 +9734,25 @@ function startApp() {
       if (startPage) startPage.classList.add('active');
       initTracker({
         haptic, getMapTileUrl, getWorkouts: () => userWorkouts,
+        showToast,
+        // Live HR / steps come from userProfile.health (HealthKit summary
+        // from the iPhone/Watch). Tracker reads the LATEST value each
+        // refresh tick, so this needs to be a getter — userProfile is
+        // mutated in place when the native bridge pushes a new sample.
+        get userProfile() { return userProfile; },
+        getUserAge: () => {
+          try {
+            const dob = userProfile?.dob;
+            if (!dob) return null;
+            const d = new Date(dob);
+            if (isNaN(d)) return null;
+            const now = new Date();
+            let age = now.getFullYear() - d.getFullYear();
+            const m = now.getMonth() - d.getMonth();
+            if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
+            return age;
+          } catch(_) { return null; }
+        },
         saveTrackedActivity: async (workout, workoutId) => {
           if (!demoMode && db && currentUser) {
             try {
@@ -9635,13 +9770,17 @@ function startApp() {
               // in the feed.
               if (userProfile?.teamId) {
                 try {
-                  postWorkoutToTeamChat(userProfile.teamId, {
-                    name: workout.name || 'Workout',
-                    type: workout.type,
-                    duration: workout.duration,
-                    distance: workout.distance,
-                    routeId: workoutId,
-                  });
+                  postWorkoutToTeamChat(
+                    userProfile.teamId,
+                    {
+                      name: workout.name || 'Workout',
+                      type: workout.type,
+                      duration: workout.duration,
+                      distance: workout.distance,
+                      routeId: workoutId,
+                    },
+                    { subteamId: getMySubteamId() }
+                  );
                 } catch(e) { console.warn('postWorkoutToTeamChat (tracker):', e); }
               }
             } catch(e) { showError('Failed to save activity', 'tracker', e, { action: 'save' }); }
