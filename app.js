@@ -1210,7 +1210,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260502-r55';
+const APP_VERSION = '20260502-r56';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -5257,7 +5257,7 @@ async function loadTrainingSessions() {
 }
 function renderWorkouts() {
   const c = $('workouts-content');
-  let html = '<div style="display:flex;align-items:center;justify-content:space-between"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Log Manually</button></div>';
+  let html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:0 2px"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="flex-shrink:0;font-size:12px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Log manually</span></button></div>';
   // Load stored routes for mini maps — tracker.js and strava.js both write to vf_routes
   let storedRoutes = {};
   try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
@@ -9679,7 +9679,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260502-r55';
+  const APP_VERSION = '20260502-r56';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -10498,6 +10498,7 @@ function renderCoachTeam(el) {
 function renderCoachRaceDay(el) {
   if (!el) return;
   const isActive = getRaceDayActive();
+  const demoOn = isDemoRaceRunning();
   el.innerHTML = `
     <div style="text-align:center;padding:20px 16px">
       <div style="width:56px;height:56px;border-radius:16px;background:rgba(var(--primary-rgb),.1);border:1px solid rgba(var(--primary-rgb),.2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;color:var(--primary)"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>
@@ -10506,8 +10507,18 @@ function renderCoachRaceDay(el) {
       ${isActive
         ? `<button id="coach-rd-end" style="width:100%;padding:14px;border-radius:12px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;font-size:15px;cursor:pointer">End Race Day Mode</button>
            <button id="coach-rd-open" style="width:100%;padding:12px;border-radius:12px;background:var(--primary);color:var(--primary-fg);font-weight:700;font-size:14px;cursor:pointer;margin-top:8px">Open Race Day Interface</button>`
-        : `<button id="coach-rd-start" style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,var(--success),#16a34a);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(var(--success-rgb),.3)">🏁 Activate Race Day Mode</button>`
+        : `<button id="coach-rd-start" style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,var(--success),#16a34a);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(var(--success-rgb),.3)">Activate Race Day Mode</button>`
       }
+    </div>
+
+    <div style="margin-top:8px;padding:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:2px">Spectator demo</div>
+      <div style="font-size:12.5px;color:var(--muted-fg);line-height:1.45">Spin up a fake driver lapping Albert Park with random lap times — for testing the spectator view without anyone actually riding.</div>
+      ${demoOn
+        ? `<button id="coach-demo-stop" style="padding:11px;border-radius:10px;background:rgba(var(--destructive-rgb),.12);border:1px solid rgba(var(--destructive-rgb),.35);color:var(--destructive);font-weight:700;font-size:13px;cursor:pointer">Stop demo race</button>`
+        : `<button id="coach-demo-start" style="padding:11px;border-radius:10px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Start demo race · Albert Park</button>`
+      }
+      <button id="coach-demo-link" style="padding:9px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--fg);font-weight:600;font-size:12px;cursor:pointer">Copy spectator link</button>
     </div>
   `;
   el.querySelector('#coach-rd-start')?.addEventListener('click', async () => {
@@ -10524,6 +10535,135 @@ function renderCoachRaceDay(el) {
     renderCoachPage();
   });
   el.querySelector('#coach-rd-open')?.addEventListener('click', () => openRaceDayOverlay());
+  el.querySelector('#coach-demo-start')?.addEventListener('click', async () => {
+    const ok = await startDemoRace();
+    if (ok) renderCoachPage();
+  });
+  el.querySelector('#coach-demo-stop')?.addEventListener('click', async () => {
+    await stopDemoRace();
+    renderCoachPage();
+  });
+  el.querySelector('#coach-demo-link')?.addEventListener('click', async () => {
+    const url = location.origin + '/spectate.html';
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Spectator link copied — open in another tab/phone.', 'success');
+    } catch(_) {
+      prompt('Copy spectator link:', url);
+    }
+  });
+}
+
+// ── Demo race (Albert Park) ──────────────────────────────────────────────────
+//
+// Streams a fake live driver around an approximate Albert Park polyline so
+// the spectator view can be exercised without a real rider on track.
+// Writes under the CURRENT user's uid (Firestore rules require
+// `isOwner(uid)` on race_day/{date}/live/{uid}, so we can't impersonate
+// a 'demo-driver-001' uid). Lap times are randomised in a realistic range
+// (6:30–9:00 per lap for cycling).
+const ALBERT_PARK_WAYPOINTS = [
+  [-37.8462, 144.9700], [-37.8470, 144.9720], [-37.8478, 144.9745],
+  [-37.8492, 144.9760], [-37.8510, 144.9770], [-37.8528, 144.9772],
+  [-37.8540, 144.9760], [-37.8548, 144.9740], [-37.8550, 144.9720],
+  [-37.8546, 144.9700], [-37.8536, 144.9680], [-37.8520, 144.9670],
+  [-37.8500, 144.9665], [-37.8480, 144.9670], [-37.8470, 144.9685],
+];
+let _demoRaceTimer = null;
+let _demoRaceState = null;
+function isDemoRaceRunning() { return !!_demoRaceTimer; }
+
+async function startDemoRace() {
+  if (!db || !currentUser) { showToast('Sign in first.', 'warn'); return false; }
+  const isMaster = currentUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  if (!isAdmin && !isMaster && !userProfile?.isCoach) {
+    showToast('Coach or admin only.', 'warn');
+    return false;
+  }
+  const date = localDateKey();
+  try {
+    // 1) Activate race-day with Albert Park as the start point. Mirrors
+    //    activateRaceDay's data shape so the rest of the app treats this
+    //    as a real race day; isDemo flag lets us clean up later.
+    await setDoc(doc(db, 'race_day', date), {
+      active: true,
+      date,
+      raceName: 'Demo · Albert Park',
+      teamId: userProfile?.teamId || null,
+      activatedBy: currentUser.uid,
+      activatedAt: serverTimestamp(),
+      activatedAtMs: Date.now(),
+      startPoint: { lat: ALBERT_PARK_WAYPOINTS[0][0], lng: ALBERT_PARK_WAYPOINTS[0][1] },
+      startPointSet: true,
+      maxDurationMs: 25 * 60 * 60 * 1000,
+      isDemo: true,
+    }, { merge: true });
+  } catch(e) {
+    console.error('demo activate:', e);
+    showToast('Demo activate failed: ' + (e?.message || 'unknown'), 'error');
+    return false;
+  }
+
+  _demoRaceState = {
+    date,
+    pathIdx: 0,
+    lapCount: 0,
+    bestLap: null,
+    lastLap: null,
+    stintStart: Date.now(),
+  };
+
+  const tick = async () => {
+    if (!_demoRaceState) return;
+    const s = _demoRaceState;
+    s.pathIdx = (s.pathIdx + 1) % ALBERT_PARK_WAYPOINTS.length;
+    if (s.pathIdx === 0) {
+      s.lapCount++;
+      // 6:30–9:00 in ms — typical HPR / cycling lap range for Albert Park.
+      s.lastLap = Math.floor((Math.random() * 150 + 390) * 1000);
+      if (!s.bestLap || s.lastLap < s.bestLap) s.bestLap = s.lastLap;
+    }
+    const [lat, lng] = ALBERT_PARK_WAYPOINTS[s.pathIdx];
+    try {
+      await setDoc(doc(db, 'race_day', s.date, 'live', currentUser.uid), {
+        uid: currentUser.uid,
+        displayName: 'Demo Driver · Cooper',
+        live: true,
+        startTime: s.stintStart,
+        elapsed: Date.now() - s.stintStart,
+        lapCount: s.lapCount,
+        bestLap: s.bestLap,
+        lastLap: s.lastLap,
+        coord: { lat, lng, ts: Date.now() },
+        updatedAt: serverTimestamp(),
+        isDemo: true,
+      });
+    } catch(e) { console.warn('demo tick:', e); }
+  };
+  await tick();
+  _demoRaceTimer = setInterval(tick, 1000);
+  showToast('Demo race started — open the spectator link.', 'success');
+  return true;
+}
+
+async function stopDemoRace() {
+  if (_demoRaceTimer) { clearInterval(_demoRaceTimer); _demoRaceTimer = null; }
+  if (!db || !currentUser) { _demoRaceState = null; return; }
+  const date = (_demoRaceState && _demoRaceState.date) || localDateKey();
+  _demoRaceState = null;
+  try {
+    await setDoc(doc(db, 'race_day', date, 'live', currentUser.uid), {
+      uid: currentUser.uid, live: false, updatedAt: serverTimestamp(),
+    }, { merge: true });
+  } catch(_) {}
+  try {
+    // Only flip 'active' off if THIS demo set it; never trample a real race.
+    const snap = await getDoc(doc(db, 'race_day', date));
+    if (snap.exists() && snap.data().isDemo) {
+      await updateDoc(doc(db, 'race_day', date), { active: false });
+    }
+  } catch(_) {}
+  showToast('Demo race stopped.', 'info');
 }
 
 function checkAdmin(email) {

@@ -743,11 +743,21 @@ export function openActivityDetail(workoutIdx) {
     html += '</div>';
   }
   const src = w.source === 'strava'
-    ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:13px;height:13px;vertical-align:-2px"><path d="M16.5 13.4l-2.6 5.2-2.6-5.2H8.7L13.9 24l5.2-10.6h-2.6zM8 0L1.4 13.4h4l2.6-5.2 2.6 5.2H15L8 0z"/></svg> Synced from Strava'
+    ? '<svg viewBox="0 0 24 24" fill="#fc4c02" style="width:13px;height:13px;vertical-align:-2px" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg> <span>Synced from</span> <span style="color:#fc4c02;font-weight:800">Strava</span>'
     : w.source === 'tracker'
       ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;vertical-align:-2px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> GPS tracked'
       : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;vertical-align:-2px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Manually logged';
-  html += `<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:8px 0;display:flex;align-items:center;justify-content:center;gap:5px">${src}</div></div>`;
+  // Strava-imported workouts also show a "View on Strava" link per Strava
+  // brand guidelines + a "Powered by Strava" attribution band.
+  const stravaLink = (w.source === 'strava' && w.stravaId)
+    ? `<a href="https://www.strava.com/activities/${escHtml(String(w.stravaId))}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:6px;margin:0 0 12px;padding:10px 12px;background:rgba(252,76,2,.08);border:1px solid rgba(252,76,2,.30);border-radius:10px;color:#fc4c02;font-weight:700;font-size:13px;text-decoration:none">
+        <svg viewBox="0 0 24 24" fill="#fc4c02" style="width:14px;height:14px"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+        View on Strava
+      </a>`
+    : '';
+  html += `<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:8px 0;display:flex;align-items:center;justify-content:center;gap:5px">${src}</div>`;
+  html += stravaLink;
+  html += '</div>';
   ov.innerHTML = html;
   document.body.appendChild(ov);
 

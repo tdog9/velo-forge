@@ -1692,7 +1692,7 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .gym-session-row-meta{font-size:11px;color:var(--muted-fg);font-variant-numeric:tabular-nums;white-space:nowrap}
 
 /* Gym exercise list — activity detail page */
-.gym-detail-list{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin:0 16px 16px;display:flex;flex-direction:column;gap:0}
+.gym-detail-list{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin:0 0 16px;display:flex;flex-direction:column;gap:0}
 .gym-detail-h{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:10px}
 .gym-detail-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0}
 .gym-detail-row + .gym-detail-row{border-top:1px solid var(--border)}
