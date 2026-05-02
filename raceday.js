@@ -401,7 +401,7 @@ function bindOverlay(ov) {
     // spectatorInterval is sometimes a setTimeout id and sometimes a
     // setInterval id; clearTimeout/clearInterval are interchangeable on
     // the same numeric id in browsers but call both to be safe.
-    if (spectatorInterval) { try { clearInterval(spectatorInterval); } catch(e) {} try { clearTimeout(spectatorInterval); } catch(e) {} spectatorInterval=null; }
+    if (spectatorInterval) { try { if (typeof spectatorInterval === 'function') spectatorInterval(); else { try { clearInterval(spectatorInterval); } catch(e) {} try { clearTimeout(spectatorInterval); } catch(e) {} } } catch(e) {} spectatorInterval=null; }
     if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
     const ma=document.getElementById('main-app');
     if (ma) ma.style.display='flex';
@@ -416,7 +416,7 @@ function bindOverlay(ov) {
     const mo = new MutationObserver(() => {
       if (!document.body.contains(ov)) {
         if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
-        if (spectatorInterval) { try { clearInterval(spectatorInterval); } catch(e) {} try { clearTimeout(spectatorInterval); } catch(e) {} spectatorInterval=null; }
+        if (spectatorInterval) { try { if (typeof spectatorInterval === 'function') spectatorInterval(); else { try { clearInterval(spectatorInterval); } catch(e) {} try { clearTimeout(spectatorInterval); } catch(e) {} } } catch(e) {} spectatorInterval=null; }
         mo.disconnect();
       }
     });
@@ -481,7 +481,10 @@ async function showRdTab(ov,tab) {
   const c=ov.querySelector('#rd-content');
   // Switching tabs invalidates the previous tab's polling intervals.
   // Without this, stacking 10 tab-switches stacks 10 spectator polls.
-  if (spectatorInterval) { clearInterval(spectatorInterval); spectatorInterval=null; }
+  if (spectatorInterval) {
+    try { if (typeof spectatorInterval === 'function') spectatorInterval(); else clearInterval(spectatorInterval); } catch(e) {}
+    spectatorInterval = null;
+  }
   // FAB is only useful on the roster tab — on stint/setup it overlaps
   // the bottom-nav centre Stint button and gives the wrong affordance.
   // Roster tab already has a "+ Add Driver" button in its header.
@@ -922,30 +925,23 @@ function renderStintTab(c) {
     const s=todayStints.find(x=>x.uid===btn.dataset.uid); if(s) emailStint(s);
   }));
 
-  // Spectator polling — refresh live drivers every 5–20s while pre-stint
-  // screen is visible. Returns the live array so the tick can compute
-  // the adaptive delay without doing a second loadLiveStints round-trip
-  // (was previously calling it twice per cycle, doubling read cost).
+  // Live-stint subscription. Was previously a 5-20s setTimeout poll
+  // (`loadLiveStints` → getDocs every tick). Switched to onSnapshot so
+  // Firestore pushes deltas directly — no more round-trips, latency drops
+  // from ~5s to ~500ms, and there's a single live listener instead of one
+  // ticking per visible client.
   if (spectatorInterval) {
-    try { clearInterval(spectatorInterval); } catch(e) {}
-    try { clearTimeout(spectatorInterval); } catch(e) {}
+    try { if (typeof spectatorInterval === 'function') spectatorInterval(); else { clearInterval(spectatorInterval); clearTimeout(spectatorInterval); } } catch(e) {}
     spectatorInterval = null;
   }
-  const refreshLive = async () => {
-    const live = await loadLiveStints();
+  const applyLive = (live) => {
     const panel = document.getElementById('rd-live-panel');
     if (panel) {
       panel.innerHTML = renderLivePanel(live);
-      // Init / update each live driver's mini-map after the DOM is in
-      // place. Existing maps are reused — only the marker position
-      // moves on each 5s poll, so there's no tile-reload flicker.
       try { initLiveDriverMaps(live); } catch (e) { /* leaflet may not be loaded yet */ }
     }
-    // Stint locking — if ANY other driver is currently on track, lock
-    // the Start button so two teammates can't run a stint at the same
-    // time. The lock only blocks OTHERS; if YOU are the one live (e.g.
-    // page reload mid-stint), the button stays clickable so you can
-    // re-enter your own stint.
+    // Stint locking — if ANY other driver is currently on track, lock the
+    // Start button so two teammates can't run a stint at the same time.
     const myUid = ctx.currentUser?.uid;
     const othersLive = (live || []).filter(l => l.uid && l.uid !== myUid);
     const startBtn = document.getElementById('rd-start-btn');
@@ -960,7 +956,6 @@ function renderStintTab(c) {
         startBtn.style.boxShadow = 'none';
         startBtn.textContent = driver + ' is on track — wait';
       } else if (startBtn.dataset.locked === '1') {
-        // Track was just freed — reset the button.
         startBtn.disabled = false;
         delete startBtn.dataset.locked;
         startBtn.style.opacity = '';
@@ -970,22 +965,41 @@ function renderStintTab(c) {
         startBtn.textContent = '▶ Start My Stint';
       }
     }
-    if (!document.getElementById('rd-start-btn')) {
-      try { clearInterval(spectatorInterval); } catch(e) {}
-      try { clearTimeout(spectatorInterval); } catch(e) {}
+    // Tab moved on — kill the listener so we don't leak Firestore reads.
+    if (!document.getElementById('rd-start-btn') && spectatorInterval) {
+      try { spectatorInterval(); } catch(e) {}
       spectatorInterval = null;
     }
-    return live;
   };
-  refreshLive();
-  // 5s while at least one rider is live, else 20s.
-  const tick = async () => {
-    const live = await refreshLive();
-    if (!document.getElementById('rd-start-btn')) return;  // tab moved on
-    const delay = (live && live.length > 0) ? 5000 : 20000;
-    spectatorInterval = setTimeout(tick, delay);
-  };
-  spectatorInterval = setTimeout(tick, 5000);
+
+  if (ctx?.db && ctx.onSnapshot && rdd.date) {
+    try {
+      const liveCol = ctx.collection(ctx.db, 'race_day', rdd.date, 'live');
+      // spectatorInterval doubles as the unsubscribe function so the tab
+      // teardown path (which clears it) works without changes elsewhere.
+      spectatorInterval = ctx.onSnapshot(liveCol, (snap) => {
+        const cutoff = Date.now() - 90 * 1000;
+        const live = snap.docs
+          .map(d => d.data())
+          .filter(d => d.live)
+          .filter(d => {
+            const t = d.updatedAt?.toMillis ? d.updatedAt.toMillis() : 0;
+            return t > cutoff;
+          });
+        applyLive(live);
+      }, (err) => {
+        console.warn('rd-live onSnapshot:', err);
+        // Fall back to a one-shot read so the panel isn't blank on listener error.
+        loadLiveStints().then(applyLive).catch(() => {});
+      });
+    } catch (e) {
+      console.warn('rd-live onSnapshot init failed; falling back to single read:', e);
+      loadLiveStints().then(applyLive).catch(() => {});
+    }
+  } else {
+    // No db / no onSnapshot — single fetch and bail.
+    loadLiveStints().then(applyLive).catch(() => {});
+  }
 }
 
 function initPreMap() {
@@ -1031,7 +1045,7 @@ async function startStint(c) {
   renderActiveStint(c);
   stintInterval=setInterval(()=>updateActive(),1000);
   // Live progress publish — every 15s push current state so teammates see live laps/elapsed
-  stintLiveInterval=setInterval(()=>publishLiveStint(),3000);
+  stintLiveInterval=setInterval(()=>publishLiveStint(),1000);
   publishLiveStint(); // initial
   if (navigator.geolocation) {
     stintWatchId=navigator.geolocation.watchPosition(

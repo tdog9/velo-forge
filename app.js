@@ -1210,7 +1210,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260502-r52';
+const APP_VERSION = '20260502-r54';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1414,25 +1414,9 @@ function isMasterAccount(email) {
 // globalSettings.defaultTeamId when a different team should be the
 // implicit destination.
 const DEFAULT_TEAM_ID = 'strava-club-1113130'; // Caulfield Grammar — HPR Team
-// Coach Pro entitlement check. The god-admin always has Pro; everyone else
-// must have coachProActive set true on their userProfile (the admin grants
-// this either via "Approve & Bill" once StoreKit ships, or "Grant Free" for
-// exempt comp accounts).
-function isCoachPro(profile) {
-  const p = profile || (typeof userProfile !== 'undefined' ? userProfile : null);
-  if (!p) return false;
-  if (currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-    // Admin can preview the base-tier UI by flipping a localStorage flag —
-    // useful for sanity-checking what regular coaches see without paying.
-    try { if (localStorage.getItem('tp_admin_view_base') === '1') return false; } catch(e) {}
-    return true;
-  }
-  return p.coachProActive === true;
-}
-function coachProRequestStatus(profile) {
-  const p = profile || (typeof userProfile !== 'undefined' ? userProfile : null);
-  return p?.coachProRequestStatus || 'none';
-}
+// Coach Pro paywall removed — every coach has the full toolkit. Kept as a
+// shim so legacy callers don't need to be touched; always returns true.
+function isCoachPro() { return true; }
 let globalSettings = {}; // Live settings from Firestore global_settings/config — controlled by ADMIN_EMAIL
 let adminAnnouncements = [];
 let adminRaces = null; // null = use hardcoded, array = use Firestore
@@ -5769,14 +5753,14 @@ async function saveWorkout(rpe, photoData, workoutType) {
     const oldXp = calcXp();
     showToast('Workout logged!', 'success');
     // Auto-post into team chat (silent — no push). Best-effort; never
-    // blocks the workout save. Scoped to the athlete's own subteam so it
-    // doesn't spam other groups.
+    // blocks the workout save. Workouts post to the whole-team channel
+    // (subteamId: '') so the activity feed is visible to every teammate
+    // regardless of subteam — chat scoping is for conversational messages.
     if (userProfile?.teamId) {
       try {
         postWorkoutToTeamChat(
           userProfile.teamId,
-          { name, type, duration, distance, gpsTrack: extra?.routeId || null },
-          { subteamId: getMySubteamId() }
+          { name, type, duration, distance, gpsTrack: extra?.routeId || null }
         );
       } catch(e) {}
     }
@@ -6732,6 +6716,30 @@ function refreshTeamChatList() {
   }
 }
 // --- GLOBAL LEADERBOARD ---
+// Cache the leaderboard in localStorage with a 90-second TTL. The
+// leaderboard fans out N+1 reads (1 user list + 1 workouts collection per
+// eligible user), so a 30-user team pays ~60 round-trips on every Team
+// tab open. With this cache, repeat visits within 90s render instantly
+// from the snapshot we paint into the page on first load.
+const GLOBAL_LB_CACHE_KEY = 'tp_global_lb_cache';
+const GLOBAL_LB_CACHE_TTL_MS = 90 * 1000;
+function loadGlobalLbFromCache() {
+  try {
+    const raw = localStorage.getItem(GLOBAL_LB_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.entries)) return null;
+    if (typeof parsed.ts !== 'number') return null;
+    if (Date.now() - parsed.ts > GLOBAL_LB_CACHE_TTL_MS) return null;
+    return parsed.entries;
+  } catch(_) { return null; }
+}
+function saveGlobalLbToCache(entries) {
+  try {
+    localStorage.setItem(GLOBAL_LB_CACHE_KEY, JSON.stringify({ ts: Date.now(), entries }));
+  } catch(_) {}
+}
+
 async function loadGlobalLeaderboard() {
   if (demoMode) {
     globalLeaderboard = [
@@ -6748,6 +6756,17 @@ async function loadGlobalLeaderboard() {
     return;
   }
   if (!db) return;
+  // Cache hit — render immediately, then revalidate in the background so
+  // the next visit (or this same visit after stale-time) sees fresh data.
+  const cached = loadGlobalLbFromCache();
+  if (cached) {
+    globalLeaderboard = cached;
+    globalLbLoading = false;
+    // Fire-and-forget revalidation. Doesn't block paint and silently swaps
+    // in fresh data when it arrives.
+    setTimeout(() => { revalidateGlobalLeaderboard().catch(() => {}); }, 0);
+    return;
+  }
   globalLbLoading = true;
   try {
     const usersSnap = await getDocs(collection(db, 'users'));
@@ -6797,11 +6816,60 @@ async function loadGlobalLeaderboard() {
     });
     globalLeaderboard = entries;
     globalLbErr = null;
+    saveGlobalLbToCache(entries);
   } catch(e) {
     console.error('Load global leaderboard error:', e);
     globalLbErr = e?.message || 'Failed to load leaderboard.';
   }
   globalLbLoading = false;
+}
+
+// Same fetch path as loadGlobalLeaderboard but ignores cache and never
+// flips the loading flag — used to silently refresh stale data behind a
+// cache hit so the next render sees current values without showing a
+// spinner mid-session.
+async function revalidateGlobalLeaderboard() {
+  if (demoMode || !db) return;
+  try {
+    const usersSnap = await getDocs(collection(db, 'users'));
+    const eligible = usersSnap.docs.filter(d => {
+      const u = d.data();
+      return u.teamId || u.isCoach || u.isAdmin;
+    });
+    const workoutResults = await Promise.all(
+      eligible.map(d => getDocs(collection(db, 'users', d.id, 'workouts')).catch(() => null))
+    );
+    const today = new Date(); today.setHours(0,0,0,0);
+    const dKey = (dt) => dt.getFullYear() + '-' + (dt.getMonth()+1) + '-' + dt.getDate();
+    const entries = eligible.map((d, i) => {
+      const u = d.data();
+      const wSnap = workoutResults[i];
+      const wCount = wSnap?.size || 0;
+      let streak = 0;
+      const dates = new Set();
+      if (wSnap) {
+        wSnap.docs.forEach(wd => {
+          const dd = wd.data().date;
+          const dt = dd ? (dd.toDate ? dd.toDate() : new Date(dd)) : null;
+          if (dt) dates.add(dKey(dt));
+        });
+        const check = new Date(today);
+        if (!dates.has(dKey(check))) check.setDate(check.getDate() - 1);
+        while (dates.has(dKey(check))) { streak++; check.setDate(check.getDate() - 1); }
+      }
+      let xp = wCount * 10;
+      if (streak >= 7) xp += 25;
+      if (streak >= 14) xp += 50;
+      if (streak >= 30) xp += 100;
+      return { uid: d.id, displayName: u.displayName || 'Unknown', yearLevel: u.yearLevel || '', totalWorkouts: wCount, streak, xp };
+    });
+    globalLeaderboard = entries;
+    saveGlobalLbToCache(entries);
+    if (currentPage === 'team' && lbSubTab === 'global') {
+      const el = $('lb-global-content');
+      if (el) renderGlobalLeaderboard(el);
+    }
+  } catch(e) { console.warn('revalidateGlobalLeaderboard:', e); }
 }
 let globalLbErr = null;
 function renderGlobalLeaderboard(el) {
@@ -9611,7 +9679,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260502-r52';
+  const APP_VERSION = '20260502-r54';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -9778,8 +9846,7 @@ function startApp() {
                       duration: workout.duration,
                       distance: workout.distance,
                       routeId: workoutId,
-                    },
-                    { subteamId: getMySubteamId() }
+                    }
                   );
                 } catch(e) { console.warn('postWorkoutToTeamChat (tracker):', e); }
               }
@@ -9890,31 +9957,24 @@ let coachPageTab = (() => {
   try { return localStorage.getItem('tp_coachPageTab') || 'students'; }
   catch (e) { return 'students'; }
 })();
-// Tabs marked PRO are locked behind isCoachPro(). Free tier gets Students
-// (read-only roster) + My Team (basic team info). Training scheduler and
-// the live Race Day dashboard are the carrots that drive the upgrade.
-const COACH_PRO_TABS = new Set(['training', 'raceday']);
 function renderCoachPage() {
   const c = $('coach-content');
   if (!c) return;
   const isMasterUser = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
   if (!userProfile?.isCoach && !isMasterUser) { c.innerHTML = '<div class="empty-state"><div class="empty-state-title">Coach Access Only</div><div class="empty-state-desc">This tab is for coach accounts. If you are a coach, contact TurboPrep to enable coach access.</div></div>'; return; }
 
-  const isPro = isCoachPro();
   const tabs = [
     { id: 'students', label: 'Students' },
-    { id: 'training', label: 'Training', pro: true },
+    { id: 'training', label: 'Training' },
     { id: 'team', label: 'My Team' },
     { id: 'manage', label: 'Manage' },
-    { id: 'raceday', label: '🏁 Race Day', pro: true },
+    { id: 'raceday', label: 'Race Day' },
   ];
 
   let html = '<div class="page-title" style="margin-bottom:12px">Coach</div>';
-  if (!isPro) html += renderCoachProBanner();
   html += '<div class="fitness-sub-bar-sticky"><div class="fitness-sub-bar">';
   tabs.forEach(t => {
-    const lock = (t.pro && !isPro) ? ' 🔒' : '';
-    html += `<button class="fitness-sub-tab${coachPageTab===t.id?' active':''}" data-coach-sub="${t.id}">${t.label}${lock}</button>`;
+    html += `<button class="fitness-sub-tab${coachPageTab===t.id?' active':''}" data-coach-sub="${t.id}">${t.label}</button>`;
   });
   html += '</div></div>';
   html += `<div id="coach-sub-content"></div>`;
@@ -9924,28 +9984,17 @@ function renderCoachPage() {
     btn.addEventListener('click', () => {
       coachPageTab = btn.dataset.coachSub;
       try { localStorage.setItem('tp_coachPageTab', coachPageTab); } catch (e) {}
-      // Reset Coach Manage to its home view whenever the user switches
-      // tabs — otherwise they'd land on a stale sub-view (e.g. Edit
-      // form) when reopening the Manage tab.
       _coachManageMode = 'home';
       renderCoachPage();
     });
   });
-  const banner = c.querySelector('[data-coach-pro-request]');
-  if (banner) banner.addEventListener('click', requestCoachPro);
 
   const sub = $('coach-sub-content');
-  if (COACH_PRO_TABS.has(coachPageTab) && !isPro) {
-    sub.innerHTML = renderCoachProLockout(coachPageTab);
-    sub.querySelectorAll('[data-coach-pro-request]').forEach(b => b.addEventListener('click', requestCoachPro));
-    return;
-  }
   switch(coachPageTab) {
     case 'students': renderCoachStudents(sub); break;
     case 'training': renderCoachTraining(sub); break;
     case 'team': renderCoachTeam(sub); break;
     case 'manage': renderCoachManage(sub); break;
-    // (mode reset handled inside renderCoachManage when first entered)
     case 'raceday': renderCoachRaceDay(sub); break;
   }
 }
@@ -10394,100 +10443,6 @@ function renderCoachManageFeatures(el, goHome) {
       }
     });
   });
-}
-
-// Top-of-page upgrade banner — only shown to non-Pro coaches. The button
-// label and disabled state mirror the user's request status so they don't
-// re-submit while one is pending.
-function renderCoachProBanner() {
-  const status = coachProRequestStatus();
-  let cta = '<button class="btn btn-primary" data-coach-pro-request style="font-size:13px;padding:8px 14px;border-radius:8px">Upgrade to Coach Pro</button>';
-  let sub = 'Unlock the training scheduler, Race Day dashboard, bulk messaging, custom workouts and more — $2.99/mo.';
-  if (status === 'pending') {
-    cta = '<button class="btn" disabled style="font-size:13px;padding:8px 14px;border-radius:8px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)">Request pending</button>';
-    sub = 'We\'ve received your Coach Pro request — you\'ll get an email when it\'s approved.';
-  } else if (status === 'approved_pending_payment') {
-    cta = '<button class="btn" disabled style="font-size:13px;padding:8px 14px;border-radius:8px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)">Approved — payment opening soon</button>';
-    sub = 'Your request was approved. Payment will open shortly — check your email.';
-  } else if (status === 'denied') {
-    cta = '<button class="btn btn-primary" data-coach-pro-request style="font-size:13px;padding:8px 14px;border-radius:8px">Try again</button>';
-    sub = 'Your previous request was declined. You can re-submit or contact support.';
-  }
-  return `<div class="card card-pad" style="margin-bottom:12px;background:linear-gradient(135deg,rgba(var(--primary-rgb),.12),rgba(var(--primary-rgb),.04));border:1px solid rgba(var(--primary-rgb),.3)">
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:180px">
-        <div style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:4px">⚡ Coach Pro</div>
-        <div style="font-size:12px;color:var(--muted-fg);line-height:1.45">${sub}</div>
-      </div>
-      ${cta}
-    </div>
-  </div>`;
-}
-
-// Full-page lockout shown when a non-Pro coach taps a Pro tab.
-function renderCoachProLockout(tabId) {
-  const featureName = tabId === 'training' ? 'Training Scheduler'
-                    : tabId === 'raceday' ? 'Race Day Dashboard'
-                    : 'This feature';
-  const status = coachProRequestStatus();
-  let cta;
-  if (status === 'pending') {
-    cta = '<button class="btn" disabled style="margin-top:8px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)">Request pending</button>';
-  } else if (status === 'approved_pending_payment') {
-    cta = '<button class="btn" disabled style="margin-top:8px;background:var(--surface);color:var(--muted-fg);border:1px solid var(--border)">Approved — payment opening soon</button>';
-  } else {
-    cta = '<button class="btn btn-primary" data-coach-pro-request style="margin-top:8px">Request Coach Pro</button>';
-  }
-  return `<div class="empty-state" style="text-align:center">
-    <div style="font-size:48px;margin-bottom:12px">🔒</div>
-    <div class="empty-state-title">${featureName} is a Coach Pro feature</div>
-    <div class="empty-state-desc" style="max-width:340px;margin:8px auto 0">$2.99/month unlocks training scheduling, the live Race Day dashboard, bulk messaging, custom workouts, per-athlete notes, AI insights and more. Approval is required.</div>
-    ${cta}
-  </div>`;
-}
-
-// Submit a Coach Pro upgrade request. Idempotent — re-submitting after a
-// 'denied' result clears the prior status. The doc ID is the user's uid so
-// admin can list pending requests with one query.
-async function requestCoachPro() {
-  if (!currentUser || !userProfile || !db) {
-    showToast('Sign in required.', 'warn');
-    return;
-  }
-  if (isCoachPro()) {
-    showToast('You already have Coach Pro.', 'info');
-    return;
-  }
-  const status = coachProRequestStatus();
-  if (status === 'pending' || status === 'approved_pending_payment') {
-    showToast('You already have a pending request.', 'info');
-    return;
-  }
-  try {
-    showLoading('Submitting...');
-    await setDoc(doc(db, 'coach_pro_requests', currentUser.uid), {
-      uid: currentUser.uid,
-      email: currentUser.email,
-      displayName: userProfile.displayName || '',
-      teamName: teamData?.name || userProfile.clubName || '',
-      status: 'pending',
-      requestedAt: serverTimestamp(),
-    });
-    await updateDoc(doc(db, 'users', currentUser.uid), {
-      coachProRequestStatus: 'pending',
-      coachProRequestedAt: serverTimestamp(),
-    });
-    if (userProfile) {
-      userProfile.coachProRequestStatus = 'pending';
-    }
-    hideLoading();
-    showToast('Request sent — we\'ll email you when it\'s approved.', 'success');
-    renderCoachPage();
-  } catch(e) {
-    hideLoading();
-    logError('requestCoachPro', e, { uid: currentUser.uid });
-    showToast('Could not submit: ' + (e.message || 'unknown error'), 'error');
-  }
 }
 
 async function renderCoachStudents(el) {

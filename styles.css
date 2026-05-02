@@ -1585,14 +1585,27 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .tracker-type-btn{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted-fg);cursor:pointer;white-space:nowrap;transition:all .15s}
 .tracker-map{flex:1;position:relative;background:var(--card)}
 #tracker-map-el{width:100%;height:100%}
-.tracker-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);flex-shrink:0}
 .tracker-stat{background:var(--bg);padding:12px 8px;text-align:center}
 .tracker-stat-val{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--fg);line-height:1}
 .tracker-stat-lbl{font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
 .tracker-controls{display:flex;align-items:center;justify-content:center;gap:20px;padding:16px;padding-bottom:calc(16px + var(--safe-b));flex-shrink:0;border-top:1px solid var(--border)}
 .tracker-btn{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;border:none;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
 .tracker-btn:active{transform:scale(.93)}
-.tracker-save-card{padding:20px 16px}
+/* Save overlay sits on top of the tracker UI as a real modal so the
+   recording UI underneath isn't visible through it. */
+.tracker-save-overlay{
+  position:absolute;
+  inset:0;
+  z-index:10;
+  background:var(--bg);
+  display:flex;
+  flex-direction:column;
+  overflow-y:auto;
+  padding-top:var(--safe-t);
+  padding-bottom:calc(var(--safe-b) + 16px);
+}
+.tracker-save-card{padding:20px 16px;max-width:520px;margin:0 auto;width:100%}
+.tracker-save-card h3{font-size:18px;font-weight:800;margin:0 0 6px;color:var(--fg)}
 .tracker-save-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
 .tracker-save-stat{background:var(--surface);border-radius:8px;padding:10px;text-align:center}
 .tracker-save-stat .val{font-size:16px;font-weight:800;color:var(--fg);font-variant-numeric:tabular-nums;line-height:1.15;word-break:break-word}
@@ -1624,12 +1637,18 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .tracker-stat.t-tone-hr .tracker-stat-val{color:var(--destructive)}
 .tracker-stat.big{grid-column:1 / -1}
 .tracker-stat.big .tracker-stat-val{font-size:36px;font-weight:800;letter-spacing:.02em}
-.tracker-stats.no-map{flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:1fr;gap:1px;align-content:start}
-.tracker-stats.no-map .tracker-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 12px}
-.tracker-stats.no-map .tracker-stat-val{font-size:30px}
-.tracker-stats.no-map .tracker-stat.big{grid-column:1 / -1}
-.tracker-stats.no-map .tracker-stat.big .tracker-stat-val{font-size:48px}
-.tracker-no-map-pad{height:8px;flex-shrink:0}
+
+/* Stats grid — column count picked at render time per type so we never
+   end up with a half-row of orphan cells next to HR. */
+.tracker-stats{display:grid;gap:1px;background:var(--border);flex-shrink:0}
+.tracker-stats.cols-2{grid-template-columns:repeat(2,1fr)}
+.tracker-stats.cols-3{grid-template-columns:repeat(3,1fr)}
+
+/* No-map variant fills the body so each tile is big and readable. */
+.tracker-stats.no-map{flex:1;align-content:start}
+.tracker-stats.no-map .tracker-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 12px}
+.tracker-stats.no-map .tracker-stat-val{font-size:36px}
+.tracker-stats.no-map .tracker-stat.big .tracker-stat-val{font-size:54px}
 
 /* Gym setup screen */
 .tracker-gym-setup{flex:1;overflow-y:auto;padding:16px;display:flex;align-items:flex-start;justify-content:center}
@@ -1657,6 +1676,25 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 /* RPE chips on save screen — pill-style, accent on selected */
 .t-rpe-btn{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface-alt);color:var(--muted-fg);font-size:11px;font-weight:700;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
 .t-rpe-btn.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+
+/* Gym session list (save screen) — exercise breakdown when chaining via Continue */
+.gym-session-list{margin:6px 0 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.gym-session-list-h{font-size:10.5px;font-weight:800;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.gym-session-row{display:flex;align-items:center;gap:10px;font-size:13px;padding:5px 0}
+.gym-session-row + .gym-session-row{border-top:1px solid rgba(255,255,255,.04)}
+.gym-session-row-num{width:22px;height:22px;border-radius:50%;background:rgba(var(--primary-rgb),.15);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0}
+.gym-session-row-name{flex:1;min-width:0;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gym-session-row-meta{font-size:11px;color:var(--muted-fg);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Gym exercise list — activity detail page */
+.gym-detail-list{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin:0 16px 16px;display:flex;flex-direction:column;gap:0}
+.gym-detail-h{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:10px}
+.gym-detail-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0}
+.gym-detail-row + .gym-detail-row{border-top:1px solid var(--border)}
+.gym-detail-num{width:26px;height:26px;border-radius:50%;background:rgba(var(--primary-rgb),.12);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0}
+.gym-detail-body{flex:1;min-width:0}
+.gym-detail-name{font-size:14px;font-weight:700;color:var(--fg)}
+.gym-detail-meta{font-size:11.5px;color:var(--muted-fg);margin-top:2px;font-variant-numeric:tabular-nums}
 
 /* ===== Plan filter pills ===== */
 .pill-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid var(--border-strong);background:var(--surface);color:var(--fg);cursor:pointer;white-space:nowrap;transition:all .15s;display:inline-flex;align-items:center;gap:4px}

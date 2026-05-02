@@ -216,9 +216,9 @@ export async function sendCoachBroadcast(teamId, text, { push = false, subteamId
 /// Auto-post a "X just finished a workout" entry into the team chat. Fired
 /// from the workout-save path. Silent (no push). Server-side rules require
 /// uid == request.auth.uid so the message is attributed to whoever logged
-/// the workout. subteamId scopes the post to the athlete's own subteam so
-/// it doesn't spam other groups; falls back to whole-team if athlete has
-/// no subteam yet.
+/// the workout. Default scope is the whole-team channel (subteamId: '')
+/// so the activity feed is visible to every teammate regardless of
+/// subteam — chat scoping is for conversational messages, not workouts.
 export async function postWorkoutToTeamChat(teamId, workout, { subteamId = '' } = {}) {
   if (!A.db || !A.currentUser || !teamId || !workout) return;
   try {
@@ -245,8 +245,15 @@ export async function postWorkoutToTeamChat(teamId, workout, { subteamId = '' } 
       createdAt: A.serverTimestamp(),
     });
   } catch(e) {
-    // Don't fail the workout save if chat post fails — silent best-effort.
+    // Don't fail the workout save if chat post fails — but DO surface why
+    // it didn't make it to chat so the user isn't left wondering. The
+    // common cause is membership drift (uid not in team.members[]); other
+    // failures usually mean rules haven't been deployed.
     console.warn('postWorkoutToTeamChat:', e);
+    const msg = (e?.code === 'permission-denied')
+      ? 'Workout saved, but team chat post was blocked — your account isn\'t in the team\'s members list. Reload the app.'
+      : ('Workout saved. Couldn\'t post to team chat: ' + (e?.message || 'unknown error'));
+    try { A.showToast?.(msg, 'warn'); } catch(_) {}
   }
 }
 

@@ -24,6 +24,10 @@ let wakeLock = null;
 let stepsAtStart = null;            // baseline so we can show DELTA steps for the session
 let gymSetup = null;                // { exercise, mode: 'reps'|'time', value }
 let gymPaintedSetup = false;
+// Buffer of completed exercises within a single Gym session. Each entry
+// captures one finished sub-stint so when the user finally hits Save the
+// workout doc carries every exercise, not just the last one.
+let gymSessionLog = [];
 
 // Average stride length for treadmill distance estimation.
 // Mid-range adult walking/running stride; user can correct distance at save.
@@ -70,6 +74,7 @@ export function openActivityTracker() {
   stepsAtStart = null;
   gymSetup = null;
   gymPaintedSetup = false;
+  gymSessionLog = [];
 
   const overlay = document.createElement('div');
   overlay.id = 'tracker-overlay';
@@ -147,26 +152,35 @@ function paintBody() {
     return;
   }
 
+  // Compute small-tile count (everything except the always-shown Duration
+  // big tile). The grid template is chosen so the number divides cleanly:
+  //   4 small tiles → 2 cols (2x2)
+  //   3 small tiles → 3 cols (1 row)
+  //   2 small tiles → 2 cols
+  // No more orphan cells next to the HR tile.
+  const smallCount = (c.distance ? 1 : 0) + (c.speed ? 1 : 0) + (c.steps ? 1 : 0) + (c.hr ? 1 : 0);
+  const cols = (smallCount % 3 === 0) ? 3 : 2;
   const tiles = buildStatTilesHtml(c);
+
   if (c.map) {
     body.innerHTML = `
       <div class="tracker-map"><div id="tracker-map-el"></div></div>
-      <div class="tracker-stats">${tiles}</div>
+      <div class="tracker-stats cols-${cols}">${tiles}</div>
     `;
     // Defer Leaflet init until DOM is in place so the container has a measurable size.
     setTimeout(initMap, 80);
   } else {
-    // Treadmill / no-map types: stats fill the space, no map shell at all.
+    // No-map types (Treadmill): stats fill the body so each tile is large
+    // and readable. Same `cols-N` rule keeps the grid tidy.
     body.innerHTML = `
-      <div class="tracker-no-map-pad"></div>
-      <div class="tracker-stats no-map">${tiles}</div>
+      <div class="tracker-stats no-map cols-${cols}">${tiles}</div>
     `;
   }
   if (state === 'tracking' || state === 'paused') refreshDisplay();
 }
 
 function buildStatTilesHtml(c) {
-  // Always show duration first as the big primary tile.
+  // Always show duration first as the big primary tile spanning the row.
   const tiles = [];
   tiles.push(tile('t-time', '00:00', 'Duration', 'big'));
   if (c.distance)  tiles.push(tile('t-dist', '0.00', 'Distance (km)'));
@@ -445,6 +459,9 @@ function fmtElapsed(sec) {
     : String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
 }
 function fmtSec(sec) { return fmtElapsed(sec); }
+// Same formatter, exposed under a clearer name for the activity-detail
+// renderer where "fmtSec" reads as "format seconds → mm:ss".
+function fmtElapsedSec(sec) { return fmtElapsed(sec); }
 
 // ── Controls (Start / Pause / Stop / Save) ───────────────────────────────
 
@@ -490,35 +507,68 @@ function showSaveScreen() {
   const stepsDelta = (stepsAtStart != null && currentTotalSteps() != null)
     ? Math.max(0, currentTotalSteps() - stepsAtStart)
     : null;
+  const lastHr = ctx.userProfile?.health?.latestHr;
+
+  // For Gym: capture the just-finished exercise into the session log so
+  // "Continue Session" can stack multiple exercises into one workout.
+  if (c.gym && gymSetup) {
+    gymSessionLog.push({
+      exercise: gymSetup.exercise,
+      mode: gymSetup.mode,
+      target: gymSetup.value,
+      durationSec: elapsedSec,
+      heartRate: (typeof lastHr === 'number' && lastHr > 0) ? lastHr : null,
+    });
+  }
 
   // Build summary tiles per type so the save screen mirrors what was shown
   // during the session (no random columns the user never saw).
   const tiles = [];
-  tiles.push(saveStat(fmtElapsed(elapsedSec), 'Duration'));
-  if (c.distance) tiles.push(saveStat(dist.toFixed(2) + ' km', 'Distance'));
-  if (c.speed)    tiles.push(saveStat(avgSpeed.toFixed(1) + ' km/h', 'Avg speed'));
-  if (c.steps && stepsDelta != null) tiles.push(saveStat(stepsDelta.toLocaleString(), 'Steps'));
-  const lastHr = ctx.userProfile?.health?.latestHr;
-  if (c.hr && typeof lastHr === 'number' && lastHr > 0) tiles.push(saveStat(String(lastHr) + ' bpm', 'Heart rate'));
-  if (c.gym && gymSetup) {
-    tiles.push(saveStat(escHtml(gymSetup.exercise), 'Exercise'));
-    tiles.push(saveStat(gymSetup.mode === 'reps' ? gymSetup.value + ' reps' : fmtSec(gymSetup.value), gymSetup.mode === 'reps' ? 'Target reps' : 'Target time'));
+  if (c.gym) {
+    // For gym: total duration = sum of all logged exercises, list them out.
+    const totalSec = gymSessionLog.reduce((s, e) => s + (e.durationSec || 0), 0);
+    tiles.push(saveStat(fmtElapsed(totalSec), 'Total time'));
+    tiles.push(saveStat(String(gymSessionLog.length), gymSessionLog.length === 1 ? 'Exercise' : 'Exercises'));
+    if (typeof lastHr === 'number' && lastHr > 0) tiles.push(saveStat(String(lastHr) + ' bpm', 'Heart rate'));
+  } else {
+    tiles.push(saveStat(fmtElapsed(elapsedSec), 'Duration'));
+    if (c.distance) tiles.push(saveStat(dist.toFixed(2) + ' km', 'Distance'));
+    if (c.speed)    tiles.push(saveStat(avgSpeed.toFixed(1) + ' km/h', 'Avg speed'));
+    if (c.steps && stepsDelta != null) tiles.push(saveStat(stepsDelta.toLocaleString(), 'Steps'));
+    if (c.hr && typeof lastHr === 'number' && lastHr > 0) tiles.push(saveStat(String(lastHr) + ' bpm', 'Heart rate'));
   }
+
+  const exerciseListHtml = c.gym && gymSessionLog.length > 0
+    ? `<div class="gym-session-list">
+        <div class="gym-session-list-h">Exercises this session</div>
+        ${gymSessionLog.map((e, i) => `<div class="gym-session-row">
+          <span class="gym-session-row-num">${i + 1}</span>
+          <span class="gym-session-row-name">${escHtml(e.exercise)}</span>
+          <span class="gym-session-row-meta">${e.mode === 'reps' ? e.target + ' reps' : fmtSec(e.target)} · ${fmtElapsed(e.durationSec)}</span>
+        </div>`).join('')}
+      </div>`
+    : '';
+
+  const continueBtn = c.gym
+    ? `<button id="t-save-continue" class="btn" style="flex:1;background:var(--surface);color:var(--fg);border:1px solid var(--border)">+ Continue session</button>`
+    : '';
 
   const saveDiv = document.createElement('div');
   saveDiv.className = 'tracker-save-overlay';
   saveDiv.innerHTML = `<div class="tracker-save-card">
-    <h3>Save Activity</h3>
+    <h3>${c.gym ? 'Save session' : 'Save activity'}</h3>
     <div class="tracker-save-type">${typeIconSvg(type)}<span>${escHtml(c.label)}</span></div>
     <div class="tracker-save-stats">${tiles.join('')}</div>
-    <input class="input" id="t-save-name" type="text" placeholder="Activity name (optional)" style="margin-bottom:8px;width:100%">
+    ${exerciseListHtml}
+    <input class="input" id="t-save-name" type="text" placeholder="${c.gym ? 'Session name (optional)' : 'Activity name (optional)'}" style="margin:8px 0 8px;width:100%">
     <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
       <span style="font-size:12px;color:var(--muted-fg)">RPE:</span>
       <div style="display:flex;gap:3px;flex-wrap:wrap">${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="t-rpe-btn" data-rpe="${n}" type="button">${n}</button>`).join('')}</div>
     </div>
-    <div style="display:flex;gap:8px">
-      <button id="t-save-discard" class="btn" style="flex:1;background:var(--surface-alt);color:var(--muted-fg)">Discard</button>
-      <button id="t-save-btn" class="btn btn-primary" style="flex:1">Save Activity</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="t-save-discard" class="btn" style="flex:1;min-width:90px;background:var(--surface-alt);color:var(--muted-fg)">Discard</button>
+      ${continueBtn}
+      <button id="t-save-btn" class="btn btn-primary" style="flex:1;min-width:90px">${c.gym ? 'Finish & save' : 'Save activity'}</button>
     </div>
   </div>`;
   overlay.appendChild(saveDiv);
@@ -533,18 +583,40 @@ function showSaveScreen() {
   });
 
   document.getElementById('t-save-discard')?.addEventListener('click', () => closeActivityTracker());
+
+  // Continue Session — drop the save screen, reset the per-exercise state,
+  // and return to the Gym setup form so the user can log the next exercise
+  // without writing a Firestore doc yet. The accumulated gymSessionLog
+  // persists across continues; only the final "Finish & save" writes.
+  document.getElementById('t-save-continue')?.addEventListener('click', () => {
+    saveDiv.remove();
+    state = 'idle';
+    positions = [];
+    elapsedAtPause = 0;
+    startTime = null;
+    stepsAtStart = null;
+    gymSetup = null;
+    gymPaintedSetup = false;
+    paintBody();
+    paintControls();
+  });
+
   document.getElementById('t-save-btn')?.addEventListener('click', async () => {
-    const defaultName = c.gym && gymSetup
-      ? gymSetup.exercise
+    const defaultName = c.gym
+      ? (gymSessionLog.length > 1 ? 'Gym Session' : (gymSessionLog[0]?.exercise || 'Gym Session'))
       : { hpv: 'HPV Session', ride: 'Ride', run: 'Run', walk: 'Walk', treadmill: 'Treadmill', gym: 'Gym Session' }[type] || 'Workout';
     const name = (document.getElementById('t-save-name')?.value || '').trim() || defaultName;
     const path = c.map
       ? positions.filter((_, i) => i % 3 === 0 || i === positions.length - 1).map(p => [parseFloat(p.lat.toFixed(5)), parseFloat(p.lng.toFixed(5))])
       : [];
     const workoutId = 'trk-' + Date.now();
+    const totalGymSec = gymSessionLog.reduce((s, e) => s + (e.durationSec || 0), 0);
+    const totalDurationMin = c.gym
+      ? Math.max(1, Math.round(totalGymSec / 60))
+      : mins;
     const workout = {
       name,
-      duration: mins,
+      duration: totalDurationMin,
       date: new Date(),
       type,
       distance: c.distance ? parseFloat(dist.toFixed(2)) : null,
@@ -555,8 +627,18 @@ function showSaveScreen() {
       gpsPoints: c.map ? positions.length : 0,
       source: 'tracker',
     };
-    if (c.gym && gymSetup) {
-      workout.gym = { exercise: gymSetup.exercise, mode: gymSetup.mode, value: gymSetup.value };
+    if (c.gym) {
+      workout.gym = {
+        exercises: gymSessionLog.map(e => ({
+          exercise: e.exercise,
+          mode: e.mode,
+          target: e.target,
+          durationSec: e.durationSec,
+          heartRate: e.heartRate,
+        })),
+        // Convenience for older list views that read a single 'exercise'.
+        exercise: gymSessionLog.length === 1 ? gymSessionLog[0].exercise : null,
+      };
     }
     if (path.length > 1) {
       try {
@@ -585,7 +667,7 @@ export function closeActivityTracker() {
   teardownLiveListeners();
   if (map) { try { map.remove(); } catch(_) {} map = null; }
   polyline = null; marker = null; state = 'idle';
-  positions = []; stepsAtStart = null; gymSetup = null;
+  positions = []; stepsAtStart = null; gymSetup = null; gymSessionLog = [];
   const overlay = document.getElementById('tracker-overlay');
   if (overlay) overlay.remove();
 }
@@ -636,9 +718,30 @@ export function openActivityDetail(workoutIdx) {
     html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center"><div style="font-size:14px;font-weight:700;color:${zone.color}">${zone.name}</div><div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">HR Zone</div></div>`;
   }
   if (w.rpe) html += stat(w.rpe + '/10', 'RPE', 'var(--fg)');
-  if (w.gym?.exercise) html += stat(escHtml(w.gym.exercise), 'Exercise', 'var(--fg)');
+  if (w.gym?.exercise && (!Array.isArray(w.gym?.exercises) || w.gym.exercises.length <= 1)) {
+    html += stat(escHtml(w.gym.exercise), 'Exercise', 'var(--fg)');
+  }
   if (w.duration && w.distance && w.distance > 0) html += stat((w.duration / w.distance).toFixed(1), 'Min/km', 'var(--fg)');
   html += '</div>';
+
+  // Gym exercise list — multi-exercise sessions get a vertical list with
+  // exercise name + target + duration + HR per row.
+  if (Array.isArray(w.gym?.exercises) && w.gym.exercises.length > 0) {
+    html += '<div class="gym-detail-list">';
+    html += '<div class="gym-detail-h">Session</div>';
+    w.gym.exercises.forEach((e, i) => {
+      const target = e.mode === 'reps' ? (e.target + ' reps') : fmtElapsedSec(e.target);
+      const dur = fmtElapsedSec(e.durationSec || 0);
+      html += `<div class="gym-detail-row">
+        <span class="gym-detail-num">${i + 1}</span>
+        <div class="gym-detail-body">
+          <div class="gym-detail-name">${escHtml(e.exercise || 'Exercise')}</div>
+          <div class="gym-detail-meta">${escHtml(target)} · ${escHtml(dur)}${e.heartRate ? ' · ' + e.heartRate + ' bpm' : ''}</div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
   const src = w.source === 'strava'
     ? '<svg viewBox="0 0 24 24" fill="currentColor" style="width:13px;height:13px;vertical-align:-2px"><path d="M16.5 13.4l-2.6 5.2-2.6-5.2H8.7L13.9 24l5.2-10.6h-2.6zM8 0L1.4 13.4h4l2.6-5.2 2.6 5.2H15L8 0z"/></svg> Synced from Strava'
     : w.source === 'tracker'
