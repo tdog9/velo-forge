@@ -526,6 +526,9 @@ function makePlan({ id, category, yearLevel, tier, name, description, durationWe
 //   Y12    → 5 sessions/week, 2 weeks, 1-2 max sessions
 
 const BIKE_SCHEDULES = {
+  // Y7-Y8: easy to moderate ONLY per the year-level guideline. No hard /
+  // race-pace / VO2 / threshold sessions at this age. Build the habit
+  // and the position before chasing intensity.
   Y7_basic: [
     [ { day: 'Mon', key: 'recovery_short' }, { day: 'Thu', key: 'cadence_drills' } ],
     [ { day: 'Mon', key: 'cadence_drills' }, { day: 'Thu', key: 'endurance_short' } ],
@@ -536,7 +539,7 @@ const BIKE_SCHEDULES = {
   ],
   Y7_intense: [
     [ { day: 'Mon', key: 'cadence_drills' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Sat', key: 'tempo_block' } ],
-    [ { day: 'Mon', key: 'cadence_drills' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Sat', key: 'race_pace_3x8' } ],
+    [ { day: 'Mon', key: 'cadence_drills' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Sat', key: 'tempo_block' } ],
   ],
   Y8_basic: [
     [ { day: 'Mon', key: 'cadence_drills' }, { day: 'Thu', key: 'endurance_short' } ],
@@ -544,11 +547,11 @@ const BIKE_SCHEDULES = {
   ],
   Y8_average: [
     [ { day: 'Mon', key: 'cadence_drills' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Sat', key: 'tempo_block' } ],
-    [ { day: 'Mon', key: 'cadence_drills' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Sat', key: 'race_pace_3x8' } ],
+    [ { day: 'Mon', key: 'cadence_drills' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Sat', key: 'tempo_block' } ],
   ],
   Y8_intense: [
-    [ { day: 'Mon', key: 'sweet_spot_4x9' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Sat', key: 'race_pace_3x8' } ],
-    [ { day: 'Mon', key: 'tempo_block' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Fri', key: 'starts_drill' }, { day: 'Sat', key: 'race_simulation' } ],
+    [ { day: 'Mon', key: 'cadence_drills' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Fri', key: 'tempo_block' }, { day: 'Sat', key: 'recovery_25' } ],
+    [ { day: 'Mon', key: 'tempo_block' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Fri', key: 'cadence_drills' }, { day: 'Sat', key: 'endurance_long' } ],
   ],
   Y9_basic: [
     [ { day: 'Mon', key: 'recovery_25' }, { day: 'Wed', key: 'endurance_short' }, { day: 'Sat', key: 'tempo_block' } ],
@@ -601,6 +604,8 @@ const BIKE_SCHEDULES = {
 };
 
 const FLOOR_SCHEDULES = {
+  // Y7-Y8 floor: easy/moderate only. No core_advanced, plyo, hill_sim,
+  // legs_strength, intervals_floor (all 'hard' in the session library).
   Y7_basic: [
     [ { day: 'Mon', key: 'mobility_short' }, { day: 'Thu', key: 'core_basic' } ],
     [ { day: 'Mon', key: 'core_basic' }, { day: 'Thu', key: 'full_body' } ],
@@ -610,8 +615,8 @@ const FLOOR_SCHEDULES = {
     [ { day: 'Mon', key: 'legs_endurance' }, { day: 'Wed', key: 'core_basic' }, { day: 'Sat', key: 'recovery_floor' } ],
   ],
   Y7_intense: [
-    [ { day: 'Mon', key: 'legs_strength' }, { day: 'Wed', key: 'core_basic' }, { day: 'Fri', key: 'full_body' }, { day: 'Sat', key: 'mobility_short' } ],
-    [ { day: 'Mon', key: 'glute_focus' }, { day: 'Wed', key: 'core_advanced' }, { day: 'Fri', key: 'plyo' }, { day: 'Sat', key: 'recovery_floor' } ],
+    [ { day: 'Mon', key: 'legs_endurance' }, { day: 'Wed', key: 'core_basic' }, { day: 'Fri', key: 'full_body' }, { day: 'Sat', key: 'mobility_short' } ],
+    [ { day: 'Mon', key: 'glute_focus' }, { day: 'Wed', key: 'core_basic' }, { day: 'Fri', key: 'technique_focus' }, { day: 'Sat', key: 'recovery_floor' } ],
   ],
   Y8_basic: [
     [ { day: 'Mon', key: 'core_basic' }, { day: 'Thu', key: 'full_body' } ],
@@ -619,11 +624,11 @@ const FLOOR_SCHEDULES = {
   ],
   Y8_average: [
     [ { day: 'Mon', key: 'legs_endurance' }, { day: 'Wed', key: 'core_basic' }, { day: 'Sat', key: 'full_body' } ],
-    [ { day: 'Mon', key: 'glute_focus' }, { day: 'Wed', key: 'core_advanced' }, { day: 'Sat', key: 'mobility_short' } ],
+    [ { day: 'Mon', key: 'glute_focus' }, { day: 'Wed', key: 'core_basic' }, { day: 'Sat', key: 'mobility_short' } ],
   ],
   Y8_intense: [
-    [ { day: 'Mon', key: 'legs_strength' }, { day: 'Wed', key: 'core_advanced' }, { day: 'Fri', key: 'full_body' }, { day: 'Sat', key: 'plyo' } ],
-    [ { day: 'Mon', key: 'glute_focus' }, { day: 'Wed', key: 'hill_simulation' }, { day: 'Fri', key: 'core_advanced' }, { day: 'Sat', key: 'recovery_floor' } ],
+    [ { day: 'Mon', key: 'legs_endurance' }, { day: 'Wed', key: 'core_basic' }, { day: 'Fri', key: 'full_body' }, { day: 'Sat', key: 'glute_focus' } ],
+    [ { day: 'Mon', key: 'glute_focus' }, { day: 'Wed', key: 'technique_focus' }, { day: 'Fri', key: 'core_basic' }, { day: 'Sat', key: 'recovery_floor' } ],
   ],
   Y9_basic: [
     [ { day: 'Mon', key: 'legs_endurance' }, { day: 'Wed', key: 'core_basic' }, { day: 'Sat', key: 'full_body' } ],
@@ -676,6 +681,9 @@ const FLOOR_SCHEDULES = {
 };
 
 const MACHINE_SCHEDULES = {
+  // Y7-Y8 machine: easy/moderate only. No leg_press/squat_strength/
+  // intervals_assault/threshold_machine/hill_machine (all 'hard').
+  // full_circuit is moderate, fine for these years.
   Y7_basic: [
     [ { day: 'Mon', key: 'recovery_machine' }, { day: 'Thu', key: 'endurance_bike' } ],
     [ { day: 'Mon', key: 'endurance_rower' }, { day: 'Thu', key: 'full_circuit' } ],
@@ -685,20 +693,20 @@ const MACHINE_SCHEDULES = {
     [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_rower' }, { day: 'Sat', key: 'recovery_machine' } ],
   ],
   Y7_intense: [
-    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_bike' }, { day: 'Fri', key: 'leg_press' }, { day: 'Sat', key: 'recovery_machine' } ],
-    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_rower' }, { day: 'Fri', key: 'hill_machine' }, { day: 'Sat', key: 'recovery_machine' } ],
+    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_bike' }, { day: 'Fri', key: 'full_circuit' }, { day: 'Sat', key: 'recovery_machine' } ],
+    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_rower' }, { day: 'Fri', key: 'endurance_bike' }, { day: 'Sat', key: 'recovery_machine' } ],
   ],
   Y8_basic: [
     [ { day: 'Mon', key: 'full_circuit' }, { day: 'Thu', key: 'endurance_bike' } ],
-    [ { day: 'Mon', key: 'leg_press' }, { day: 'Thu', key: 'endurance_rower' } ],
+    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Thu', key: 'endurance_rower' } ],
   ],
   Y8_average: [
-    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_bike' }, { day: 'Sat', key: 'leg_press' } ],
-    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_rower' }, { day: 'Sat', key: 'hill_machine' } ],
+    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_bike' }, { day: 'Sat', key: 'full_circuit' } ],
+    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_rower' }, { day: 'Sat', key: 'endurance_bike' } ],
   ],
   Y8_intense: [
-    [ { day: 'Mon', key: 'leg_press' }, { day: 'Wed', key: 'endurance_bike' }, { day: 'Fri', key: 'full_circuit' }, { day: 'Sat', key: 'recovery_machine' } ],
-    [ { day: 'Mon', key: 'squat_strength' }, { day: 'Wed', key: 'intervals_assault' }, { day: 'Fri', key: 'full_circuit' }, { day: 'Sat', key: 'recovery_machine' } ],
+    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_bike' }, { day: 'Fri', key: 'full_circuit' }, { day: 'Sat', key: 'recovery_machine' } ],
+    [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_rower' }, { day: 'Fri', key: 'full_circuit' }, { day: 'Sat', key: 'recovery_machine' } ],
   ],
   Y9_basic: [
     [ { day: 'Mon', key: 'full_circuit' }, { day: 'Wed', key: 'endurance_bike' }, { day: 'Sat', key: 'leg_press' } ],

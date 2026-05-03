@@ -1212,7 +1212,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r61';
+const APP_VERSION = '20260503-r62';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -2975,9 +2975,9 @@ function renderPlanRecommendation() {
     rec = ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier && p.id !== activePlanId);
   }
   if (!rec) return '';
-  const catLabels = { bike: 'Bike', floor: '🏠 Floor & Home', machine: '🏋️ Machine' };
+  const catLabels = { bike: 'Bike', floor: 'Floor & Home', machine: 'Machine' };
   let html = '<div class="plan-rec-card">';
-  html += '<div class="plan-rec-title">' + (activePlanId ? '🎉 Plan complete! Try next:' : '📋 Recommended for you:') + '</div>';
+  html += '<div class="plan-rec-title">' + (activePlanId ? 'Plan complete! Try next:' : 'Recommended for you:') + '</div>';
   html += '<div class="plan-rec-name">' + escHtml(rec.name) + '</div>';
   html += '<div class="plan-rec-desc">' + (catLabels[rec.category] || '') + ' · ' + rec.yearLevel + ' · ' + capitalize(rec.tier) + ' · ' + rec.durationWeeks + ' weeks</div>';
   html += '<button class="plan-rec-btn" data-rec-plan="' + rec.id + '">Start This Plan</button>';
@@ -3378,14 +3378,15 @@ function renderToday() {
   const lastRoute = lastRouteId ? storedRoutes[lastRouteId] : null;
   const hasLastRoute = lastRoute && lastRoute.length > 1;
   if (isToday && lastActivity) {
-    const typeIcons = {hpv:'🏎️',ride:'🚴',run:'🏃',treadmill:'🏃‍♂️',walk:'🚶',gym:'🏋️',HPR:'🏎️',Ride:'🚴',Run:'🏃',Treadmill:'🏃‍♂️',Strength:'🏋️',Cardio:'❤️',Flexibility:'🧘'};
     html += `<div class="card" style="margin-top:10px;overflow:hidden">`;
     if (hasLastRoute) html += `<div class="activity-map-thumb" id="today-route-map" data-route-id="${lastRouteId}" style="height:120px;margin:0;border-radius:0"></div>`;
-    html += `<div class="card-pad" style="padding:8px 12px"><div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:18px">${typeIcons[lastActivity.type] || '🏋️'}</span>
-      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${escHtml(lastActivity.name || 'Workout')}</div>
-      <div style="font-size:11px;color:var(--muted-fg)">${lastActivity.duration ? lastActivity.duration + 'min' : ''}${lastActivity.distance ? ' · ' + lastActivity.distance + 'km' : ''}</div></div>
-      <div style="font-size:10px;font-weight:600;color:var(--primary);background:rgba(var(--primary-rgb),.1);padding:2px 8px;border-radius:6px">TODAY</div>
+    html += `<div class="card-pad" style="padding:10px 12px"><div style="display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:8px;background:rgba(var(--primary-rgb),.12);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(lastActivity.name || 'Workout')}</div>
+      <div style="font-size:11px;color:var(--muted-fg)">${lastActivity.duration ? lastActivity.duration + ' min' : ''}${lastActivity.distance ? ' · ' + lastActivity.distance + ' km' : ''}</div></div>
+      <div style="font-size:10px;font-weight:700;color:var(--primary);background:rgba(var(--primary-rgb),.1);padding:3px 8px;border-radius:6px;letter-spacing:.04em">TODAY</div>
     </div></div></div>`;
   }
   // Race countdown (compact, only next race)
@@ -6514,11 +6515,13 @@ function renderTeam() {
         };
         const startSubscribe = () => {
           subscribeTeamChat(userProfile.teamId, () => {
-            // Successful snapshot — clear error banner + flip pill to Live.
+            // Successful snapshot — clear error banner, refresh the list,
+            // then flip pill to Live AFTER refresh so a re-render of the
+            // panel can't reset the pill back to 'Connecting'.
             const errBox = document.getElementById('team-chat-error');
             if (errBox && !errBox.hidden) { errBox.textContent = ''; errBox.hidden = true; }
-            setStatus('live', 'Live');
             if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
+            setStatus('live', 'Live');
           }, async (err) => {
             const errBox = document.getElementById('team-chat-error');
             const code = err?.code || '';
@@ -9726,7 +9729,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r61';
+  const APP_VERSION = '20260503-r62';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
