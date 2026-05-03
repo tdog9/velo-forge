@@ -261,6 +261,11 @@ function finishCurrentSet() {
     return;
   }
   // Last set of this exercise — break before the next exercise (if any).
+  // CRITICAL: bump timerCurrentSet past totalSets so afterBreakAdvance's
+  // `timerCurrentSet >= totalSets` check fires and rolls onto the next
+  // exercise. Without this, the break-then-advance path looped back into
+  // the same exercise forever.
+  timerCurrentSet++;
   const next = timerExercises[timerCurrentStep + 1];
   if (next) {
     const breakSec = parseExerciseBreakSec(ex);

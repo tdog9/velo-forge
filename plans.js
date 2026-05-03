@@ -763,16 +763,26 @@ const MACHINE_SCHEDULES = {
 // Generated below for each category.
 // ─────────────────────────────────────────────────────────────────────────
 
-const TIER_BLURB = {
-  basic: 'Starting out. Shorter sessions, more rest, technique over load. Build the habit before chasing intensity.',
-  average: 'Solid base in place. Standard race-prep loads — real challenge, real adaptation across two weeks.',
-  intense: 'Race-focused build. Higher loads, longer sessions, less rest. Designed for athletes who want to win on race day.',
-};
-
-const CAT_BLURB = {
-  bike: 'On the HPR (or a stationary trainer with a fan). Stint-paced training built for closed-circuit relay racing.',
-  floor: 'Bodyweight at home — no gym needed. Most riders do most of their training here. Built around the muscles HPR actually uses: glutes, quads, posterior chain, core.',
-  machine: 'Gym session on machines (leg press, rowing erg, spin bike, elliptical). Race-day strength + cardio when you have access to a fitness room.',
+// Per-(category × tier) plan names + descriptions. Each combination gets
+// a distinctive title and a description that highlights what that
+// specific plan focuses on, so the plans list doesn't read as 54 copies
+// of the same template with year-numbers swapped.
+const PLAN_META = {
+  bike: {
+    basic:   { name: 'Bike · Foundation',     desc: 'Easy spinning, cadence drills, smooth pedal circles. Build the recumbent position and the habit before chasing intensity. Mostly easy/moderate efforts.' },
+    average: { name: 'Bike · Race Conditioning', desc: 'Race-prep block with stint-pace pyramids, surge drills, sweet-spot work, and a race-day simulation. Polarised 80/20 — most easy, some genuinely hard.' },
+    intense: { name: 'Bike · Race Build',     desc: 'Race-week build for athletes who want to win. Higher volume, threshold + VO2 work, race-pace stints, pit-out starts, full race simulation. Recovery days are non-negotiable.' },
+  },
+  floor: {
+    basic:   { name: 'Floor · Foundations',   desc: 'Bodyweight basics — core bracing, glute activation, mobility flow. Learn the patterns before adding load. Done at home, no equipment.' },
+    average: { name: 'Floor · Strength + Mobility', desc: 'Glute focus, leg endurance circuits, core work, plyometrics for accelerations, plus mobility to counter recumbent-position tightness. Solid race-prep loads.' },
+    intense: { name: 'Floor · Race Power',    desc: 'High-volume bodyweight strength + plyometrics for race-winning leg power. Hill simulation, intervals, advanced core. Built for athletes who train mostly at home.' },
+  },
+  machine: {
+    basic:   { name: 'Machine · Gym Habit',   desc: 'Easy circuits + steady cardio (rower, spin bike). Learn the machines and build the gym habit. Quality reps, no heavy load yet.' },
+    average: { name: 'Machine · Strength + Cardio', desc: 'Leg press, full-body circuits, threshold rides, hill machine work. Race-day strength for athletes with gym access.' },
+    intense: { name: 'Machine · Race Power',  desc: 'Heavy leg work (squat rack + leg press), assault-bike intervals, threshold blocks, hill simulation. The heaviest race-power option in the program.' },
+  },
 };
 
 const CAT_NAME = { bike: 'Bike', floor: 'Floor & Home', machine: 'Machine' };
@@ -781,11 +791,12 @@ function planFor(category, yearLevel, tier) {
   const sched = ({ bike: BIKE_SCHEDULES, floor: FLOOR_SCHEDULES, machine: MACHINE_SCHEDULES })[category][yearLevel + '_' + tier];
   const lib = ({ bike: BIKE_SESSIONS, floor: FLOOR_SESSIONS, machine: MACHINE_SESSIONS })[category];
   const sessions = sched.reduce((s, w) => s + w.length, 0);
+  const meta = PLAN_META[category][tier];
   return makePlan({
     id: `${category}-${yearLevel.toLowerCase()}-${tier}`,
     category, yearLevel, tier,
-    name: `${yearLevel} ${CAT_NAME[category]} · ${tier[0].toUpperCase() + tier.slice(1)}`,
-    description: `${TIER_BLURB[tier]} ${CAT_BLURB[category]}`,
+    name: `${yearLevel} · ${meta.name}`,
+    description: meta.desc,
     durationWeeks: sched.length,
     sessionsPerWeek: Math.round(sessions / sched.length),
     schedule: sched,

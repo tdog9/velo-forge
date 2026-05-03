@@ -1212,7 +1212,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r63';
+const APP_VERSION = '20260503-r64';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6503,16 +6503,48 @@ function renderTeam() {
       // the user is typing into the textarea. Was previously calling
       // renderTeamChatPanelInto on every snapshot, which re-built the
       // whole panel (composer included) and thrashed the input.
+      // Status pill helper — reachable whether or not we end up subscribing.
+      const setStatus = (state, label) => {
+        const pill = document.getElementById('chat-status-pill');
+        if (!pill) return;
+        pill.classList.remove('chat-status-connecting', 'chat-status-live', 'chat-status-error');
+        pill.classList.add('chat-status-' + state);
+        const lbl = pill.querySelector('.chat-status-label');
+        if (lbl) lbl.textContent = label;
+      };
+      // Surface the *actual* reason the chat isn't connecting instead of
+      // leaving the pill stuck on "Connecting…" forever. Three scenarios:
+      //   1. teamchat.js failed to load → subscribeTeamChat is the noop stub
+      //   2. userProfile.teamId not loaded yet → schedule a retry once it lands
+      //   3. user has no team → flip pill to a clear "No team" state
+      if (typeof subscribeTeamChat !== 'function' || subscribeTeamChat.toString().includes('async () => false')) {
+        setStatus('error', 'Chat module unavailable');
+      } else if (!userProfile?.teamId) {
+        // Wait briefly for the profile listener to populate teamId, then re-evaluate.
+        setStatus('connecting', 'Waiting for profile…');
+        const retry = setInterval(() => {
+          if (currentPage !== 'team' || lbSubTab !== 'chat') { clearInterval(retry); return; }
+          if (userProfile?.teamId) {
+            clearInterval(retry);
+            setLbSubTab('chat'); // re-enter the branch below now that teamId exists
+          }
+        }, 800);
+        // Cap the wait at 15s so the pill flips to a clear "No team" state if
+        // the profile genuinely doesn't carry a teamId.
+        setTimeout(() => {
+          if (!userProfile?.teamId && currentPage === 'team' && lbSubTab === 'chat') {
+            clearInterval(retry);
+            setStatus('error', 'No team yet');
+            const errBox = document.getElementById('team-chat-error');
+            if (errBox) {
+              errBox.textContent = 'You\'re not in a team yet. Join one from the Team tab to start chatting.';
+              errBox.hidden = false;
+            }
+          }
+        }, 15000);
+      }
       if (userProfile?.teamId && typeof subscribeTeamChat === 'function') {
         let healAttempted = false;
-        const setStatus = (state, label) => {
-          const pill = document.getElementById('chat-status-pill');
-          if (!pill) return;
-          pill.classList.remove('chat-status-connecting', 'chat-status-live', 'chat-status-error');
-          pill.classList.add('chat-status-' + state);
-          const lbl = pill.querySelector('.chat-status-label');
-          if (lbl) lbl.textContent = label;
-        };
         const startSubscribe = () => {
           subscribeTeamChat(userProfile.teamId, () => {
             // Successful snapshot — clear error banner, refresh the list,
@@ -9434,10 +9466,10 @@ async function loadUserProfile(uid) {
       // until a manual page reload. So an admin's plan reassignment, a
       // co-coach promotion, even renaming the team didn't reflect on
       // the user's open session.
+      // Coach Pro paywall was removed — no longer watching coachPro* keys.
       const importantKeys = [
         'health', 'activePlanId', 'teamId', 'teamName', 'displayName',
         'isCoach', 'yearLevel', 'fitnessLevel', 'role',
-        'coachProActive', 'coachProExempt', 'coachProRequestStatus',
         'notificationPrefs', 'tutorialSeen',
       ];
       const oldKey = importantKeys.map(k => JSON.stringify(userProfile?.[k] ?? null)).join('|');
@@ -9729,7 +9761,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r63';
+  const APP_VERSION = '20260503-r64';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
