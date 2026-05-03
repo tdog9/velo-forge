@@ -14,7 +14,7 @@
 <meta property="og:url" content="https://turboprep.app">
 <title>TurboPrep — HPR Training</title>
 <script>
-(function(){var VER='3.5.67-r57',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
+(function(){var VER='3.5.68-r58',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
 </script>
 <script>
 (function(){
@@ -354,6 +354,29 @@
     </div>
     <div id="timer-label" class="timer-label"></div>
     <div id="timer-progress-wrap" class="timer-progress-wrap"><div id="timer-progress" class="timer-progress"></div></div>
+
+    <!-- Reps counter UI — shown for reps-mode exercises in lieu of the
+         countdown. Big +1 tap target, current/target indicator, "Done set"
+         to manually advance, and an "Undo" if the user over-taps. -->
+    <div id="timer-reps" class="timer-reps" style="display:none">
+      <div class="timer-reps-row">
+        <div class="timer-reps-count" id="timer-reps-count">0</div>
+        <div class="timer-reps-target">/ <span id="timer-reps-target">10</span></div>
+      </div>
+      <button id="timer-reps-tap" class="timer-reps-tap">Tap to count</button>
+      <div class="timer-reps-actions">
+        <button id="timer-reps-undo" class="timer-reps-undo">Undo</button>
+        <button id="timer-reps-done" class="timer-reps-done">Done set</button>
+      </div>
+    </div>
+
+    <!-- Break banner — shown between sets / exercises while the rest
+         timer ticks down. Skips itself when the user taps "Skip break". -->
+    <div id="timer-break" class="timer-break" style="display:none">
+      <div class="timer-break-tag">BREAK</div>
+      <div id="timer-break-next" class="timer-break-next">Next: …</div>
+    </div>
+
     <div class="timer-controls">
       <button id="timer-reset" class="timer-ctrl-btn timer-ctrl-secondary" aria-label="Reset">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
@@ -366,6 +389,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
       </button>
     </div>
+
+    <!-- Coaching summary line — what the athlete should be focused on
+         right now. Pulled from the workout / exercise description. -->
+    <div id="timer-coach" class="timer-coach"></div>
+
     <div id="timer-rest-presets" class="timer-rest-presets">
       <div class="timer-rest-label">Quick Rest</div>
       <div class="timer-rest-btns">
@@ -420,6 +448,6 @@ if(window.location.search.includes('nuke=true')){
   Promise.all(p).then(function(){setTimeout(function(){window.location.href=window.location.pathname;},1500)}).catch(function(){setTimeout(function(){window.location.href=window.location.pathname;},1500)});
 }
 </script>
-<script type="module" src="app.js?v=3.5.67-r57"></script>
+<script type="module" src="app.js?v=3.5.68-r58"></script>
 </body>
 </html>

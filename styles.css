@@ -627,6 +627,51 @@ select.input{
 .timer-step-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .timer-step-meta{font-size:11px;color:var(--muted-fg)}
 .timer-running .timer-digits{color:var(--primary)}
+.timer-step-set{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--primary);background:rgba(var(--primary-rgb),.12);padding:2px 6px;border-radius:99px;margin-left:6px;vertical-align:middle}
+
+/* Reps mode — replaces the countdown when an exercise is rep-driven. */
+.timer-reps{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:360px;padding:8px 0}
+.timer-reps-row{display:flex;align-items:baseline;gap:6px;font-variant-numeric:tabular-nums}
+.timer-reps-count{font-size:84px;font-weight:800;line-height:1;color:var(--primary)}
+.timer-reps-target{font-size:28px;color:var(--muted-fg);font-weight:700}
+.timer-reps-tap{
+  width:100%;padding:18px;border:none;border-radius:18px;
+  background:linear-gradient(180deg,var(--primary),#c2410c);
+  color:var(--primary-fg);font-size:18px;font-weight:800;letter-spacing:.02em;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  box-shadow:0 8px 22px rgba(var(--primary-rgb),.35);
+  transition:transform .1s, box-shadow .1s;
+}
+.timer-reps-tap:active{transform:scale(.97);box-shadow:0 4px 12px rgba(var(--primary-rgb),.30)}
+.timer-reps-actions{display:flex;gap:8px;width:100%}
+.timer-reps-undo, .timer-reps-done{
+  flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;
+  background:var(--card);border:1px solid var(--border);color:var(--fg);
+}
+.timer-reps-done{background:rgba(var(--success-rgb),.10);border-color:rgba(var(--success-rgb),.40);color:var(--success)}
+.timer-reps-undo{color:var(--muted-fg)}
+
+/* Break banner — sits between sets / exercises. */
+.timer-break{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  width:100%;max-width:360px;
+  padding:10px 14px;margin-top:10px;
+  background:linear-gradient(180deg,rgba(var(--warning-rgb),.12),rgba(var(--warning-rgb),.04));
+  border:1px solid rgba(var(--warning-rgb),.30);border-radius:12px;
+}
+.timer-break-tag{font-size:10.5px;font-weight:800;letter-spacing:.10em;color:var(--warning);text-transform:uppercase}
+.timer-break-next{font-size:13px;color:var(--fg);font-weight:600}
+
+/* Coaching summary line — what to focus on right now. */
+.timer-coach{
+  width:100%;max-width:360px;
+  margin-top:10px;padding:11px 14px;
+  background:rgba(var(--primary-rgb),.05);
+  border:1px solid rgba(var(--primary-rgb),.20);
+  border-radius:10px;
+  font-size:12.5px;line-height:1.45;color:#cfd1d6;text-align:center;
+}
+.timer-coach:empty{display:none}
 
 /* ===== Profile Overlay ===== */
 .profile-overlay{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--safe-t)}

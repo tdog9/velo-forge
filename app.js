@@ -1212,7 +1212,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r57';
+const APP_VERSION = '20260503-r58';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -3724,8 +3724,21 @@ function renderToday() {
       haptic('light');
       const name = btn.dataset.timerName;
       const dur = parseInt(btn.dataset.timerDur) || 30;
+      const desc = btn.dataset.timerDesc || '';
       let exercises = [];
       try { exercises = JSON.parse(btn.dataset.timerExercises || '[]'); } catch(e) {}
+      // If a plan workout doesn't ship a structured exercises[] (most of
+      // ours don't — they describe the session in prose), parse the
+      // description on the fly so the timer can step the athlete through
+      // it instead of just running a single dumb countdown.
+      if ((!exercises || exercises.length === 0) && desc) {
+        try { exercises = parseExercisesFromDesc(desc, name, dur); } catch(_) {}
+      }
+      // Surface the workout's overall description as fallback coach copy
+      // on every exercise that doesn't have its own `notes`.
+      if (Array.isArray(exercises) && desc) {
+        exercises = exercises.map(ex => ex.notes ? ex : { ...ex, notes: desc });
+      }
       openWorkoutTimer(name, dur, exercises);
     });
   });
@@ -3918,9 +3931,9 @@ function renderChecklistItem(workout, key, isChecked) {
         <div class="cl-meta">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           ${workout.duration} min${workout.scaled ? ' <span style="font-size:9px;color:var(--primary)">(of ' + workout.originalDuration + ')</span>' : ''} · Week ${workout.week}
-          <button class="cl-timer-btn" data-timer-name="${escHtml(workout.name)}" data-timer-dur="${workout.duration || 30}" data-timer-exercises='${workout.exercises ? JSON.stringify(workout.exercises).replace(/'/g,"&#39;") : "[]"}'>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Timer
+          <button class="cl-timer-btn" data-timer-name="${escHtml(workout.name)}" data-timer-dur="${workout.duration || 30}" data-timer-desc="${escHtml(workout.description || '')}" data-timer-exercises='${workout.exercises ? JSON.stringify(workout.exercises).replace(/'/g,"&#39;") : "[]"}'>
+            <svg viewBox="0 0 24 24" fill="currentColor" style="width:11px;height:11px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Start session
           </button>
         </div>
       </div>
@@ -9692,7 +9705,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r57';
+  const APP_VERSION = '20260503-r58';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

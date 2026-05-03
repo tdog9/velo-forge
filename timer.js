@@ -1,38 +1,11 @@
 // TurboPrep Workout Timer Module
+//
+// Drives the in-app session player: progresses through a list of exercises,
+// each with one or more sets; auto-starts a break between sets and between
+// exercises; supports both reps mode (tap to count) and time mode (countdown).
+
 import { escHtml } from './state.js';
 let A = { $: (id) => document.getElementById(id) };
-export function initTimer(ctx) {
-  A = ctx;
-  // Bind timer controls after context is available
-  A.$('timer-close')?.addEventListener('click', closeWorkoutTimer);
-  A.$('timer-play')?.addEventListener('click', () => {
-    A.haptic('light');
-    if (timerRunning) pauseTimer();
-    else startTimer();
-  });
-  A.$('timer-reset')?.addEventListener('click', () => {
-    A.haptic('light');
-    resetTimer();
-  });
-  A.$('timer-skip')?.addEventListener('click', () => {
-    A.haptic('light');
-    if (timerExercises.length > 0 && timerCurrentStep < timerExercises.length - 1) {
-      advanceTimerStep();
-    } else {
-      stopTimer();
-      A.$('timer-label').textContent = 'Complete!';
-      playBeep(880, 0.2, 2);
-    }
-  });
-  document.querySelectorAll('.timer-rest-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      A.haptic('light');
-      const sec = parseInt(btn.dataset.rest);
-      setTimerDuration(sec, 'Rest');
-      startTimer();
-    });
-  });
-}
 
 let timerInterval = null;
 let timerSeconds = 0;
@@ -40,7 +13,66 @@ let timerTotal = 0;
 let timerRunning = false;
 let timerExercises = [];
 let timerCurrentStep = -1;
-let timerWakeLock = null; // Retained sentinel so GC can't release the lock mid-workout.
+let timerCurrentSet = 0;          // 0-based within the active exercise
+let timerWakeLock = null;
+let timerMode = 'idle';           // 'idle' | 'time' | 'reps' | 'break'
+let timerRepsCount = 0;
+let timerRepsTarget = 0;
+let timerCoachText = '';
+
+// Default break between sets / exercises if the plan doesn't specify one.
+const DEFAULT_BREAK_SEC = 30;
+
+export function initTimer(ctx) {
+  A = ctx;
+  A.$('timer-close')?.addEventListener('click', closeWorkoutTimer);
+  A.$('timer-play')?.addEventListener('click', () => {
+    A.haptic?.('light');
+    if (timerRunning) pauseTimer();
+    else startTimer();
+  });
+  A.$('timer-reset')?.addEventListener('click', () => {
+    A.haptic?.('light');
+    resetTimer();
+  });
+  A.$('timer-skip')?.addEventListener('click', () => {
+    A.haptic?.('light');
+    advanceFromCurrent();
+  });
+  document.querySelectorAll('.timer-rest-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      A.haptic?.('light');
+      const sec = parseInt(btn.dataset.rest);
+      enterTimeMode(sec, 'Rest', 'Catch your breath, then keep going.');
+      startTimer();
+    });
+  });
+  // Reps counter buttons.
+  A.$('timer-reps-tap')?.addEventListener('click', () => {
+    if (timerMode !== 'reps') return;
+    timerRepsCount++;
+    A.haptic?.('light');
+    paintRepsCount();
+    if (timerRepsTarget > 0 && timerRepsCount >= timerRepsTarget) {
+      // Auto-complete set when target hit.
+      playBeep(880, 0.18, 2);
+      A.haptic?.('medium');
+      finishCurrentSet();
+    }
+  });
+  A.$('timer-reps-undo')?.addEventListener('click', () => {
+    if (timerMode !== 'reps' || timerRepsCount <= 0) return;
+    timerRepsCount--;
+    paintRepsCount();
+  });
+  A.$('timer-reps-done')?.addEventListener('click', () => {
+    if (timerMode !== 'reps') return;
+    A.haptic?.('medium');
+    finishCurrentSet();
+  });
+}
+
+// ── Audio + display helpers ──────────────────────────────────────────────
 
 function playBeep(freq, dur, count) {
   try {
@@ -63,8 +95,6 @@ function playBeep(freq, dur, count) {
 }
 
 function updateTimerDisplay() {
-  // Guard: if the overlay was removed while an interval was still firing,
-  // bail out rather than crashing on null .textContent / .classList access.
   const overlay = A.$('timer-overlay');
   if (!overlay) return;
   const mins = Math.floor(timerSeconds / 60);
@@ -78,21 +108,56 @@ function updateTimerDisplay() {
   overlay.classList.toggle('timer-running', timerRunning);
 }
 
+function paintRepsCount() {
+  const el = A.$('timer-reps-count');
+  if (el) el.textContent = String(timerRepsCount);
+}
+
+function paintCoach(text) {
+  timerCoachText = text || '';
+  const el = A.$('timer-coach');
+  if (el) {
+    el.textContent = timerCoachText;
+    el.style.display = timerCoachText ? '' : 'none';
+  }
+}
+
+function setMode(mode) {
+  timerMode = mode;
+  const display = A.$('timer-display');
+  const reps = A.$('timer-reps');
+  const breakEl = A.$('timer-break');
+  const progress = A.$('timer-progress-wrap');
+  const skipBtn = A.$('timer-skip');
+  // Show/hide UI groups based on the active mode.
+  const isReps = mode === 'reps';
+  const isBreak = mode === 'break';
+  if (display) display.style.display = isReps ? 'none' : '';
+  if (reps) reps.style.display = isReps ? '' : 'none';
+  if (breakEl) breakEl.style.display = isBreak ? '' : 'none';
+  if (progress) progress.style.display = isReps ? 'none' : '';
+  if (skipBtn) skipBtn.style.display = isReps ? 'none' : '';
+}
+
+// ── Core timer loop ──────────────────────────────────────────────────────
+
 function timerTick() {
   if (timerSeconds <= 0) {
     stopTimer();
     playBeep(880, 0.2, 3);
-    A.haptic('medium');
+    A.haptic?.('medium');
     A.$('timer-label').textContent = 'Done!';
-    // Auto-advance to next step if in exercise mode
-    if (timerExercises.length > 0 && timerCurrentStep < timerExercises.length - 1) {
-      setTimeout(() => advanceTimerStep(), 1000);
+    // Time mode: a set finished. Roll into the post-set flow (break +
+    // next set / exercise). Break mode just advances directly.
+    if (timerMode === 'time') {
+      setTimeout(() => finishCurrentSet(), 800);
+    } else if (timerMode === 'break') {
+      setTimeout(() => afterBreakAdvance(), 600);
     }
     return;
   }
   timerSeconds--;
   updateTimerDisplay();
-  // Warning beep at 3, 2, 1
   if (timerSeconds <= 3 && timerSeconds > 0) {
     playBeep(660, 0.1, 1);
   }
@@ -111,8 +176,8 @@ function pauseTimer() {
   timerRunning = false;
   clearInterval(timerInterval);
   timerInterval = null;
-  A.$('timer-play-icon').style.display = '';
-  A.$('timer-pause-icon').style.display = 'none';
+  const playIc = A.$('timer-play-icon'); if (playIc) playIc.style.display = '';
+  const pauseIc = A.$('timer-pause-icon'); if (pauseIc) pauseIc.style.display = 'none';
   updateTimerDisplay();
 }
 
@@ -125,53 +190,170 @@ function stopTimer() {
 function resetTimer() {
   pauseTimer();
   timerSeconds = timerTotal;
-  A.$('timer-progress').style.width = '0%';
+  const p = A.$('timer-progress'); if (p) p.style.width = '0%';
   updateTimerDisplay();
 }
 
-function setTimerDuration(seconds, label) {
+function enterTimeMode(seconds, label, coach) {
+  setMode('time');
   pauseTimer();
   timerSeconds = seconds;
   timerTotal = seconds;
   A.$('timer-label').textContent = label || '';
-  A.$('timer-progress').style.width = '0%';
+  const p = A.$('timer-progress'); if (p) p.style.width = '0%';
+  paintCoach(coach || '');
   updateTimerDisplay();
 }
 
-function advanceTimerStep() {
-  timerCurrentStep++;
-  renderTimerSteps();
-  if (timerCurrentStep < timerExercises.length) {
-    const ex = timerExercises[timerCurrentStep];
-    const dur = parseExerciseDuration(ex);
-    setTimerDuration(dur, ex.name + (ex.sets ? ' · ' + ex.sets + ' sets' : ''));
-    startTimer();
+function enterRepsMode(target, label, coach) {
+  setMode('reps');
+  pauseTimer();
+  timerSeconds = 0;
+  timerTotal = 0;
+  timerRepsCount = 0;
+  timerRepsTarget = target || 0;
+  A.$('timer-label').textContent = label || '';
+  const t = A.$('timer-reps-target'); if (t) t.textContent = String(target || 0);
+  paintRepsCount();
+  paintCoach(coach || '');
+}
+
+function enterBreakMode(seconds, nextLabel) {
+  setMode('break');
+  pauseTimer();
+  timerSeconds = seconds;
+  timerTotal = seconds;
+  A.$('timer-label').textContent = 'Rest · ' + seconds + 's';
+  const next = A.$('timer-break-next');
+  if (next) next.textContent = 'Next: ' + (nextLabel || 'finish');
+  const p = A.$('timer-progress'); if (p) p.style.width = '0%';
+  paintCoach('Stay loose. Breathe. Don\'t cool down completely.');
+  updateTimerDisplay();
+  startTimer();
+}
+
+// ── Step / set progression ───────────────────────────────────────────────
+
+// User-initiated "skip" — works in any mode. Time / break: jump to next.
+// Reps: same as Done set.
+function advanceFromCurrent() {
+  if (timerMode === 'reps') return finishCurrentSet();
+  if (timerMode === 'break') return afterBreakAdvance();
+  // Time mode: stop current and advance.
+  return finishCurrentSet();
+}
+
+// A single set has just finished (either timer hit 0, reps target met, or
+// user tapped Done/Skip). If more sets remain in this exercise, start the
+// configured break then come back. Otherwise advance to the next exercise.
+function finishCurrentSet() {
+  const ex = timerExercises[timerCurrentStep];
+  if (!ex) {
+    return finishWorkout();
   }
+  const totalSets = Math.max(1, ex.sets || 1);
+  const isLastSet = timerCurrentSet >= totalSets - 1;
+  if (!isLastSet) {
+    timerCurrentSet++;
+    const breakSec = parseExerciseBreakSec(ex);
+    enterBreakMode(breakSec, ex.name + ' · set ' + (timerCurrentSet + 1) + '/' + totalSets);
+    renderTimerSteps();
+    return;
+  }
+  // Last set of this exercise — break before the next exercise (if any).
+  const next = timerExercises[timerCurrentStep + 1];
+  if (next) {
+    const breakSec = parseExerciseBreakSec(ex);
+    enterBreakMode(breakSec, next.name);
+    return;
+  }
+  finishWorkout();
+}
+
+// Break ended — start the appropriate next set or exercise.
+function afterBreakAdvance() {
+  const ex = timerExercises[timerCurrentStep];
+  if (!ex) return finishWorkout();
+  const totalSets = Math.max(1, ex.sets || 1);
+  if (timerCurrentSet >= totalSets) {
+    // Move to the next exercise.
+    timerCurrentStep++;
+    timerCurrentSet = 0;
+    const nx = timerExercises[timerCurrentStep];
+    if (!nx) return finishWorkout();
+    return startSet(nx);
+  }
+  return startSet(ex);
+}
+
+function startSet(ex) {
+  if (!ex) return;
+  renderTimerSteps();
+  const totalSets = Math.max(1, ex.sets || 1);
+  const setLabel = totalSets > 1
+    ? (' · set ' + (timerCurrentSet + 1) + '/' + totalSets)
+    : '';
+  const coach = ex.notes || ex.description || '';
+  if (ex.reps) {
+    enterRepsMode(parseInt(ex.reps) || 0, ex.name + setLabel, coach);
+    return;
+  }
+  const dur = parseExerciseDuration(ex);
+  enterTimeMode(dur, ex.name + setLabel, coach);
+  startTimer();
+}
+
+function finishWorkout() {
+  setMode('idle');
+  pauseTimer();
+  A.$('timer-label').textContent = 'Workout complete';
+  paintCoach('Nice. Tap Close when you\'re done.');
+  playBeep(880, 0.25, 3);
+  A.haptic?.('heavy');
 }
 
 function parseExerciseDuration(ex) {
-  // Try to extract seconds from duration string like "5 min", "30 sec", "2 min fast / 2 min easy"
   if (ex.duration) {
     const minMatch = ex.duration.match(/(\d+)\s*min/);
     if (minMatch) return parseInt(minMatch[1]) * 60;
     const secMatch = ex.duration.match(/(\d+)\s*sec/);
     if (secMatch) return parseInt(secMatch[1]);
   }
-  // Default: 60 seconds per exercise
   return 60;
+}
+
+function parseExerciseBreakSec(ex) {
+  // Honor an explicit `restSec` / `breakSec` field on the exercise; fall
+  // back to a reasonable default. Keeps the door open for plan authors to
+  // specify per-exercise rest without rewriting every existing entry.
+  if (typeof ex?.breakSec === 'number') return Math.max(5, ex.breakSec);
+  if (typeof ex?.restSec === 'number') return Math.max(5, ex.restSec);
+  // High-intensity / shorter sets get a longer rest by default; bodyweight
+  // plyo / fast efforts get less.
+  if (ex?.intensity === 'hard' || ex?.intensity === 'max') return 90;
+  return DEFAULT_BREAK_SEC;
 }
 
 function renderTimerSteps() {
   const stepsEl = A.$('timer-steps');
+  if (!stepsEl) return;
   if (timerExercises.length === 0) { stepsEl.innerHTML = ''; return; }
   let html = '';
   timerExercises.forEach((ex, i) => {
     const state = i < timerCurrentStep ? 'done' : i === timerCurrentStep ? 'active' : '';
-    const meta = [ex.duration, ex.sets ? ex.sets + ' sets' : '', ex.reps ? ex.reps + ' reps' : ''].filter(Boolean).join(' · ');
+    const setsTotal = Math.max(1, ex.sets || 1);
+    const setBadge = (i === timerCurrentStep && setsTotal > 1)
+      ? ` <span class="timer-step-set">set ${timerCurrentSet + 1}/${setsTotal}</span>`
+      : '';
+    const meta = [
+      ex.duration,
+      setsTotal > 1 ? setsTotal + ' sets' : '',
+      ex.reps ? ex.reps + ' reps' : '',
+    ].filter(Boolean).join(' · ');
     html += `<div class="timer-step ${state}">
       <div class="timer-step-num">${i + 1}</div>
       <div class="timer-step-info">
-        <div class="timer-step-name">${escHtml(ex.name)}</div>
+        <div class="timer-step-name">${escHtml(ex.name)}${setBadge}</div>
         ${meta ? '<div class="timer-step-meta">' + escHtml(meta) + '</div>' : ''}
       </div>
     </div>`;
@@ -184,24 +366,20 @@ export function openWorkoutTimer(workoutName, durationMin, exercises) {
   overlay.style.display = 'flex';
   A.$('timer-workout-name').textContent = workoutName || 'Workout';
 
-  timerExercises = exercises || [];
-  timerCurrentStep = -1;
+  timerExercises = Array.isArray(exercises) ? exercises : [];
+  timerCurrentStep = 0;
+  timerCurrentSet = 0;
 
   if (timerExercises.length > 0) {
-    // Machine workout with exercise steps — start first exercise
     A.$('timer-rest-presets').style.display = '';
-    advanceTimerStep();
+    startSet(timerExercises[0]);
   } else {
-    // Simple timer for the whole workout
     const totalSec = (durationMin || 30) * 60;
-    setTimerDuration(totalSec, (durationMin || 30) + ' minute workout');
+    enterTimeMode(totalSec, (durationMin || 30) + ' minute workout', 'Steady effort. Hit the duration and you\'re done.');
     A.$('timer-rest-presets').style.display = '';
     renderTimerSteps();
   }
 
-  // Keep screen awake. Retain the sentinel so closeWorkoutTimer can
-  // release it — was previously just throwing away the resolved value
-  // and the lock leaked for the rest of the tab's life.
   if (navigator.wakeLock) {
     navigator.wakeLock.request('screen')
       .then(s => { timerWakeLock = s; })
@@ -211,15 +389,13 @@ export function openWorkoutTimer(workoutName, durationMin, exercises) {
 
 export function closeWorkoutTimer() {
   pauseTimer();
-  A.$('timer-overlay').style.display = 'none';
+  const ov = A.$('timer-overlay');
+  if (ov) ov.style.display = 'none';
   timerExercises = [];
   timerCurrentStep = -1;
-  // Release the wake lock if we held one.
+  timerCurrentSet = 0;
+  timerMode = 'idle';
+  timerRepsCount = 0;
   try { timerWakeLock?.release?.(); } catch(e) {}
   timerWakeLock = null;
 }
-
-
-// ============================================
-// WORKOUTS PAGE
-// ============================================
