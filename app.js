@@ -869,6 +869,153 @@ function getMapTileUrl() {
     : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 }
 
+// ── Race Archive ────────────────────────────────────────────────────────
+// Coach uploads a CSV of race results (lap times, drivers, weather,
+// comments, etc.) — the client parses it, the AI summarises into a
+// structured shape, and the result is stored at
+// teams/{teamId}/raceArchive/{eventId}. Read by team members, write by
+// coaches only (Firestore rule below).
+
+const RACE_ARCHIVE_CAP = 40;
+
+// Tiny CSV parser — handles quoted fields with embedded commas. Returns
+// `{ headers, rows }` where rows is an array of `{ <header>: value }`.
+function parseCsv(text) {
+  const lines = String(text || '').split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length === 0) return { headers: [], rows: [] };
+  const splitLine = (line) => {
+    const out = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; continue; }
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === ',' && !inQ) { out.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    out.push(cur);
+    return out.map(s => s.trim());
+  };
+  const headers = splitLine(lines[0]).map(h => h.replace(/[^\w\s-]/g, '').trim());
+  const rows = lines.slice(1).map(line => {
+    const cells = splitLine(line);
+    const o = {};
+    headers.forEach((h, i) => { o[h || `col${i}`] = cells[i] || ''; });
+    return o;
+  });
+  return { headers, rows };
+}
+
+async function loadRaceArchive() {
+  const teamId = userProfile?.teamId;
+  if (!db || !teamId) { window._tpRaceArchive = []; return; }
+  try {
+    const snap = await getDocs(query(collection(db, 'teams', teamId, 'raceArchive'), orderBy('ts', 'desc'), limit(RACE_ARCHIVE_CAP)));
+    window._tpRaceArchive = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {
+    console.warn('loadRaceArchive:', e);
+    window._tpRaceArchive = [];
+  }
+}
+
+function bindRaceArchive() {
+  const teamId = userProfile?.teamId;
+  const importBtn = document.getElementById('race-archive-import');
+  const input = document.getElementById('race-archive-input');
+  if (importBtn && input && teamId) {
+    importBtn.addEventListener('click', () => input.click());
+    input.addEventListener('change', async (e) => {
+      const file = e.target?.files?.[0];
+      if (!file) return;
+      try {
+        showLoading('Parsing CSV...');
+        const text = await file.text();
+        const { headers, rows } = parseCsv(text);
+        if (rows.length === 0) { hideLoading(); showToast('CSV looks empty.', 'warn'); return; }
+        // Send to AI for structured summary. Cap row count so we don't
+        // blow past the AI prompt limit.
+        showLoading('AI summarising...');
+        const sample = rows.slice(0, 200);
+        const prompt = `You are summarising a HPR (High Performance Recumbent) race day for a school cycling team. The CSV below was just imported. Output a single JSON object (NO markdown, NO prose around it) with these fields:
+{
+  "raceName": "<short race name>",
+  "raceDate": "<YYYY-MM-DD or empty>",
+  "location": "<track / event location or empty>",
+  "weather": "<one line summary or empty>",
+  "summary": "<2-3 sentence race summary in coach voice — what went well, what to work on>",
+  "drivers": [{ "name": "<driver name>", "bestLap": "<best lap time mm:ss or empty>", "stintCount": <number>, "notes": "<one line>" }],
+  "comments": "<key comments / observations from the data>"
+}
+
+Headers: ${JSON.stringify(headers)}
+Rows (${sample.length} of ${rows.length}):
+${JSON.stringify(sample, null, 2)}`;
+        const resp = await aiCoachFetch({ message: prompt, context: 'RACE_DATA_IMPORT' });
+        let aiData = {};
+        try {
+          const j = await resp.json();
+          // The AI returns text in `reply` or `message` depending on the function.
+          const replyText = j.reply || j.message || j.text || '';
+          // Extract first JSON object from the reply (be defensive).
+          const m = replyText.match(/\{[\s\S]*\}/);
+          if (m) aiData = JSON.parse(m[0]);
+        } catch(parseErr) {
+          console.warn('AI parse error:', parseErr);
+        }
+        // Save to Firestore.
+        showLoading('Saving...');
+        const eventId = 'race-' + Date.now();
+        const data = {
+          ts: Date.now(),
+          raceName: aiData.raceName || file.name.replace(/\.[^.]+$/, ''),
+          raceDate: aiData.raceDate || '',
+          location: aiData.location || '',
+          weather: aiData.weather || '',
+          summary: aiData.summary || '',
+          drivers: Array.isArray(aiData.drivers) ? aiData.drivers.slice(0, 20) : [],
+          comments: aiData.comments || '',
+          uploadedBy: currentUser.uid,
+          uploadedByName: userProfile?.displayName || 'Coach',
+          rowCount: rows.length,
+        };
+        await setDoc(doc(db, 'teams', teamId, 'raceArchive', eventId), data);
+        window._tpRaceArchive = [{ id: eventId, ...data }, ...(window._tpRaceArchive || [])].slice(0, RACE_ARCHIVE_CAP);
+        hideLoading();
+        showToast('Race archived', 'success');
+        const tc = document.getElementById('lb-team-content');
+        if (tc) renderTeamTab(tc);
+      } catch(err) {
+        hideLoading();
+        const msg = (err?.code === 'permission-denied')
+          ? 'Race archive write blocked — coach access required.'
+          : 'Import failed: ' + (err?.message || 'unknown');
+        showToast(msg, 'error');
+      } finally {
+        try { e.target.value = ''; } catch(_) {}
+      }
+    });
+  }
+  // Delete handler — coaches only.
+  const list = document.querySelector('.race-archive-list');
+  if (list && !list._tpDeleteBound) {
+    list._tpDeleteBound = true;
+    list.addEventListener('click', async (e) => {
+      const btn = e.target?.closest?.('[data-race-del]');
+      if (!btn) return;
+      e.stopPropagation();
+      if (!confirm('Delete this archived race?')) return;
+      const id = btn.dataset.raceDel;
+      try {
+        await deleteDoc(doc(db, 'teams', teamId, 'raceArchive', id));
+        window._tpRaceArchive = (window._tpRaceArchive || []).filter(r => r.id !== id);
+        const tc = document.getElementById('lb-team-content');
+        if (tc) renderTeamTab(tc);
+      } catch(err) { showToast('Delete failed', 'error'); }
+    });
+  }
+}
+
 // ── Team gallery ────────────────────────────────────────────────────────
 // Shared photos uploaded by any team member. Lives at
 // teams/{teamId}/gallery/{photoId}. 600px JPEGs (~80 KB each), capped
@@ -1419,7 +1566,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r69';
+const APP_VERSION = '20260503-r70';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6745,6 +6892,12 @@ function renderTeam() {
         try { if (currentPage === 'team' && lbSubTab !== 'chat') renderTeamTab(tc); } catch(e) {}
       }).catch(() => {});
     }
+    if (!window._tpRaceArchive) {
+      window._tpRaceArchive = [];
+      loadRaceArchive().then(() => {
+        try { if (currentPage === 'team' && lbSubTab !== 'chat') renderTeamTab(tc); } catch(e) {}
+      }).catch(() => {});
+    }
   }
 }
 
@@ -7405,6 +7558,41 @@ function renderTeamTab(c, opts) {
       </div>
     `;
   }
+  // Race Archive — coach-imported race results with AI-summarised stint
+  // notes, lap times, and weather. Lives at teams/{teamId}/raceArchive.
+  if (hasTeam) {
+    const archive = Array.isArray(window._tpRaceArchive) ? window._tpRaceArchive : [];
+    const isCoachUser = !!userProfile?.isCoach || isMasterAccount(currentUser?.email);
+    html += '<div class="profile-section" style="margin-top:18px"><div class="profile-section-title gallery-head">Race Archive';
+    if (isCoachUser) {
+      html += '<button id="race-archive-import" class="gallery-add-btn" type="button">+ Import CSV</button>';
+    }
+    html += '</div>';
+    if (archive.length === 0) {
+      html += `<div class="gallery-empty">${isCoachUser ? 'No races archived yet. Import a CSV (lap times, drivers, weather, comments) and we\'ll AI-summarise it.' : 'No races archived yet.'}</div>`;
+    } else {
+      html += '<div class="race-archive-list">';
+      archive.forEach(r => {
+        const dateStr = r.raceDate ? r.raceDate : new Date(r.ts || Date.now()).toLocaleDateString('en-AU');
+        html += `<div class="race-archive-card" data-race-id="${escHtml(r.id)}">
+          <div class="race-archive-head">
+            <div class="race-archive-name">${escHtml(r.raceName || 'Race')}</div>
+            <div class="race-archive-date">${escHtml(dateStr)}</div>
+          </div>
+          ${r.location ? `<div class="race-archive-meta">${escHtml(r.location)}${r.weather ? ' · ' + escHtml(r.weather) : ''}</div>` : ''}
+          ${r.summary ? `<div class="race-archive-summary">${escHtml(r.summary)}</div>` : ''}
+          ${Array.isArray(r.drivers) && r.drivers.length > 0
+            ? `<div class="race-archive-drivers">${r.drivers.map(d => `<span class="race-archive-driver">${escHtml(d.name || 'Driver')}${d.bestLap ? ' · ' + escHtml(d.bestLap) : ''}</span>`).join('')}</div>`
+            : ''}
+          ${isCoachUser ? `<button class="race-archive-del" data-race-del="${escHtml(r.id)}" type="button" aria-label="Delete">Delete</button>` : ''}
+        </div>`;
+      });
+      html += '</div>';
+    }
+    html += '<input id="race-archive-input" type="file" accept=".csv,text/csv,.txt,text/plain" style="display:none">';
+    html += '</div>';
+  }
+
   // Team galleries — Whole team + your subteam. Both live in the same
   // teams/{teamId}/gallery/{photoId} collection; the optional subteamId
   // field on each photo decides which gallery it belongs to. Athletes
@@ -7453,6 +7641,7 @@ function renderTeamTab(c, opts) {
   c.innerHTML = html;
   // Team gallery handlers
   if (hasTeam) bindTeamGallery();
+  if (hasTeam) bindRaceArchive();
   // Bind copy. Use optional chaining everywhere — a single missing
   // element used to throw and abort the rest of the bind block,
   // making every button below this line silently dead.
@@ -10087,7 +10276,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r69';
+  const APP_VERSION = '20260503-r70';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

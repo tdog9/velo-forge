@@ -291,6 +291,19 @@ service cloud.firestore {
       //   caption: optional ≤140 char string
       // Read: any team member. Create: any team member, uid must be self.
       // Delete: uploader OR head coach (team creator) OR admin.
+      // Race archive — coach-imported race results with AI summaries.
+      // Read by team members, write by team coaches (head coach OR
+      // anyone listed in the team's `coaches` array) OR admin.
+      match /raceArchive/{eventId} {
+        allow read: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
+        allow write: if isAdmin()
+          || (isSignedIn()
+              && (request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
+                  || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                      && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isCoach == true)));
+      }
+
       match /gallery/{photoId} {
         allow read: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
