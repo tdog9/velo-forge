@@ -1212,7 +1212,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r65';
+const APP_VERSION = '20260503-r66';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -3529,7 +3529,9 @@ function renderToday() {
     <div class="chart-row">${visibleWeeks.map(w => `<div class="chart-col"><div class="chart-bar-wrap"><div class="chart-bar-val">${w.count || ''}</div><div class="chart-bar${w.isCurrent ? ' current' : ''}" style="height:${maxCount > 0 ? Math.max(2, (w.count / maxCount) * 80) : 2}px;background:${w.isCurrent ? 'var(--primary)' : 'var(--muted)'}"></div></div><div class="chart-label">${w.label}</div></div>`).join('')}</div></div>`;
   }
   html += renderWorkoutCalendar(now);
-  html += renderTeamFeed();
+  // Team Activity widget removed from Today — workouts already auto-post
+  // into the team chat as kind:'workout' messages, so the activity feed
+  // lives there. Less duplication, cleaner Today page.
   html += '</div></div>';
   c.innerHTML = html;
   // Bind duration picker
@@ -6531,10 +6533,13 @@ function renderTeam() {
       };
       // Surface the *actual* reason the chat isn't connecting instead of
       // leaving the pill stuck on "Connecting…" forever. Three scenarios:
-      //   1. teamchat.js failed to load → subscribeTeamChat is the noop stub
+      //   1. teamchat.js failed to load → subscribeTeamChat is still the
+      //      `() => null` stub from the import-fallback declaration
       //   2. userProfile.teamId not loaded yet → schedule a retry once it lands
       //   3. user has no team → flip pill to a clear "No team" state
-      if (typeof subscribeTeamChat !== 'function' || subscribeTeamChat.toString().includes('async () => false')) {
+      const sigStr = (typeof subscribeTeamChat === 'function') ? subscribeTeamChat.toString() : '';
+      const isStub = sigStr === '() => null' || sigStr.replace(/\s+/g, '') === '()=>null';
+      if (typeof subscribeTeamChat !== 'function' || isStub) {
         setStatus('error', 'Chat module unavailable');
       } else if (!userProfile?.teamId) {
         // Wait briefly for the profile listener to populate teamId, then re-evaluate.
@@ -6560,10 +6565,26 @@ function renderTeam() {
           }
         }, 15000);
       }
-      if (userProfile?.teamId && typeof subscribeTeamChat === 'function') {
+      if (userProfile?.teamId && typeof subscribeTeamChat === 'function' && !isStub) {
         let healAttempted = false;
+        // If the listener attaches but never fires a snapshot within 8s
+        // (Firestore stuck handshake, network blackhole, etc.) flip the
+        // pill to a clear error so the user isn't watching "Connecting…"
+        // forever. Cleared the moment a snapshot does land.
+        let snapshotWatchdog = setTimeout(() => {
+          if (currentPage === 'team' && lbSubTab === 'chat') {
+            setStatus('error', 'No response from server');
+            const errBox = document.getElementById('team-chat-error');
+            if (errBox) {
+              errBox.textContent = 'Chat listener attached but Firestore has not pushed any data in 8 seconds. Check your network or reload.';
+              errBox.hidden = false;
+            }
+          }
+        }, 8000);
         const startSubscribe = () => {
           subscribeTeamChat(userProfile.teamId, () => {
+            // First snapshot arrived — kill the watchdog.
+            if (snapshotWatchdog) { clearTimeout(snapshotWatchdog); snapshotWatchdog = null; }
             // Successful snapshot — clear error banner, refresh the list,
             // then flip pill to Live AFTER refresh so a re-render of the
             // panel can't reset the pill back to 'Connecting'.
@@ -6572,6 +6593,9 @@ function renderTeam() {
             if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
             setStatus('live', 'Live');
           }, async (err) => {
+            // Listener errored — kill watchdog so it doesn't fire on top
+            // of the actual error message.
+            if (snapshotWatchdog) { clearTimeout(snapshotWatchdog); snapshotWatchdog = null; }
             const errBox = document.getElementById('team-chat-error');
             const code = err?.code || '';
             if (!healAttempted) {
@@ -9785,7 +9809,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r65';
+  const APP_VERSION = '20260503-r66';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -10002,7 +10026,9 @@ function startApp() {
           loadVideoOverrides(), loadFirestoreRaces(), loadHiddenPlans(),
           loadRaceFootage(), loadRaceLogVideos(), loadExerciseOverrides(),
           loadPlanOverrides(), loadExerciseDemoVideos(), loadCustomPlans(),
-          loadTeamFeed(), loadTeamChallenge(), loadTrainingSessions()
+          // loadTeamFeed retired — team activity now lives in chat as
+          // kind:'workout' messages, no separate fan-out feed needed.
+          loadTeamChallenge(), loadTrainingSessions()
         ]).then(refresh);
       }, 500);
       // PHASE 4: Non-async finishers
