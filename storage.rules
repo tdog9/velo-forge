@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Personal photos + avatar — owner read+write, signed-in users can
+    // read so the avatar shows up in chat / team views.
+    match /users/{uid}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Team gallery — any signed-in user can read (membership-check
+    // happens at the Firestore-doc level; the Storage object is just
+    // the binary). Write must come from a signed-in user with image
+    // contentType + size cap. Delete is open to signed-in users since
+    // the Firestore-doc rule restricts who can delete the entry that
+    // references this object.
+    match /teams/{teamId}/gallery/{photoId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+
+    // Default deny.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

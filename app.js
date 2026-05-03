@@ -85,11 +85,12 @@ function importWithTimeout(url) {
 // (ALL_PLANS is read synchronously by renderToday for the active plan card).
 // Everything else loads in the background; renderCurrentPage re-runs once
 // modules arrive so tab UI fills in without a manual refresh.
-const [plansRes, fbAppRes, fbAuthRes, fbFsRes] = await Promise.allSettled([
+const [plansRes, fbAppRes, fbAuthRes, fbFsRes, fbStorageRes] = await Promise.allSettled([
   importWithTimeout('./plans.js'),
   importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
   importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'),
   importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'),
+  importWithTimeout('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js'),
 ]);
 if (plansRes.status === 'fulfilled') {
   ALL_PLANS = plansRes.value.ALL_PLANS || [];
@@ -142,6 +143,17 @@ Promise.allSettled([
       renderChatPanel = renderChatPanel, isMessageClean = isMessageClean,
       filterMessagesForScope = filterMessagesForScope,
     } = m);
+    // teamchat.js just landed — if attachBackgroundChat ran earlier
+    // against the noop stub, retry now that the real subscribe function
+    // is bound. Without this hook the chat pill stayed on Connecting
+    // forever for any user whose attachBackgroundChat fired before
+    // import resolution.
+    try {
+      if (typeof attachBackgroundChat === 'function' && _bgChatPending) {
+        _bgChatPending = false;
+        attachBackgroundChat();
+      }
+    } catch(e) { console.warn('teamchat post-import attach:', e); }
   }, e => console.warn('teamchat.js load failed:', e)),
   importWithTimeout('./raceLog.js').then(m => {
     ({
@@ -196,6 +208,7 @@ Promise.allSettled([
   }
 });
 
+let getStorage, storageRef, uploadBytes, getDownloadURL, deleteObject;
 if (fbAppRes.status === 'fulfilled' && fbAuthRes.status === 'fulfilled' && fbFsRes.status === 'fulfilled') {
   initializeApp = fbAppRes.value.initializeApp;
   ({ getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail } = fbAuthRes.value);
@@ -203,6 +216,15 @@ if (fbAppRes.status === 'fulfilled' && fbAuthRes.status === 'fulfilled' && fbFsR
 } else {
   console.error('Firebase SDK failed:', fbAppRes.reason || fbAuthRes.reason || fbFsRes.reason);
   firebaseImportFailed = true;
+}
+// Firebase Storage — proper file hosting for galleries / avatars,
+// replacing the inline base64-in-Firestore hack. Stays on Firebase so
+// the existing auth + project carry over; no migration to a different
+// backend service.
+if (fbStorageRes && fbStorageRes.status === 'fulfilled') {
+  ({ getStorage, ref: storageRef, uploadBytes, getDownloadURL, deleteObject } = fbStorageRes.value);
+} else if (fbStorageRes) {
+  console.warn('Firebase Storage SDK failed to load — gallery uploads will fall back to base64 in Firestore.');
 }
 // Firebase Config (PLACEHOLDER)
 const firebaseConfig = {
@@ -812,7 +834,7 @@ async function generateAiWidget(extraContext) {
   }
 }
 // App State
-let app, auth, db;
+let app, auth, db, storage;
 let currentUser = null;
 let userProfile = null;
 let currentPage = 'today';
@@ -867,6 +889,43 @@ function getMapTileUrl() {
   return currentTheme === 'light'
     ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
     : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+}
+
+// ── Firebase Storage upload ─────────────────────────────────────────────
+// Uploads a Blob (typically the JPEG output from resizeImageFile) to a
+// path in the project's Storage bucket and returns the download URL.
+// Falls through to a base64 fallback if Storage isn't initialised.
+async function uploadToStorage(path, blob) {
+  if (!storage || typeof storageRef !== 'function') {
+    throw new Error('Firebase Storage not initialised');
+  }
+  const r = storageRef(storage, path);
+  await uploadBytes(r, blob, { contentType: blob.type || 'image/jpeg' });
+  return await getDownloadURL(r);
+}
+
+// Convert a data URL ("data:image/jpeg;base64,...") to a Blob ready for
+// uploadBytes. Avoids dragging in heavier libraries.
+function dataUrlToBlob(dataUrl) {
+  const [meta, b64] = String(dataUrl).split(',');
+  const m = meta.match(/data:([^;]+)/);
+  const mime = m ? m[1] : 'image/jpeg';
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+// Resize + upload a File to Storage. Returns { url, path } or throws.
+// Photo IDs are time-based so they sort correctly without an explicit
+// orderBy when listing the bucket via Firestore-side metadata.
+async function uploadGalleryPhoto(file, basePath, maxW = 600, quality = 0.72) {
+  const { dataUrl } = await resizeImageFile(file, maxW, quality);
+  const blob = dataUrlToBlob(dataUrl);
+  const photoId = 'p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  const path = `${basePath}/${photoId}.jpg`;
+  const url = await uploadToStorage(path, blob);
+  return { url, path, photoId };
 }
 
 // ── Race Archive ────────────────────────────────────────────────────────
@@ -1060,10 +1119,22 @@ function bindTeamGallery() {
     showLoading(`Uploading ${files.length} photo${files.length === 1 ? '' : 's'}...`);
     for (const file of files) {
       try {
-        const { dataUrl } = await resizeImageFile(file, 600, 0.72);
         const ts = Date.now() + okCount;
+        // Prefer Firebase Storage; fall back to base64 if Storage isn't
+        // available (offline / SDK failed to load).
+        let mediaUrl = '', storagePath = '';
+        try {
+          const up = await uploadGalleryPhoto(file, `teams/${teamId}/gallery`);
+          mediaUrl = up.url;
+          storagePath = up.path;
+        } catch(storageErr) {
+          console.warn('Storage upload failed, falling back to base64:', storageErr);
+          const { dataUrl } = await resizeImageFile(file, 600, 0.72);
+          mediaUrl = dataUrl;
+        }
         const photoData = {
-          dataUrl, ts, caption: '',
+          dataUrl: mediaUrl, // legacy field name; now holds a download URL
+          storagePath, ts, caption: '',
           uploadedBy: currentUser.uid,
           uploadedByName: userProfile?.displayName || currentUser?.email || 'Member',
           subteamId,
@@ -1148,12 +1219,21 @@ function bindPersonalGallery() {
     showLoading(`Uploading ${files.length} photo${files.length === 1 ? '' : 's'}...`);
     for (const file of files) {
       try {
-        const { dataUrl } = await resizeImageFile(file, 600, 0.72);
-        const ts = Date.now() + okCount; // stable ordering when uploaded in a batch
+        const ts = Date.now() + okCount;
+        let mediaUrl = '', storagePath = '';
+        try {
+          const up = await uploadGalleryPhoto(file, `users/${currentUser.uid}/photos`);
+          mediaUrl = up.url;
+          storagePath = up.path;
+        } catch(storageErr) {
+          console.warn('Storage upload failed, falling back to base64:', storageErr);
+          const { dataUrl } = await resizeImageFile(file, 600, 0.72);
+          mediaUrl = dataUrl;
+        }
         const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'photos'), {
-          dataUrl, ts, caption: '',
+          dataUrl: mediaUrl, storagePath, ts, caption: '',
         });
-        window._tpMyPhotos = [{ id: docRef.id, dataUrl, ts, caption: '' }, ...(window._tpMyPhotos || [])].slice(0, MY_PHOTO_CAP);
+        window._tpMyPhotos = [{ id: docRef.id, dataUrl: mediaUrl, storagePath, ts, caption: '' }, ...(window._tpMyPhotos || [])].slice(0, MY_PHOTO_CAP);
         okCount++;
       } catch(err) {
         failCount++;
@@ -1566,7 +1646,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r70';
+const APP_VERSION = '20260503-r71';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1829,6 +1909,9 @@ function initFirebase() {
       console.warn('Firestore persistent cache unavailable, using in-memory:', e);
       db = getFirestore(app);
     }
+    // Initialise Firebase Storage if the SDK is loaded — used for proper
+    // image hosting (galleries + avatar) instead of base64-in-Firestore.
+    try { if (typeof getStorage === 'function') storage = getStorage(app); } catch(e) { console.warn('Storage init:', e); }
     firebaseReady = true;
     return true;
   } catch(e) {
@@ -8215,8 +8298,16 @@ async function renderProfile() {
     if (!file) return;
     try {
       showLoading('Uploading photo...');
-      const { dataUrl } = await resizeImageFile(file, 320, 0.78);
-      await updateProfileField('photoURL', dataUrl);
+      let url = '';
+      try {
+        const up = await uploadGalleryPhoto(file, `users/${currentUser.uid}/avatar`, 320, 0.82);
+        url = up.url;
+      } catch(storageErr) {
+        console.warn('Storage profile-photo upload failed, falling back to base64:', storageErr);
+        const r = await resizeImageFile(file, 320, 0.78);
+        url = r.dataUrl;
+      }
+      await updateProfileField('photoURL', url);
       hideLoading();
       showToast('Profile photo updated', 'success');
       renderProfile();
@@ -9772,10 +9863,20 @@ async function loadTeamData(forceRefresh=false) {
 /// just paints from chatCache instead of trying to bring up its own
 /// listener with a "Connecting" state.
 let _bgChatLive = false;
+let _bgChatPending = false;
 function attachBackgroundChat() {
   if (!userProfile?.teamId) return;
-  if (typeof subscribeTeamChat !== 'function') return;
   if (_bgChatLive) return; // already attached for this session
+  // Detect the noop stub from the import-fallback declaration. If
+  // teamchat.js hasn't landed yet, mark pending and bail — the import
+  // resolution path will re-call this function.
+  const sigStr = (typeof subscribeTeamChat === 'function') ? subscribeTeamChat.toString() : '';
+  const isStub = sigStr === '() => null' || sigStr.replace(/\s+/g, '') === '()=>null';
+  if (typeof subscribeTeamChat !== 'function' || isStub) {
+    _bgChatPending = true;
+    return;
+  }
+  _bgChatPending = false;
   try {
     subscribeTeamChat(userProfile.teamId, () => {
       _bgChatLive = true;
@@ -10276,7 +10377,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r70';
+  const APP_VERSION = '20260503-r71';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
