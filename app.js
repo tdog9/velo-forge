@@ -893,6 +893,14 @@ function bindTeamGallery() {
   const addBtn = document.getElementById('team-gallery-add');
   const input = document.getElementById('team-gallery-input');
   if (!addBtn || !input || !teamId) return;
+  // Scope chips — switch between Whole team and My subteam galleries.
+  document.querySelectorAll('[data-gal-scope]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window._tpGalleryScope = btn.dataset.galScope;
+      const tc = document.getElementById('lb-team-content');
+      if (tc) renderTeamTab(tc);
+    });
+  });
   addBtn.addEventListener('click', () => input.click());
   input.addEventListener('change', async (e) => {
     const file = e.target?.files?.[0];
@@ -901,17 +909,23 @@ function bindTeamGallery() {
       showLoading('Uploading photo...');
       const { dataUrl } = await resizeImageFile(file, 600, 0.72);
       const ts = Date.now();
-      const docRef = await addDoc(collection(db, 'teams', teamId, 'gallery'), {
+      // Tag the photo with the active gallery scope. Subteam photos
+      // carry the user's subteamId; whole-team photos have it empty.
+      const scope = window._tpGalleryScope || 'team';
+      const subteamId = (scope === 'sub') ? (getMySubteamId() || '') : '';
+      const photoData = {
         dataUrl, ts, caption: '',
         uploadedBy: currentUser.uid,
         uploadedByName: userProfile?.displayName || currentUser?.email || 'Member',
-      });
+        subteamId,
+      };
+      const docRef = await addDoc(collection(db, 'teams', teamId, 'gallery'), photoData);
       window._tpTeamPhotos = [
-        { id: docRef.id, dataUrl, ts, caption: '', uploadedBy: currentUser.uid, uploadedByName: userProfile?.displayName || 'Member' },
+        { id: docRef.id, ...photoData },
         ...(window._tpTeamPhotos || []),
       ].slice(0, TEAM_PHOTO_CAP);
       hideLoading();
-      showToast('Photo added to team gallery', 'success');
+      showToast(scope === 'sub' ? 'Photo added to subteam gallery' : 'Photo added to team gallery', 'success');
       const tc = document.getElementById('lb-team-content');
       if (tc) renderTeamTab(tc);
     } catch(err) {
@@ -1381,7 +1395,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r67';
+const APP_VERSION = '20260503-r68';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6657,12 +6671,9 @@ function generateTeamCode() {
   return code;
 }
 function renderTeam() {
-  // Default landing tab is Team (the user's team) — was previously
-  // "global" which made joining feel optional. Team-first.
-  if (!['team', 'chat', 'global'].includes(lbSubTab)) lbSubTab = 'team';
-  // Pill-style sub-tab strip: active gets primary bg + black text,
-  // inactive transparent + muted text. Driven by .active class now —
-  // styles live in layout-fix.css, no inline overrides.
+  // Default landing tab is Hub (Team). Global leaderboard sub-tab was
+  // retired — focus on the user's actual team, not strangers.
+  if (!['team', 'chat'].includes(lbSubTab)) lbSubTab = 'team';
   document.querySelectorAll('.lb-sub-tab').forEach(btn => {
     const isActive = btn.dataset.lbSub === lbSubTab;
     btn.classList.toggle('active', isActive);
@@ -6670,15 +6681,9 @@ function renderTeam() {
   });
   const tc = $('lb-team-content');
   const cc = $('lb-chat-content');
-  const gc = $('lb-global-content');
   if (tc) tc.style.display = 'none';
   if (cc) cc.style.display = 'none';
-  if (gc) gc.style.display = 'none';
-  if (lbSubTab === 'global') {
-    if (gc) gc.style.display = '';
-    renderGlobalLeaderboard(gc);
-    try { unsubscribeTeamChat(); } catch(e) {}
-  } else if (lbSubTab === 'chat') {
+  if (lbSubTab === 'chat') {
     if (cc) {
       cc.style.display = '';
       // Defense-in-depth — opening chat self-heals members[] drift
@@ -7461,16 +7466,33 @@ function renderTeamTab(c, opts) {
       </div>
     `;
   }
-  // Team gallery — shared photos uploaded by any team member. Kept
-  // separate from race-day footage; this is informal team-life stuff.
+  // Team galleries — Whole team + your subteam. Both live in the same
+  // teams/{teamId}/gallery/{photoId} collection; the optional subteamId
+  // field on each photo decides which gallery it belongs to. Athletes
+  // see chips to flip between "Whole team" and their own subteam.
   if (hasTeam) {
-    const teamPhotos = Array.isArray(window._tpTeamPhotos) ? window._tpTeamPhotos : [];
-    html += '<div class="profile-section" style="margin-top:18px"><div class="profile-section-title gallery-head">Team Gallery<button id="team-gallery-add" class="gallery-add-btn" type="button">+ Add</button></div>';
-    if (teamPhotos.length === 0) {
-      html += '<div class="gallery-empty">No team photos yet. Tap + Add to share one.</div>';
+    const allPhotos = Array.isArray(window._tpTeamPhotos) ? window._tpTeamPhotos : [];
+    const mySubId = getMySubteamId();
+    const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+    const mySub = subs.find(s => s.id === mySubId);
+    const galleryScope = window._tpGalleryScope || 'team';
+    const teamPhotos = allPhotos.filter(p => !p.subteamId);
+    const subPhotos = mySubId ? allPhotos.filter(p => p.subteamId === mySubId) : [];
+    const visible = (galleryScope === 'sub' && mySubId) ? subPhotos : teamPhotos;
+    const scopeLabel = (galleryScope === 'sub' && mySub) ? mySub.name : 'Whole team';
+    html += '<div class="profile-section" style="margin-top:18px"><div class="profile-section-title gallery-head">Gallery<button id="team-gallery-add" class="gallery-add-btn" type="button">+ Add to ' + escHtml(scopeLabel) + '</button></div>';
+    // Scope chips — only render if the user is in a subteam
+    if (mySubId && mySub) {
+      html += `<div class="gallery-scope-row">
+        <button class="gallery-scope-chip${galleryScope === 'team' ? ' active' : ''}" data-gal-scope="team" type="button">Whole team · ${teamPhotos.length}</button>
+        <button class="gallery-scope-chip${galleryScope === 'sub' ? ' active' : ''}" data-gal-scope="sub" type="button">${escHtml(mySub.name)} · ${subPhotos.length}</button>
+      </div>`;
+    }
+    if (visible.length === 0) {
+      html += `<div class="gallery-empty">No ${escHtml(scopeLabel.toLowerCase())} photos yet. Tap + Add to share one.</div>`;
     } else {
       html += '<div class="gallery-grid">';
-      teamPhotos.forEach(p => {
+      visible.forEach(p => {
         const owner = p.uploadedBy === currentUser?.uid;
         html += `<div class="gallery-cell" data-team-photo-id="${escHtml(p.id)}">
           <img class="gallery-img" src="${escHtml(p.dataUrl)}" alt="${escHtml(p.caption || '')}">
@@ -10085,7 +10107,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r67';
+  const APP_VERSION = '20260503-r68';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

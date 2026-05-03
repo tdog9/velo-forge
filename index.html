@@ -14,7 +14,7 @@
 <meta property="og:url" content="https://turboprep.app">
 <title>TurboPrep — HPR Training</title>
 <script>
-(function(){var VER='3.5.77-r67',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
+(function(){var VER='3.5.78-r68',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
 </script>
 <script>
 (function(){
@@ -260,14 +260,12 @@
     <div id="page-team" class="page">
       <div class="team-tab-bar">
         <div class="team-tab-strip" role="tablist" aria-label="Team views">
-          <button class="lb-sub-tab active" data-lb-sub="team" role="tab" aria-selected="true">Team</button>
+          <button class="lb-sub-tab active" data-lb-sub="team" role="tab" aria-selected="true">Hub</button>
           <button class="lb-sub-tab" data-lb-sub="chat" role="tab" aria-selected="false">Chat</button>
-          <button class="lb-sub-tab" data-lb-sub="global" role="tab" aria-selected="false">Global</button>
         </div>
       </div>
       <div id="lb-team-content"></div>
       <div id="lb-chat-content" style="display:none"></div>
-      <div id="lb-global-content" style="display:none"></div>
     </div>
   </div>
 
@@ -448,6 +446,6 @@ if(window.location.search.includes('nuke=true')){
   Promise.all(p).then(function(){setTimeout(function(){window.location.href=window.location.pathname;},1500)}).catch(function(){setTimeout(function(){window.location.href=window.location.pathname;},1500)});
 }
 </script>
-<script type="module" src="app.js?v=3.5.77-r67"></script>
+<script type="module" src="app.js?v=3.5.78-r68"></script>
 </body>
 </html>

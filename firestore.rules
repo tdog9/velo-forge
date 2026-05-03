@@ -294,11 +294,17 @@ service cloud.firestore {
       match /gallery/{photoId} {
         allow read: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
+        // subteamId is optional — '' / missing means whole-team photo.
+        // Client-side filtering decides which gallery a photo lands in;
+        // rules just enforce shape + size + author.
         allow create: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members
           && request.resource.data.uploadedBy == request.auth.uid
           && request.resource.data.dataUrl is string
-          && request.resource.data.dataUrl.size() <= 220 * 1024;
+          && request.resource.data.dataUrl.size() <= 220 * 1024
+          && (!('subteamId' in request.resource.data)
+              || (request.resource.data.subteamId is string
+                  && request.resource.data.subteamId.size() <= 64));
         allow delete: if isSignedIn()
           && (resource.data.uploadedBy == request.auth.uid
               || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
