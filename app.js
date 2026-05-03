@@ -903,40 +903,52 @@ function bindTeamGallery() {
   });
   addBtn.addEventListener('click', () => input.click());
   input.addEventListener('change', async (e) => {
-    const file = e.target?.files?.[0];
-    if (!file) return;
-    try {
-      showLoading('Uploading photo...');
-      const { dataUrl } = await resizeImageFile(file, 600, 0.72);
-      const ts = Date.now();
-      // Tag the photo with the active gallery scope. Subteam photos
-      // carry the user's subteamId; whole-team photos have it empty.
-      const scope = window._tpGalleryScope || 'team';
-      const subteamId = (scope === 'sub') ? (getMySubteamId() || '') : '';
-      const photoData = {
-        dataUrl, ts, caption: '',
-        uploadedBy: currentUser.uid,
-        uploadedByName: userProfile?.displayName || currentUser?.email || 'Member',
-        subteamId,
-      };
-      const docRef = await addDoc(collection(db, 'teams', teamId, 'gallery'), photoData);
-      window._tpTeamPhotos = [
-        { id: docRef.id, ...photoData },
-        ...(window._tpTeamPhotos || []),
-      ].slice(0, TEAM_PHOTO_CAP);
-      hideLoading();
-      showToast(scope === 'sub' ? 'Photo added to subteam gallery' : 'Photo added to team gallery', 'success');
-      const tc = document.getElementById('lb-team-content');
-      if (tc) renderTeamTab(tc);
-    } catch(err) {
-      hideLoading();
-      const msg = (err?.code === 'permission-denied')
-        ? 'Team gallery write blocked — Firestore rules may need redeploy.'
-        : 'Upload failed: ' + (err?.message || 'unknown');
-      showToast(msg, 'error');
-    } finally {
-      try { e.target.value = ''; } catch(_) {}
+    const files = Array.from(e.target?.files || []);
+    if (files.length === 0) return;
+    const scope = window._tpGalleryScope || 'team';
+    const subteamId = (scope === 'sub') ? (getMySubteamId() || '') : '';
+    let okCount = 0, failCount = 0;
+    let lastErr = '';
+    let isPermissionErr = false;
+    showLoading(`Uploading ${files.length} photo${files.length === 1 ? '' : 's'}...`);
+    for (const file of files) {
+      try {
+        const { dataUrl } = await resizeImageFile(file, 600, 0.72);
+        const ts = Date.now() + okCount;
+        const photoData = {
+          dataUrl, ts, caption: '',
+          uploadedBy: currentUser.uid,
+          uploadedByName: userProfile?.displayName || currentUser?.email || 'Member',
+          subteamId,
+        };
+        const docRef = await addDoc(collection(db, 'teams', teamId, 'gallery'), photoData);
+        window._tpTeamPhotos = [
+          { id: docRef.id, ...photoData },
+          ...(window._tpTeamPhotos || []),
+        ].slice(0, TEAM_PHOTO_CAP);
+        okCount++;
+      } catch(err) {
+        failCount++;
+        if (err?.code === 'permission-denied') isPermissionErr = true;
+        lastErr = err?.message || err?.code || 'unknown';
+        console.warn('Team gallery upload failed:', err);
+      }
     }
+    hideLoading();
+    try { e.target.value = ''; } catch(_) {}
+    if (okCount > 0) {
+      showToast(failCount === 0
+        ? `${okCount} photo${okCount === 1 ? '' : 's'} added to ${scope === 'sub' ? 'subteam gallery' : 'team gallery'}`
+        : `${okCount} added · ${failCount} failed`,
+        failCount === 0 ? 'success' : 'warn');
+    } else {
+      const msg = isPermissionErr
+        ? 'Team gallery write blocked — Firestore rules need redeploy. Open Firebase Console → Firestore → Rules → paste current firestore.rules → Publish.'
+        : 'Upload failed: ' + lastErr;
+      showToast(msg, 'error');
+    }
+    const tc = document.getElementById('lb-team-content');
+    if (tc) renderTeamTab(tc);
   });
   const grid = document.querySelectorAll('.gallery-grid')[document.querySelectorAll('.gallery-grid').length - 1];
   if (grid && !grid._tpTeamDeleteBound) {
@@ -982,24 +994,36 @@ function bindPersonalGallery() {
   if (!addBtn || !input) return;
   addBtn.addEventListener('click', () => input.click());
   input.addEventListener('change', async (e) => {
-    const file = e.target?.files?.[0];
-    if (!file) return;
-    try {
-      showLoading('Uploading photo...');
-      const { dataUrl } = await resizeImageFile(file, 600, 0.72);
-      const ts = Date.now();
-      const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'photos'), {
-        dataUrl, ts, caption: '',
-      });
-      window._tpMyPhotos = [{ id: docRef.id, dataUrl, ts, caption: '' }, ...(window._tpMyPhotos || [])].slice(0, MY_PHOTO_CAP);
-      hideLoading();
-      showToast('Photo added', 'success');
+    const files = Array.from(e.target?.files || []);
+    if (files.length === 0) return;
+    let okCount = 0, failCount = 0;
+    let lastErr = '';
+    showLoading(`Uploading ${files.length} photo${files.length === 1 ? '' : 's'}...`);
+    for (const file of files) {
+      try {
+        const { dataUrl } = await resizeImageFile(file, 600, 0.72);
+        const ts = Date.now() + okCount; // stable ordering when uploaded in a batch
+        const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'photos'), {
+          dataUrl, ts, caption: '',
+        });
+        window._tpMyPhotos = [{ id: docRef.id, dataUrl, ts, caption: '' }, ...(window._tpMyPhotos || [])].slice(0, MY_PHOTO_CAP);
+        okCount++;
+      } catch(err) {
+        failCount++;
+        lastErr = err?.message || err?.code || 'unknown';
+        console.warn('Personal photo upload failed:', err);
+      }
+    }
+    hideLoading();
+    try { e.target.value = ''; } catch(_) {}
+    if (okCount > 0) {
+      showToast(failCount === 0
+        ? `${okCount} photo${okCount === 1 ? '' : 's'} added`
+        : `${okCount} added · ${failCount} failed (${lastErr})`,
+        failCount === 0 ? 'success' : 'warn');
       renderProfile();
-    } catch(err) {
-      hideLoading();
-      showToast('Upload failed: ' + (err?.message || 'unknown'), 'error');
-    } finally {
-      try { e.target.value = ''; } catch(_) {}
+    } else {
+      showToast('Upload failed: ' + lastErr, 'error');
     }
   });
   // Delete handlers — single delegated listener
@@ -1395,7 +1419,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r68';
+const APP_VERSION = '20260503-r69';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6686,112 +6710,28 @@ function renderTeam() {
   if (lbSubTab === 'chat') {
     if (cc) {
       cc.style.display = '';
-      // Defense-in-depth — opening chat self-heals members[] drift
-      // before the snapshot listener can fire a permission error.
-      // Idempotent and best-effort, fire-and-forget.
+      // The background chat listener attached at sign-in (see
+      // attachBackgroundChat) keeps chatCache fresh whether or not the
+      // chat tab is visible. Opening the tab just paints from cache.
+      // Idempotent self-heal in case membership drifted.
       try { ensureDefaultTeamMembership?.().catch(() => {}); } catch(_) {}
       renderTeamChatPanelInto(cc);
-      // Subscribe ONCE per chat-tab entry. The callback patches the
-      // message list in place so an incoming message never wipes what
-      // the user is typing into the textarea. Was previously calling
-      // renderTeamChatPanelInto on every snapshot, which re-built the
-      // whole panel (composer included) and thrashed the input.
-      // Status pill helper — reachable whether or not we end up subscribing.
-      const setStatus = (state, label) => {
-        const pill = document.getElementById('chat-status-pill');
-        if (!pill) return;
+      // Reflect the background-listener state in the pill straight away.
+      const pill = document.getElementById('chat-status-pill');
+      if (pill) {
         pill.classList.remove('chat-status-connecting', 'chat-status-live', 'chat-status-error');
-        pill.classList.add('chat-status-' + state);
-        const lbl = pill.querySelector('.chat-status-label');
-        if (lbl) lbl.textContent = label;
-      };
-      // Surface the *actual* reason the chat isn't connecting instead of
-      // leaving the pill stuck on "Connecting…" forever. Three scenarios:
-      //   1. teamchat.js failed to load → subscribeTeamChat is still the
-      //      `() => null` stub from the import-fallback declaration
-      //   2. userProfile.teamId not loaded yet → schedule a retry once it lands
-      //   3. user has no team → flip pill to a clear "No team" state
-      const sigStr = (typeof subscribeTeamChat === 'function') ? subscribeTeamChat.toString() : '';
-      const isStub = sigStr === '() => null' || sigStr.replace(/\s+/g, '') === '()=>null';
-      if (typeof subscribeTeamChat !== 'function' || isStub) {
-        setStatus('error', 'Chat module unavailable');
-      } else if (!userProfile?.teamId) {
-        // Wait briefly for the profile listener to populate teamId, then re-evaluate.
-        setStatus('connecting', 'Waiting for profile…');
-        const retry = setInterval(() => {
-          if (currentPage !== 'team' || lbSubTab !== 'chat') { clearInterval(retry); return; }
-          if (userProfile?.teamId) {
-            clearInterval(retry);
-            setLbSubTab('chat'); // re-enter the branch below now that teamId exists
-          }
-        }, 800);
-        // Cap the wait at 15s so the pill flips to a clear "No team" state if
-        // the profile genuinely doesn't carry a teamId.
-        setTimeout(() => {
-          if (!userProfile?.teamId && currentPage === 'team' && lbSubTab === 'chat') {
-            clearInterval(retry);
-            setStatus('error', 'No team yet');
-            const errBox = document.getElementById('team-chat-error');
-            if (errBox) {
-              errBox.textContent = 'You\'re not in a team yet. Join one from the Team tab to start chatting.';
-              errBox.hidden = false;
-            }
-          }
-        }, 15000);
-      }
-      if (userProfile?.teamId && typeof subscribeTeamChat === 'function' && !isStub) {
-        let healAttempted = false;
-        // If the listener attaches but never fires a snapshot within 8s
-        // (Firestore stuck handshake, network blackhole, etc.) flip the
-        // pill to a clear error so the user isn't watching "Connecting…"
-        // forever. Cleared the moment a snapshot does land.
-        let snapshotWatchdog = setTimeout(() => {
-          if (currentPage === 'team' && lbSubTab === 'chat') {
-            setStatus('error', 'No response from server');
-            const errBox = document.getElementById('team-chat-error');
-            if (errBox) {
-              errBox.textContent = 'Chat listener attached but Firestore has not pushed any data in 8 seconds. Check your network or reload.';
-              errBox.hidden = false;
-            }
-          }
-        }, 8000);
-        const startSubscribe = () => {
-          subscribeTeamChat(userProfile.teamId, () => {
-            // First snapshot arrived — kill the watchdog.
-            if (snapshotWatchdog) { clearTimeout(snapshotWatchdog); snapshotWatchdog = null; }
-            // Successful snapshot — clear error banner, refresh the list,
-            // then flip pill to Live AFTER refresh so a re-render of the
-            // panel can't reset the pill back to 'Connecting'.
-            const errBox = document.getElementById('team-chat-error');
-            if (errBox && !errBox.hidden) { errBox.textContent = ''; errBox.hidden = true; }
-            if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
-            setStatus('live', 'Live');
-          }, async (err) => {
-            // Listener errored — kill watchdog so it doesn't fire on top
-            // of the actual error message.
-            if (snapshotWatchdog) { clearTimeout(snapshotWatchdog); snapshotWatchdog = null; }
-            const errBox = document.getElementById('team-chat-error');
-            const code = err?.code || '';
-            if (!healAttempted) {
-              healAttempted = true;
-              setStatus('connecting', 'Reconnecting…');
-              try { await ensureDefaultTeamMembership(); } catch(_) {}
-              setTimeout(() => {
-                if (currentPage === 'team' && lbSubTab === 'chat') startSubscribe();
-              }, 700);
-              return;
-            }
-            // Repeat failure — surface a clear message + flip pill to Error.
-            setStatus('error', code === 'permission-denied' ? 'No access' : 'Offline');
-            if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-            if (!errBox) return;
-            errBox.textContent = code === 'permission-denied'
-              ? 'You don\'t have access to this team\'s chat. Reload to retry.'
-              : ('Chat connection trouble: ' + (err?.message || 'Firestore will retry automatically.'));
-            errBox.hidden = false;
-          });
-        };
-        startSubscribe();
+        if (!userProfile?.teamId) {
+          pill.classList.add('chat-status-error');
+          const lbl = pill.querySelector('.chat-status-label'); if (lbl) lbl.textContent = 'No team yet';
+        } else if (_bgChatLive) {
+          pill.classList.add('chat-status-live');
+          const lbl = pill.querySelector('.chat-status-label'); if (lbl) lbl.textContent = 'Live';
+        } else {
+          pill.classList.add('chat-status-connecting');
+          const lbl = pill.querySelector('.chat-status-label'); if (lbl) lbl.textContent = 'Connecting…';
+          // Kick the listener if it isn't attached yet for some reason.
+          try { attachBackgroundChat(); } catch(e) {}
+        }
       }
     }
   } else {
@@ -6802,10 +6742,9 @@ function renderTeam() {
     if (!window._tpTeamPhotos) {
       window._tpTeamPhotos = [];
       loadTeamPhotos().then(() => {
-        try { if (currentPage === 'team' && lbSubTab !== 'global' && lbSubTab !== 'chat') renderTeamTab(tc); } catch(e) {}
+        try { if (currentPage === 'team' && lbSubTab !== 'chat') renderTeamTab(tc); } catch(e) {}
       }).catch(() => {});
     }
-    try { unsubscribeTeamChat(); } catch(e) {}
   }
 }
 
@@ -7506,7 +7445,7 @@ function renderTeamTab(c, opts) {
       });
       html += '</div>';
     }
-    html += '<input id="team-gallery-input" type="file" accept="image/*" style="display:none">';
+    html += '<input id="team-gallery-input" type="file" accept="image/*" multiple style="display:none">';
     html += '</div>';
   }
   // Leave team
@@ -7734,7 +7673,7 @@ async function renderProfile() {
     });
     html += '</div>';
   }
-  html += '<input id="profile-gallery-input" type="file" accept="image/*" style="display:none">';
+  html += '<input id="profile-gallery-input" type="file" accept="image/*" multiple style="display:none">';
   html += '</div>';
 
   html += '<div class="profile-section"><div class="profile-section-title">Appearance</div>';
@@ -9638,6 +9577,47 @@ async function loadTeamData(forceRefresh=false) {
   }
 }
 
+/// Attach the team-chat listener as a background subscription that lasts
+/// the user's whole session — like Messages on a phone, the listener
+/// runs whether or not the chat tab is currently visible. The chat tab
+/// just paints from chatCache instead of trying to bring up its own
+/// listener with a "Connecting" state.
+let _bgChatLive = false;
+function attachBackgroundChat() {
+  if (!userProfile?.teamId) return;
+  if (typeof subscribeTeamChat !== 'function') return;
+  if (_bgChatLive) return; // already attached for this session
+  try {
+    subscribeTeamChat(userProfile.teamId, () => {
+      _bgChatLive = true;
+      // If the user happens to be looking at the chat tab right now,
+      // patch the visible list. Otherwise this snapshot just keeps
+      // chatCache fresh in the background.
+      if (currentPage === 'team' && lbSubTab === 'chat') {
+        try { refreshTeamChatList(); } catch(_) {}
+        const pill = document.getElementById('chat-status-pill');
+        if (pill) {
+          pill.classList.remove('chat-status-connecting', 'chat-status-error');
+          pill.classList.add('chat-status-live');
+          const lbl = pill.querySelector('.chat-status-label');
+          if (lbl) lbl.textContent = 'Live';
+        }
+      }
+    }, (err) => {
+      _bgChatLive = false;
+      console.warn('Background chat listener error:', err);
+      // Auto-retry once after a short pause — most errors here are
+      // membership-drift races that the auto-join self-heal fixes.
+      setTimeout(() => {
+        if (userProfile?.teamId) {
+          try { ensureDefaultTeamMembership?.().catch(() => {}); } catch(_) {}
+          setTimeout(() => attachBackgroundChat(), 700);
+        }
+      }, 1500);
+    });
+  } catch(e) { console.warn('attachBackgroundChat:', e); }
+}
+
 /// Attach (or re-attach) the live snapshot listener on teams/{teamId}.
 /// Reacts to `members[]` growth, subteam edits, coach promotions, etc.
 /// Drops the local cache so changes propagate immediately and re-renders
@@ -10107,7 +10087,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r68';
+  const APP_VERSION = '20260503-r69';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -10314,6 +10294,10 @@ function startApp() {
         // not from inside loadTeamData (which used to cause an attach→load→
         // re-attach loop, racing the renderTeam call).
         try { attachTeamLiveListener(); } catch(e) {}
+        // Background chat listener — attaches the moment teamData lands so
+        // the messages cache is populated before the user opens the chat
+        // tab. Removes the "stuck on Connecting" state entirely.
+        try { attachBackgroundChat(); } catch(e) {}
         refresh();
       }).catch(() => {});
       loadUserRaceLogs().then(refresh).catch(() => {});
