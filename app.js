@@ -1212,7 +1212,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r58';
+const APP_VERSION = '20260503-r59';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -3050,7 +3050,11 @@ function renderToday() {
   const lvl = getXpLevel(xp);
   // Widget pin state — cached so renderToday doesn't JSON.parse on every
   // re-render. Cache invalidated by widget customization save (see binding).
-  const defaultWidgets = { weather: true, health: true, engagement: true, training: true, challenge: true, weekly: true, quickActions: true };
+  // Today defaults: only the cards an athlete actually needs above the
+  // fold (weather + health + next training session + quick log). XP /
+  // streak bar still lives in the header; engagement, challenge, and
+  // weekly summary are off by default — users can re-enable in customize.
+  const defaultWidgets = { weather: true, health: true, engagement: false, training: true, challenge: false, weekly: false, quickActions: true };
   let pinnedWidgets = window._tpPinnedWidgetsCache;
   if (!pinnedWidgets) {
     pinnedWidgets = defaultWidgets;
@@ -3064,8 +3068,10 @@ function renderToday() {
   html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
     <div class="today-date" style="margin:0">${dateStr}</div>
     <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:12px;font-weight:700;color:var(--primary)">${lvl.icon} ${xp} XP</span>
-      <button id="today-customize" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:2px;font-size:14px" title="Customize widgets">⚙️</button>
+      <span style="font-size:12px;font-weight:700;color:var(--primary);letter-spacing:.02em">${escHtml(lvl.name)} · ${xp} XP</span>
+      <button id="today-customize" aria-label="Customize widgets" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:2px;display:inline-flex;align-items:center" title="Customize widgets">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
     </div>
   </div>`;
   html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
@@ -9705,7 +9711,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r58';
+  const APP_VERSION = '20260503-r59';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

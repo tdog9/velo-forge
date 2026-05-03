@@ -575,54 +575,91 @@ export const ALL_PLANS = [
     "yearLevel": "Y10",
     "tier": "average",
     "name": "Y10 Race Conditioning",
-    "description": "This plan takes your training to the next level with a mix of endurance rides, tempo work, and two quality hard sessions per week. You are building real race conditioning now — the kind of fitness that makes a genuine difference when the gun fires. Four sessions a week, smart structure, big improvements ahead.",
+    "description": "Polarised 80/20 build. One genuinely hard quality session, one threshold/sweet-spot, two endurance rides per week. Two-week block — the structure you'd run repeatedly through a race season. Step the timer through every effort and rest so you never overcook the easy days or underdose the hard ones.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
       {
-        "week": 1,
-        "day": "Mon",
-        "name": "Threshold Ladders",
-        "description": "Warm up 12 minutes, then ride a threshold ladder: 4 min at threshold, 3 min easy, 5 min at threshold, 3 min easy, 6 min at threshold, 3 min easy, then back down: 5 min threshold, 3 min easy, 4 min threshold. Cool down for 10 minutes. Threshold is your hardest sustainable pace — right at the edge where you can just squeeze out a word or two. This ladder format builds your ability to repeatedly hit threshold effort throughout a race.",
-        "duration": 45,
-        "intensity": "hard",
-        "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
+        "week": 1, "day": "Mon", "name": "Threshold Pyramid", "duration": 45, "intensity": "hard",
+        "description": "Pyramid of threshold efforts (4·5·6·5·4 min) with equal recovery. Threshold = the hardest pace you could hold for an hour — you can say one word at a time, not a sentence. Stay smooth, controlled, and DON'T blow up on the long rung; the descending half is where the real adaptation happens.",
+        "exercises": [
+          { "name": "Warm-up", "duration": "10 min", "notes": "Easy spin, building to a light sweat. Include 3×30s 90 rpm bursts in the last 3 min." },
+          { "name": "Threshold · 4 min", "duration": "4 min", "intensity": "hard", "notes": "Find the line. One word at a time, not a sentence. 80-85 rpm." },
+          { "name": "Easy spin", "duration": "3 min", "notes": "Active recovery. 70 rpm, breath fully controlled." },
+          { "name": "Threshold · 5 min", "duration": "5 min", "intensity": "hard", "notes": "Same effort, longer. Smooth pedalling, relaxed shoulders." },
+          { "name": "Easy spin", "duration": "3 min", "notes": "Recover hard so the next rung lands." },
+          { "name": "Threshold · 6 min", "duration": "6 min", "intensity": "hard", "notes": "Top of the pyramid. Hold form when it hurts." },
+          { "name": "Easy spin", "duration": "3 min", "notes": "Big recovery — descending side is the workout." },
+          { "name": "Threshold · 5 min", "duration": "5 min", "intensity": "hard", "notes": "Match the climb. No fading." },
+          { "name": "Easy spin", "duration": "3 min", "notes": "Last gap." },
+          { "name": "Threshold · 4 min", "duration": "4 min", "intensity": "hard", "notes": "Finish strong. Bury the legs." },
+          { "name": "Cool-down", "duration": "8 min", "notes": "Easy spin, breath back to normal." }
+        ]
       },
       {
-        "week": 1,
-        "day": "Wed",
-        "name": "Recovery Endurance Spin",
-        "description": "Active recovery day. Ride for 40 minutes at a truly easy aerobic pace — think 5-6/10 effort where talking is completely effortless. This session flushes Monday's lactate and keeps your legs supple and ready for the week ahead. Fight the temptation to push harder — today's restraint pays direct dividends in Thursday's quality session. Keep cadence high and relaxed at 85+ rpm.",
-        "duration": 30,
-        "intensity": "easy",
-        "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
+        "week": 1, "day": "Tue", "name": "Endurance · Z2", "duration": 35, "intensity": "easy",
+        "description": "Pure aerobic mileage at conversational pace. The rule: if you can't say a full sentence, you're going too hard. This is the day that builds your engine — DON'T sabotage it by chasing power.",
+        "exercises": [
+          { "name": "Warm-up", "duration": "5 min", "notes": "Spin into an easy rhythm. 80 rpm." },
+          { "name": "Z2 endurance", "duration": "25 min", "notes": "Talk-test pace. Heart rate steady, breath nasal if you can." },
+          { "name": "Cool-down", "duration": "5 min", "notes": "Spin out. Stretch hip flexors after." }
+        ]
       },
       {
-        "week": 1,
-        "day": "Fri",
-        "name": "VO2 Max Sharpener",
-        "description": "Your second quality session. After 12 minutes warm-up, hit 6 x 2-minute VO2 max efforts at 9/10 — genuinely hard, pushing your aerobic ceiling. Rest for 3 minutes easy spinning between each. Cool down for 12 minutes. These intervals are uncomfortable but brief — tell yourself it is only 2 minutes each time and commit fully. VO2 max sessions are responsible for some of the biggest fitness jumps you will ever experience.",
-        "duration": 30,
-        "intensity": "hard",
-        "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
+        "week": 1, "day": "Thu", "name": "VO2 Max · 6×2", "duration": 35, "intensity": "hard",
+        "description": "Six 2-minute efforts at the ceiling — 9/10. The point is the LAST minute of each interval, not the first. Commit fully on each rep. VO2 work delivers the biggest fitness jumps in the shortest time, but you have to be honest about effort.",
+        "exercises": [
+          { "name": "Warm-up", "duration": "10 min", "notes": "Easy → moderate. Include 2×30s build to VO2 in the last 4 min." },
+          { "name": "VO2 · rep 1", "duration": "2 min", "sets": 6, "breakSec": 180, "intensity": "hard", "notes": "9/10 effort. The final 30s is the workout. Last 60s of each rep is where you earn the fitness." },
+          { "name": "Cool-down", "duration": "12 min", "notes": "Spin out. Sip water." }
+        ]
       },
       {
-        "week": 2,
-        "day": "Mon",
-        "name": "Sweet Spot Power Build",
-        "description": "Sweet spot efforts sit at about 85-90% of your threshold — hard but achievable for longer blocks. After 12 minutes warm-up, ride 4 x 9-minute sweet spot efforts with 3 minutes easy recovery between each. Cool down for 11 minutes. The goal is to feel uncomfortably comfortable — working hard but staying controlled. Maintaining form throughout all four blocks is the real challenge and the real training stimulus.",
-        "duration": 45,
-        "intensity": "hard",
-        "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
+        "week": 1, "day": "Sat", "name": "Long Endurance + Strides", "duration": 60, "intensity": "easy",
+        "description": "Your longest session. 50 min steady Z2 with 4×30s strides at high cadence in the last 15 min — keeps the legs sharp without taxing them. Build the aerobic ceiling.",
+        "exercises": [
+          { "name": "Warm-up", "duration": "8 min", "notes": "Easy spin." },
+          { "name": "Z2 block", "duration": "35 min", "notes": "Conversational. Sip water every 10 min." },
+          { "name": "Stride · 30s", "duration": "30 sec", "sets": 4, "breakSec": 90, "intensity": "moderate", "notes": "100+ rpm, smooth. NOT a sprint — a high-cadence stride." },
+          { "name": "Z2 finish", "duration": "10 min", "notes": "Easy back to start. Don't drift up in effort." },
+          { "name": "Cool-down", "duration": "5 min", "notes": "Spin out." }
+        ]
       },
       {
-        "week": 2,
-        "day": "Sat",
-        "name": "Long Race Simulation",
-        "description": "Your biggest session of the fortnight. After 12 minutes warm-up, ride a 40-minute progressive effort: 15 minutes at easy-moderate building to moderate, then 15 minutes at moderate-hard race pace, then 10 minutes at your best effort as if it is the final stage of a big race. Cool down for 13 minutes. This session ties together every component of fitness and race craft you have been developing. Give the last 10 minutes everything you have got — you will not regret it!",
-        "duration": 30,
-        "intensity": "hard",
-        "videoUrl": "https://www.youtube.com/watch?v=2-LAMcpzODU"
+        "week": 2, "day": "Mon", "name": "Sweet Spot · 4×9", "duration": 50, "intensity": "hard",
+        "description": "Sweet spot = 85-90% of threshold. Uncomfortably comfortable. The challenge isn't any single rep — it's the FORM and effort holding through all four. Cadence consistent, breath controlled, shoulders dropped.",
+        "exercises": [
+          { "name": "Warm-up", "duration": "10 min", "notes": "Easy → moderate. 1×3min build to sweet spot in the last block." },
+          { "name": "Sweet spot · rep 1", "duration": "9 min", "sets": 4, "breakSec": 180, "intensity": "hard", "notes": "Steady, controlled. 85-90% of threshold. Same effort on rep 4 as rep 1." },
+          { "name": "Cool-down", "duration": "8 min", "notes": "Spin out." }
+        ]
+      },
+      {
+        "week": 2, "day": "Tue", "name": "Recovery Spin", "duration": 25, "intensity": "easy",
+        "description": "Active recovery. Truly easy — 5/10 effort. The point is to flush yesterday and prep for Thursday's quality. Going harder here will cost you the back half of the week.",
+        "exercises": [
+          { "name": "Easy spin", "duration": "25 min", "notes": "Conversational. High cadence (90+ rpm), low force. Breath nasal if you can." }
+        ]
+      },
+      {
+        "week": 2, "day": "Thu", "name": "Race-Pace Practice", "duration": 45, "intensity": "hard",
+        "description": "Specificity day — the pace you'll race at. 3×8 min at race pace with structured recovery. Read your effort honestly: this isn't threshold (longer) or VO2 (shorter). It's the pace that wins.",
+        "exercises": [
+          { "name": "Warm-up", "duration": "10 min", "notes": "Easy build with 2×1min pickups in the last 4 min." },
+          { "name": "Race pace · rep 1", "duration": "8 min", "sets": 3, "breakSec": 240, "intensity": "hard", "notes": "Imagine you're holding a wheel in the lead pack. Smooth, focused, sustainable." },
+          { "name": "Cool-down", "duration": "11 min", "notes": "Spin out fully." }
+        ]
+      },
+      {
+        "week": 2, "day": "Sat", "name": "Race Simulation", "duration": 50, "intensity": "hard",
+        "description": "The capstone session. A progressive ride that ties everything together — 15 min Z2, 15 min tempo, 10 min hard, 5 min FULL effort like a finish straight. Practice the race in advance.",
+        "exercises": [
+          { "name": "Warm-up", "duration": "5 min", "notes": "Spin into rhythm." },
+          { "name": "Z2 build", "duration": "15 min", "notes": "Easy-moderate, drifting upward. End just below tempo." },
+          { "name": "Tempo block", "duration": "15 min", "intensity": "moderate", "notes": "Solid moderate effort. Breath rhythmic and deeper. ~75% threshold." },
+          { "name": "Hard block", "duration": "10 min", "intensity": "hard", "notes": "Race pace. Hold the pack." },
+          { "name": "Finish straight", "duration": "5 min", "intensity": "max", "notes": "Everything you have. Empty the tank — this is the final stage of the race." }
+        ]
       }
     ]
   },
