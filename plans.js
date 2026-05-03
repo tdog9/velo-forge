@@ -574,91 +574,91 @@ export const ALL_PLANS = [
     "category": "invehicle",
     "yearLevel": "Y10",
     "tier": "average",
-    "name": "Y10 Race Conditioning",
-    "description": "Polarised 80/20 build. One genuinely hard quality session, one threshold/sweet-spot, two endurance rides per week. Two-week block — the structure you'd run repeatedly through a race season. Step the timer through every effort and rest so you never overcook the easy days or underdose the hard ones.",
+    "name": "Y10 HPR Stint Conditioning",
+    "description": "Built for HPR (High-Performance Recumbent) racing — closed-circuit relay events where you ride 20-40 minute stints inside an enclosed vehicle, often in heat, then hand over to the next driver. Two-week block that trains stint pacing, mid-stint surges, and the hot-handover cycle. Climbs use threshold pyramids; pace work uses real stint lengths. Run this on the actual HPR if you can; otherwise on a stationary trainer with a fan and matching cadence.",
     "durationWeeks": 2,
     "sessionsPerWeek": 4,
     "workouts": [
       {
-        "week": 1, "day": "Mon", "name": "Threshold Pyramid", "duration": 45, "intensity": "hard",
-        "description": "Pyramid of threshold efforts (4·5·6·5·4 min) with equal recovery. Threshold = the hardest pace you could hold for an hour — you can say one word at a time, not a sentence. Stay smooth, controlled, and DON'T blow up on the long rung; the descending half is where the real adaptation happens.",
+        "week": 1, "day": "Mon", "name": "Stint Pyramid · 4·5·6·5·4", "duration": 45, "intensity": "hard",
+        "description": "Stint-pace pyramid. Each rung is the effort you should be able to hold for a full 25-minute race stint. Pyramid format teaches you to read your effort honestly — you should NOT be more cooked at the end of the 6 min rung than the 4 min rung. Heat builds inside the vehicle, so manage breath and cool the cabin between rungs (vents open, water sips). The descending side is where the real adaptation happens.",
         "exercises": [
-          { "name": "Warm-up", "duration": "10 min", "notes": "Easy spin, building to a light sweat. Include 3×30s 90 rpm bursts in the last 3 min." },
-          { "name": "Threshold · 4 min", "duration": "4 min", "intensity": "hard", "notes": "Find the line. One word at a time, not a sentence. 80-85 rpm." },
-          { "name": "Easy spin", "duration": "3 min", "notes": "Active recovery. 70 rpm, breath fully controlled." },
-          { "name": "Threshold · 5 min", "duration": "5 min", "intensity": "hard", "notes": "Same effort, longer. Smooth pedalling, relaxed shoulders." },
-          { "name": "Easy spin", "duration": "3 min", "notes": "Recover hard so the next rung lands." },
-          { "name": "Threshold · 6 min", "duration": "6 min", "intensity": "hard", "notes": "Top of the pyramid. Hold form when it hurts." },
-          { "name": "Easy spin", "duration": "3 min", "notes": "Big recovery — descending side is the workout." },
-          { "name": "Threshold · 5 min", "duration": "5 min", "intensity": "hard", "notes": "Match the climb. No fading." },
-          { "name": "Easy spin", "duration": "3 min", "notes": "Last gap." },
-          { "name": "Threshold · 4 min", "duration": "4 min", "intensity": "hard", "notes": "Finish strong. Bury the legs." },
-          { "name": "Cool-down", "duration": "8 min", "notes": "Easy spin, breath back to normal." }
+          { "name": "Cabin check + warm-up", "duration": "10 min", "notes": "Vents open, water bottle in reach. Easy spin building to a sweat. Last 3 min: 3×30s at 90+ rpm to wake the legs up." },
+          { "name": "Stint pace · 4 min", "duration": "4 min", "intensity": "hard", "notes": "Find your race-stint pace. One word at a time, not a sentence. Shoulders down, low back relaxed against the seat." },
+          { "name": "Pit-lap recovery", "duration": "3 min", "notes": "Drop pedal force. Vents open. Breath fully back under control before the next rung." },
+          { "name": "Stint pace · 5 min", "duration": "5 min", "intensity": "hard", "notes": "Same effort, longer. Smooth round pedal circles — pull through the top of the stroke, don't just stomp down." },
+          { "name": "Pit-lap recovery", "duration": "3 min", "notes": "Sip water. Cool the cabin. Reset cadence target for next rung." },
+          { "name": "Stint pace · 6 min", "duration": "6 min", "intensity": "hard", "notes": "Top of the pyramid. This is the rung where racers fade — hold form when it hurts. Cadence steady, no surging." },
+          { "name": "Pit-lap recovery", "duration": "3 min", "notes": "Big recovery — the descending side is the workout. If you don't recover, you can't match the climb." },
+          { "name": "Stint pace · 5 min", "duration": "5 min", "intensity": "hard", "notes": "Match the 5 on the way up. No fading allowed." },
+          { "name": "Pit-lap recovery", "duration": "3 min", "notes": "One more rung. Stay disciplined." },
+          { "name": "Stint pace · 4 min", "duration": "4 min", "intensity": "hard", "notes": "Final stint. Empty the legs — same effort as rung 1, but more tired. THAT'S the point." },
+          { "name": "Cool-down", "duration": "8 min", "notes": "Easy spin out, vents fully open. Get core temp back down before you stop pedalling." }
         ]
       },
       {
-        "week": 1, "day": "Tue", "name": "Endurance · Z2", "duration": 35, "intensity": "easy",
-        "description": "Pure aerobic mileage at conversational pace. The rule: if you can't say a full sentence, you're going too hard. This is the day that builds your engine — DON'T sabotage it by chasing power.",
+        "week": 1, "day": "Tue", "name": "Endurance Cruise · Z2", "duration": 35, "intensity": "easy",
+        "description": "Aerobic engine work at full-race-day pace — the speed you'd hold for a 6-hour relay event. Conversational, sustainable, NOT impressive. Most racers blow this day by going too hard; today's restraint pays off in Thursday's quality session.",
         "exercises": [
-          { "name": "Warm-up", "duration": "5 min", "notes": "Spin into an easy rhythm. 80 rpm." },
-          { "name": "Z2 endurance", "duration": "25 min", "notes": "Talk-test pace. Heart rate steady, breath nasal if you can." },
-          { "name": "Cool-down", "duration": "5 min", "notes": "Spin out. Stretch hip flexors after." }
+          { "name": "Warm-up", "duration": "5 min", "notes": "Spin into an easy rhythm. 85+ rpm — recumbent gearing rewards high cadence." },
+          { "name": "Z2 cruise", "duration": "25 min", "notes": "Talk-test pace. If you can't say a full sentence, you're going too hard. Heart rate steady. Cabin warm but not roasting — vents partially open." },
+          { "name": "Cool-down", "duration": "5 min", "notes": "Spin out. After the session, stretch hip flexors and hamstrings — recumbent position tightens both." }
         ]
       },
       {
-        "week": 1, "day": "Thu", "name": "VO2 Max · 6×2", "duration": 35, "intensity": "hard",
-        "description": "Six 2-minute efforts at the ceiling — 9/10. The point is the LAST minute of each interval, not the first. Commit fully on each rep. VO2 work delivers the biggest fitness jumps in the shortest time, but you have to be honest about effort.",
+        "week": 1, "day": "Thu", "name": "Surge Drills · 6×2", "duration": 35, "intensity": "hard",
+        "description": "Mid-stint surge drills — the hard accelerations you do when overtaking another vehicle or chasing back onto a wheel. Six 2-minute efforts at 9/10, the ceiling. Each rep simulates one race-decisive surge. Commit fully — the LAST 60 seconds of each is where you earn the fitness, not the first 30.",
         "exercises": [
-          { "name": "Warm-up", "duration": "10 min", "notes": "Easy → moderate. Include 2×30s build to VO2 in the last 4 min." },
-          { "name": "VO2 · rep 1", "duration": "2 min", "sets": 6, "breakSec": 180, "intensity": "hard", "notes": "9/10 effort. The final 30s is the workout. Last 60s of each rep is where you earn the fitness." },
-          { "name": "Cool-down", "duration": "12 min", "notes": "Spin out. Sip water." }
+          { "name": "Warm-up", "duration": "10 min", "notes": "Easy → moderate. Last 4 min: 2×30s build to surge intensity to prime the legs." },
+          { "name": "Surge · rep 1", "duration": "2 min", "sets": 6, "breakSec": 180, "intensity": "hard", "notes": "9/10 effort. Open up the gear, smooth aggressive cadence. Last 60s is the workout — don't fade. Vents fully open between reps to dump heat." },
+          { "name": "Cool-down", "duration": "12 min", "notes": "Easy spin. Cabin vented. Sip water steadily — you'll have lost a lot of fluid." }
         ]
       },
       {
-        "week": 1, "day": "Sat", "name": "Long Endurance + Strides", "duration": 60, "intensity": "easy",
-        "description": "Your longest session. 50 min steady Z2 with 4×30s strides at high cadence in the last 15 min — keeps the legs sharp without taxing them. Build the aerobic ceiling.",
+        "week": 1, "day": "Sat", "name": "Long Cruise + Pit-Out Strides", "duration": 60, "intensity": "easy",
+        "description": "Longest session of the block. 50 minutes steady at race-day pace, with 4×30s pit-out strides in the back half — simulating the high-cadence accelerations you do leaving the pit lane after a driver change. Builds the aerobic ceiling without taxing you for Monday.",
         "exercises": [
-          { "name": "Warm-up", "duration": "8 min", "notes": "Easy spin." },
-          { "name": "Z2 block", "duration": "35 min", "notes": "Conversational. Sip water every 10 min." },
-          { "name": "Stride · 30s", "duration": "30 sec", "sets": 4, "breakSec": 90, "intensity": "moderate", "notes": "100+ rpm, smooth. NOT a sprint — a high-cadence stride." },
-          { "name": "Z2 finish", "duration": "10 min", "notes": "Easy back to start. Don't drift up in effort." },
-          { "name": "Cool-down", "duration": "5 min", "notes": "Spin out." }
+          { "name": "Warm-up", "duration": "8 min", "notes": "Easy spin into rhythm." },
+          { "name": "Z2 cruise block", "duration": "35 min", "notes": "Race-day pace. Conversational. Sip water every 10 min — this is your hydration practice for the long event." },
+          { "name": "Pit-out stride", "duration": "30 sec", "sets": 4, "breakSec": 90, "intensity": "moderate", "notes": "100+ rpm, smooth. This is what leaving the pit lane feels like — quick to race speed, then settle. NOT a sprint." },
+          { "name": "Z2 cruise back", "duration": "10 min", "notes": "Settle back into race-day pace. Don't drift up in effort." },
+          { "name": "Cool-down", "duration": "5 min", "notes": "Spin out, cabin fully vented." }
         ]
       },
       {
-        "week": 2, "day": "Mon", "name": "Sweet Spot · 4×9", "duration": 50, "intensity": "hard",
-        "description": "Sweet spot = 85-90% of threshold. Uncomfortably comfortable. The challenge isn't any single rep — it's the FORM and effort holding through all four. Cadence consistent, breath controlled, shoulders dropped.",
+        "week": 2, "day": "Mon", "name": "Long Stint Sim · 4×9", "duration": 50, "intensity": "hard",
+        "description": "Race-stint simulation. Four 9-minute efforts at 85-90% of stint pace — uncomfortably comfortable. The challenge isn't any one rep, it's holding consistent effort + form + cadence across all four. THIS is what wins HPR races: the driver who runs lap-time consistency wins, not the one with the fastest single lap.",
         "exercises": [
-          { "name": "Warm-up", "duration": "10 min", "notes": "Easy → moderate. 1×3min build to sweet spot in the last block." },
-          { "name": "Sweet spot · rep 1", "duration": "9 min", "sets": 4, "breakSec": 180, "intensity": "hard", "notes": "Steady, controlled. 85-90% of threshold. Same effort on rep 4 as rep 1." },
-          { "name": "Cool-down", "duration": "8 min", "notes": "Spin out." }
+          { "name": "Warm-up", "duration": "10 min", "notes": "Easy → moderate. Last 3 min: build to stint-sim intensity to prime." },
+          { "name": "Stint block · rep 1", "duration": "9 min", "sets": 4, "breakSec": 180, "intensity": "hard", "notes": "Steady, controlled. 85-90% of true stint pace. Cadence consistent. Same effort on rep 4 as rep 1 — that's the test. Vents managed between reps." },
+          { "name": "Cool-down", "duration": "8 min", "notes": "Easy spin out, full ventilation." }
         ]
       },
       {
-        "week": 2, "day": "Tue", "name": "Recovery Spin", "duration": 25, "intensity": "easy",
-        "description": "Active recovery. Truly easy — 5/10 effort. The point is to flush yesterday and prep for Thursday's quality. Going harder here will cost you the back half of the week.",
+        "week": 2, "day": "Tue", "name": "Driver Recovery Spin", "duration": 25, "intensity": "easy",
+        "description": "Active recovery — the kind you'd do between race-day stints while you wait for your next turn in the vehicle. Truly easy. Going harder here will cost you the back half of the week. High cadence, low force.",
         "exercises": [
-          { "name": "Easy spin", "duration": "25 min", "notes": "Conversational. High cadence (90+ rpm), low force. Breath nasal if you can." }
+          { "name": "Easy spin", "duration": "25 min", "notes": "Conversational. 90+ rpm, light pressure. Breath nasal if you can — the same recovery breathing you use in the pit." }
         ]
       },
       {
-        "week": 2, "day": "Thu", "name": "Race-Pace Practice", "duration": 45, "intensity": "hard",
-        "description": "Specificity day — the pace you'll race at. 3×8 min at race pace with structured recovery. Read your effort honestly: this isn't threshold (longer) or VO2 (shorter). It's the pace that wins.",
+        "week": 2, "day": "Thu", "name": "Race Stint Practice · 3×8", "duration": 45, "intensity": "hard",
+        "description": "Specificity day — three 8-minute blocks at TRUE race-stint pace. Not threshold (you'd blow up), not VO2 (you'd never hold it for a stint). It's the pace that wins races: fastest sustainable, controlled, repeatable. Read your effort honestly — leaving fitness on the table is just as bad as overcooking.",
         "exercises": [
-          { "name": "Warm-up", "duration": "10 min", "notes": "Easy build with 2×1min pickups in the last 4 min." },
-          { "name": "Race pace · rep 1", "duration": "8 min", "sets": 3, "breakSec": 240, "intensity": "hard", "notes": "Imagine you're holding a wheel in the lead pack. Smooth, focused, sustainable." },
-          { "name": "Cool-down", "duration": "11 min", "notes": "Spin out fully." }
+          { "name": "Warm-up", "duration": "10 min", "notes": "Easy build with 2×1min pickups in the last 4 min — bridges into race pace." },
+          { "name": "Race stint · rep 1", "duration": "8 min", "sets": 3, "breakSec": 240, "intensity": "hard", "notes": "True race pace. Smooth pedal circles, eyes far up the track, cadence steady. Imagine you're 10 minutes into a 25-minute stint." },
+          { "name": "Cool-down", "duration": "11 min", "notes": "Spin out fully. Cabin vented. Sip water." }
         ]
       },
       {
-        "week": 2, "day": "Sat", "name": "Race Simulation", "duration": 50, "intensity": "hard",
-        "description": "The capstone session. A progressive ride that ties everything together — 15 min Z2, 15 min tempo, 10 min hard, 5 min FULL effort like a finish straight. Practice the race in advance.",
+        "week": 2, "day": "Sat", "name": "Race Day Sim · Final Stint", "duration": 50, "intensity": "hard",
+        "description": "Capstone session. A progressive ride that simulates the final hour of a long relay event — Z2 cruise, tempo block as the race tightens, hard block as the lead pack pushes the pace, max-effort finish straight as the chequered flag approaches. Practice the race in advance so race day isn't the first time you've felt this.",
         "exercises": [
           { "name": "Warm-up", "duration": "5 min", "notes": "Spin into rhythm." },
-          { "name": "Z2 build", "duration": "15 min", "notes": "Easy-moderate, drifting upward. End just below tempo." },
-          { "name": "Tempo block", "duration": "15 min", "intensity": "moderate", "notes": "Solid moderate effort. Breath rhythmic and deeper. ~75% threshold." },
-          { "name": "Hard block", "duration": "10 min", "intensity": "hard", "notes": "Race pace. Hold the pack." },
-          { "name": "Finish straight", "duration": "5 min", "intensity": "max", "notes": "Everything you have. Empty the tank — this is the final stage of the race." }
+          { "name": "Z2 cruise", "duration": "15 min", "notes": "Race-day pace. Holding the pack, no surging. Drift toward the top of Z2 in the last 3 min." },
+          { "name": "Tempo · pack tightens", "duration": "15 min", "intensity": "moderate", "notes": "Solid moderate effort — the race is on. ~75% of stint pace. Breath rhythmic and deeper." },
+          { "name": "Hard · lead group push", "duration": "10 min", "intensity": "hard", "notes": "Stint pace. You're holding the front bunch. Smooth, committed, no fading." },
+          { "name": "Finish straight", "duration": "5 min", "intensity": "max", "notes": "Everything. Empty the legs — this is the chequered flag in sight. Cabin vented hot, but who cares — you're done in 5 minutes." }
         ]
       }
     ]
