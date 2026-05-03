@@ -679,7 +679,29 @@ select.input{
 .profile-back{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--muted)}
 .profile-back svg{width:18px;height:18px}
 .profile-body{flex:1;overflow-y:auto;padding:16px}
-.profile-avatar-big{width:72px;height:72px;border-radius:50%;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;margin:0 auto 12px}
+.profile-avatar-big{width:96px;height:96px;border-radius:50%;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700}
+.profile-avatar-wrap{position:relative;width:96px;height:96px;margin:0 auto 12px}
+.profile-avatar-img{width:96px;height:96px;border-radius:50%;object-fit:cover;display:block;border:2px solid var(--border)}
+.profile-avatar-edit{position:absolute;bottom:0;right:0;width:32px;height:32px;border-radius:50%;border:2px solid var(--bg);background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.profile-avatar-edit:active{transform:scale(.92)}
+
+/* Bio row — sits below the name + email */
+.profile-bio-row{display:flex;align-items:flex-start;gap:10px;max-width:520px;margin:0 auto 18px;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px}
+.profile-bio{flex:1;font-size:13px;color:var(--fg);line-height:1.45;white-space:pre-wrap}
+.profile-bio-empty{color:var(--muted-fg);font-style:italic}
+.profile-bio-edit{flex-shrink:0;font-size:12px;font-weight:700;color:var(--primary);background:none;border:none;cursor:pointer;padding:2px 6px}
+
+/* Gallery — used for both personal (Profile) and team (Team) sections */
+.gallery-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.gallery-add-btn{font-size:11px;font-weight:700;color:var(--primary);background:rgba(var(--primary-rgb),.10);border:1px solid rgba(var(--primary-rgb),.30);padding:5px 11px;border-radius:99px;cursor:pointer;letter-spacing:.02em}
+.gallery-empty{font-size:13px;color:var(--muted-fg);text-align:center;padding:24px 16px;background:var(--card);border:1px dashed var(--border);border-radius:12px}
+.gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.gallery-cell{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:var(--card);border:1px solid var(--border)}
+.gallery-img{width:100%;height:100%;object-fit:cover;display:block}
+.gallery-cap{position:absolute;left:0;right:0;bottom:0;padding:18px 6px 4px;font-size:10px;font-weight:700;color:#fff;background:linear-gradient(to top, rgba(0,0,0,.65), transparent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.02em}
+.gallery-del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .12s}
+.gallery-cell:hover .gallery-del{opacity:1}
+@media (hover: none) { .gallery-del{opacity:.7} }
 .profile-name-big{text-align:center;font-size:18px;font-weight:700;margin-bottom:2px}
 .profile-meta{text-align:center;font-size:13px;color:var(--muted-fg);margin-bottom:20px}
 .profile-section{margin-bottom:20px}

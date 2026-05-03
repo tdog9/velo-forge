@@ -137,6 +137,11 @@ service cloud.firestore {
         // Push notification tokens registered by the iOS app.
         allow read, write: if isOwner(userId);
       }
+
+      match /photos/{photoId} {
+        // Personal photo gallery — owner-only.
+        allow read, write: if isOwner(userId);
+      }
     }
 
     match /teams/{teamId} {
@@ -277,6 +282,29 @@ service cloud.firestore {
       //     subCoachUid: string (optional)
       //     members: [uid, ...]
       //     createdAt, updatedAt: serverTimestamp
+      // Team gallery — shared photos uploaded by any team member.
+      // Schema: teams/{teamId}/gallery/{photoId}
+      //   uploadedBy: uid of the uploader (must match auth.uid on create)
+      //   uploadedByName: display name
+      //   dataUrl: base64 JPEG, ≤200 KB
+      //   ts: ms timestamp
+      //   caption: optional ≤140 char string
+      // Read: any team member. Create: any team member, uid must be self.
+      // Delete: uploader OR head coach (team creator) OR admin.
+      match /gallery/{photoId} {
+        allow read: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
+        allow create: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members
+          && request.resource.data.uploadedBy == request.auth.uid
+          && request.resource.data.dataUrl is string
+          && request.resource.data.dataUrl.size() <= 220 * 1024;
+        allow delete: if isSignedIn()
+          && (resource.data.uploadedBy == request.auth.uid
+              || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
+              || isAdmin());
+      }
+
       match /subteams/{subteamId} {
         // Everyone signed in can read so the leaderboard knows where each
         // member sits — filter UI does the visibility cut. (Cross-subteam

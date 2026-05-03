@@ -868,6 +868,175 @@ function getMapTileUrl() {
     ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
     : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 }
+
+// ── Team gallery ────────────────────────────────────────────────────────
+// Shared photos uploaded by any team member. Lives at
+// teams/{teamId}/gallery/{photoId}. 600px JPEGs (~80 KB each), capped
+// at 80 photos team-wide; oldest dropped client-side when adding past
+// the cap (admin can manually clear if needed).
+const TEAM_PHOTO_CAP = 80;
+
+async function loadTeamPhotos() {
+  const teamId = userProfile?.teamId;
+  if (!db || !teamId) { window._tpTeamPhotos = []; return; }
+  try {
+    const snap = await getDocs(query(collection(db, 'teams', teamId, 'gallery'), orderBy('ts', 'desc'), limit(TEAM_PHOTO_CAP)));
+    window._tpTeamPhotos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {
+    console.warn('loadTeamPhotos:', e);
+    window._tpTeamPhotos = [];
+  }
+}
+
+function bindTeamGallery() {
+  const teamId = userProfile?.teamId;
+  const addBtn = document.getElementById('team-gallery-add');
+  const input = document.getElementById('team-gallery-input');
+  if (!addBtn || !input || !teamId) return;
+  addBtn.addEventListener('click', () => input.click());
+  input.addEventListener('change', async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    try {
+      showLoading('Uploading photo...');
+      const { dataUrl } = await resizeImageFile(file, 600, 0.72);
+      const ts = Date.now();
+      const docRef = await addDoc(collection(db, 'teams', teamId, 'gallery'), {
+        dataUrl, ts, caption: '',
+        uploadedBy: currentUser.uid,
+        uploadedByName: userProfile?.displayName || currentUser?.email || 'Member',
+      });
+      window._tpTeamPhotos = [
+        { id: docRef.id, dataUrl, ts, caption: '', uploadedBy: currentUser.uid, uploadedByName: userProfile?.displayName || 'Member' },
+        ...(window._tpTeamPhotos || []),
+      ].slice(0, TEAM_PHOTO_CAP);
+      hideLoading();
+      showToast('Photo added to team gallery', 'success');
+      const tc = document.getElementById('lb-team-content');
+      if (tc) renderTeamTab(tc);
+    } catch(err) {
+      hideLoading();
+      const msg = (err?.code === 'permission-denied')
+        ? 'Team gallery write blocked — Firestore rules may need redeploy.'
+        : 'Upload failed: ' + (err?.message || 'unknown');
+      showToast(msg, 'error');
+    } finally {
+      try { e.target.value = ''; } catch(_) {}
+    }
+  });
+  const grid = document.querySelectorAll('.gallery-grid')[document.querySelectorAll('.gallery-grid').length - 1];
+  if (grid && !grid._tpTeamDeleteBound) {
+    grid._tpTeamDeleteBound = true;
+    grid.addEventListener('click', async (e) => {
+      const btn = e.target?.closest?.('[data-del-team-photo]');
+      if (!btn) return;
+      e.stopPropagation();
+      if (!confirm('Delete this photo?')) return;
+      const id = btn.dataset.delTeamPhoto;
+      try {
+        await deleteDoc(doc(db, 'teams', teamId, 'gallery', id));
+        window._tpTeamPhotos = (window._tpTeamPhotos || []).filter(p => p.id !== id);
+        const tc = document.getElementById('lb-team-content');
+        if (tc) renderTeamTab(tc);
+      } catch(err) {
+        showToast('Delete failed', 'error');
+      }
+    });
+  }
+}
+
+// ── Personal photo gallery ───────────────────────────────────────────────
+// Each photo: { id, dataUrl, caption, ts }. Stored in
+// users/{uid}/photos/{photoId}. Cap at 30 to keep account read cost
+// bounded; oldest is dropped when adding past the cap.
+const MY_PHOTO_CAP = 30;
+
+async function loadMyPhotos() {
+  if (!db || !currentUser) { window._tpMyPhotos = []; return; }
+  try {
+    const snap = await getDocs(query(collection(db, 'users', currentUser.uid, 'photos'), orderBy('ts', 'desc'), limit(MY_PHOTO_CAP)));
+    window._tpMyPhotos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {
+    console.warn('loadMyPhotos:', e);
+    window._tpMyPhotos = [];
+  }
+}
+
+function bindPersonalGallery() {
+  const addBtn = document.getElementById('profile-gallery-add');
+  const input = document.getElementById('profile-gallery-input');
+  if (!addBtn || !input) return;
+  addBtn.addEventListener('click', () => input.click());
+  input.addEventListener('change', async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    try {
+      showLoading('Uploading photo...');
+      const { dataUrl } = await resizeImageFile(file, 600, 0.72);
+      const ts = Date.now();
+      const docRef = await addDoc(collection(db, 'users', currentUser.uid, 'photos'), {
+        dataUrl, ts, caption: '',
+      });
+      window._tpMyPhotos = [{ id: docRef.id, dataUrl, ts, caption: '' }, ...(window._tpMyPhotos || [])].slice(0, MY_PHOTO_CAP);
+      hideLoading();
+      showToast('Photo added', 'success');
+      renderProfile();
+    } catch(err) {
+      hideLoading();
+      showToast('Upload failed: ' + (err?.message || 'unknown'), 'error');
+    } finally {
+      try { e.target.value = ''; } catch(_) {}
+    }
+  });
+  // Delete handlers — single delegated listener
+  const grid = document.querySelector('.gallery-grid');
+  if (grid && !grid._tpDeleteBound) {
+    grid._tpDeleteBound = true;
+    grid.addEventListener('click', async (e) => {
+      const btn = e.target?.closest?.('[data-del-photo]');
+      if (!btn) return;
+      e.stopPropagation();
+      if (!confirm('Delete this photo?')) return;
+      const id = btn.dataset.delPhoto;
+      try {
+        await deleteDoc(doc(db, 'users', currentUser.uid, 'photos', id));
+        window._tpMyPhotos = (window._tpMyPhotos || []).filter(p => p.id !== id);
+        renderProfile();
+      } catch(err) {
+        showToast('Delete failed', 'error');
+      }
+    });
+  }
+}
+
+// Resize a File to a JPEG data URL no wider than `maxW` px. Used by all
+// photo uploads (profile, personal gallery, team gallery, workout photo)
+// so we never blow the 1 MB Firestore doc limit. Default ~600 px / 70%
+// quality lands a typical photo at 60-150 KB.
+function resizeImageFile(file, maxW = 600, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('No file'));
+    if (file.size > 8 * 1024 * 1024) return reject(new Error('Photo too large (max 8 MB before resize)'));
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const scale = Math.min(1, maxW / img.width);
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), w: canvas.width, h: canvas.height });
+        } catch(e) { reject(e); }
+      };
+      img.onerror = () => reject(new Error('Image decode failed'));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.readAsDataURL(file);
+  });
+}
 // Strava integration
 const STRAVA_CLIENT_ID = '213628'; // Set your Strava API client ID here
 const STRAVA_REDIRECT_URI = 'https://turboprep.app';
@@ -1212,7 +1381,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r66';
+const APP_VERSION = '20260503-r67';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -6623,6 +6792,14 @@ function renderTeam() {
   } else {
     tc.style.display = '';
     renderTeamTab(tc);
+    // Lazy-load team gallery the first time the team tab is opened so
+    // the gallery section has data on first paint.
+    if (!window._tpTeamPhotos) {
+      window._tpTeamPhotos = [];
+      loadTeamPhotos().then(() => {
+        try { if (currentPage === 'team' && lbSubTab !== 'global' && lbSubTab !== 'chat') renderTeamTab(tc); } catch(e) {}
+      }).catch(() => {});
+    }
     try { unsubscribeTeamChat(); } catch(e) {}
   }
 }
@@ -7284,9 +7461,37 @@ function renderTeamTab(c, opts) {
       </div>
     `;
   }
+  // Team gallery — shared photos uploaded by any team member. Kept
+  // separate from race-day footage; this is informal team-life stuff.
+  if (hasTeam) {
+    const teamPhotos = Array.isArray(window._tpTeamPhotos) ? window._tpTeamPhotos : [];
+    html += '<div class="profile-section" style="margin-top:18px"><div class="profile-section-title gallery-head">Team Gallery<button id="team-gallery-add" class="gallery-add-btn" type="button">+ Add</button></div>';
+    if (teamPhotos.length === 0) {
+      html += '<div class="gallery-empty">No team photos yet. Tap + Add to share one.</div>';
+    } else {
+      html += '<div class="gallery-grid">';
+      teamPhotos.forEach(p => {
+        const owner = p.uploadedBy === currentUser?.uid;
+        html += `<div class="gallery-cell" data-team-photo-id="${escHtml(p.id)}">
+          <img class="gallery-img" src="${escHtml(p.dataUrl)}" alt="${escHtml(p.caption || '')}">
+          <div class="gallery-cap">${escHtml(p.uploadedByName || 'Member')}</div>
+          ${owner || (userProfile?.isCoach && teamData?.createdBy === currentUser?.uid)
+            ? `<button class="gallery-del" data-del-team-photo="${escHtml(p.id)}" type="button" aria-label="Delete photo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="width:11px;height:11px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>`
+            : ''}
+        </div>`;
+      });
+      html += '</div>';
+    }
+    html += '<input id="team-gallery-input" type="file" accept="image/*" style="display:none">';
+    html += '</div>';
+  }
   // Leave team
   html += '<div style="text-align:center;margin-top:16px"><button class="leave-team-btn" id="leave-team-btn">Leave Team</button></div>';
   c.innerHTML = html;
+  // Team gallery handlers
+  if (hasTeam) bindTeamGallery();
   // Bind copy. Use optional chaining everywhere — a single missing
   // element used to throw and abort the rest of the bind block,
   // making every button below this line silently dead.
@@ -7425,6 +7630,13 @@ $('profile-menu-btn')?.addEventListener('click', () => {
 $('profile-close-btn')?.addEventListener('click', closeProfile);
 function openProfile() {
   $('profile-overlay').style.display = 'flex';
+  // Lazy-load personal photos the first time the profile is opened so
+  // the gallery section has data to render. Re-renders as soon as the
+  // load completes.
+  if (!window._tpMyPhotos) {
+    window._tpMyPhotos = [];
+    loadMyPhotos().then(() => { try { renderProfile(); } catch(e) {} }).catch(() => {});
+  }
   renderProfile();
 }
 function closeProfile() {
@@ -7445,10 +7657,24 @@ async function renderProfile() {
   const tier = capitalize(userProfile?.fitnessLevel || 'basic');
   const initial = name.charAt(0).toUpperCase();
   const isStravaConnected = !!(stravaTokens && stravaTokens.access_token);
+  const photoUrl = userProfile?.photoURL || '';
+  const bio = userProfile?.bio || '';
   let html = `
-    <div class="profile-avatar-big">${initial}</div>
+    <div class="profile-avatar-wrap">
+      ${photoUrl
+        ? `<img class="profile-avatar-img" src="${escHtml(photoUrl)}" alt="Profile photo">`
+        : `<div class="profile-avatar-big">${initial}</div>`}
+      <button id="profile-photo-upload" class="profile-avatar-edit" type="button" aria-label="Change profile photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
+      <input id="profile-photo-input" type="file" accept="image/*" style="display:none">
+    </div>
     <div class="profile-name-big">${escHtml(name)}</div>
     <div class="profile-meta">${escHtml(email)}</div>
+    <div class="profile-bio-row">
+      ${bio ? `<div class="profile-bio">${escHtml(bio)}</div>` : '<div class="profile-bio profile-bio-empty">Tap to add a short bio.</div>'}
+      <button id="profile-edit-bio" class="profile-bio-edit" type="button">${bio ? 'Edit' : 'Add'}</button>
+    </div>
   `;
   // Account section
   html += '<div class="profile-section"><div class="profile-section-title">Account</div>';
@@ -7468,6 +7694,27 @@ async function renderProfile() {
   </div>`;
   html += '</div>';
   // Appearance
+  // My Photos — personal gallery. Each photo is a 600px JPEG (~80 KB)
+  // stored as a Firestore doc in users/{uid}/photos/{photoId}. Owner only.
+  const myPhotos = Array.isArray(window._tpMyPhotos) ? window._tpMyPhotos : [];
+  html += '<div class="profile-section"><div class="profile-section-title gallery-head">My Photos<button id="profile-gallery-add" class="gallery-add-btn" type="button">+ Add</button></div>';
+  if (myPhotos.length === 0) {
+    html += '<div class="gallery-empty">No photos yet. Tap + Add to upload.</div>';
+  } else {
+    html += '<div class="gallery-grid">';
+    myPhotos.forEach(p => {
+      html += `<div class="gallery-cell" data-photo-id="${escHtml(p.id)}">
+        <img class="gallery-img" src="${escHtml(p.dataUrl)}" alt="${escHtml(p.caption || '')}">
+        <button class="gallery-del" data-del-photo="${escHtml(p.id)}" type="button" aria-label="Delete photo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="width:11px;height:11px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  html += '<input id="profile-gallery-input" type="file" accept="image/*" style="display:none">';
+  html += '</div>';
+
   html += '<div class="profile-section"><div class="profile-section-title">Appearance</div>';
   html += `<div class="profile-row" style="flex-direction:column;align-items:stretch;gap:8px">
     <div style="font-size:12px;color:var(--muted-fg)">Pick a theme.</div>
@@ -7811,6 +8058,35 @@ async function renderProfile() {
       updateProfileField('displayName', val);
     });
   });
+  // Profile photo upload — resize, save base64 to user doc.
+  $('profile-photo-upload')?.addEventListener('click', () => $('profile-photo-input')?.click());
+  $('profile-photo-input')?.addEventListener('change', async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    try {
+      showLoading('Uploading photo...');
+      const { dataUrl } = await resizeImageFile(file, 320, 0.78);
+      await updateProfileField('photoURL', dataUrl);
+      hideLoading();
+      showToast('Profile photo updated', 'success');
+      renderProfile();
+    } catch(err) {
+      hideLoading();
+      showToast('Photo upload failed: ' + (err?.message || 'unknown'), 'error');
+    } finally {
+      try { e.target.value = ''; } catch(_) {}
+    }
+  });
+  // Bio editor — short free-text below the name.
+  $('profile-edit-bio')?.addEventListener('click', () => {
+    showEditModal('Edit Bio', 'modal-bio', bio, async (val) => {
+      const trimmed = String(val || '').trim().slice(0, 240);
+      await updateProfileField('bio', trimmed);
+      renderProfile();
+    });
+  });
+  // Personal photo gallery — bind upload + delete handlers
+  bindPersonalGallery();
   $('profile-edit-year')?.addEventListener('click', () => {
     showSelectModal('Change Year Level', [
       {value:'Y7',label:'Year 7'},{value:'Y8',label:'Year 8'},{value:'Y9',label:'Year 9'},
@@ -9809,7 +10085,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r66';
+  const APP_VERSION = '20260503-r67';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
