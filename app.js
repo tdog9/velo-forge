@@ -816,7 +816,9 @@ let app, auth, db;
 let currentUser = null;
 let userProfile = null;
 let currentPage = 'today';
-let fitnessSubTab = 'workouts'; // 'workouts' | 'plans' | 'demos' | 'myplans'
+// Fitness focuses on Plans by default (demos + plans are the primary
+// surfaces; activities is secondary, health was removed entirely).
+let fitnessSubTab = 'plans'; // 'plans' | 'demos' | 'workouts'
 let demosCat = 'all'; // 'all' | 'invehicle' | 'floor' | 'machine'
 let demosSearch = '';
 let lbSubTab = 'global'; // 'global' | 'team'
@@ -1210,7 +1212,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260502-r56';
+const APP_VERSION = '20260503-r57';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1870,7 +1872,9 @@ try {
     currentPage = saved;
   }
   const savedFitSub = localStorage.getItem('tp_fitnessSub');
-  if (savedFitSub && ['workouts','plans','health','demos'].includes(savedFitSub)) {
+  // Health tab was retired — fall back to Plans if a stale 'health' is
+  // still in localStorage from a prior session.
+  if (savedFitSub && ['workouts','plans','demos'].includes(savedFitSub)) {
     fitnessSubTab = savedFitSub;
   }
 } catch(e) {}
@@ -3341,12 +3345,11 @@ function renderToday() {
       // First-time onboarding — guided plan picker
       const year = userProfile?.yearLevel || 'Y9';
       const tier = userProfile?.fitnessLevel || 'basic';
-      html += `<div style="background:linear-gradient(135deg,rgba(var(--primary-rgb),.06),rgba(var(--success-rgb),.04));border:1.5px solid rgba(var(--primary-rgb),.2);border-radius:12px;padding:16px;text-align:center">
-        <div style="font-size:28px;margin-bottom:6px">🚀</div>
-        <div style="font-size:15px;font-weight:700;color:var(--fg);margin-bottom:4px">Welcome to TurboPrep!</div>
-        <div style="font-size:12px;color:var(--muted-fg);margin-bottom:12px;line-height:1.4">Let's get you a training plan. We've matched one to your year level (${year}) and fitness tier (${capitalize(tier)}).</div>
-        <button class="btn btn-primary" id="onboard-pick-plan" style="width:100%;padding:12px;font-size:14px;font-weight:700;border-radius:10px">🏋️ Pick My Plan</button>
-        <div style="font-size:11px;color:var(--muted-fg);margin-top:8px">Or go to Fitness → Plans to browse all 54 options</div>
+      html += `<div style="background:linear-gradient(135deg,rgba(var(--primary-rgb),.06),rgba(var(--success-rgb),.04));border:1px solid rgba(var(--primary-rgb),.2);border-radius:14px;padding:18px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--primary);margin-bottom:6px">Welcome</div>
+        <div style="font-size:16px;font-weight:800;color:var(--fg);margin-bottom:6px">Let's pick your training plan</div>
+        <div style="font-size:13px;color:var(--muted-fg);margin-bottom:14px;line-height:1.45">We've matched one to <strong style="color:var(--fg)">${escHtml(year)}</strong> · <strong style="color:var(--fg)">${escHtml(capitalize(tier))}</strong>. You can switch any time from the Fitness tab.</div>
+        <button class="btn btn-primary" id="onboard-pick-plan" style="width:100%;padding:12px;font-size:14px;font-weight:700;border-radius:10px">Pick my plan</button>
       </div>`;
     } else {
       html += `<div class="today-no-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--primary)"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><div><strong>No plan active</strong></div><div style="font-size:12px;color:var(--muted-fg)">Go to Fitness → Plans to pick one.</div></div>`;
@@ -6482,36 +6485,40 @@ function renderTeam() {
       // whole panel (composer included) and thrashed the input.
       if (userProfile?.teamId && typeof subscribeTeamChat === 'function') {
         let healAttempted = false;
+        const setStatus = (state, label) => {
+          const pill = document.getElementById('chat-status-pill');
+          if (!pill) return;
+          pill.classList.remove('chat-status-connecting', 'chat-status-live', 'chat-status-error');
+          pill.classList.add('chat-status-' + state);
+          const lbl = pill.querySelector('.chat-status-label');
+          if (lbl) lbl.textContent = label;
+        };
         const startSubscribe = () => {
           subscribeTeamChat(userProfile.teamId, () => {
-            // Successful snapshot — clear any prior error banner.
+            // Successful snapshot — clear error banner + flip pill to Live.
             const errBox = document.getElementById('team-chat-error');
             if (errBox && !errBox.hidden) { errBox.textContent = ''; errBox.hidden = true; }
+            setStatus('live', 'Live');
             if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
           }, async (err) => {
             const errBox = document.getElementById('team-chat-error');
             const code = err?.code || '';
-            // First failure of any kind: try to self-heal silently
-            // (membership drift, transient permission, etc.) WITHOUT
-            // flashing a scary banner. ensureDefaultTeamMembership is
-            // idempotent + cheap, so it's safe to run unconditionally.
             if (!healAttempted) {
               healAttempted = true;
+              setStatus('connecting', 'Reconnecting…');
               try { await ensureDefaultTeamMembership(); } catch(_) {}
               setTimeout(() => {
                 if (currentPage === 'team' && lbSubTab === 'chat') startSubscribe();
               }, 700);
               return;
             }
-            // Repeat failure — surface a clear message tied to the
-            // actual cause. Skip the banner if user is offline (covered
-            // by the global offline indicator + Firestore retries on its
-            // own once the connection comes back).
+            // Repeat failure — surface a clear message + flip pill to Error.
+            setStatus('error', code === 'permission-denied' ? 'No access' : 'Offline');
             if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
             if (!errBox) return;
             errBox.textContent = code === 'permission-denied'
               ? 'You don\'t have access to this team\'s chat. Reload to retry.'
-              : 'Chat connection trouble — Firestore will retry automatically.';
+              : ('Chat connection trouble: ' + (err?.message || 'Firestore will retry automatically.'));
             errBox.hidden = false;
           });
         };
@@ -6600,6 +6607,12 @@ function renderTeamChatPanelInto(el) {
   const placeholder = `Message ${targetLabel}…`;
 
   el.innerHTML = `
+    <div class="chat-status-row">
+      <div id="chat-status-pill" class="chat-status-pill chat-status-connecting">
+        <span class="chat-status-dot"></span>
+        <span class="chat-status-label">Connecting…</span>
+      </div>
+    </div>
     ${scopeChips}
     ${panel}
     <div class="msg-composer">
@@ -9679,7 +9692,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260502-r56';
+  const APP_VERSION = '20260503-r57';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -10544,10 +10557,13 @@ function renderCoachRaceDay(el) {
     renderCoachPage();
   });
   el.querySelector('#coach-demo-link')?.addEventListener('click', async () => {
-    const url = location.origin + '/spectate.html';
+    // Pass the local-AEST date so the netlify spectator function looks up
+    // the right race_day/{date} doc — it defaults to the server's UTC
+    // date which can be a day off from Melbourne for ~10h each day.
+    const url = location.origin + '/spectate.html?date=' + encodeURIComponent(localDateKey());
     try {
       await navigator.clipboard.writeText(url);
-      showToast('Spectator link copied — open in another tab/phone.', 'success');
+      showToast('Spectator link copied', 'success');
     } catch(_) {
       prompt('Copy spectator link:', url);
     }

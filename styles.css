@@ -517,23 +517,34 @@ select.input{
 .space-y>*+*{margin-top:12px}
 .space-y-sm>*+*{margin-top:8px}
 
-/* ===== Toast ===== */
+/* ===== Toast (iOS-style notification bubble) =====
+   Pill-shaped, sticks to top of screen below the safe area. Slides in
+   from above, fades out. Backdrop-blur for the modern bubble look. */
 .toast{
-  position:fixed;top:calc(var(--header-h) + var(--safe-t) + 8px);
-  left:50%;transform:translateX(-50%) translateY(-8px);
-  z-index:500;
-  padding:10px 20px;border-radius:var(--radius-sm);
-  font-size:14px;font-weight:600;
-  opacity:0;transition:all .25s;
-  white-space:nowrap;pointer-events:none;
-  box-shadow:var(--shadow-lg);
-  max-width:calc(100vw - 32px);
-  text-align:center;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 18px;border-radius:999px;
+  font-size:13.5px;font-weight:700;letter-spacing:.005em;
+  line-height:1.25;text-align:center;
+  box-shadow:0 12px 30px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
+  pointer-events:auto;cursor:default;
+  white-space:normal;max-width:100%;
+  transform:translateY(-12px);opacity:0;
+  animation:tp-toast-in .26s cubic-bezier(.2,.7,.2,1.2) forwards, tp-toast-out .25s ease 2.85s forwards;
+  -webkit-backdrop-filter:saturate(180%) blur(14px);
+  backdrop-filter:saturate(180%) blur(14px);
 }
-.toast-success{background:#22c55e;color:#fff}
-.toast-error{background:var(--destructive);color:#fff}
-.toast-warn{background:#f59e0b;color:#000}
-.toast-info{background:var(--primary);color:var(--primary-fg)}
+@keyframes tp-toast-in { from { transform:translateY(-14px); opacity:0 } to { transform:translateY(0); opacity:1 } }
+@keyframes tp-toast-out { from { transform:translateY(0); opacity:1 } to { transform:translateY(-10px); opacity:0 } }
+.toast::before{
+  content:"";flex-shrink:0;
+  width:8px;height:8px;border-radius:50%;
+  background:currentColor;opacity:.95;
+  box-shadow:0 0 0 3px rgba(255,255,255,.18);
+}
+.toast-success{background:linear-gradient(180deg, #22c55e, #16a34a);color:#fff}
+.toast-error{background:linear-gradient(180deg, #ef4444, #dc2626);color:#fff}
+.toast-warn{background:linear-gradient(180deg, #f59e0b, #d97706);color:#0a0b0f}
+.toast-info{background:linear-gradient(180deg, var(--primary), #c2410c);color:var(--primary-fg)}
 
 /* ===== Today Page ===== */
 .today-date{font-size:12px;font-weight:600;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
@@ -1268,7 +1279,7 @@ select.input{
 .tutorial-overlay{position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px}
 
 /* Toast container */
-.toast-container{position:fixed;top:calc(var(--header-h) + var(--safe-t) + 8px);left:50%;transform:translateX(-50%);z-index:500;display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:calc(100vw - 32px)}
+.toast-container{position:fixed;top:calc(var(--safe-t) + 10px);left:50%;transform:translateX(-50%);z-index:600;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;max-width:calc(100vw - 28px);width:max-content}
 
 /* Tab tooltip */
 .tab-tooltip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--fg);white-space:nowrap;box-shadow:var(--shadow-sm);pointer-events:none}
