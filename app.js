@@ -1212,7 +1212,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r62';
+const APP_VERSION = '20260503-r63';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -3087,7 +3087,7 @@ function renderToday() {
   if (cachedWeather && cachedWeather.temp !== undefined) {
     const _w = cachedWeather;
     const _iconUrl = `https://openweathermap.org/img/wn/${_w.icon}@2x.png`;
-    const _advice = _w.wind >= 30 ? '💨 Strong winds — consider indoor training' : _w.temp < 8 ? '🥶 Cold out — wear layers' : _w.temp > 35 ? '🔥 Extreme heat — train early or indoors' : _w.temp >= 20 ? '☀️ Great conditions for training' : '👍 Good conditions for training';
+    const _advice = _w.wind >= 30 ? 'Strong winds — consider indoor training' : _w.temp < 8 ? 'Cold out — wear layers' : _w.temp > 35 ? 'Extreme heat — train early or indoors' : _w.temp >= 20 ? 'Great conditions for training' : 'Good conditions for training';
     const _bgGrad = _w.icon?.includes('n') ? 'linear-gradient(135deg,rgba(30,41,59,.9),rgba(51,65,85,.8))' : 'linear-gradient(135deg,rgba(59,130,246,.12),rgba(124,58,237,.06))';
     const _border = _w.icon?.includes('n') ? 'rgba(100,116,139,.3)' : 'rgba(59,130,246,.2)';
     html += `<div id="weather-card" style="margin-bottom:10px"><div style="padding:14px 16px;background:${_bgGrad};border:1px solid ${_border};border-radius:14px">
@@ -3102,8 +3102,8 @@ function renderToday() {
         </div>
       </div>
       <div style="display:flex;gap:12px;margin-bottom:6px">
-        <span style="font-size:11px;color:var(--muted-fg)">💨 ${_w.wind} km/h</span>
-        <span style="font-size:11px;color:var(--muted-fg)">💧 ${_w.humidity}%</span>
+        <span style="font-size:11px;color:var(--muted-fg)">Wind ${_w.wind} km/h</span>
+        <span style="font-size:11px;color:var(--muted-fg)">Humidity ${_w.humidity}%</span>
       </div>
       <div style="font-size:12px;font-weight:600;color:var(--fg)">${_advice}</div>
     </div></div>`;
@@ -4483,7 +4483,7 @@ function showAiHelpMenu() {
   aiMsg.innerHTML = `What do you need help with?<br><br>
     <div class="ai-quick-btns" style="margin-top:6px">
       <button class="ai-quick-btn ai-help-opt" data-help="edit-plan" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.25);color:#3b82f6">✏️ Edit My Plan</button>
-      <button class="ai-quick-btn ai-help-opt" data-help="race-prep" style="background:rgba(var(--destructive-rgb),.12);border-color:rgba(var(--destructive-rgb),.25);color:var(--destructive)">🏁 Race Prep</button>
+      <button class="ai-quick-btn ai-help-opt" data-help="race-prep" style="background:rgba(var(--destructive-rgb),.12);border-color:rgba(var(--destructive-rgb),.25);color:var(--destructive)">Race prep</button>
       <button class="ai-quick-btn ai-help-opt" data-help="injury-mod" style="background:rgba(var(--primary-rgb),.12);border-color:rgba(var(--primary-rgb),.25);color:#f97316">🩹 Injury Mode</button>
       <button class="ai-quick-btn ai-help-opt" data-help="form-check" style="background:rgba(var(--purple-rgb),.12);border-color:rgba(var(--purple-rgb),.25);color:var(--purple)">🎥 Form Tips</button>
       <button class="ai-quick-btn ai-help-opt" data-help="pick-plan">🎯 Pick a Plan</button>
@@ -4961,7 +4961,7 @@ function startPlanGeneration() {
       <button class="ai-quick-btn ai-plan-type" data-ptype="bike">Bike</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="floor">🏠 Floor & Home</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="machine">🏋️ Machine</button>
-      <button class="ai-quick-btn ai-plan-type" data-ptype="offseason">☀️ Off-Season</button>
+      <button class="ai-quick-btn ai-plan-type" data-ptype="offseason">Off-Season</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="holiday">🏖️ Holiday</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="custom">🎯 Custom goal</button>
     </div>`;
@@ -6312,7 +6312,7 @@ async function renderRaceDayHistory() {
         <div class="card-pad">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <div>
-              <div style="font-size:15px;font-weight:700">🏁 Race Day — ${day.date}</div>
+              <div style="font-size:15px;font-weight:700">Race Day · ${day.date}</div>
               <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${stints.length} drivers · ${totalLaps} total laps</div>
             </div>
             ${bestLap ? `<div style="text-align:right"><div style="font-size:11px;color:var(--muted-fg)">Best Lap</div><div style="font-size:18px;font-weight:800;color:var(--success);font-family:var(--font-mono)">${fmtMs(bestLap)}</div></div>` : ''}
@@ -7418,7 +7418,7 @@ async function renderProfile() {
   // send-push respects these before delivering.
   const prefs = userProfile?.notificationPrefs || {};
   const NOTIF_CATS = [
-    { id: 'race_day',        label: '🏁 Race Day', desc: 'Race-day activations, lap milestones' },
+    { id: 'race_day',        label: 'Race Day', desc: 'Race-day activations, lap milestones' },
     { id: 'coach_broadcast', label: '📣 Coach Messages', desc: 'Broadcasts from your coach' },
     { id: 'training',        label: '📅 Training Reminders', desc: 'Daily plan + workout nudges' },
     { id: 'team_chat',       label: '💬 Team Chat', desc: 'New messages in your team chat' },
@@ -9729,7 +9729,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r62';
+  const APP_VERSION = '20260503-r63';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -10107,7 +10107,7 @@ function renderCoachManageHome(el) {
     <div style="display:flex;flex-direction:column;gap:8px">
       ${rdActive
         ? `<button type="button" class="cm-row" data-cm-act="rd-end" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:rgba(var(--destructive-rgb),.10);border:1px solid rgba(var(--destructive-rgb),.30);color:var(--destructive);cursor:pointer"><span><div style="font-size:14px;font-weight:700">⏹ End Race Day Mode</div><div style="font-size:11px;font-weight:500;opacity:.85;margin-top:2px">Currently active — tap to end for everyone</div></span><span style="font-size:18px;opacity:.6">›</span></button>`
-        : `<button type="button" class="cm-row" data-cm-act="rd-start" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(var(--success-rgb),.12),rgba(var(--success-rgb),.05));border:1px solid rgba(var(--success-rgb),.30);color:var(--success);cursor:pointer"><span><div style="font-size:14px;font-weight:700">🏁 Activate Race Day Mode</div><div style="font-size:11px;font-weight:500;opacity:.85;margin-top:2px">Locks all members into the race day interface</div></span><span style="font-size:18px;opacity:.6">›</span></button>`}
+        : `<button type="button" class="cm-row" data-cm-act="rd-start" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(var(--success-rgb),.12),rgba(var(--success-rgb),.05));border:1px solid rgba(var(--success-rgb),.30);color:var(--success);cursor:pointer"><span><div style="font-size:14px;font-weight:700">Activate Race Day Mode</div><div style="font-size:11px;font-weight:500;opacity:.85;margin-top:2px">Locks all members into the race day interface</div></span><span style="font-size:18px;opacity:.6">›</span></button>`}
       <button type="button" class="cm-row" data-cm-act="edit" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);color:var(--fg);cursor:pointer"><span><div style="font-size:14px;font-weight:700">Edit team details</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Name, description, invite blurb</div></span><span style="font-size:18px;color:var(--muted-fg)">›</span></button>
       <button type="button" class="cm-row" data-cm-act="cocoach" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);color:var(--fg);cursor:pointer"><span><div style="font-size:14px;font-weight:700">Add a co-coach</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Promote an existing team member</div></span><span style="font-size:18px;color:var(--muted-fg)">›</span></button>
       <button type="button" class="cm-row" data-cm-act="subteams" style="width:100%;text-align:left;padding:14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);color:var(--fg);cursor:pointer"><span><div style="font-size:14px;font-weight:700">Manage subteams</div><div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-weight:500">Create, rename, assign athletes</div></span><span style="font-size:18px;color:var(--muted-fg)">›</span></button>
@@ -11186,11 +11186,11 @@ async function loadWeather() {
 }
 function renderWeatherCard(el, w) {
   const iconUrl = `https://openweathermap.org/img/wn/${w.icon}@2x.png`;
-  const advice = w.wind >= 30 ? '💨 Strong winds — consider indoor training'
-    : w.temp < 8 ? '🥶 Cold out — wear layers'
-    : w.temp > 35 ? '🔥 Extreme heat — train early or indoors'
-    : w.temp >= 20 ? '☀️ Great conditions for training'
-    : '👍 Good conditions for training';
+  const advice = w.wind >= 30 ? 'Strong winds — consider indoor training'
+    : w.temp < 8 ? 'Cold out — wear layers'
+    : w.temp > 35 ? 'Extreme heat — train early or indoors'
+    : w.temp >= 20 ? 'Great conditions for training'
+    : 'Good conditions for training';
   const bgGrad = w.icon?.includes('n') ? 'linear-gradient(135deg,rgba(30,41,59,.9),rgba(51,65,85,.8))' : 'linear-gradient(135deg,rgba(59,130,246,.12),rgba(124,58,237,.06))';
   const borderCol = w.icon?.includes('n') ? 'rgba(100,116,139,.3)' : 'rgba(59,130,246,.2)';
   el.innerHTML = `<div style="padding:14px 16px;background:${bgGrad};border:1px solid ${borderCol};border-radius:14px;margin-bottom:10px">
@@ -11205,8 +11205,8 @@ function renderWeatherCard(el, w) {
       </div>
     </div>
     <div style="display:flex;gap:12px;margin-bottom:6px">
-      <span style="font-size:11px;color:var(--muted-fg)">💨 ${w.wind} km/h</span>
-      <span style="font-size:11px;color:var(--muted-fg)">💧 ${w.humidity}%</span>
+      <span style="font-size:11px;color:var(--muted-fg)">Wind ${w.wind} km/h</span>
+      <span style="font-size:11px;color:var(--muted-fg)">Humidity ${w.humidity}%</span>
     </div>
     <div style="font-size:12px;font-weight:600;color:var(--fg)">${advice}</div>
   </div>`;
