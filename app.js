@@ -1212,7 +1212,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r64';
+const APP_VERSION = '20260503-r65';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1765,17 +1765,22 @@ $('signup-btn')?.addEventListener('click', async () => {
 $('logout-btn')?.addEventListener('click', async () => {
   closeUserMenu();
   try {
-    if (workoutsUnsubscribe) { workoutsUnsubscribe(); workoutsUnsubscribe = null; }
-    if (checklistUnsubscribe) { checklistUnsubscribe(); checklistUnsubscribe = null; }
-    if (planOverridesUnsubscribe) { planOverridesUnsubscribe(); planOverridesUnsubscribe = null; }
+    if (workoutsUnsubscribe) { try { workoutsUnsubscribe(); } catch(e) {} workoutsUnsubscribe = null; }
+    if (checklistUnsubscribe) { try { checklistUnsubscribe(); } catch(e) {} checklistUnsubscribe = null; }
+    if (planOverridesUnsubscribe) { try { planOverridesUnsubscribe(); } catch(e) {} planOverridesUnsubscribe = null; }
     if (profileUnsubscribe) {
       try { typeof profileUnsubscribe === 'function' ? profileUnsubscribe() : clearInterval(profileUnsubscribe); } catch(e) {}
       profileUnsubscribe = null;
     }
-    if (teamUnsubscribe) { teamUnsubscribe(); teamUnsubscribe = null; }
+    if (teamUnsubscribe) { try { teamUnsubscribe(); } catch(e) {} teamUnsubscribe = null; }
     try { unsubscribeTeamChat(); } catch(e) {}
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
     if (window._tpRaceDayPoll) { clearInterval(window._tpRaceDayPoll); window._tpRaceDayPoll = null; }
+    // Clean up the long-lived background tasks added in v3.5.x — these
+    // were leaking past sign-out before today's audit pass.
+    if (_demoRaceTimer) { try { clearInterval(_demoRaceTimer); } catch(e) {} _demoRaceTimer = null; _demoRaceState = null; }
+    if (_trainingReminderInterval) { try { clearInterval(_trainingReminderInterval); } catch(e) {} _trainingReminderInterval = null; }
+    if (_announcementsUnsub) { try { _announcementsUnsub(); } catch(e) {} _announcementsUnsub = null; }
     await signOut(auth);
     currentUser = null;
     userProfile = null;
@@ -2434,7 +2439,7 @@ const initPage = $('page-' + currentPage);
 if (initPage) initPage.classList.add('active');
 function extractAllExercises() {
   const exerciseMap = {}; // key → exercise object
-  const catLabels = { bike: 'Bike', floor: 'Floor & Home', machine: 'Fitness Machine' };
+  const catLabels = { bike: 'Bike', floor: 'Floor & Home', machine: 'Machine' };
   const catColors = { bike: '#2EA693', floor: '#8B5CF6', machine: '#FF8C33' };
   // ===== FLOOR EXERCISE DATABASE =====
   const FLOOR_EXERCISES = [
@@ -3761,10 +3766,10 @@ function renderToday() {
       if (isScaled) {
         const ratio = dur / origDur;
         const scaleNote = ratio <= 0.4
-          ? `⏱ ${dur}-minute version: Do the warm-up (3 min), pick 2-3 key exercises, skip cool-down intervals. Focus on quality over quantity.`
+          ? `${dur}-minute version: Do the warm-up (3 min), pick 2-3 key exercises, skip cool-down intervals. Focus on quality over quantity.`
           : ratio <= 0.6
-          ? `⏱ ${dur}-minute version: Shorten warm-up to 5 min, reduce sets by half, keep rest periods short (30s). Skip the last exercise if time is tight.`
-          : `⏱ ${dur}-minute version: Reduce warm-up/cool-down by 5 min each, do 2 fewer sets per exercise. Same intensity, less volume.`;
+          ? `${dur}-minute version: Shorten warm-up to 5 min, reduce sets by half, keep rest periods short (30s). Skip the last exercise if time is tight.`
+          : `${dur}-minute version: Reduce warm-up/cool-down by 5 min each, do 2 fewer sets per exercise. Same intensity, less volume.`;
         desc = scaleNote + '\n\n' + desc;
       }
       openExerciseTracker(el.dataset.workoutKey, el.dataset.workoutName, desc, dur, el.dataset.workoutExercises);
@@ -4028,7 +4033,20 @@ function parseExercisesFromDesc(desc, name, duration) {
   if (exercises.length === 0) {
     exercises.push({ name: name, sets: 1, reps: null, duration: duration + ' min', notes: desc.length > 200 ? desc.substring(0, 200) + '...' : desc });
   }
-  return exercises;
+  // Sanitise: drop entries with empty names; clamp out-of-range sets/reps
+  // so a regex glitch can't produce sets:0 or reps:NaN that would crash
+  // the timer renderer downstream.
+  return exercises
+    .filter(e => e && typeof e.name === 'string' && e.name.trim().length >= 2)
+    .map(e => {
+      const sets = parseInt(e.sets);
+      const reps = e.reps == null ? null : parseInt(e.reps);
+      return {
+        ...e,
+        sets: (Number.isFinite(sets) && sets > 0 && sets <= 50) ? sets : 1,
+        reps: (Number.isFinite(reps) && reps > 0 && reps <= 999) ? reps : null,
+      };
+    });
 }
 // Exercise Tracker Overlay — set counter for daily workouts
 function openExerciseTracker(key, name, desc, duration, exercisesJson) {
@@ -4998,7 +5016,7 @@ async function generateAiPlan(category, yearLevel, tier, customGoal) {
   typingMsg.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  const catNames = { bike: 'Bike (HPR / on-bike riding)', floor: 'Floor & Home (bodyweight)', machine: 'Fitness Machine (gym)', offseason: 'Off-Season (fun cross-training to maintain fitness)', holiday: 'Holiday (short 15-20 min sessions doable anywhere)' };
+  const catNames = { bike: 'Bike (HPR / on-bike riding)', floor: 'Floor & Home (bodyweight)', machine: 'Machine (gym)', offseason: 'Off-Season (fun cross-training to maintain fitness)', holiday: 'Holiday (short 15-20 min sessions doable anywhere)' };
   const prompt = customGoal
     ? 'Create a training plan: "' + customGoal + '". Student is ' + yearLevel + ', ' + tier + ' tier.'
     : 'Create a ' + (catNames[category] || category) + ' training plan for ' + yearLevel + ' at ' + tier + ' tier.';
@@ -5298,11 +5316,10 @@ function renderWorkouts() {
     const typeSet = new Set();
     userWorkouts.forEach(w => { if (w.type) typeSet.add(w.type.toLowerCase()); });
     const types = [...typeSet].sort();
-    const typeIcons = {hpv:'🏎️',ride:'🚴',run:'🏃',treadmill:'🏃‍♂️',walk:'🚶',gym:'🏋️',strength:'🏋️',cardio:'❤️',flexibility:'🧘',workout:'🏋️'};
     types.forEach(t => {
       const count = userWorkouts.filter(w => (w.type || 'ride').toLowerCase() === t).length;
       if (count > 0) {
-        html += `<button class="wo-filter-btn" data-wofilter="${t}" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">${typeIcons[t]} ${capitalize(t)} (${count})</button>`;
+        html += `<button class="wo-filter-btn" data-wofilter="${t}" style="font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--muted-fg);cursor:pointer">${capitalize(t)} (${count})</button>`;
       }
     });
     // Check for tracked vs manual vs watch
@@ -5883,7 +5900,7 @@ function renderPlans() {
   const categories = [
     { id: 'bike', label: 'Bike', icon: '' },
     { id: 'floor', label: 'Floor & Home', icon: '' },
-    { id: 'machine', label: 'Fitness Machine', icon: '' },
+    { id: 'machine', label: 'Machine', icon: '' },
   ];
   const years = ['Y7','Y8','Y9','Y10','Y11','Y12'];
   const tiers = ['basic','average','intense'];
@@ -5935,7 +5952,7 @@ function renderPlans() {
         <div class="empty-state-desc">Try a different search term.</div>
       </div>`;
     } else {
-      const catLabels = { bike: 'Bike', floor: 'Floor & Home', machine: 'Fitness Machine' };
+      const catLabels = { bike: 'Bike', floor: 'Floor & Home', machine: 'Machine' };
       html += '<div class="space-y">';
       results.forEach(plan => {
         const isActive = plan.id === activePlanId;
@@ -6758,19 +6775,26 @@ function refreshTeamChatList() {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   const newList = tmp.firstElementChild;
-  if (!newList) return;
+  // If renderChatPanel produced markup with no root element (e.g. the
+  // empty-state path was taken with messages.length > 0 due to a filter
+  // mismatch), fall back to a full repaint instead of crashing on
+  // list.replaceWith(undefined).
+  if (!newList) { renderTeamChatPanelInto(cc); return; }
   list.replaceWith(newList);
-  // Re-bind the per-message delete handlers that came in with the new HTML.
-  cc.querySelectorAll('.chat-msg-del').forEach(btn => {
-    if (btn._tpBound) return;
-    btn._tpBound = true;
-    btn.addEventListener('click', async (e) => {
+  // Delete handlers use a single delegated listener attached ONCE to the
+  // chat container. Previous version re-bound .chat-msg-del every refresh
+  // which leaked listeners as messages came + went.
+  if (!cc._tpDeleteDelegated) {
+    cc._tpDeleteDelegated = true;
+    cc.addEventListener('click', async (e) => {
+      const btn = e.target?.closest?.('.chat-msg-del');
+      if (!btn || !cc.contains(btn)) return;
       e.stopPropagation();
       if (!confirm('Delete this message?')) return;
       const id = btn.dataset.delId;
       if (id) await deleteChatMessage(userProfile?.teamId, id);
     });
-  });
+  }
   // Auto-scroll to newest if the user was near the bottom of the page —
   // don't yank them up the thread mid-scroll. The page (#content) is the
   // scroll container, not the list itself.
@@ -9761,7 +9785,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r64';
+  const APP_VERSION = '20260503-r65';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -10661,8 +10685,12 @@ function isDemoRaceRunning() { return !!_demoRaceTimer; }
 async function startDemoRace() {
   if (!db || !currentUser) { showToast('Sign in first.', 'warn'); return false; }
   const isMaster = currentUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-  if (!isAdmin && !isMaster && !userProfile?.isCoach) {
-    showToast('Coach or admin only.', 'warn');
+  // Firestore rules require isAdmin() to write race_day/{date}. The demo
+  // races against the same path so a plain coach (without admin rights)
+  // can't run it without rules changes — surface that clearly instead of
+  // failing silently in the setDoc below.
+  if (!isAdmin && !isMaster) {
+    showToast('Demo race needs admin rights — Firestore rules only allow admins to activate race day.', 'warn');
     return false;
   }
   const date = localDateKey();
@@ -11336,17 +11364,22 @@ function checkTrainingReminder() {
     }
   } catch(e) {}
 }
-setInterval(checkTrainingReminder, 15 * 60 * 1000);
+// Stored handle so the sign-out cleanup can clearInterval — was leaking
+// a 15-min reminder check forever after logout.
+let _trainingReminderInterval = setInterval(checkTrainingReminder, 15 * 60 * 1000);
+// Hold the listener handle so signOut can dispose it. Was previously
+// throwing the unsubscribe away and the listener fired for the rest of
+// the tab's life.
+let _announcementsUnsub = null;
 function setupAnnouncementListener() {
   if (!db) return;
   try {
-    onSnapshot(doc(db, 'config', 'announcements'), (snap) => {
+    if (_announcementsUnsub) { try { _announcementsUnsub(); } catch(_) {} _announcementsUnsub = null; }
+    _announcementsUnsub = onSnapshot(doc(db, 'config', 'announcements'), (snap) => {
       if (!snap.exists()) return;
       const items = snap.data().items || [];
-      const oldCount = adminAnnouncements.filter(a => a.active).length;
       adminAnnouncements = items;
       checkForNewAnnouncements(items);
-      // Re-render Today if on that page
       if (currentPage === 'today') renderToday();
     });
   } catch(e) {

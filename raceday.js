@@ -18,7 +18,7 @@ let stintGpsState     = 'idle';   // 'idle' | 'connecting' | 'live' | 'error'
 let stintGpsTimeout   = null;     // 15s timeout to surface a "GPS isn't responding" toast
 let stintInterval     = null;
 let stintLiveInterval = null;
-let spectatorInterval = null;
+let spectatorUnsub = null;
 let moveContinuousStart = null;
 let lastLapTime       = null;
 let stintMap          = null;
@@ -398,10 +398,10 @@ function bindOverlay(ov) {
     document.getElementById('rd-responsive-style')?.remove();
     ov.remove(); // removes full overlay including backdrop
     document.getElementById('rd-roster-fab')?.remove();
-    // spectatorInterval is sometimes a setTimeout id and sometimes a
+    // spectatorUnsub is sometimes a setTimeout id and sometimes a
     // setInterval id; clearTimeout/clearInterval are interchangeable on
     // the same numeric id in browsers but call both to be safe.
-    if (spectatorInterval) { try { if (typeof spectatorInterval === 'function') spectatorInterval(); else { try { clearInterval(spectatorInterval); } catch(e) {} try { clearTimeout(spectatorInterval); } catch(e) {} } } catch(e) {} spectatorInterval=null; }
+    if (spectatorUnsub) { try { if (typeof spectatorUnsub === 'function') spectatorUnsub(); else { try { clearInterval(spectatorUnsub); } catch(e) {} try { clearTimeout(spectatorUnsub); } catch(e) {} } } catch(e) {} spectatorUnsub=null; }
     if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
     const ma=document.getElementById('main-app');
     if (ma) ma.style.display='flex';
@@ -416,7 +416,7 @@ function bindOverlay(ov) {
     const mo = new MutationObserver(() => {
       if (!document.body.contains(ov)) {
         if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
-        if (spectatorInterval) { try { if (typeof spectatorInterval === 'function') spectatorInterval(); else { try { clearInterval(spectatorInterval); } catch(e) {} try { clearTimeout(spectatorInterval); } catch(e) {} } } catch(e) {} spectatorInterval=null; }
+        if (spectatorUnsub) { try { if (typeof spectatorUnsub === 'function') spectatorUnsub(); else { try { clearInterval(spectatorUnsub); } catch(e) {} try { clearTimeout(spectatorUnsub); } catch(e) {} } } catch(e) {} spectatorUnsub=null; }
         mo.disconnect();
       }
     });
@@ -481,9 +481,9 @@ async function showRdTab(ov,tab) {
   const c=ov.querySelector('#rd-content');
   // Switching tabs invalidates the previous tab's polling intervals.
   // Without this, stacking 10 tab-switches stacks 10 spectator polls.
-  if (spectatorInterval) {
-    try { if (typeof spectatorInterval === 'function') spectatorInterval(); else clearInterval(spectatorInterval); } catch(e) {}
-    spectatorInterval = null;
+  if (spectatorUnsub) {
+    try { if (typeof spectatorUnsub === 'function') spectatorUnsub(); else clearInterval(spectatorUnsub); } catch(e) {}
+    spectatorUnsub = null;
   }
   // FAB is only useful on the roster tab — on stint/setup it overlaps
   // the bottom-nav centre Stint button and gives the wrong affordance.
@@ -930,9 +930,9 @@ function renderStintTab(c) {
   // Firestore pushes deltas directly — no more round-trips, latency drops
   // from ~5s to ~500ms, and there's a single live listener instead of one
   // ticking per visible client.
-  if (spectatorInterval) {
-    try { if (typeof spectatorInterval === 'function') spectatorInterval(); else { clearInterval(spectatorInterval); clearTimeout(spectatorInterval); } } catch(e) {}
-    spectatorInterval = null;
+  if (spectatorUnsub) {
+    try { if (typeof spectatorUnsub === 'function') spectatorUnsub(); else { clearInterval(spectatorUnsub); clearTimeout(spectatorUnsub); } } catch(e) {}
+    spectatorUnsub = null;
   }
   const applyLive = (live) => {
     const panel = document.getElementById('rd-live-panel');
@@ -966,18 +966,18 @@ function renderStintTab(c) {
       }
     }
     // Tab moved on — kill the listener so we don't leak Firestore reads.
-    if (!document.getElementById('rd-start-btn') && spectatorInterval) {
-      try { spectatorInterval(); } catch(e) {}
-      spectatorInterval = null;
+    if (!document.getElementById('rd-start-btn') && spectatorUnsub) {
+      try { spectatorUnsub(); } catch(e) {}
+      spectatorUnsub = null;
     }
   };
 
   if (ctx?.db && ctx.onSnapshot && rdd.date) {
     try {
       const liveCol = ctx.collection(ctx.db, 'race_day', rdd.date, 'live');
-      // spectatorInterval doubles as the unsubscribe function so the tab
+      // spectatorUnsub doubles as the unsubscribe function so the tab
       // teardown path (which clears it) works without changes elsewhere.
-      spectatorInterval = ctx.onSnapshot(liveCol, (snap) => {
+      spectatorUnsub = ctx.onSnapshot(liveCol, (snap) => {
         const cutoff = Date.now() - 90 * 1000;
         const live = snap.docs
           .map(d => d.data())

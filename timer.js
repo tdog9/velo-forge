@@ -371,7 +371,10 @@ export function openWorkoutTimer(workoutName, durationMin, exercises) {
   overlay.style.display = 'flex';
   A.$('timer-workout-name').textContent = workoutName || 'Workout';
 
-  timerExercises = Array.isArray(exercises) ? exercises : [];
+  // Drop any malformed entries that would crash startSet / renderTimerSteps.
+  timerExercises = Array.isArray(exercises)
+    ? exercises.filter(e => e && typeof e === 'object' && (e.name || e.duration || e.reps))
+    : [];
   timerCurrentStep = 0;
   timerCurrentSet = 0;
 
