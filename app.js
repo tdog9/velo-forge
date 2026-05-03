@@ -1646,7 +1646,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r71';
+const APP_VERSION = '20260503-r72';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -2036,12 +2036,18 @@ function showMainApp() {
   const mainApp = $('main-app');
   mainApp.classList.remove('hidden');
   show('ai-fab');
-  // Set avatar initial
+  // Set avatar — uses photoURL if the user has uploaded one, otherwise
+  // falls back to the first letter of the display name / email.
   const avatarBtn = $('user-avatar-btn');
-  if (avatarBtn && userProfile?.displayName) {
-    avatarBtn.textContent = userProfile.displayName.charAt(0).toUpperCase();
-  } else if (avatarBtn && currentUser?.email) {
-    avatarBtn.textContent = currentUser.email.charAt(0).toUpperCase();
+  if (avatarBtn) {
+    const photo = userProfile?.photoURL;
+    if (photo) {
+      avatarBtn.innerHTML = `<img src="${escHtml(photo)}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    } else if (userProfile?.displayName) {
+      avatarBtn.textContent = userProfile.displayName.charAt(0).toUpperCase();
+    } else if (currentUser?.email) {
+      avatarBtn.textContent = currentUser.email.charAt(0).toUpperCase();
+    }
   }
   renderCurrentPage();
 }
@@ -8503,6 +8509,19 @@ async function updateProfileField(field, value) {
     return;
   }
   // Update header avatar + dropdown name on success.
+  if (field === 'photoURL') {
+    try {
+      const btn = $('user-avatar-btn');
+      if (btn) {
+        if (value) {
+          btn.innerHTML = `<img src="${escHtml(value)}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+        } else {
+          btn.innerHTML = '';
+          btn.textContent = (userProfile.displayName || 'U').charAt(0).toUpperCase();
+        }
+      }
+    } catch(e) {}
+  }
   if (field === 'displayName') {
     try { $('user-avatar-btn').textContent = (value || 'U').charAt(0).toUpperCase(); } catch(e) {}
     try { $('menu-name').textContent = value; } catch(e) {}
@@ -9830,6 +9849,7 @@ async function loadTeamData(forceRefresh=false) {
       return {
         uid,
         displayName: uData.displayName || 'Unknown',
+        photoURL: uData.photoURL || null,
         // email + isCoach were missing from the projection; the
         // Add-Co-Coach search-by-email path could never find anyone
         // and the Promote button always rendered for existing
@@ -9864,21 +9884,43 @@ async function loadTeamData(forceRefresh=false) {
 /// listener with a "Connecting" state.
 let _bgChatLive = false;
 let _bgChatPending = false;
+let _bgChatRetryTimer = null;
+let _bgChatRetryCount = 0;
+
+function _scheduleChatRetry() {
+  if (_bgChatRetryTimer) return;
+  if (_bgChatRetryCount > 60) return; // 60×3s = 3 minutes; give up after that
+  _bgChatRetryTimer = setTimeout(() => {
+    _bgChatRetryTimer = null;
+    _bgChatRetryCount++;
+    if (!_bgChatLive && currentUser) {
+      console.log('[chat] retry attach (#' + _bgChatRetryCount + ')');
+      attachBackgroundChat();
+    }
+  }, 3000);
+}
+
 function attachBackgroundChat() {
-  if (!userProfile?.teamId) return;
-  if (_bgChatLive) return; // already attached for this session
-  // Detect the noop stub from the import-fallback declaration. If
-  // teamchat.js hasn't landed yet, mark pending and bail — the import
-  // resolution path will re-call this function.
+  if (!currentUser) { console.log('[chat] no currentUser, skipping'); return; }
+  if (!userProfile?.teamId) {
+    console.log('[chat] no teamId yet, will retry');
+    _scheduleChatRetry();
+    return;
+  }
+  if (_bgChatLive) return; // already attached
   const sigStr = (typeof subscribeTeamChat === 'function') ? subscribeTeamChat.toString() : '';
   const isStub = sigStr === '() => null' || sigStr.replace(/\s+/g, '') === '()=>null';
   if (typeof subscribeTeamChat !== 'function' || isStub) {
+    console.log('[chat] subscribe fn not ready yet (stub=' + isStub + '), will retry');
     _bgChatPending = true;
+    _scheduleChatRetry();
     return;
   }
   _bgChatPending = false;
+  console.log('[chat] attaching listener for teamId=' + userProfile.teamId);
   try {
     subscribeTeamChat(userProfile.teamId, () => {
+      if (!_bgChatLive) console.log('[chat] first snapshot received → Live');
       _bgChatLive = true;
       // If the user happens to be looking at the chat tab right now,
       // patch the visible list. Otherwise this snapshot just keeps
@@ -9895,7 +9937,7 @@ function attachBackgroundChat() {
       }
     }, (err) => {
       _bgChatLive = false;
-      console.warn('Background chat listener error:', err);
+      console.warn('[chat] listener error:', err?.code || err?.message || err);
       // Auto-retry once after a short pause — most errors here are
       // membership-drift races that the auto-join self-heal fixes.
       setTimeout(() => {
@@ -10377,7 +10419,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r71';
+  const APP_VERSION = '20260503-r72';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

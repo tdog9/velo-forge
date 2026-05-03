@@ -341,6 +341,14 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
   const isMine = m.uid === myUid;
   const timeStr = isNaN(date) ? '' : date.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
   const initials = (m.displayName || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '?';
+  // Pull the sender's photoURL from the team-members cache. Falls back to
+  // the initials avatar when no photo is set.
+  let photoUrl = '';
+  try {
+    const members = (typeof A !== 'undefined' && A.teamMembers) ? A.teamMembers : (window._tpTeamMembers || []);
+    const sender = (Array.isArray(members) ? members : []).find(mem => mem.uid === m.uid);
+    if (sender?.photoURL) photoUrl = sender.photoURL;
+  } catch(_) {}
   const canDelete = isMine || isCoach;
   const id = escHtml(m.id || '');
 
@@ -375,7 +383,9 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
   const delBtn = canDelete ? `<button class="msg-del chat-msg-del" data-del-id="${id}" aria-label="Delete">×</button>` : '';
   const avatar = !isMine
     ? (isFirstInGroup
-        ? `<div class="msg-avatar">${escHtml(initials)}</div>`
+        ? (photoUrl
+            ? `<div class="msg-avatar"><img src="${escHtml(photoUrl)}" alt="${escHtml(m.displayName || 'Member')}"></div>`
+            : `<div class="msg-avatar">${escHtml(initials)}</div>`)
         : `<div class="msg-avatar-spacer" aria-hidden="true"></div>`)
     : '';
   const author = !isMine && isFirstInGroup
