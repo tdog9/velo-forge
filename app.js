@@ -216,7 +216,7 @@ const firebaseConfig = {
 };
 // Embedded Plan Data (54 plans, 272+ workouts)
 // Embedded UI Copy
-const UI_COPY = {"safetyBanners":{"Y7":{"title":"Year 7 Training Guide","ages":"Ages 12-13","frequency":"2-3 sessions/week","duration":"30-45 min","maxIntensity":"Easy to moderate only","guideline":"Listen up, Year 7s - we are keeping things easy and fun in these early sessions so you build great habits and fall in love with training. Every champion started right where you are, so show up, give your best effort, and most importantly stay safe by keeping the intensity comfortable throughout."},"Y8":{"title":"Year 8 Training Guide","ages":"Ages 13-14","frequency":"2-3 sessions/week","duration":"35-50 min","maxIntensity":"Easy to moderate only","guideline":"Year 8, you are building on the great foundation from last year and adding some machine work to the mix - keep the resistance light and always prioritize learning the correct technique over adding more weight. If something feels uncomfortable or painful, stop immediately and let your coach or trainer know."},"Y9":{"title":"Year 9 Training Guide","ages":"Ages 14-15","frequency":"3-4 sessions/week","duration":"40-60 min","maxIntensity":"One hard session per week maximum","guideline":"Year 9, this is where your training starts to get genuinely serious - you get one hard session per week and the rest stay at a solid but sustainable effort. That hard session is only effective if the other sessions are genuinely easier, so resist the urge to push hard every day and trust the plan."},"Y10":{"title":"Year 10 Training Guide","ages":"Ages 15-16","frequency":"3-4 sessions/week","duration":"45-70 min","maxIntensity":"1-2 hard sessions/week","guideline":"Year 10, you are training with real loads now and your body is capable of handling more than ever before - make sure you are fueling well with good food, sleeping 8-9 hours, and taking rest days seriously because that is when the fitness adaptations actually happen. Work hard in sessions and recover just as hard outside them."},"Y11":{"title":"Year 11 Training Guide","ages":"Ages 16-17","frequency":"4-5 sessions/week","duration":"50-80 min","maxIntensity":"Max effort 1 session/week","guideline":"Year 11, you are training at near-adult loads now and one session per week reaches true maximum effort - those sessions are the most powerful training stimulus you have, so make sure you are fully warmed up before every hard session and completely recovered before the next one. Listen to your body and tell your coach if anything does not feel right."},"Y12":{"title":"Year 12 Training Guide","ages":"Ages 17-18","frequency":"4-6 sessions/week","duration":"60-90 min","maxIntensity":"Max effort 1-2 sessions/week","guideline":"Year 12 athletes train at full adult competitive loads - up to two maximum-effort sessions per week means your recovery between sessions is just as important as the sessions themselves, so prioritize sleep, nutrition, and active recovery every single day. You have reached the top level of this program and you have earned it."}},"tierDescriptions":{"basic":"Starting out or getting back into it? No worries at all - the basic tier is built exactly for you, with shorter sessions, more rest between exercises, and a focus on learning how to move well before moving heavy.","average":"You have got a solid fitness base and you are ready for a real training challenge - the average tier delivers standard competitive loads that will genuinely push you and produce real results over the season.","intense":"Ready to push your limits and train like a serious HPR competitor? The intense tier brings higher loads, longer efforts, less rest, and advanced protocols that are designed for athletes who want to win on race day."},"todayGreetings":["Rise and grind, champion! Let us make today count.","Another day, another chance to get faster on the HPR!","Hey superstar! Your training plan is waiting - let us crush it.","Good to see you back! Consistency is what separates the good from the great.","Today is YOUR day. Let us build that race fitness!","Every session you complete is a deposit in your race-day performance bank. Let us make a big one today.","You showed up - and that is already 50% of the battle. Now let us make it count.","The best HPR racers are made in training, not on race day. Let us get to work.","Your competitors are training right now. Good thing you are too.","Small improvements every day equal massive results on race day. Let us improve today."],"emptyStates":{"noActivePlan":"You have not picked a training plan yet! Head over to the Plans tab and find the perfect program for your year level. I have got plans for every fitness level - whether you are just starting out or ready to dominate race day.","noWorkouts":"No workouts logged yet - but that is about to change! After your next session, tap that + button and log what you did. Tracking your progress is how we level up.","noPlanWorkouts":"This plan does not have any workouts scheduled for today. Take a rest day - your body needs recovery to get stronger. Come back tomorrow ready to go!"},"categoryDescriptions":{"invehicle":"Time to get in the HPR and ride! These sessions put you directly in the vehicle to build race-specific fitness, handling skills, and the kind of speed that only comes from real saddle time.","floor":"No gym? No problem! These bodyweight sessions build real strength, power, and mobility using nothing but your own body - you can smash these at home, at school, or anywhere you have a bit of floor space.","machine":"Hit the gym and use the machines to build serious race-winning leg strength and cardiovascular fitness - the spin bike, rowing machine, leg press, and elliptical are your best tools for becoming an unstoppable HPR racer."}};
+const UI_COPY = {"safetyBanners":{"Y7":{"title":"Year 7 Training Guide","ages":"Ages 12-13","frequency":"2-3 sessions/week","duration":"30-45 min","maxIntensity":"Easy to moderate only","guideline":"Listen up, Year 7s - we are keeping things easy and fun in these early sessions so you build great habits and fall in love with training. Every champion started right where you are, so show up, give your best effort, and most importantly stay safe by keeping the intensity comfortable throughout."},"Y8":{"title":"Year 8 Training Guide","ages":"Ages 13-14","frequency":"2-3 sessions/week","duration":"35-50 min","maxIntensity":"Easy to moderate only","guideline":"Year 8, you are building on the great foundation from last year and adding some machine work to the mix - keep the resistance light and always prioritize learning the correct technique over adding more weight. If something feels uncomfortable or painful, stop immediately and let your coach or trainer know."},"Y9":{"title":"Year 9 Training Guide","ages":"Ages 14-15","frequency":"3-4 sessions/week","duration":"40-60 min","maxIntensity":"One hard session per week maximum","guideline":"Year 9, this is where your training starts to get genuinely serious - you get one hard session per week and the rest stay at a solid but sustainable effort. That hard session is only effective if the other sessions are genuinely easier, so resist the urge to push hard every day and trust the plan."},"Y10":{"title":"Year 10 Training Guide","ages":"Ages 15-16","frequency":"3-4 sessions/week","duration":"45-70 min","maxIntensity":"1-2 hard sessions/week","guideline":"Year 10, you are training with real loads now and your body is capable of handling more than ever before - make sure you are fueling well with good food, sleeping 8-9 hours, and taking rest days seriously because that is when the fitness adaptations actually happen. Work hard in sessions and recover just as hard outside them."},"Y11":{"title":"Year 11 Training Guide","ages":"Ages 16-17","frequency":"4-5 sessions/week","duration":"50-80 min","maxIntensity":"Max effort 1 session/week","guideline":"Year 11, you are training at near-adult loads now and one session per week reaches true maximum effort - those sessions are the most powerful training stimulus you have, so make sure you are fully warmed up before every hard session and completely recovered before the next one. Listen to your body and tell your coach if anything does not feel right."},"Y12":{"title":"Year 12 Training Guide","ages":"Ages 17-18","frequency":"4-6 sessions/week","duration":"60-90 min","maxIntensity":"Max effort 1-2 sessions/week","guideline":"Year 12 athletes train at full adult competitive loads - up to two maximum-effort sessions per week means your recovery between sessions is just as important as the sessions themselves, so prioritize sleep, nutrition, and active recovery every single day. You have reached the top level of this program and you have earned it."}},"tierDescriptions":{"basic":"Starting out or getting back into it? No worries at all - the basic tier is built exactly for you, with shorter sessions, more rest between exercises, and a focus on learning how to move well before moving heavy.","average":"You have got a solid fitness base and you are ready for a real training challenge - the average tier delivers standard competitive loads that will genuinely push you and produce real results over the season.","intense":"Ready to push your limits and train like a serious HPR competitor? The intense tier brings higher loads, longer efforts, less rest, and advanced protocols that are designed for athletes who want to win on race day."},"todayGreetings":["Rise and grind, champion! Let us make today count.","Another day, another chance to get faster on the HPR!","Hey superstar! Your training plan is waiting - let us crush it.","Good to see you back! Consistency is what separates the good from the great.","Today is YOUR day. Let us build that race fitness!","Every session you complete is a deposit in your race-day performance bank. Let us make a big one today.","You showed up - and that is already 50% of the battle. Now let us make it count.","The best HPR racers are made in training, not on race day. Let us get to work.","Your competitors are training right now. Good thing you are too.","Small improvements every day equal massive results on race day. Let us improve today."],"emptyStates":{"noActivePlan":"You have not picked a training plan yet! Head over to the Plans tab and find the perfect program for your year level. I have got plans for every fitness level - whether you are just starting out or ready to dominate race day.","noWorkouts":"No workouts logged yet - but that is about to change! After your next session, tap that + button and log what you did. Tracking your progress is how we level up.","noPlanWorkouts":"This plan does not have any workouts scheduled for today. Take a rest day - your body needs recovery to get stronger. Come back tomorrow ready to go!"},"categoryDescriptions":{"bike":"On the HPR (or a stationary trainer with a fan). Stint-paced training built for closed-circuit relay racing — lap-time consistency over peak power, mid-stint surges, pit-out drills.","floor":"No gym? No problem. These bodyweight sessions build real strength, power, and mobility using nothing but your own body — smash them at home, at school, or anywhere you have floor space. Most riders do most of their training here.","machine":"Hit the gym and use the machines for race-winning leg strength and cardio: leg press, rowing erg, spin bike, elliptical. Strength + cardio when you have access to a fitness room."}};
 // Race Data
 const RACES = [
   {id:'r0', name:'Vic HPR Round 1 — Calder Park', date:'2026-03-14', location:'Calder Park Raceway, Keilor, VIC', distance:100, type:'endurance', notes:'9am–4pm. 7-hour endurance race. Round 1 of the 2026 Victorian HPR Grand Prix Series.', streamUrl:'https://www.youtube.com/watch?v=zqD56QVsxAE', footageUrls:[{label:'Full Race Livestream',url:'https://www.youtube.com/watch?v=zqD56QVsxAE',type:'stream'},{label:'Official Results — Alpine Timing',url:'https://www.alpinetiming.com.au/results/r653/',type:'results'}]},
@@ -819,7 +819,7 @@ let currentPage = 'today';
 // Fitness focuses on Plans by default (demos + plans are the primary
 // surfaces; activities is secondary, health was removed entirely).
 let fitnessSubTab = 'plans'; // 'plans' | 'demos' | 'workouts'
-let demosCat = 'all'; // 'all' | 'invehicle' | 'floor' | 'machine'
+let demosCat = 'all'; // 'all' | 'bike' | 'floor' | 'machine'
 let demosSearch = '';
 let lbSubTab = 'global'; // 'global' | 'team'
 let globalLeaderboard = [];
@@ -1212,7 +1212,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r60';
+const APP_VERSION = '20260503-r61';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -1393,7 +1393,7 @@ let raceFootage = {}; // {raceId: [{label, url, type}]} — admin-managed footag
 let raceLogVideos = []; // [{title, url, raceId, addedBy, timestamp}] — admin-curated videos for Race Log
 let exerciseOverrides = {}; // {planId_weekIdx: {name, description, duration}} — admin overrides for workout details
 // Plans page filter state
-let plansCategory = 'invehicle';
+let plansCategory = 'bike';
 let plansYear = 'Y7';
 let plansTier = 'basic';
 let plansSearch = '';
@@ -1490,7 +1490,7 @@ function enterDemoMode() {
   demoMode = true;
   firebaseReady = false;
   currentUser = { uid: 'demo-user', email: 'demo@turboprep.app', displayName: 'Demo Rider' };
-  userProfile = { displayName: 'Demo Rider', email: 'demo@turboprep.app', yearLevel: 'Y9', fitnessLevel: 'average', activePlanId: 'invehicle-y9-average', teamId: null, teamName: null };
+  userProfile = { displayName: 'Demo Rider', email: 'demo@turboprep.app', yearLevel: 'Y9', fitnessLevel: 'average', activePlanId: 'bike-y9-average', teamId: null, teamName: null };
   userWorkouts = [
     { _id:'d1', name:'Morning Spin', type:'Ride', duration:45, distance:18, heartRate:142, notes:'Felt strong today', date: new Date(), createdAt: new Date() },
     { _id:'d2', name:'Core Circuit', type:'Strength', duration:30, distance:null, heartRate:118, notes:'Focused on planks', date: new Date(Date.now()-86400000), createdAt: new Date(Date.now()-86400000) },
@@ -2434,8 +2434,8 @@ const initPage = $('page-' + currentPage);
 if (initPage) initPage.classList.add('active');
 function extractAllExercises() {
   const exerciseMap = {}; // key → exercise object
-  const catLabels = { invehicle: 'In Vehicle', floor: 'Floor & Home', machine: 'Fitness Machine' };
-  const catColors = { invehicle: '#2EA693', floor: '#8B5CF6', machine: '#FF8C33' };
+  const catLabels = { bike: 'Bike', floor: 'Floor & Home', machine: 'Fitness Machine' };
+  const catColors = { bike: '#2EA693', floor: '#8B5CF6', machine: '#FF8C33' };
   // ===== FLOOR EXERCISE DATABASE =====
   const FLOOR_EXERCISES = [
     { name: 'Plank Hold', type: 'Core', videoUrl: 'https://www.youtube.com/watch?v=pSHjTRCQxIw', desc: 'Prop yourself on forearms and toes with your body in a perfectly straight line from head to heels. Squeeze your core tight like you are bracing for a punch, keep your hips level — do not let them sag or pike up — and breathe steadily throughout. This is the foundation of all core stability work and directly improves the power transfer from your legs to the HPR pedals.' },
@@ -2552,18 +2552,18 @@ function extractAllExercises() {
     });
   });
   // ===== IN-VEHICLE PLANS (workout = exercise) =====
-  ALL_PLANS.filter(p => p.category === 'invehicle').forEach(plan => {
+  ALL_PLANS.filter(p => p.category === 'bike').forEach(plan => {
     plan.workouts.forEach((w, wi) => {
       const wd = getWorkoutData(plan.id, wi, w) || (typeof w === 'object' ? w : null);
       if (!wd || !wd.name) return;
-      const key = 'invehicle_' + wd.name.toLowerCase().trim();
+      const key = 'bike_' + wd.name.toLowerCase().trim();
       if (!exerciseMap[key]) {
         exerciseMap[key] = {
           key,
           name: wd.name,
-          category: 'invehicle',
-          catLabel: catLabels.invehicle,
-          catColor: catColors.invehicle,
+          category: 'bike',
+          catLabel: catLabels.bike,
+          catColor: catColors.bike,
           description: wd.description || '',
           sets: null,
           reps: null,
@@ -2615,7 +2615,7 @@ function renderDemonstration() {
   const allExercises = extractAllExercises();
   const catFilters = [
     { id: 'all', label: 'All' },
-    { id: 'invehicle', label: 'In Vehicle' },
+    { id: 'bike', label: 'Bike' },
     { id: 'floor', label: 'Floor & Home' },
     { id: 'machine', label: 'Machine' }
   ];
@@ -2958,8 +2958,8 @@ function renderPlanRecommendation() {
   const tier = userProfile.fitnessLevel || 'basic';
   // Suggest next tier or same tier in a different category
   const tiers = ['basic', 'average', 'intense'];
-  const cats = ['invehicle', 'floor', 'machine'];
-  const currentCat = activePlanId ? (findPlan(activePlanId)?.category || 'invehicle') : 'invehicle';
+  const cats = ['bike', 'floor', 'machine'];
+  const currentCat = activePlanId ? (findPlan(activePlanId)?.category || 'bike') : 'bike';
   const tierIdx = tiers.indexOf(tier);
   // Try: different category same tier, then same category next tier
   let rec = null;
@@ -2975,7 +2975,7 @@ function renderPlanRecommendation() {
     rec = ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier && p.id !== activePlanId);
   }
   if (!rec) return '';
-  const catLabels = { invehicle: '🚴 In Vehicle', floor: '🏠 Floor & Home', machine: '🏋️ Machine' };
+  const catLabels = { bike: 'Bike', floor: '🏠 Floor & Home', machine: '🏋️ Machine' };
   let html = '<div class="plan-rec-card">';
   html += '<div class="plan-rec-title">' + (activePlanId ? '🎉 Plan complete! Try next:' : '📋 Recommended for you:') + '</div>';
   html += '<div class="plan-rec-name">' + escHtml(rec.name) + '</div>';
@@ -3946,14 +3946,14 @@ function renderChecklistItem(workout, key, isChecked) {
     </div>
   `;
 }
-// Parse exercises from workout description text (floor & invehicle plans)
+// Parse exercises from workout description text (floor & bike plans)
 function parseExercisesFromDesc(desc, name, duration) {
   if (!desc) return [{ name: name, sets: 1, reps: null, duration: duration + ' min', notes: '' }];
   const exercises = [];
   const seen = new Set();
   const skipWords = /^(minute|min|second|sec|rep|set|round|effort|interval|easy|moderate|hard|light|the|your|a|an|and|then|for|of|with|at|between|rest|after|cool|warm|before|more|each)s?$/i;
   const restWords = /between\s+rounds|rest\s+for|cool.?down|warm.?up|easy\s+spin|relaxed|recover/i;
-  // FIRST: Check for interval patterns (invehicle) "4 x 2-minute efforts"
+  // FIRST: Check for interval patterns (bike) "4 x 2-minute efforts"
   const intervalMatches = [...desc.matchAll(/(\d+)\s*x\s*(\d+)[-\s]*(?:minute|min|m)[a-z]*\s*([\w\s'-]*?)(?:\s*[-–—]\s*|[,;.]|where|at|with|$)/gi)];
   if (intervalMatches.length > 0) {
     intervalMatches.forEach(m => {
@@ -4957,7 +4957,7 @@ function startPlanGeneration() {
   aiMsg.className = 'ai-msg ai';
   aiMsg.innerHTML = `What kind of plan do you want?<br><br>
     <div class="ai-quick-btns" style="margin-top:8px">
-      <button class="ai-quick-btn ai-plan-type" data-ptype="invehicle">🚴 In Vehicle</button>
+      <button class="ai-quick-btn ai-plan-type" data-ptype="bike">Bike</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="floor">🏠 Floor & Home</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="machine">🏋️ Machine</button>
       <button class="ai-quick-btn ai-plan-type" data-ptype="offseason">☀️ Off-Season</button>
@@ -4997,7 +4997,7 @@ async function generateAiPlan(category, yearLevel, tier, customGoal) {
   typingMsg.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  const catNames = { invehicle: 'In Vehicle (HPR riding)', floor: 'Floor & Home (bodyweight)', machine: 'Fitness Machine (gym)', offseason: 'Off-Season (fun cross-training to maintain fitness)', holiday: 'Holiday (short 15-20 min sessions doable anywhere)' };
+  const catNames = { bike: 'Bike (HPR / on-bike riding)', floor: 'Floor & Home (bodyweight)', machine: 'Fitness Machine (gym)', offseason: 'Off-Season (fun cross-training to maintain fitness)', holiday: 'Holiday (short 15-20 min sessions doable anywhere)' };
   const prompt = customGoal
     ? 'Create a training plan: "' + customGoal + '". Student is ' + yearLevel + ', ' + tier + ' tier.'
     : 'Create a ' + (catNames[category] || category) + ' training plan for ' + yearLevel + ' at ' + tier + ' tier.';
@@ -5880,7 +5880,7 @@ function renderPlans() {
     plansInitialized = true;
   }
   const categories = [
-    { id: 'invehicle', label: 'In Vehicle', icon: '' },
+    { id: 'bike', label: 'Bike', icon: '' },
     { id: 'floor', label: 'Floor & Home', icon: '' },
     { id: 'machine', label: 'Fitness Machine', icon: '' },
   ];
@@ -5934,7 +5934,7 @@ function renderPlans() {
         <div class="empty-state-desc">Try a different search term.</div>
       </div>`;
     } else {
-      const catLabels = { invehicle: 'In Vehicle', floor: 'Floor & Home', machine: 'Fitness Machine' };
+      const catLabels = { bike: 'Bike', floor: 'Floor & Home', machine: 'Fitness Machine' };
       html += '<div class="space-y">';
       results.forEach(plan => {
         const isActive = plan.id === activePlanId;
@@ -5955,7 +5955,7 @@ function renderPlans() {
   });
   html += '</div>';
   // Category description
-  const catKey = plansCategory === 'invehicle' ? 'invehicle' : plansCategory;
+  const catKey = plansCategory === 'bike' ? 'bike' : plansCategory;
   if (UI_COPY.categoryDescriptions && UI_COPY.categoryDescriptions[catKey]) {
     html += `<div class="category-desc">${UI_COPY.categoryDescriptions[catKey]}</div>`;
   }
@@ -9293,6 +9293,13 @@ function attachTeamLiveListener() {
 // Find a plan by ID from built-in + custom plans
 function findPlan(id) {
   if (!id) return null;
+  // Migration: 'invehicle-*' plan ids were renamed to 'bike-*' when the
+  // category was relabelled. Existing users' activePlanId still points at
+  // the legacy id; rewrite on lookup so the rest of the app finds the
+  // current plan instead of a null.
+  if (typeof id === 'string' && id.startsWith('invehicle-')) {
+    id = 'bike-' + id.slice('invehicle-'.length);
+  }
   return ALL_PLANS.find(p => p.id === id) || customPlans.find(p => p.id === id) || null;
 }
 function getTimeAgo(dateStr) {
@@ -9386,6 +9393,14 @@ async function loadUserProfile(uid) {
     const snap = await getDoc(doc(db, 'users', uid));
     if (snap.exists()) {
       userProfile = snap.data();
+      // One-time migration: if the user's activePlanId was set to a legacy
+      // 'invehicle-*' id (from before the bike rename), rewrite it to the
+      // current 'bike-*' id and persist. Idempotent — runs at most once.
+      if (typeof userProfile.activePlanId === 'string' && userProfile.activePlanId.startsWith('invehicle-')) {
+        const newId = 'bike-' + userProfile.activePlanId.slice('invehicle-'.length);
+        userProfile.activePlanId = newId;
+        try { await updateDoc(doc(db, 'users', uid), { activePlanId: newId }); } catch(e) {}
+      }
     } else {
       userProfile = {
         displayName: currentUser.displayName || 'User',
@@ -9711,7 +9726,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r60';
+  const APP_VERSION = '20260503-r61';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

@@ -2135,7 +2135,7 @@ export function renderAdminPlansMerged() {
 
 function renderPlansManage(el) {
   const categories = [
-    { id: 'invehicle', name: 'In Vehicle' },
+    { id: 'bike', name: 'Bike' },
     { id: 'floor', name: 'Floor & Home' },
     { id: 'machine', name: 'Fitness Machine' }
   ];
@@ -2340,7 +2340,7 @@ function renderPlansWorkouts(el) {
 function renderPlansVideos(el) {
   const allExercises = A.extractAllExercises();
   const categories = [
-    { id: 'invehicle', name: 'In Vehicle' },
+    { id: 'bike', name: 'Bike' },
     { id: 'floor', name: 'Floor & Home' },
     { id: 'machine', name: 'Fitness Machine' }
   ];
