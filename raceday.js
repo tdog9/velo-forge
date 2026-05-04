@@ -75,7 +75,7 @@ export async function activateRaceDay(raceId) {
     startPoint: null,
     startPointSet: false,
     raceId: raceId||null,
-    maxDurationMs: 25*60*60*1000 // 25 hour hard limit
+    maxDurationMs: 12*60*60*1000 // 12 hour hard limit (was 25h — too long, watches got stuck)
   };
   try {
     await ctx.setDoc(ctx.doc(ctx.db,'race_day',todayKey()),data);
@@ -146,10 +146,10 @@ export async function checkRaceDaySchedule() {
     if (rd?.active) {
       let shouldEnd = false;
 
-      // 25hr hard limit
-      if (rd.activatedAtMs && (nowMs - rd.activatedAtMs) > 25*60*60*1000) {
+      // 12hr hard limit
+      if (rd.activatedAtMs && (nowMs - rd.activatedAtMs) > 12*60*60*1000) {
         shouldEnd = true;
-        console.log('[RaceDay] 25hr limit reached — auto-ending');
+        console.log('[RaceDay] 12hr limit reached — auto-ending');
       }
 
       // Race end time
@@ -363,6 +363,7 @@ function buildOverlayHTML() {
     <span style="font-size:11px;font-weight:700;color:var(--destructive)">LIVE</span>
   </div>
   <button id="rd-share-btn" aria-label="Share spectator link" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-weight:700;cursor:pointer;margin-left:4px">Share</button>
+  <button id="rd-watch-dismiss" aria-label="Hide race mode on my Watch" title="Hide race mode on my Watch" style="font-size:11px;padding:5px 10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--muted-fg);font-weight:700;cursor:pointer;margin-left:4px">Hide on Watch</button>
   ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
 </header>
 
@@ -454,6 +455,16 @@ function bindOverlay(ov) {
     closeOverlay();
     ctx.showToast('Race day ended.','info');
     updateRaceDayTabBar(false);
+  });
+  // Per-device suppress: hides race mode on THIS device's Watch even if
+  // the team flag is still on (coach left it active). Resets overnight.
+  ov.querySelector('#rd-watch-dismiss')?.addEventListener('click',()=>{
+    try {
+      const todayK = new Date().toISOString().slice(0, 10);
+      localStorage.setItem('tp_race_day_suppress', todayK);
+      ctx.pushWatchState?.();
+      ctx.showToast?.('Race mode hidden on your Watch for today.','success');
+    } catch(e) { ctx.showToast?.('Could not hide on Watch.','warn'); }
   });
 
   // Tab switching — bottom nav tabs

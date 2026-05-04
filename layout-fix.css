@@ -1508,3 +1508,229 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* ============================================================
+   Hub page (Team → Hub sub-tab) — bigger, more defined sections.
+   Was: thin spacing, small headings, sections blended together.
+   Now: each block sits in a defined card with clear hierarchy.
+   ============================================================ */
+
+/* Beef up the team hero — was 16px padding / 18px title. */
+.team-hero{
+  padding:22px 18px;
+  margin-bottom:20px;
+  border-radius:18px;
+  border:1px solid rgba(var(--primary-rgb),.22);
+  background:linear-gradient(135deg,var(--primary-dim),rgba(var(--primary-rgb),.06));
+  box-shadow:0 4px 18px rgba(0,0,0,.18);
+}
+.team-hero-title{font-size:22px;font-weight:800;letter-spacing:-.01em}
+.team-hero-code{font-size:14px;padding:6px 14px;border-radius:10px}
+.team-hero-meta{gap:8px;margin-top:10px}
+.team-hero-pill{padding:5px 12px;font-size:12px}
+
+/* Members header strip — bigger, more authoritative. */
+#lb-team-content > div[style*="margin:0 2px 10px"]{
+  margin:4px 2px 14px !important;
+}
+#lb-team-content > div[style*="margin:0 2px 10px"] > div:first-child{
+  font-size:13px !important;
+  letter-spacing:.08em !important;
+  color:var(--fg) !important;
+  font-weight:800 !important;
+}
+
+/* Members leaderboard table — taller rows, larger type, member rows feel tappable. */
+.lb-table{font-size:14.5px}
+.lb-table thead th{
+  padding:10px 6px;
+  font-size:11.5px;
+  letter-spacing:.06em;
+  border-bottom:1px solid var(--border);
+}
+.lb-table tbody td{padding:14px 6px}
+.lb-table tbody tr{cursor:pointer;transition:background .12s}
+.lb-table tbody tr:hover{background:rgba(var(--primary-rgb),.05)}
+.lb-table tbody tr:active{background:rgba(var(--primary-rgb),.10)}
+.lb-name{font-weight:700;font-size:15px}
+.lb-rank{font-weight:800;color:var(--muted-fg);width:32px}
+.lb-rank-1{color:var(--primary)}
+.lb-stat{font-variant-numeric:tabular-nums;font-weight:700}
+
+/* Wrap the leaderboard card with more presence. */
+#lb-team-content > .card{
+  border-radius:16px;
+  border:1px solid var(--border);
+  padding:6px 10px;
+  margin-bottom:22px;
+  box-shadow:0 2px 10px rgba(0,0,0,.10);
+}
+
+/* Race Archive + Gallery — convert profile-section into a defined hub card. */
+#lb-team-content .profile-section{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:18px 16px 16px;
+  margin-top:20px !important;
+  box-shadow:0 2px 10px rgba(0,0,0,.10);
+}
+#lb-team-content .profile-section-title{
+  font-size:14px !important;
+  font-weight:800 !important;
+  letter-spacing:.04em !important;
+  text-transform:none !important;
+  color:var(--fg) !important;
+  margin-bottom:14px !important;
+  min-height:30px;
+}
+
+/* Subteam filter chips — bigger touch target. */
+.lb-filter-tab{
+  font-size:13px;
+  padding:9px 16px;
+  border-radius:99px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--muted-fg);
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background .12s,color .12s,border-color .12s;
+}
+.lb-filter-tab.active{
+  background:var(--primary);
+  color:var(--primary-fg);
+  border-color:var(--primary);
+}
+
+/* Gallery grid — slightly larger cells now that the section has more padding. */
+#lb-team-content .gallery-grid{gap:8px}
+#lb-team-content .gallery-cell{border-radius:10px}
+
+/* Leave team — quieter so it doesn't compete with section cards. */
+.leave-team-btn{margin-top:8px}
+
+/* ============================================================
+   Member detail sheet (tap a member name → opens info card)
+   Stub layout — categories will mirror the coach's Excel sheet
+   once the user shares the structure.
+   ============================================================ */
+.member-sheet-backdrop{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.55);
+  display:flex;align-items:flex-end;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.member-sheet{
+  background:var(--bg);
+  width:100%;max-width:520px;
+  max-height:88vh;overflow-y:auto;
+  border-radius:18px 18px 0 0;
+  border-top:1px solid var(--border);
+  padding:20px 18px calc(28px + env(safe-area-inset-bottom,0px));
+  -webkit-overflow-scrolling:touch;
+  box-shadow:0 -10px 40px rgba(0,0,0,.5);
+}
+.member-sheet-handle{
+  width:40px;height:4px;border-radius:99px;
+  background:var(--border);
+  margin:0 auto 14px;
+}
+.member-sheet-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.member-sheet-avatar{
+  width:56px;height:56px;border-radius:50%;
+  background:rgba(var(--primary-rgb),.15);
+  border:1px solid rgba(var(--primary-rgb),.3);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:22px;color:var(--primary);
+  flex-shrink:0;overflow:hidden;
+}
+.member-sheet-avatar img{width:100%;height:100%;object-fit:cover}
+.member-sheet-name{font-size:20px;font-weight:800;line-height:1.2}
+.member-sheet-sub{font-size:13px;color:var(--muted-fg);margin-top:3px}
+.member-sheet-cat{
+  margin-bottom:18px;
+  padding:14px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--card);
+}
+.member-sheet-cat-title{
+  font-size:11.5px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted-fg);margin-bottom:10px;
+}
+.member-sheet-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.member-sheet-stat{
+  padding:10px;border-radius:10px;
+  background:rgba(var(--primary-rgb),.06);
+  border:1px solid rgba(var(--primary-rgb),.15);
+}
+.member-sheet-stat-lbl{
+  font-size:10.5px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted-fg);
+}
+.member-sheet-stat-val{
+  font-size:20px;font-weight:800;
+  color:var(--fg);margin-top:2px;
+  font-variant-numeric:tabular-nums;
+}
+.member-sheet-empty{
+  font-size:13px;color:var(--muted-fg);
+  padding:14px 0;text-align:center;
+}
+.member-sheet-photos{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+}
+.member-sheet-photos img{
+  width:100%;aspect-ratio:1;object-fit:cover;
+  border-radius:8px;border:1px solid var(--border);
+}
+.member-sheet-close{
+  position:sticky;top:0;
+  display:block;margin-left:auto;
+  background:transparent;border:none;
+  color:var(--muted-fg);font-size:24px;
+  cursor:pointer;line-height:1;padding:0 4px;
+}
+
+/* ============================================================
+   Learn to Ride — featured 3-video block at the top of Demos.
+   ============================================================ */
+.learn-ride-section{
+  margin:14px 0 22px;
+  padding:14px 14px 4px;
+  background:linear-gradient(135deg,rgba(var(--primary-rgb),.10),rgba(var(--primary-rgb),.02));
+  border:1px solid rgba(var(--primary-rgb),.25);
+  border-radius:16px;
+}
+.learn-ride-head{
+  font-size:15px;font-weight:800;
+  color:var(--fg);margin-bottom:12px;
+  display:flex;align-items:center;
+}
+.learn-ride-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px;margin-bottom:10px;
+}
+.learn-ride-card-head{margin-bottom:10px}
+.learn-ride-card-title{font-size:14px;font-weight:800;color:var(--fg);margin-bottom:3px}
+.learn-ride-card-desc{font-size:12.5px;color:var(--muted-fg);line-height:1.45}
+.learn-ride-video{
+  position:relative;width:100%;aspect-ratio:16/9;
+  border-radius:10px;overflow:hidden;background:#000;
+}
+.learn-ride-video iframe{
+  position:absolute;inset:0;width:100%;height:100%;border:0;
+}
+.learn-ride-empty{
+  text-align:center;padding:22px 12px;
+  color:var(--muted-fg);font-size:13px;font-weight:600;
+  background:rgba(255,255,255,.02);
+  border:1px dashed var(--border);
+  border-radius:10px;
+}

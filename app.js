@@ -376,7 +376,15 @@ function pushWatchState() {
         source: w.source || 'manual',
       };
     });
-    const raceDayActive = !!getRaceDayActive();
+    // Per-device suppression: athletes can hide race mode on THEIR
+    // watch even when the team-wide flag is on (e.g. coach forgot to
+    // end it). Stored as today's date key — auto-clears overnight.
+    let raceDayActive = !!getRaceDayActive();
+    try {
+      const todayK = new Date().toISOString().slice(0, 10);
+      const suppress = localStorage.getItem('tp_race_day_suppress') || '';
+      if (suppress === todayK) raceDayActive = false;
+    } catch(_) {}
     // Race-day leaderboard: rank stints by lap count desc then best-lap asc.
     // Watch only needs top entries + the current user's standing.
     let raceDayLeaderboard = [];
@@ -841,7 +849,6 @@ let currentPage = 'today';
 // Fitness focuses on Plans by default (demos + plans are the primary
 // surfaces; activities is secondary, health was removed entirely).
 let fitnessSubTab = 'plans'; // 'plans' | 'demos' | 'workouts'
-let demosCat = 'all'; // 'all' | 'bike' | 'floor' | 'machine'
 let demosSearch = '';
 let lbSubTab = 'global'; // 'global' | 'team'
 let globalLeaderboard = [];
@@ -1646,7 +1653,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260503-r72';
+const APP_VERSION = '20260504-r73';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -3061,39 +3068,58 @@ function extractAllExercises() {
 function renderDemonstration() {
   const el = $('demos-content');
   const allExercises = extractAllExercises();
-  const catFilters = [
-    { id: 'all', label: 'All' },
-    { id: 'bike', label: 'Bike' },
-    { id: 'floor', label: 'Floor & Home' },
-    { id: 'machine', label: 'Machine' }
-  ];
-  // Filter by category
-  let filtered = demosCat === 'all' ? allExercises : allExercises.filter(e => e.category === demosCat);
-  // Filter by search
+  // Categories removed — single search box across the whole library.
+  let filtered = allExercises;
   if (demosSearch) {
     const q = demosSearch.toLowerCase();
     filtered = filtered.filter(e => e.name.toLowerCase().includes(q) || e.description.toLowerCase().includes(q) || (e.exerciseType || '').toLowerCase().includes(q));
   }
   let html = '';
-  // Sticky filter bar
+  // Sticky search bar (no categories).
   html += '<div class="demo-filter-sticky">';
-  // Search bar
   html += `
     <div class="demo-search-wrap">
       <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input class="demo-search" type="text" id="demos-search-input" placeholder="Search exercises, types..." value="${escHtml(demosSearch)}">
     </div>
   `;
-  // Category pills
-  html += '<div class="demo-cat-pills">';
-  catFilters.forEach(c => {
-    const count = c.id === 'all' ? allExercises.length : allExercises.filter(e => e.category === c.id).length;
-    html += `<button class="demo-cat-pill${demosCat === c.id ? ' active' : ''}" data-demos-cat="${c.id}">${c.label} (${count})</button>`;
-  });
-  html += '</div>';
-  // Count + collapse-all
-  html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div class="demo-cat-count" style="margin-bottom:0">${filtered.length} exercise${filtered.length !== 1 ? 's' : ''}</div>${filtered.length > 12 ? '<button class="demo-collapse-all" id="demos-collapse-all">Collapse All</button>' : ''}</div>`;
+  html += `<div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px"><div class="demo-cat-count" style="margin-bottom:0">${filtered.length} exercise${filtered.length !== 1 ? 's' : ''}</div>${filtered.length > 12 ? '<button class="demo-collapse-all" id="demos-collapse-all">Collapse All</button>' : ''}</div>`;
   html += '</div>'; // end sticky
+
+  // Learn to Ride — 3 instructional cards, only visible when not actively
+  // searching the library. Videos are admin-configurable through the
+  // existing exerciseDemoVideos override mechanism, keys learnToRide_1..3.
+  if (!demosSearch) {
+    const learnSlots = [
+      { key: 'learnToRide_1', title: 'Learn to Ride · Balance', desc: 'Get comfortable on the bike — finding your balance, stopping safely, mounting and dismounting.', defaultUrl: 'https://www.youtube.com/watch?v=wqmzwVrkTU4' },
+      { key: 'learnToRide_2', title: 'Learn to Ride · Pedalling', desc: 'Smooth pedal stroke, gear changes, and keeping a steady cadence on flat ground.' },
+      { key: 'learnToRide_3', title: 'Learn to Ride · Cornering & Braking', desc: 'Turning at speed, body position through corners, controlled braking before and during turns.' },
+    ];
+    html += '<div class="learn-ride-section"><div class="learn-ride-head">Learn to Ride <span style="font-size:11px;color:var(--muted-fg);font-weight:600;margin-left:6px">3 short videos · more coming</span></div>';
+    learnSlots.forEach(slot => {
+      const url = exerciseDemoVideos[slot.key] || slot.defaultUrl || '';
+      const embedUrl = getEmbedUrl(url);
+      html += `
+        <div class="learn-ride-card">
+          <div class="learn-ride-card-head">
+            <div class="learn-ride-card-title">${escHtml(slot.title)}</div>
+            <div class="learn-ride-card-desc">${escHtml(slot.desc)}</div>
+          </div>
+          ${embedUrl ? `
+            <div class="learn-ride-video">
+              <iframe src="${escHtml(embedUrl)}" allowfullscreen loading="lazy" title="${escHtml(slot.title)}"></iframe>
+            </div>
+          ` : `
+            <div class="learn-ride-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--muted-fg);margin-bottom:6px"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              <div>Video not set yet</div>
+              <div style="font-size:11px;margin-top:4px;opacity:.8">Admin → Demo Videos → ${escHtml(slot.key)}</div>
+            </div>
+          `}
+        </div>`;
+    });
+    html += '</div>';
+  }
   if (filtered.length === 0) {
     html += '<div class="empty-state"><div class="empty-state-title">No Exercises Found</div><div class="empty-state-desc">Try a different search term or category filter.</div></div>';
   } else {
@@ -3143,13 +3169,6 @@ function renderDemonstration() {
       demosSearch = searchInput.value.trim();
       renderDemonstration();
     }, 250);
-  });
-  // Bind category pills
-  el.querySelectorAll('.demo-cat-pill').forEach(btn => {
-    btn.addEventListener('click', () => {
-      demosCat = btn.dataset.demosCat;
-      renderDemonstration();
-    });
   });
   // Bind expand/collapse
   el.querySelectorAll('[data-demos-expand]').forEach(header => {
@@ -6952,21 +6971,23 @@ function renderTeam() {
       // Idempotent self-heal in case membership drifted.
       try { ensureDefaultTeamMembership?.().catch(() => {}); } catch(_) {}
       renderTeamChatPanelInto(cc);
-      // Reflect the background-listener state in the pill straight away.
+      // Optimistic UX: chat opens instantly to messages from cache. The
+      // pill is hidden by default and only surfaces on a real error.
+      // If the listener wasn't attached yet, kick it now.
+      if (userProfile?.teamId && !_bgChatLive) {
+        try { attachBackgroundChat(); } catch(e) {}
+      }
       const pill = document.getElementById('chat-status-pill');
       if (pill) {
         pill.classList.remove('chat-status-connecting', 'chat-status-live', 'chat-status-error');
         if (!userProfile?.teamId) {
           pill.classList.add('chat-status-error');
+          pill.hidden = false;
           const lbl = pill.querySelector('.chat-status-label'); if (lbl) lbl.textContent = 'No team yet';
-        } else if (_bgChatLive) {
-          pill.classList.add('chat-status-live');
-          const lbl = pill.querySelector('.chat-status-label'); if (lbl) lbl.textContent = 'Live';
         } else {
-          pill.classList.add('chat-status-connecting');
-          const lbl = pill.querySelector('.chat-status-label'); if (lbl) lbl.textContent = 'Connecting…';
-          // Kick the listener if it isn't attached yet for some reason.
-          try { attachBackgroundChat(); } catch(e) {}
+          // Live or about-to-be-live — hide pill entirely so it doesn't
+          // distract. Error path below re-shows it if listener fails.
+          pill.hidden = true;
         }
       }
     }
@@ -7066,9 +7087,9 @@ function renderTeamChatPanelInto(el) {
 
   el.innerHTML = `
     <div class="chat-status-row">
-      <div id="chat-status-pill" class="chat-status-pill chat-status-connecting">
+      <div id="chat-status-pill" class="chat-status-pill chat-status-error" hidden>
         <span class="chat-status-dot"></span>
-        <span class="chat-status-label">Connecting…</span>
+        <span class="chat-status-label">Reconnecting…</span>
       </div>
     </div>
     ${scopeChips}
@@ -7609,10 +7630,15 @@ function renderTeamTab(c, opts) {
     sorted.forEach((m, i) => {
       const isMe = m.uid === myUid;
       const rankClass = i === 0 ? ' lb-rank-1' : '';
-      const drillAttr = canDrill && m.uid !== myUid ? ` data-coach-drill="${escHtml(m.uid)}" style="cursor:pointer" tabindex="0" role="button" aria-label="Open athlete: ${escHtml(m.displayName || 'Unknown')}"` : '';
+      // Coach gets the management sheet; everyone else (and the coach
+      // tapping themselves) gets the read-only member-info sheet.
+      const useCoachDrill = canDrill && m.uid !== myUid;
+      const drillAttr = useCoachDrill
+        ? ` data-coach-drill="${escHtml(m.uid)}" style="cursor:pointer" tabindex="0" role="button" aria-label="Open athlete: ${escHtml(m.displayName || 'Unknown')}"`
+        : ` data-member-uid="${escHtml(m.uid)}" style="cursor:pointer" tabindex="0" role="button" aria-label="View member: ${escHtml(m.displayName || 'Unknown')}"`;
       html += `<tr class="${isMe ? 'lb-me' : ''}"${drillAttr}>
         <td class="lb-rank${rankClass}">${i + 1}</td>
-        <td class="lb-name">${escHtml(m.displayName || 'Unknown')}${canDrill && m.uid !== myUid ? ' <span style="color:var(--muted-fg);font-size:10px">›</span>' : ''}</td>
+        <td class="lb-name">${escHtml(m.displayName || 'Unknown')} <span style="color:var(--muted-fg);font-size:10px">›</span></td>
         <td class="lb-year">${m.yearLevel || '—'}</td>
         <td class="lb-stat" style="text-align:right">${m.totalWorkouts || 0}</td>
         <td class="lb-stat" style="text-align:right">${m.streak || 0}d</td>
@@ -7778,6 +7804,19 @@ function renderTeamTab(c, opts) {
     const open = () => {
       const uid = row.dataset.coachDrill;
       if (uid) openCoachAthleteSheet(uid);
+    };
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+  });
+  // Read-only member info sheet — anyone (including coach tapping
+  // themselves) can open this to see race overviews, app activity,
+  // achievements, gallery photos for that member.
+  c.querySelectorAll('[data-member-uid]').forEach(row => {
+    const open = () => {
+      const uid = row.dataset.memberUid;
+      if (uid) openMemberSheet(uid);
     };
     row.addEventListener('click', open);
     row.addEventListener('keydown', (e) => {
@@ -8003,6 +8042,17 @@ async function renderProfile() {
       </div>
     </div>`;
   });
+  // Diagnostic: send a test push to this device. Surfaces the precise
+  // failure (no token, missing APNs env vars, rate-limit, etc.) so the
+  // user can see whether the setup is broken on the device side or the
+  // server side.
+  html += `
+    <div style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--card)">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">Test push notifications</div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:10px">Sends a test push to this device. If nothing arrives, the result below tells you why.</div>
+      <button id="push-test-btn" type="button" style="width:100%;padding:10px;border-radius:8px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Send test push to me</button>
+      <div id="push-test-result" style="margin-top:10px;font-size:12px;color:var(--muted-fg);line-height:1.45;font-family:var(--font-mono);white-space:pre-wrap"></div>
+    </div>`;
   html += '</div>';
   // Admin Demo Mode (only visible to admins)
   if (isAdmin) {
@@ -8247,6 +8297,67 @@ async function renderProfile() {
       document.querySelectorAll('.persona-pick').forEach(b => b.classList.toggle('active', b.dataset.persona === id));
       showToast('Coach personality: ' + (btn.textContent || '').trim(), 'success');
     });
+  });
+  // Test-push diagnostic. Calls /.netlify/functions/send-push targeting
+  // the current user's own devices and prints the raw response so the
+  // user can tell why a push isn't arriving (no devices, APNs env not
+  // configured, rate-limit, etc.).
+  $('push-test-btn')?.addEventListener('click', async () => {
+    const out = $('push-test-result');
+    const btn = $('push-test-btn');
+    if (!out) return;
+    out.style.color = 'var(--muted-fg)';
+    out.textContent = 'Sending…';
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+    try {
+      if (!currentUser) { out.textContent = 'Not signed in.'; return; }
+      const token = await currentUser.getIdToken().catch(() => null);
+      if (!token) { out.textContent = 'Could not get auth token.'; return; }
+      // First check: does this device have an APNs token registered?
+      let deviceCount = 0;
+      try {
+        const snap = await getDocs(collection(db, 'users', currentUser.uid, 'devices'));
+        deviceCount = snap.size;
+      } catch(e) {}
+      const res = await fetch('/.netlify/functions/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          uid: currentUser.uid,
+          title: 'TurboPrep test',
+          body: 'If you see this notification, push is working ✓',
+          category: 'admin-test',
+        }),
+      });
+      const text = await res.text();
+      let parsed = null; try { parsed = JSON.parse(text); } catch(_) {}
+      const lines = [
+        `HTTP ${res.status}`,
+        `Devices registered for your account: ${deviceCount}`,
+        parsed ? JSON.stringify(parsed, null, 2) : text,
+      ];
+      if (deviceCount === 0) {
+        lines.push('');
+        lines.push('No device tokens — open the iOS app, accept the push prompt, then sign in. The token is sent to Firestore on app launch.');
+      } else if (res.status === 500 && /admin not init/i.test(text)) {
+        lines.push('');
+        lines.push('Server side: Firebase admin env vars missing in Netlify (FIREBASE_PROJECT_ID / CLIENT_EMAIL / PRIVATE_KEY).');
+      } else if (res.status === 500 && /APNS env/i.test(text)) {
+        lines.push('');
+        lines.push('Server side: APNs env vars missing in Netlify (APNS_KEY_P8 / KEY_ID / TEAM_ID / BUNDLE_ID / ENV).');
+      } else if (parsed?.delivered === 0) {
+        lines.push('');
+        lines.push('Function ran but APNs accepted 0 tokens. The token may be stale (reinstall the app) or APNS_ENV may be wrong (development vs production).');
+      } else if (parsed?.delivered > 0) {
+        out.style.color = 'var(--success)';
+      }
+      out.textContent = lines.join('\n');
+    } catch(e) {
+      out.style.color = 'var(--destructive)';
+      out.textContent = 'Network error: ' + (e?.message || e);
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+    }
   });
   // Notification category toggles — flip false in userProfile.notificationPrefs.
   document.querySelectorAll('[data-notif-cat]').forEach(toggle => {
@@ -8809,6 +8920,104 @@ async function getApprovedClubs() {
     return approvedClubsCache;
   } catch(e) { return []; }
 }
+/// Read-only member info sheet — anyone can open this from the Hub
+/// members table. Shows the member's basic profile, app activity
+/// summary, achievements, and their gallery uploads. Categories will
+/// be expanded to mirror the coach's Excel template once shared.
+function openMemberSheet(uid) {
+  const member = teamMembers.find(m => m.uid === uid);
+  if (!member) { showToast?.('Member not found.', 'warn'); return; }
+  document.getElementById('member-sheet-backdrop')?.remove();
+  const initials = (member.displayName || '?').trim().split(/\s+/)
+    .map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
+  const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+  const sub = subs.find(s => Array.isArray(s.members) && s.members.includes(uid));
+  const subLabel = sub ? sub.name : 'Whole team';
+  const photoUrl = member.photoURL || '';
+  // Pull the photos this member uploaded to the team gallery (any scope).
+  const galleryAll = Array.isArray(window._tpTeamPhotos) ? window._tpTeamPhotos : [];
+  const myPhotos = galleryAll.filter(p => p.uploadedBy === uid);
+  const photoCells = myPhotos.length === 0
+    ? '<div class="member-sheet-empty">No photos uploaded yet.</div>'
+    : '<div class="member-sheet-photos">' +
+      myPhotos.slice(0, 9).map(p =>
+        `<img src="${escHtml(p.dataUrl)}" alt="${escHtml(p.caption || '')}">`
+      ).join('') + '</div>';
+  // Race overviews — placeholder card, fed by the race archive entries
+  // referencing this member once the Excel structure is wired in.
+  const archive = Array.isArray(window._tpRaceArchive) ? window._tpRaceArchive : [];
+  const myRaces = archive.filter(r => Array.isArray(r.drivers)
+    && r.drivers.some(d => (d.uid && d.uid === uid)
+      || (d.name && member.displayName && d.name.toLowerCase() === member.displayName.toLowerCase())));
+  const racesBlock = myRaces.length === 0
+    ? '<div class="member-sheet-empty">No race overviews yet.</div>'
+    : myRaces.slice(0, 6).map(r => `
+        <div class="member-sheet-stat" style="grid-column:1 / -1">
+          <div class="member-sheet-stat-lbl">${escHtml(r.raceName || 'Race')}${r.raceDate ? ' · ' + escHtml(r.raceDate) : ''}</div>
+          <div style="font-size:13px;color:var(--fg);margin-top:4px;line-height:1.4">${escHtml(r.summary || '—')}</div>
+        </div>`).join('');
+  const ov = document.createElement('div');
+  ov.id = 'member-sheet-backdrop';
+  ov.className = 'member-sheet-backdrop';
+  ov.innerHTML = `
+    <div class="member-sheet" role="dialog" aria-label="Member info">
+      <button class="member-sheet-close" aria-label="Close">×</button>
+      <div class="member-sheet-handle"></div>
+      <div class="member-sheet-head">
+        <div class="member-sheet-avatar">${photoUrl ? `<img src="${escHtml(photoUrl)}" alt="">` : escHtml(initials)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="member-sheet-name">${escHtml(member.displayName || 'Member')}</div>
+          <div class="member-sheet-sub">${escHtml(subLabel)} · Year ${escHtml(String(member.yearLevel || '—'))}</div>
+        </div>
+      </div>
+
+      <div class="member-sheet-cat">
+        <div class="member-sheet-cat-title">App Activity</div>
+        <div class="member-sheet-stats">
+          <div class="member-sheet-stat">
+            <div class="member-sheet-stat-lbl">Workouts</div>
+            <div class="member-sheet-stat-val">${member.totalWorkouts || 0}</div>
+          </div>
+          <div class="member-sheet-stat">
+            <div class="member-sheet-stat-lbl">Streak</div>
+            <div class="member-sheet-stat-val">${member.streak || 0}<span style="font-size:13px;font-weight:700;color:var(--muted-fg)">d</span></div>
+          </div>
+          <div class="member-sheet-stat">
+            <div class="member-sheet-stat-lbl">Plans done</div>
+            <div class="member-sheet-stat-val">${member.completedPlans || 0}</div>
+          </div>
+          <div class="member-sheet-stat">
+            <div class="member-sheet-stat-lbl">Last active</div>
+            <div class="member-sheet-stat-val" style="font-size:14px">${member.lastActive ? escHtml(new Date(member.lastActive).toLocaleDateString('en-AU')) : '—'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="member-sheet-cat">
+        <div class="member-sheet-cat-title">Achievements</div>
+        <div class="member-sheet-empty">Achievement levels coming soon. (Wiring up to the team-achievements schema.)</div>
+      </div>
+
+      <div class="member-sheet-cat">
+        <div class="member-sheet-cat-title">Race Overviews</div>
+        ${racesBlock}
+      </div>
+
+      <div class="member-sheet-cat">
+        <div class="member-sheet-cat-title">Gallery uploads</div>
+        ${photoCells}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  const close = () => { ov.remove(); };
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  ov.querySelector('.member-sheet-close')?.addEventListener('click', close);
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+  });
+}
+
 /// Open a sheet showing a single athlete's detail — what plan they're on,
 /// recent workouts, streak, RPE trend. Quick actions: assign plan, send
 /// chat message, view their goals. Coach-only.
@@ -9922,24 +10131,28 @@ function attachBackgroundChat() {
     subscribeTeamChat(userProfile.teamId, () => {
       if (!_bgChatLive) console.log('[chat] first snapshot received → Live');
       _bgChatLive = true;
-      // If the user happens to be looking at the chat tab right now,
-      // patch the visible list. Otherwise this snapshot just keeps
-      // chatCache fresh in the background.
+      _bgChatRetryCount = 0;
       if (currentPage === 'team' && lbSubTab === 'chat') {
         try { refreshTeamChatList(); } catch(_) {}
         const pill = document.getElementById('chat-status-pill');
-        if (pill) {
-          pill.classList.remove('chat-status-connecting', 'chat-status-error');
-          pill.classList.add('chat-status-live');
-          const lbl = pill.querySelector('.chat-status-label');
-          if (lbl) lbl.textContent = 'Live';
-        }
+        if (pill) pill.hidden = true;
       }
     }, (err) => {
       _bgChatLive = false;
       console.warn('[chat] listener error:', err?.code || err?.message || err);
-      // Auto-retry once after a short pause — most errors here are
-      // membership-drift races that the auto-join self-heal fixes.
+      // Surface the error in the pill if the user is on chat right now.
+      if (currentPage === 'team' && lbSubTab === 'chat') {
+        const pill = document.getElementById('chat-status-pill');
+        if (pill) {
+          pill.classList.remove('chat-status-connecting', 'chat-status-live');
+          pill.classList.add('chat-status-error');
+          pill.hidden = false;
+          const lbl = pill.querySelector('.chat-status-label');
+          if (lbl) lbl.textContent = 'Reconnecting…';
+        }
+      }
+      // Auto-retry — most errors here are membership-drift races that the
+      // auto-join self-heal fixes.
       setTimeout(() => {
         if (userProfile?.teamId) {
           try { ensureDefaultTeamMembership?.().catch(() => {}); } catch(_) {}
@@ -10419,7 +10632,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260503-r72';
+  const APP_VERSION = '20260504-r73';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
