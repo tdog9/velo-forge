@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 @preconcurrency import WebKit
 
 /// Hosts the deployed TurboPrep web app inside a WKWebView. The web bundle
@@ -94,6 +95,47 @@ struct WebViewContainer: UIViewRepresentable {
                     }
                 } else {
                     print("📲 [bridge] watch-state arrived but no `state` key")
+                }
+            case "push-status":
+                // Web is asking for the current push authorization state +
+                // whether iOS thinks we're registered for remote notifications.
+                // Kicks off a re-prompt + re-register attempt and reports back
+                // via window.tpNative.onPushStatus({status,registered,...}).
+                let webViewRef = webView
+                Task { @MainActor in
+                    let center = UNUserNotificationCenter.current()
+                    let settings = await center.notificationSettings()
+                    let statusStr: String
+                    switch settings.authorizationStatus {
+                    case .notDetermined: statusStr = "notDetermined"
+                    case .denied:        statusStr = "denied"
+                    case .authorized:    statusStr = "authorized"
+                    case .provisional:   statusStr = "provisional"
+                    case .ephemeral:     statusStr = "ephemeral"
+                    @unknown default:    statusStr = "unknown"
+                    }
+                    let isRegistered = UIApplication.shared.isRegisteredForRemoteNotifications
+                    // If authorized but not registered, kick the registration
+                    // again. If notDetermined, prompt now.
+                    if settings.authorizationStatus == .notDetermined {
+                        await NotificationService.requestAuthorization()
+                    } else if settings.authorizationStatus == .authorized && !isRegistered {
+                        UIApplication.shared.registerForRemoteNotifications()
+                    }
+                    await NotificationService.flushPendingToken()
+                    let json: [String: Any] = [
+                        "status": statusStr,
+                        "registered": isRegistered,
+                        "alertSetting": settings.alertSetting == .enabled,
+                        "soundSetting": settings.soundSetting == .enabled,
+                        "badgeSetting": settings.badgeSetting == .enabled,
+                    ]
+                    if let data = try? JSONSerialization.data(withJSONObject: json),
+                       let str = String(data: data, encoding: .utf8),
+                       let webView = webViewRef {
+                        let js = "if (window.tpNative && typeof window.tpNative.onPushStatus === 'function') { window.tpNative.onPushStatus(\(str)); }"
+                        webView.evaluateJavaScript(js, completionHandler: nil)
+                    }
                 }
             default:
                 break

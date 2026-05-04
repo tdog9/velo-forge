@@ -1021,9 +1021,65 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   display:flex;
   flex-direction:column;
   gap:2px;
-  padding:8px 4px 4px;
+  padding:0;
   scroll-behavior:smooth;
 }
+/* Empty-state slots into the flex parent and self-centers vertically. */
+#lb-chat-content .msg-empty{
+  flex:1;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:40px 24px;
+  overflow-y:auto;
+}
+
+/* ============================================================
+   WhatsApp-style polish — bubble depth, fade-in on appear,
+   centered chip-style day separators.
+   ============================================================ */
+@keyframes msgPop{
+  0%{opacity:0;transform:translateY(6px) scale(.985)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+.msg-row{animation:msgPop .18s ease-out}
+.msg-event{animation:msgPop .18s ease-out}
+
+.msg-bubble{
+  box-shadow:0 1px 1.5px rgba(0,0,0,.18);
+  word-wrap:break-word;
+  overflow-wrap:break-word;
+}
+.msg-mine .msg-bubble{
+  background:linear-gradient(180deg,var(--primary),color-mix(in srgb,var(--primary) 88%,#000));
+  color:var(--primary-fg);
+}
+.msg-day-sep{
+  text-align:center;
+  margin:14px 0 10px;
+  position:relative;
+}
+.msg-day-sep span{
+  display:inline-block;
+  font-size:11px;
+  font-weight:700;
+  color:var(--muted-fg);
+  background:var(--card);
+  border:1px solid var(--border);
+  padding:5px 12px;
+  border-radius:99px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  box-shadow:0 1px 2px rgba(0,0,0,.12);
+}
+
+/* Composer input area refinements — bigger touch target, better focus */
+.msg-composer-input{
+  font-size:15.5px;
+}
+.msg-composer-row{padding:0 8px}
 .msg-empty{
   padding:48px 24px;
   text-align:center;
@@ -1255,24 +1311,39 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   font-weight:500;
 }
 
-/* Chat panel has the same scroll context as the rest of the page (#content
-   already scrolls). The composer is sticky-bottom; the list flows above
-   it. Baseline height keeps the composer pinned at the bottom even on
-   short threads. */
+/* WhatsApp-style chat: full-bleed flex container that fills the viewport
+   between the team-tab strip and the bottom nav, with the composer
+   pinned at the bottom and the message list scrolling inside.
+   Gives the chat its own scroll context so the composer is always
+   visible above the keyboard / tab bar without page-level scrolling. */
 #lb-chat-content{
-  min-height:calc(100vh - 240px);
-  position:relative;
+  position:fixed;
+  inset:auto 0 0 0;
+  top:calc(56px + env(safe-area-inset-top, 0px) + 50px); /* header + tab strip */
+  bottom:calc(var(--tab-h, 70px) + env(safe-area-inset-bottom, 0px));
+  display:flex;
+  flex-direction:column;
+  background:var(--bg);
+  z-index:4;
+  overflow:hidden;
+  padding:0;
+  max-width:100vw;
+}
+#lb-chat-content .chat-status-row{flex-shrink:0;padding:0 12px}
+#lb-chat-content .chat-scope-row{flex-shrink:0;padding:6px 12px;display:flex;gap:6px;overflow-x:auto}
+#lb-chat-content #team-chat-list{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:10px 8px 4px;
+  scroll-behavior:smooth;
 }
 
-/* Composer — sticky at the bottom of the chat scroll context.
-   Bottom anchor accounts for both the safe-area inset AND the bottom
-   tab bar (~70px) so the composer never sits behind the nav. */
+/* Composer pinned to the bottom of the chat container (not the page). */
 .msg-composer{
-  position:sticky;
-  bottom:calc(70px + env(safe-area-inset-bottom, 0px));
-  z-index:5;
-  margin-top:12px;
-  padding:10px 0;
+  flex-shrink:0;
+  padding:10px 8px calc(10px + env(safe-area-inset-bottom, 0px));
   background:var(--bg);
   border-top:1px solid var(--border);
 }
@@ -1697,7 +1768,47 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
 }
 
 /* ============================================================
-   Learn to Ride — featured 3-video block at the top of Demos.
+   Achievements grid inside the member sheet.
+   ============================================================ */
+.achv-grid{display:grid;grid-template-columns:1fr;gap:8px}
+.achv-card{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 12px;border-radius:12px;
+  background:var(--card);border:1px solid var(--border);
+}
+.achv-medal{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  background:rgba(255,255,255,.04);
+  color:var(--muted-fg);
+}
+.achv-bronze .achv-medal{background:rgba(205,127,50,.14);color:#cd7f32}
+.achv-silver .achv-medal{background:rgba(192,192,192,.14);color:#c0c0c0}
+.achv-gold .achv-medal{background:rgba(255,215,0,.14);color:#ffd700}
+.achv-platinum .achv-medal{background:rgba(229,228,226,.14);color:#e5e4e2}
+.achv-body{flex:1;min-width:0}
+.achv-label{font-size:13px;font-weight:700;color:var(--fg)}
+.achv-meta{font-size:11px;color:var(--muted-fg);margin-top:1px}
+.achv-bar{
+  height:4px;border-radius:99px;
+  background:rgba(255,255,255,.06);
+  margin-top:6px;overflow:hidden;
+}
+.achv-bar-fill{
+  height:100%;border-radius:99px;
+  background:var(--primary);
+  transition:width .4s ease;
+}
+.achv-bronze .achv-bar-fill{background:#cd7f32}
+.achv-silver .achv-bar-fill{background:#c0c0c0}
+.achv-gold .achv-bar-fill{background:#ffd700}
+.achv-platinum .achv-bar-fill{background:#e5e4e2}
+.achv-none .achv-medal{opacity:.5}
+.achv-none .achv-label{color:var(--muted-fg);font-weight:600}
+
+/* ============================================================
+   Learn to Ride — featured single instructional video at the top of Demos.
    ============================================================ */
 .learn-ride-section{
   margin:14px 0 22px;

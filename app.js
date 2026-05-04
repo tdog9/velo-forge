@@ -434,6 +434,16 @@ if (typeof window !== 'undefined') {
   window.tpNative.requestWatchSnapshot = function() {
     try { pushWatchState(); } catch (e) { console.warn('requestWatchSnapshot:', e); }
   };
+  // Native push-status callback. Wired up by the iOS bridge after the
+  // web posts a "push-status" message. Latest reply is parked on
+  // window._tpPushStatus and a "tp:push-status" CustomEvent fires so
+  // the diagnostic UI can react without polling.
+  window.tpNative.onPushStatus = function(info) {
+    try {
+      window._tpPushStatus = info || null;
+      window.dispatchEvent(new CustomEvent('tp:push-status', { detail: info || null }));
+    } catch (e) { console.warn('onPushStatus:', e); }
+  };
   // Watch pair-code validator. iPhone forwards the digits the user
   // typed on the Watch sign-in gate; we compare against the code shown
   // in Profile (persisted in localStorage). On match: push state so
@@ -1653,7 +1663,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '20260504-r73';
+const APP_VERSION = 'a858a9d';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -3086,39 +3096,32 @@ function renderDemonstration() {
   html += `<div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px"><div class="demo-cat-count" style="margin-bottom:0">${filtered.length} exercise${filtered.length !== 1 ? 's' : ''}</div>${filtered.length > 12 ? '<button class="demo-collapse-all" id="demos-collapse-all">Collapse All</button>' : ''}</div>`;
   html += '</div>'; // end sticky
 
-  // Learn to Ride — 3 instructional cards, only visible when not actively
-  // searching the library. Videos are admin-configurable through the
-  // existing exerciseDemoVideos override mechanism, keys learnToRide_1..3.
+  // Learn to Ride — single featured instructional video at the top of
+  // Demos. Hidden while the user is actively searching the library so it
+  // doesn't interrupt their query.
   if (!demosSearch) {
-    const learnSlots = [
-      { key: 'learnToRide_1', title: 'Learn to Ride · Balance', desc: 'Get comfortable on the bike — finding your balance, stopping safely, mounting and dismounting.', defaultUrl: 'https://www.youtube.com/watch?v=wqmzwVrkTU4' },
-      { key: 'learnToRide_2', title: 'Learn to Ride · Pedalling', desc: 'Smooth pedal stroke, gear changes, and keeping a steady cadence on flat ground.' },
-      { key: 'learnToRide_3', title: 'Learn to Ride · Cornering & Braking', desc: 'Turning at speed, body position through corners, controlled braking before and during turns.' },
-    ];
-    html += '<div class="learn-ride-section"><div class="learn-ride-head">Learn to Ride <span style="font-size:11px;color:var(--muted-fg);font-weight:600;margin-left:6px">3 short videos · more coming</span></div>';
-    learnSlots.forEach(slot => {
-      const url = exerciseDemoVideos[slot.key] || slot.defaultUrl || '';
-      const embedUrl = getEmbedUrl(url);
-      html += `
-        <div class="learn-ride-card">
-          <div class="learn-ride-card-head">
-            <div class="learn-ride-card-title">${escHtml(slot.title)}</div>
-            <div class="learn-ride-card-desc">${escHtml(slot.desc)}</div>
-          </div>
-          ${embedUrl ? `
-            <div class="learn-ride-video">
-              <iframe src="${escHtml(embedUrl)}" allowfullscreen loading="lazy" title="${escHtml(slot.title)}"></iframe>
-            </div>
-          ` : `
-            <div class="learn-ride-empty">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--muted-fg);margin-bottom:6px"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-              <div>Video not set yet</div>
-              <div style="font-size:11px;margin-top:4px;opacity:.8">Admin → Demo Videos → ${escHtml(slot.key)}</div>
-            </div>
-          `}
-        </div>`;
-    });
-    html += '</div>';
+    const slot = {
+      key: 'learnToRide_1',
+      title: 'Learn to Ride a Bike',
+      desc: 'Foundations: balance, mounting, pedalling and stopping safely. Watch this first if you are new to riding.',
+      defaultUrl: 'https://www.youtube.com/watch?v=wqmzwVrkTU4',
+    };
+    const url = exerciseDemoVideos[slot.key] || slot.defaultUrl || '';
+    const embedUrl = getEmbedUrl(url);
+    html += `<div class="learn-ride-section">
+      <div class="learn-ride-head">${escHtml(slot.title)}</div>
+      <div class="learn-ride-card-desc" style="margin-bottom:10px">${escHtml(slot.desc)}</div>
+      ${embedUrl ? `
+        <div class="learn-ride-video">
+          <iframe src="${escHtml(embedUrl)}" allowfullscreen loading="lazy" title="${escHtml(slot.title)}"></iframe>
+        </div>
+      ` : `
+        <div class="learn-ride-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--muted-fg);margin-bottom:6px"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          <div>Video not set yet</div>
+        </div>
+      `}
+    </div>`;
   }
   if (filtered.length === 0) {
     html += '<div class="empty-state"><div class="empty-state-title">No Exercises Found</div><div class="empty-state-desc">Try a different search term or category filter.</div></div>';
@@ -7136,8 +7139,6 @@ function renderTeamChatPanelInto(el) {
 // 30–200 ms after the panel paints — without retries the first attempt
 // scrolled against the empty-state height and landed mid-thread.
 function scrollChatToBottom() {
-  const content = document.getElementById('content');
-  if (!content) return;
   let tries = 0;
   const tick = () => {
     const list = document.getElementById('team-chat-list');
@@ -7146,7 +7147,7 @@ function scrollChatToBottom() {
       setTimeout(tick, 80);
       return;
     }
-    content.scrollTop = content.scrollHeight;
+    if (list) list.scrollTop = list.scrollHeight;
     if (tries < 4) {
       tries++;
       setTimeout(tick, 120);
@@ -7630,13 +7631,12 @@ function renderTeamTab(c, opts) {
     sorted.forEach((m, i) => {
       const isMe = m.uid === myUid;
       const rankClass = i === 0 ? ' lb-rank-1' : '';
-      // Coach gets the management sheet; everyone else (and the coach
-      // tapping themselves) gets the read-only member-info sheet.
-      const useCoachDrill = canDrill && m.uid !== myUid;
-      const drillAttr = useCoachDrill
-        ? ` data-coach-drill="${escHtml(m.uid)}" style="cursor:pointer" tabindex="0" role="button" aria-label="Open athlete: ${escHtml(m.displayName || 'Unknown')}"`
-        : ` data-member-uid="${escHtml(m.uid)}" style="cursor:pointer" tabindex="0" role="button" aria-label="View member: ${escHtml(m.displayName || 'Unknown')}"`;
-      html += `<tr class="${isMe ? 'lb-me' : ''}"${drillAttr}>
+      // Every row opens the read-only member info sheet (with Manage
+      // button shown inside if the viewer is a coach). This fixes the
+      // bug where coaches could only tap their own row in the leader-
+      // board because the "open management sheet" path was a separate
+      // attribute that swallowed the click in some iOS WebView builds.
+      html += `<tr class="${isMe ? 'lb-me' : ''}" data-member-uid="${escHtml(m.uid)}" style="cursor:pointer" tabindex="0" role="button" aria-label="View ${escHtml(m.displayName || 'Unknown')}">
         <td class="lb-rank${rankClass}">${i + 1}</td>
         <td class="lb-name">${escHtml(m.displayName || 'Unknown')} <span style="color:var(--muted-fg);font-size:10px">›</span></td>
         <td class="lb-year">${m.yearLevel || '—'}</td>
@@ -7800,23 +7800,30 @@ function renderTeamTab(c, opts) {
   // Coach drill-into-athlete on row tap. Also Enter / Space for
   // keyboard users — was tap-only before, locking out anyone using
   // a hardware keyboard.
+  // Event delegation on the leaderboard — works even when the row markup
+  // is re-rendered, and avoids per-row listener bind on iOS WebView where
+  // direct <tr> click handlers were intermittently failing.
+  c.querySelectorAll('.lb-table').forEach(tbl => {
+    const handler = (e) => {
+      const row = e.target.closest('[data-member-uid]');
+      if (!row || !tbl.contains(row)) return;
+      const uid = row.dataset.memberUid;
+      if (uid) openMemberSheet(uid);
+    };
+    tbl.addEventListener('click', handler);
+    tbl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const row = e.target.closest('[data-member-uid]');
+        if (row) { e.preventDefault(); handler(e); }
+      }
+    });
+  });
+  // Legacy: keep the coach drill binding for any other places still using
+  // data-coach-drill (athlete management UI elsewhere).
   c.querySelectorAll('[data-coach-drill]').forEach(row => {
     const open = () => {
       const uid = row.dataset.coachDrill;
       if (uid) openCoachAthleteSheet(uid);
-    };
-    row.addEventListener('click', open);
-    row.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
-    });
-  });
-  // Read-only member info sheet — anyone (including coach tapping
-  // themselves) can open this to see race overviews, app activity,
-  // achievements, gallery photos for that member.
-  c.querySelectorAll('[data-member-uid]').forEach(row => {
-    const open = () => {
-      const uid = row.dataset.memberUid;
-      if (uid) openMemberSheet(uid);
     };
     row.addEventListener('click', open);
     row.addEventListener('keydown', (e) => {
@@ -8045,12 +8052,19 @@ async function renderProfile() {
   // Diagnostic: send a test push to this device. Surfaces the precise
   // failure (no token, missing APNs env vars, rate-limit, etc.) so the
   // user can see whether the setup is broken on the device side or the
-  // server side.
+  // server side. The native bridge button below it asks iOS for the
+  // current authorization state and forces a re-register attempt.
+  const hasNativeBridge = !!(window.webkit?.messageHandlers?.tpNative);
   html += `
     <div style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--card)">
-      <div style="font-size:13px;font-weight:700;margin-bottom:4px">Test push notifications</div>
-      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:10px">Sends a test push to this device. If nothing arrives, the result below tells you why.</div>
-      <button id="push-test-btn" type="button" style="width:100%;padding:10px;border-radius:8px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Send test push to me</button>
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">Push diagnostics</div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-bottom:10px">Tests the full pipeline: iOS device → Firestore → Netlify → Apple Push.</div>
+      ${hasNativeBridge ? `
+        <button id="push-register-btn" type="button" style="width:100%;padding:10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px">Step 1 · Check & re-register on this iPhone</button>
+      ` : `
+        <div style="font-size:11px;color:var(--muted-fg);padding:8px 10px;border:1px dashed var(--border);border-radius:8px;margin-bottom:6px">You're not in the native iOS app. Push only works in the installed TurboPrep app, not in Safari or PWA.</div>
+      `}
+      <button id="push-test-btn" type="button" style="width:100%;padding:10px;border-radius:8px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Step 2 · Send test push to me</button>
       <div id="push-test-result" style="margin-top:10px;font-size:12px;color:var(--muted-fg);line-height:1.45;font-family:var(--font-mono);white-space:pre-wrap"></div>
     </div>`;
   html += '</div>';
@@ -8297,6 +8311,53 @@ async function renderProfile() {
       document.querySelectorAll('.persona-pick').forEach(b => b.classList.toggle('active', b.dataset.persona === id));
       showToast('Coach personality: ' + (btn.textContent || '').trim(), 'success');
     });
+  });
+  // Native push re-register. Asks iOS for current authorization state,
+  // re-prompts if notDetermined, re-registers if authorized-but-not-
+  // registered, and reports back via window._tpPushStatus.
+  $('push-register-btn')?.addEventListener('click', () => {
+    const out = $('push-test-result');
+    if (!out) return;
+    out.style.color = 'var(--muted-fg)';
+    out.textContent = 'Asking iPhone…';
+    let done = false;
+    const onReply = (e) => {
+      if (done) return;
+      done = true;
+      window.removeEventListener('tp:push-status', onReply);
+      const info = e.detail || {};
+      const lines = [
+        'iOS push status:',
+        '  status: ' + (info.status || '?'),
+        '  registered: ' + (info.registered ? 'yes' : 'no'),
+        '  alerts: ' + (info.alertSetting ? 'on' : 'off'),
+        '  sound:  ' + (info.soundSetting ? 'on' : 'off'),
+        '  badge:  ' + (info.badgeSetting ? 'on' : 'off'),
+        '',
+      ];
+      if (info.status === 'denied') {
+        lines.push('Push permission was denied. Open iOS Settings → TurboPrep → Notifications and turn ON "Allow Notifications". Then come back and tap Step 2.');
+      } else if (info.status === 'notDetermined') {
+        lines.push('iOS just re-prompted you. Accept the prompt, then tap Step 2.');
+      } else if (info.status === 'authorized' && !info.registered) {
+        lines.push('Authorized but not registered. iOS is retrying — wait 5s, then tap Step 2.');
+      } else if (info.status === 'authorized' && info.registered) {
+        lines.push('Authorized and registered. The token should be in Firestore — tap Step 2 to confirm delivery.');
+        out.style.color = 'var(--success)';
+      }
+      out.textContent = lines.join('\n');
+    };
+    window.addEventListener('tp:push-status', onReply);
+    try { postNative('push-status'); }
+    catch(e) { onReply({ detail: { status: 'bridge-error' } }); return; }
+    setTimeout(() => {
+      if (!done) {
+        done = true;
+        window.removeEventListener('tp:push-status', onReply);
+        out.style.color = 'var(--destructive)';
+        out.textContent = 'iPhone did not reply within 4s — older app build (rebuild from Xcode), or bridge is offline.';
+      }
+    }, 4000);
   });
   // Test-push diagnostic. Calls /.netlify/functions/send-push targeting
   // the current user's own devices and prints the raw response so the
@@ -8920,6 +8981,44 @@ async function getApprovedClubs() {
     return approvedClubsCache;
   } catch(e) { return []; }
 }
+/// Compute achievement levels for a single team member from the data
+/// already in memory (workouts, streak, race archive, gallery photos).
+/// Each entry: { id, label, icon, level: 'bronze'|'silver'|'gold'|null,
+/// earned: bool, progress: '7/10', tier: number }. Returned in display
+/// order. Pure function — no fetches.
+function computeMemberAchievements(member) {
+  if (!member) return [];
+  const workouts = member.totalWorkouts || 0;
+  const streak = member.streak || 0;
+  const galleryAll = Array.isArray(window._tpTeamPhotos) ? window._tpTeamPhotos : [];
+  const photos = galleryAll.filter(p => p.uploadedBy === member.uid).length;
+  const archive = Array.isArray(window._tpRaceArchive) ? window._tpRaceArchive : [];
+  const races = archive.filter(r => Array.isArray(r.drivers)
+    && r.drivers.some(d => (d.uid && d.uid === member.uid)
+      || (d.name && member.displayName && d.name.toLowerCase() === member.displayName.toLowerCase()))).length;
+  const tiered = (count, tiers, label, id) => {
+    let level = null, nextAt = tiers[0], tierIdx = 0;
+    for (let i = tiers.length - 1; i >= 0; i--) {
+      if (count >= tiers[i]) { tierIdx = i + 1; level = ['bronze','silver','gold','platinum'][i] || 'gold'; break; }
+    }
+    if (tierIdx < tiers.length) nextAt = tiers[tierIdx];
+    return {
+      id, label, level,
+      earned: !!level,
+      tier: tierIdx,
+      maxTier: tiers.length,
+      progress: count + ' / ' + nextAt,
+      pct: Math.min(100, Math.round((count / nextAt) * 100)),
+    };
+  };
+  return [
+    tiered(workouts, [10, 25, 50, 100], 'Workouts logged', 'workouts'),
+    tiered(streak,   [3, 7, 14, 30],    'Day streak',      'streak'),
+    tiered(races,    [1, 3, 5, 10],     'Races completed', 'races'),
+    tiered(photos,   [1, 5, 10, 25],    'Gallery uploads', 'gallery'),
+  ];
+}
+
 /// Read-only member info sheet — anyone can open this from the Hub
 /// members table. Shows the member's basic profile, app activity
 /// summary, achievements, and their gallery uploads. Categories will
@@ -8969,6 +9068,7 @@ function openMemberSheet(uid) {
           <div class="member-sheet-name">${escHtml(member.displayName || 'Member')}</div>
           <div class="member-sheet-sub">${escHtml(subLabel)} · Year ${escHtml(String(member.yearLevel || '—'))}</div>
         </div>
+        ${(userProfile?.isCoach && uid !== currentUser?.uid) ? `<button id="member-sheet-manage" type="button" style="padding:8px 14px;border-radius:10px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0">Manage</button>` : ''}
       </div>
 
       <div class="member-sheet-cat">
@@ -8995,7 +9095,18 @@ function openMemberSheet(uid) {
 
       <div class="member-sheet-cat">
         <div class="member-sheet-cat-title">Achievements</div>
-        <div class="member-sheet-empty">Achievement levels coming soon. (Wiring up to the team-achievements schema.)</div>
+        <div class="achv-grid">
+          ${computeMemberAchievements(member).map(a => `
+            <div class="achv-card achv-${a.level || 'none'}">
+              <div class="achv-medal" aria-hidden="true">${a.level ? `<svg viewBox="0 0 24 24" fill="currentColor" style="width:22px;height:22px"><path d="M12 2 L14.7 7.5 L20.8 8.4 L16.4 12.6 L17.5 18.6 L12 15.7 L6.5 18.6 L7.6 12.6 L3.2 8.4 L9.3 7.5 Z"/></svg>` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:22px;height:22px"><path d="M12 2 L14.7 7.5 L20.8 8.4 L16.4 12.6 L17.5 18.6 L12 15.7 L6.5 18.6 L7.6 12.6 L3.2 8.4 L9.3 7.5 Z"/></svg>`}</div>
+              <div class="achv-body">
+                <div class="achv-label">${escHtml(a.label)}</div>
+                <div class="achv-meta">${a.level ? a.level.charAt(0).toUpperCase() + a.level.slice(1) + ' · ' : ''}${escHtml(a.progress)}</div>
+                <div class="achv-bar"><div class="achv-bar-fill" style="width:${a.pct}%"></div></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
       </div>
 
       <div class="member-sheet-cat">
@@ -9013,6 +9124,10 @@ function openMemberSheet(uid) {
   const close = () => { ov.remove(); };
   ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
   ov.querySelector('.member-sheet-close')?.addEventListener('click', close);
+  ov.querySelector('#member-sheet-manage')?.addEventListener('click', () => {
+    close();
+    try { openCoachAthleteSheet(uid); } catch(e) {}
+  });
   document.addEventListener('keydown', function esc(e) {
     if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
   });
@@ -10139,26 +10254,36 @@ function attachBackgroundChat() {
       }
     }, (err) => {
       _bgChatLive = false;
-      console.warn('[chat] listener error:', err?.code || err?.message || err);
-      // Surface the error in the pill if the user is on chat right now.
+      _bgChatRetryCount++;
+      console.warn('[chat] listener error (#' + _bgChatRetryCount + '):', err?.code || err?.message || err);
+      // Only surface the error pill after several failed tries, AND only
+      // if we have nothing to show. With cached messages, the chat is
+      // still useful even if the live listener is down — don't yell.
       if (currentPage === 'team' && lbSubTab === 'chat') {
+        const cache = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+        const hasCache = Array.isArray(cache) && cache.length > 0;
         const pill = document.getElementById('chat-status-pill');
         if (pill) {
-          pill.classList.remove('chat-status-connecting', 'chat-status-live');
-          pill.classList.add('chat-status-error');
-          pill.hidden = false;
-          const lbl = pill.querySelector('.chat-status-label');
-          if (lbl) lbl.textContent = 'Reconnecting…';
+          if (_bgChatRetryCount >= 3 && !hasCache) {
+            pill.classList.remove('chat-status-connecting', 'chat-status-live');
+            pill.classList.add('chat-status-error');
+            pill.hidden = false;
+            const lbl = pill.querySelector('.chat-status-label');
+            if (lbl) lbl.textContent = 'Reconnecting…';
+          } else {
+            pill.hidden = true;
+          }
         }
       }
-      // Auto-retry — most errors here are membership-drift races that the
-      // auto-join self-heal fixes.
+      // Auto-retry with backoff. Most errors are membership-drift races
+      // that ensureDefaultTeamMembership fixes by adding uid to members[].
+      const backoff = Math.min(1500 * _bgChatRetryCount, 15000);
       setTimeout(() => {
         if (userProfile?.teamId) {
           try { ensureDefaultTeamMembership?.().catch(() => {}); } catch(_) {}
           setTimeout(() => attachBackgroundChat(), 700);
         }
-      }, 1500);
+      }, backoff);
     });
   } catch(e) { console.warn('attachBackgroundChat:', e); }
 }
@@ -10632,7 +10757,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '20260504-r73';
+  const APP_VERSION = 'a858a9d';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
