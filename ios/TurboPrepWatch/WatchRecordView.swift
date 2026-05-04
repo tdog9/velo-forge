@@ -135,11 +135,36 @@ struct RaceDayView: View {
             }
             .buttonStyle(.plain)
 
+            // Local escape hatch — only effective when no stint is in
+            // progress, so this can't accidentally end a real race.
+            // Lets the rider dismiss race-mode lock on this device when
+            // the iPhone left team-mode flag on but they're not racing.
+            Button(action: exitRaceMode) {
+                Text("Exit race mode")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.mutedFg)
+                    .frame(maxWidth: .infinity, minHeight: 28)
+                    .background(Theme.surface.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 8)
         .padding(.top, 6)
         .padding(.bottom, 4)
+    }
+
+    /// Locally toggle the race-mode lock off on this Watch. Only does
+    /// anything when no stint is in progress, so an actual rider mid-
+    /// stint can't tap this away by accident.
+    private func exitRaceMode() {
+        guard !state.stintInProgress else { return }
+        WKInterfaceDevice.current().play(.success)
+        state.raceDayActive = false
+        state.raceDayStartedAt = nil
     }
 
     private func durationChip(_ mins: Int) -> some View {
