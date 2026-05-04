@@ -67,12 +67,22 @@ function sendToToken({ token, payload, jwt, bundleId, env }) {
       'authorization': `bearer ${jwt}`,
       'apns-topic': bundleId,
       'apns-push-type': 'alert',
+      'apns-priority': '10', // immediate delivery for alert push
+      'apns-expiration': '0', // never expire — let APNs deliver when device wakes
       'content-type': 'application/json',
     });
+    let status = 0;
+    req.on('response', headers => { status = headers[':status'] || 0; });
     req.setEncoding('utf8');
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => { client.close(); resolve({ ok: true, body, token }); });
+    req.on('end', () => {
+      client.close();
+      // APNs returns 200 only on accept. Anything else is a real failure
+      // (BadDeviceToken, Unregistered, BadEnvironmentKeyInToken, etc.).
+      const ok = status === 200;
+      resolve({ ok, status, body, token: token.slice(-8) });
+    });
     req.on('error', err => { client.close(); reject(err); });
     req.write(JSON.stringify(payload));
     req.end();
@@ -276,7 +286,14 @@ exports.handler = async (event) => {
   const results = await Promise.allSettled(
     tokens.map(token => sendToToken({ token, payload: apnsPayload, jwt, bundleId, env }))
   );
-  const delivered = results.filter(r => r.status === 'fulfilled').length;
+  // Per-result detail for diagnostics. APNs returns 200 only on accept;
+  // 400 BadDeviceToken / 410 Unregistered / etc. indicate the device's
+  // token is no longer valid for this env (most often dev↔prod mismatch).
+  const detail = results.map(r => {
+    if (r.status === 'rejected') return { ok: false, error: String(r.reason?.message || r.reason) };
+    return { ok: r.value.ok, status: r.value.status, reason: r.value.body, tokenTail: r.value.token };
+  });
+  const delivered = results.filter(r => r.status === 'fulfilled' && r.value.ok).length;
   // Refund the rate-limit count on TOTAL delivery failure — was
   // previously consuming the cap on every call regardless of outcome,
   // so a coach hitting an APNs outage 30 times got locked out for an
@@ -297,6 +314,6 @@ exports.handler = async (event) => {
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ delivered, total: tokens.length }),
+    body: JSON.stringify({ delivered, total: tokens.length, env, detail }),
   };
 };
