@@ -851,7 +851,7 @@ export async function renderCoachDashboard() {
     });
     const exportBtn = A.$('coach-export-csv');
     if (exportBtn) {
-      exportBtn.addEventListener('click', () => {
+      exportBtn.addEventListener('click', async () => {
         let csv = 'Name,Year,Tier,Workouts,Avg RPE,Last Active\n';
         students.forEach(s => {
           csv += [
@@ -861,12 +861,46 @@ export async function renderCoachDashboard() {
             s.lastActive ? s.lastActive.toISOString().split('T')[0] : 'Never'
           ].join(',') + '\n';
         });
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'turboprep-students-' + new Date().toISOString().split('T')[0] + '.csv';
-        a.click();
-        A.showToast('CSV downloaded!', 'success');
+        const filename = 'turboprep-students-' + new Date().toISOString().split('T')[0] + '.csv';
+        // iOS WebView blocks blob:// anchor downloads. Web Share API
+        // (with files) works in Capacitor / WKWebView and lets the user
+        // save to Files, AirDrop, email it to themselves, etc. Fall
+        // back to the standard anchor-download for desktop browsers.
+        try {
+          const file = new File([csv], filename, { type: 'text/csv' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'TurboPrep students',
+              text: 'Student data export',
+            });
+            A.showToast('Shared.', 'success');
+            return;
+          }
+        } catch (err) {
+          // User cancelled the share sheet — that's not an error.
+          if (err?.name === 'AbortError') return;
+          console.warn('[export] share failed, falling back to download:', err);
+        }
+        // Desktop / browsers without Web Share — standard blob download.
+        try {
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          A.showToast('CSV downloaded!', 'success');
+        } catch (err) {
+          // Final fallback — copy the CSV text to clipboard.
+          try {
+            await navigator.clipboard.writeText(csv);
+            A.showToast('Download blocked — CSV copied to clipboard instead.', 'info');
+          } catch (_) {
+            A.showToast('Could not export CSV on this device.', 'error');
+          }
+        }
       });
     }
     // Bulk message target buttons

@@ -37,7 +37,7 @@ let initTeamChat = () => {}, subscribeTeamChat = () => null, unsubscribeTeamChat
     getTeamChatCache = () => [], sendChatMessage = async () => false,
     sendCoachBroadcast = async () => false, postWorkoutToTeamChat = async () => {},
     deleteChatMessage = async () => {}, renderChatPanel = () => '', isMessageClean = () => false,
-    filterMessagesForScope = (m) => m;
+    filterMessagesForScope = (m) => m, hydrateChatFromLocal = () => [];
 let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     openRaceLogForm = () => {}, getFootageForRace = () => [],
     getStreamForRace = () => null, renderFootageLinks = () => '',
@@ -142,7 +142,17 @@ Promise.allSettled([
       postWorkoutToTeamChat = postWorkoutToTeamChat, deleteChatMessage = deleteChatMessage,
       renderChatPanel = renderChatPanel, isMessageClean = isMessageClean,
       filterMessagesForScope = filterMessagesForScope,
+      hydrateChatFromLocal = hydrateChatFromLocal,
     } = m);
+    // Hydrate the chat cache from localStorage immediately if we
+    // already know the team. This means the next chat-tab open paints
+    // the last-known messages within ~5ms — no waiting for Firestore's
+    // first snapshot.
+    try {
+      if (typeof hydrateChatFromLocal === 'function' && userProfile?.teamId) {
+        hydrateChatFromLocal(userProfile.teamId);
+      }
+    } catch(e) {}
     // teamchat.js just landed — if attachBackgroundChat ran earlier
     // against the noop stub, retry now that the real subscribe function
     // is bound. Without this hook the chat pill stayed on Connecting
@@ -9453,24 +9463,53 @@ function bindTeamChatPanel(c) {
       const sub = (teamData?.subteams || []).find(s => s.id === targetScope);
       return sub ? (sub.name || 'subteam') : 'subteam';
     })();
+    // Inner sender — wraps the actual write so we can retry once after
+    // self-healing membership if Firestore says permission-denied.
+    const doSend = async () => {
+      if (isCoachUser && pushChecked) {
+        return await sendCoachBroadcast(teamId, text, { push: true, subteamId: targetScope });
+      } else {
+        return await sendChatMessage(teamId, text, { subteamId: targetScope });
+      }
+    };
     try {
-      // Coach with push ticked → broadcast banner + push notification.
-      // Coach without push ticked → plain chat bubble (was previously
-      // posting as kind:'coach' / orange banner regardless, with no path
-      // to send a normal message). Plain athlete → chat.
       if (isCoachUser && pushChecked) {
         if (!confirm(`Send this as a push notification to ${targetLabel}?`)) {
           ok = false;
         } else {
-          ok = await sendCoachBroadcast(teamId, text, { push: true, subteamId: targetScope });
+          ok = await doSend();
         }
       } else {
-        ok = await sendChatMessage(teamId, text, { subteamId: targetScope });
+        ok = await doSend();
       }
     } catch (err) {
-      console.error('[chat] send handler threw:', err);
-      showErr(err?.message || 'Send failed.');
-      ok = false;
+      // Auto-heal on permission-denied: the most common cause is the
+      // user's uid having drifted out of team.members[]. Run the
+      // self-heal then retry the send once before giving up.
+      if (err?.code === 'permission-denied') {
+        console.warn('[chat] permission-denied on send → self-heal + retry');
+        try {
+          await ensureDefaultTeamMembership?.();
+          // Drop the local team cache so the next read sees fresh members[].
+          try {
+            if (userProfile?.teamId) {
+              localStorage.removeItem('tp_team_' + userProfile.teamId);
+              localStorage.removeItem('tp_team_ts_' + userProfile.teamId);
+            }
+          } catch(_) {}
+          ok = await doSend();
+        } catch (retryErr) {
+          console.error('[chat] send retry failed:', retryErr);
+          showErr(retryErr?.code === 'permission-denied'
+            ? 'Still blocked after self-heal. Coach needs to add you to the team manually.'
+            : (retryErr?.message || 'Send failed.'));
+          ok = false;
+        }
+      } else {
+        console.error('[chat] send handler threw:', err);
+        showErr(err?.message || 'Send failed.');
+        ok = false;
+      }
     } finally {
       sendBtn.dataset.sending = '';
       sendBtn.disabled = false;

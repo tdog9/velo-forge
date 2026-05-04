@@ -24,6 +24,38 @@ export function initTeamChat(ctx) { A = ctx; }
 let chatUnsub = null;
 let chatCache = [];
 
+// Persist a slim copy of the most-recent messages to localStorage so the
+// next chat-tab open paints instantly (no waiting for Firestore's first
+// snapshot). Firestore Timestamps are serialised as ms; the renderer's
+// toDate() already handles plain numbers.
+const CHAT_CACHE_KEY = (teamId) => 'tp_chat_' + teamId;
+const CHAT_CACHE_MAX = 100;
+
+export function hydrateChatFromLocal(teamId) {
+  if (!teamId) return [];
+  try {
+    const raw = localStorage.getItem(CHAT_CACHE_KEY(teamId));
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) {
+      chatCache = arr;
+      return arr;
+    }
+  } catch(_) {}
+  return [];
+}
+
+function persistChatToLocal(teamId) {
+  if (!teamId || !Array.isArray(chatCache) || chatCache.length === 0) return;
+  try {
+    const slim = chatCache.slice(0, CHAT_CACHE_MAX).map(m => ({
+      ...m,
+      createdAt: m.createdAt?.toMillis ? m.createdAt.toMillis() : m.createdAt,
+    }));
+    localStorage.setItem(CHAT_CACHE_KEY(teamId), JSON.stringify(slim));
+  } catch(_) {}
+}
+
 // Conservative profanity word-list. Substrings on whole-word boundaries.
 // Not exhaustive (there's no perfect list) — purpose is "first line of
 // defence" for school context, not legal-grade moderation. Coaches review
@@ -55,6 +87,7 @@ export function subscribeTeamChat(teamId, onUpdate, onError) {
     );
     chatUnsub = A.onSnapshot(q, (snap) => {
       chatCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      try { persistChatToLocal(teamId); } catch(_) {}
       try { onUpdate?.(chatCache); } catch(e) {}
     }, (err) => {
       console.warn('chat listener:', err);
