@@ -1693,7 +1693,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '9a13bf0';
+const APP_VERSION = '463b5f8';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -7118,6 +7118,28 @@ function renderTeamChatPanelInto(el) {
   }
   const placeholder = `Message ${targetLabel}…`;
 
+  // In-panel diagnostic strip — surfaces the real reason chat isn't
+  // working (uid not in members, team doesn't exist, etc.) right where
+  // the user is looking. Renders empty when everything is fine.
+  const myUidLocal = currentUser?.uid || '?';
+  const inMembers = Array.isArray(teamData?.members) && teamData.members.includes(myUidLocal);
+  const isHeadCoachLocal2 = teamData?.createdBy === myUidLocal;
+  const lastErr = window._tpChatLastError || '';
+  const showDiag = !inMembers || !!lastErr;
+  const diagHtml = showDiag ? `
+    <div id="chat-diag" style="margin:0 4px 10px;padding:12px;border:1px solid var(--border);border-radius:10px;background:rgba(var(--destructive-rgb),0.06);font-size:12px;line-height:1.5">
+      <div style="font-weight:800;color:var(--destructive);margin-bottom:6px">Chat diagnostic</div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted-fg);white-space:pre-wrap">UID: ${escHtml(myUidLocal)}
+TeamID: ${escHtml(userProfile?.teamId || '—')}
+Team name: ${escHtml(teamData?.name || '—')}
+You're in members[]: ${inMembers ? 'YES' : 'NO ❌'}
+You're the head coach: ${isHeadCoachLocal2 ? 'YES' : 'no'}
+Members count: ${(teamData?.members || []).length}
+Last listener error: ${escHtml(lastErr || '(none)')}</div>
+      <button id="chat-diag-fix" type="button" style="margin-top:10px;width:100%;padding:10px;border-radius:8px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Add my UID to team members[] now</button>
+      <div id="chat-diag-result" style="margin-top:8px;font-size:11px;font-family:var(--font-mono);white-space:pre-wrap;color:var(--muted-fg)"></div>
+    </div>
+  ` : '';
   el.innerHTML = `
     <div class="chat-status-row">
       <div id="chat-status-pill" class="chat-status-pill chat-status-error" hidden>
@@ -7126,6 +7148,7 @@ function renderTeamChatPanelInto(el) {
         <button id="chat-status-retry" type="button" aria-label="Retry chat connection" style="margin-left:8px;background:transparent;border:1px solid currentColor;color:inherit;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;cursor:pointer">Retry</button>
       </div>
     </div>
+    ${diagHtml}
     ${scopeChips}
     ${panel}
     <div class="msg-composer">
@@ -9383,6 +9406,63 @@ function openPlanPickerForAthlete(uid, member) {
 /// Wire the chat composer + per-message delete buttons after the chat panel
 /// renders. Safe to call multiple times (re-bind on every render).
 function bindTeamChatPanel(c) {
+  // Diagnostic "Add my UID to team members[] now" button — explicit,
+  // verbose self-heal that surfaces every step's outcome inline. We've
+  // been chasing this for a week through silent failures; this exposes
+  // the actual rule rejection if any.
+  c.querySelector('#chat-diag-fix')?.addEventListener('click', async () => {
+    const out = c.querySelector('#chat-diag-result');
+    const log = (s) => { if (out) out.textContent += s + '\n'; console.log('[chat-diag]', s); };
+    if (out) out.textContent = '';
+    if (!db || !currentUser?.uid || !userProfile?.teamId) {
+      log('Aborted: missing db / user / teamId.');
+      return;
+    }
+    try {
+      log('1. Reading team doc ' + userProfile.teamId + '…');
+      const tref = doc(db, 'teams', userProfile.teamId);
+      const tsnap = await getDoc(tref);
+      if (!tsnap.exists()) { log('   ❌ Team doc does not exist. Profile.teamId is stale.'); return; }
+      const td = tsnap.data();
+      const members = Array.isArray(td.members) ? td.members : [];
+      log('   ✓ Team exists: ' + (td.name || '(unnamed)'));
+      log('   createdBy: ' + (td.createdBy || '(none)'));
+      log('   members[' + members.length + ']: ' + JSON.stringify(members));
+      log('   you (uid): ' + currentUser.uid);
+      log('   you in members: ' + members.includes(currentUser.uid));
+      if (members.includes(currentUser.uid)) {
+        log('Already in members[]. The chat block must be a different cause — try sending a message now.');
+      } else {
+        log('2. Calling updateDoc to add your uid via arrayUnion…');
+        try {
+          await updateDoc(tref, { members: arrayUnion(currentUser.uid) });
+          log('   ✓ Wrote successfully. Re-reading…');
+          const reSnap = await getDoc(tref);
+          const newMembers = reSnap.data()?.members || [];
+          log('   members now: ' + JSON.stringify(newMembers));
+          log('   you in members: ' + newMembers.includes(currentUser.uid));
+        } catch(updErr) {
+          log('   ❌ Write rejected: code=' + updErr?.code + ' msg=' + updErr?.message);
+          log('   This is the rule rejection. Send me this whole text.');
+          return;
+        }
+      }
+      log('3. Bust local team cache + reload…');
+      try {
+        localStorage.removeItem('tp_team_' + userProfile.teamId);
+        localStorage.removeItem('tp_team_ts_' + userProfile.teamId);
+      } catch(_) {}
+      try { await loadTeamData(true); } catch(e) { log('   loadTeamData warn: ' + e?.message); }
+      log('4. Reattaching chat listener…');
+      _bgChatLive = false;
+      _bgChatRetryCount = 0;
+      try { unsubscribeTeamChat?.(); } catch(_) {}
+      try { attachBackgroundChat(); } catch(e) { log('   attach warn: ' + e?.message); }
+      log('Done. Try sending a message now.');
+    } catch(err) {
+      log('Outer error: code=' + err?.code + ' msg=' + err?.message);
+    }
+  });
   // Manual retry button on the status pill — resets retry counter and
   // forces a fresh listener attach, attempting membership self-heal in
   // between. Useful when the auto-retry has backed off too far.
@@ -10863,7 +10943,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '9a13bf0';
+  const APP_VERSION = '463b5f8';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

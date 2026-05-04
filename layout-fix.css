@@ -1331,26 +1331,23 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
 }
-/* Inner messages container — dvh (dynamic viewport height) accounts
-   for iOS Safari's collapsing URL bar. Subtracts a generous fixed
-   value covering header + team-tab-bar + composer + bottom nav so the
-   list always sits cleanly in view without overlap. */
+/* Inner messages container — uses max-height so short threads don't
+   stretch the panel; only kicks in when content exceeds the cap. */
 #lb-chat-content #team-chat-list{
-  height:calc(100dvh - 280px);
-  min-height:300px;
+  max-height:calc(100dvh - 320px);
+  min-height:200px;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
   padding:10px 8px 4px;
   scroll-behavior:smooth;
 }
 #lb-chat-content .msg-empty{
-  height:calc(100dvh - 280px);
-  min-height:300px;
+  min-height:200px;
+  padding:32px 24px;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  padding:24px;
 }
 /* Composer — sticky at the bottom of the page, just above the tab bar. */
 .msg-composer{
@@ -1601,19 +1598,18 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
    Now: each block sits in a defined card with clear hierarchy.
    ============================================================ */
 
-/* Beef up the team hero — was 16px padding / 18px title. */
+/* Team hero — modest bump, was getting stretched on small phones. */
 .team-hero{
-  padding:22px 18px;
-  margin-bottom:20px;
-  border-radius:18px;
+  padding:16px 14px;
+  margin-bottom:14px;
+  border-radius:14px;
   border:1px solid rgba(var(--primary-rgb),.22);
   background:linear-gradient(135deg,var(--primary-dim),rgba(var(--primary-rgb),.06));
-  box-shadow:0 4px 18px rgba(0,0,0,.18);
 }
-.team-hero-title{font-size:22px;font-weight:800;letter-spacing:-.01em}
-.team-hero-code{font-size:14px;padding:6px 14px;border-radius:10px}
-.team-hero-meta{gap:8px;margin-top:10px}
-.team-hero-pill{padding:5px 12px;font-size:12px}
+.team-hero-title{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.team-hero-code{font-size:13px;padding:5px 12px;border-radius:10px}
+.team-hero-meta{gap:6px;margin-top:8px}
+.team-hero-pill{padding:4px 10px;font-size:11px}
 
 /* Members header strip — bigger, more authoritative. */
 #lb-team-content > div[style*="margin:0 2px 10px"]{
@@ -1626,40 +1622,34 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   font-weight:800 !important;
 }
 
-/* Members leaderboard table — taller rows, larger type, member rows feel tappable. */
-.lb-table{font-size:14.5px}
+/* Members leaderboard — slightly larger than baseline, not bloated. */
+.lb-table{font-size:13.5px}
 .lb-table thead th{
-  padding:10px 6px;
-  font-size:11.5px;
+  padding:8px 6px;
+  font-size:11px;
   letter-spacing:.06em;
   border-bottom:1px solid var(--border);
 }
-.lb-table tbody td{padding:14px 6px}
+.lb-table tbody td{padding:11px 6px}
 .lb-table tbody tr{cursor:pointer;transition:background .12s}
-.lb-table tbody tr:hover{background:rgba(var(--primary-rgb),.05)}
 .lb-table tbody tr:active{background:rgba(var(--primary-rgb),.10)}
-.lb-name{font-weight:700;font-size:15px}
-.lb-rank{font-weight:800;color:var(--muted-fg);width:32px}
+.lb-name{font-weight:700;font-size:14px}
+.lb-rank{font-weight:800;color:var(--muted-fg);width:28px}
 .lb-rank-1{color:var(--primary)}
 .lb-stat{font-variant-numeric:tabular-nums;font-weight:700}
 
-/* Wrap the leaderboard card with more presence. */
 #lb-team-content > .card{
-  border-radius:16px;
+  border-radius:14px;
   border:1px solid var(--border);
-  padding:6px 10px;
-  margin-bottom:22px;
-  box-shadow:0 2px 10px rgba(0,0,0,.10);
+  padding:4px 8px;
+  margin-bottom:16px;
 }
-
-/* Race Archive + Gallery — convert profile-section into a defined hub card. */
 #lb-team-content .profile-section{
   background:var(--card);
   border:1px solid var(--border);
-  border-radius:16px;
-  padding:18px 16px 16px;
-  margin-top:20px !important;
-  box-shadow:0 2px 10px rgba(0,0,0,.10);
+  border-radius:14px;
+  padding:14px 14px 12px;
+  margin-top:14px !important;
 }
 #lb-team-content .profile-section-title{
   font-size:14px !important;

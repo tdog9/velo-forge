@@ -283,15 +283,43 @@ exports.handler = async (event) => {
   catch (e) { return { statusCode: 500, body: e.message }; }
   const bundleId = process.env.APNS_BUNDLE_ID || 'com.403productions.turboprep';
   const env = process.env.APNS_ENV || 'development';
-  const results = await Promise.allSettled(
+  let results = await Promise.allSettled(
     tokens.map(token => sendToToken({ token, payload: apnsPayload, jwt, bundleId, env }))
   );
-  // Per-result detail for diagnostics. APNs returns 200 only on accept;
-  // 400 BadDeviceToken / 410 Unregistered / etc. indicate the device's
-  // token is no longer valid for this env (most often dev↔prod mismatch).
+  // Auto-fallback: if APNs returns BadDeviceToken (sandbox/production
+  // mismatch — common when iOS dev builds register against sandbox but
+  // we push to production, or vice versa), retry the failing tokens
+  // against the OTHER environment. Saves having to track per-token
+  // env or coordinate APNS_ENV with build provenance.
+  const otherEnv = env === 'production' ? 'development' : 'production';
+  const failedBadToken = [];
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled' && !r.value.ok && r.value.status === 400
+        && /BadDeviceToken/i.test(r.value.body || '')) {
+      failedBadToken.push(tokens[i]);
+    }
+  });
+  let fallbackResults = [];
+  if (failedBadToken.length > 0) {
+    fallbackResults = await Promise.allSettled(
+      failedBadToken.map(token => sendToToken({ token, payload: apnsPayload, jwt, bundleId, env: otherEnv }))
+    );
+    // Stitch the fallback results into the original results array.
+    let fIdx = 0;
+    results = results.map(r => {
+      if (r.status === 'fulfilled' && !r.value.ok && r.value.status === 400
+          && /BadDeviceToken/i.test(r.value.body || '')) {
+        const fb = fallbackResults[fIdx++];
+        if (fb?.status === 'fulfilled' && fb.value.ok) {
+          return { status: 'fulfilled', value: { ...fb.value, fallbackEnv: otherEnv } };
+        }
+      }
+      return r;
+    });
+  }
   const detail = results.map(r => {
     if (r.status === 'rejected') return { ok: false, error: String(r.reason?.message || r.reason) };
-    return { ok: r.value.ok, status: r.value.status, reason: r.value.body, tokenTail: r.value.token };
+    return { ok: r.value.ok, status: r.value.status, reason: r.value.body, tokenTail: r.value.token, ...(r.value.fallbackEnv ? { fallbackEnv: r.value.fallbackEnv } : {}) };
   });
   const delivered = results.filter(r => r.status === 'fulfilled' && r.value.ok).length;
   // Refund the rate-limit count on TOTAL delivery failure — was

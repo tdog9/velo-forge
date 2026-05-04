@@ -146,9 +146,12 @@ export async function sendChatMessage(teamId, text, { subteamId = '' } = {}) {
     return false;
   }
   try {
+    // Defensive: trim + always non-empty displayName. Empty strings
+    // pass `is string` but trip downstream UI; harden the fallback.
+    const safeName = ((A.userProfile?.displayName || A.currentUser.displayName || A.currentUser.email || 'Member').toString().trim()) || 'Member';
     await A.addDoc(A.collection(A.db, 'teams', teamId, 'chat'), {
       uid: A.currentUser.uid,
-      displayName: A.userProfile?.displayName || A.currentUser.email || 'Member',
+      displayName: safeName,
       text: trimmed,
       kind: 'chat',
       subteamId: String(subteamId || ''),
@@ -189,9 +192,10 @@ export async function sendCoachBroadcast(teamId, text, { push = false, subteamId
   // "passion" anyway).
   try {
     const scope = String(subteamId || '');
+    const safeName = ((A.userProfile?.displayName || A.currentUser.displayName || 'Coach').toString().trim()) || 'Coach';
     await A.addDoc(A.collection(A.db, 'teams', teamId, 'chat'), {
       uid: A.currentUser.uid,
-      displayName: A.userProfile?.displayName || 'Coach',
+      displayName: safeName,
       text: trimmed,
       kind: 'coach',
       subteamId: scope,
