@@ -1663,7 +1663,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = 'a858a9d';
+const APP_VERSION = '9a13bf0';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -10283,21 +10283,30 @@ function attachBackgroundChat() {
     }, (err) => {
       _bgChatLive = false;
       _bgChatRetryCount++;
-      console.warn('[chat] listener error (#' + _bgChatRetryCount + '):', err?.code || err?.message || err);
-      // Only surface the error pill after several failed tries, AND only
-      // if we have nothing to show. With cached messages, the chat is
-      // still useful even if the live listener is down — don't yell.
+      const code = err?.code || err?.message || String(err || 'unknown');
+      console.warn('[chat] listener error (#' + _bgChatRetryCount + '):', code);
+      window._tpChatLastError = code;
+      // Surface the actual error in the pill — generic "Reconnecting…"
+      // gave us no signal to debug with. Cached messages keep chat
+      // functional, so don't show the pill if we have any.
       if (currentPage === 'team' && lbSubTab === 'chat') {
         const cache = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
         const hasCache = Array.isArray(cache) && cache.length > 0;
         const pill = document.getElementById('chat-status-pill');
         if (pill) {
-          if (_bgChatRetryCount >= 3 && !hasCache) {
+          if (_bgChatRetryCount >= 2 && !hasCache) {
             pill.classList.remove('chat-status-connecting', 'chat-status-live');
             pill.classList.add('chat-status-error');
             pill.hidden = false;
             const lbl = pill.querySelector('.chat-status-label');
-            if (lbl) lbl.textContent = 'Reconnecting…';
+            if (lbl) {
+              const friendly = (code === 'permission-denied')
+                ? 'Permission denied — tap Retry'
+                : (code === 'unavailable')
+                  ? 'Offline — tap Retry'
+                  : ('Error: ' + String(code).slice(0, 36));
+              lbl.textContent = friendly;
+            }
           } else {
             pill.hidden = true;
           }
@@ -10785,7 +10794,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = 'a858a9d';
+  const APP_VERSION = '9a13bf0';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);

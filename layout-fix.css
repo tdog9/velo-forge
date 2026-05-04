@@ -1331,20 +1331,21 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
 }
-/* Inner messages container — fixed height so it scrolls inside, no page
-   scroll fight. Sized to fit the viewport between header (56px) +
-   team-tab-bar (~52px) + composer (~96px) + bottom nav (var(--tab-h)). */
+/* Inner messages container — dvh (dynamic viewport height) accounts
+   for iOS Safari's collapsing URL bar. Subtracts a generous fixed
+   value covering header + team-tab-bar + composer + bottom nav so the
+   list always sits cleanly in view without overlap. */
 #lb-chat-content #team-chat-list{
-  height:calc(100vh - 56px - env(safe-area-inset-top, 0px) - 52px - 96px - var(--tab-h, 70px) - env(safe-area-inset-bottom, 0px));
-  min-height:240px;
+  height:calc(100dvh - 280px);
+  min-height:300px;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
   padding:10px 8px 4px;
   scroll-behavior:smooth;
 }
 #lb-chat-content .msg-empty{
-  height:calc(100vh - 56px - env(safe-area-inset-top, 0px) - 52px - 96px - var(--tab-h, 70px) - env(safe-area-inset-bottom, 0px));
-  min-height:240px;
+  height:calc(100dvh - 280px);
+  min-height:300px;
   display:flex;
   flex-direction:column;
   align-items:center;
