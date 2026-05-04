@@ -7093,6 +7093,7 @@ function renderTeamChatPanelInto(el) {
       <div id="chat-status-pill" class="chat-status-pill chat-status-error" hidden>
         <span class="chat-status-dot"></span>
         <span class="chat-status-label">Reconnecting…</span>
+        <button id="chat-status-retry" type="button" aria-label="Retry chat connection" style="margin-left:8px;background:transparent;border:1px solid currentColor;color:inherit;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;cursor:pointer">Retry</button>
       </div>
     </div>
     ${scopeChips}
@@ -9352,6 +9353,33 @@ function openPlanPickerForAthlete(uid, member) {
 /// Wire the chat composer + per-message delete buttons after the chat panel
 /// renders. Safe to call multiple times (re-bind on every render).
 function bindTeamChatPanel(c) {
+  // Manual retry button on the status pill — resets retry counter and
+  // forces a fresh listener attach, attempting membership self-heal in
+  // between. Useful when the auto-retry has backed off too far.
+  c.querySelector('#chat-status-retry')?.addEventListener('click', async () => {
+    try {
+      _bgChatRetryCount = 0;
+      _bgChatLive = false;
+      try { unsubscribeTeamChat?.(); } catch(_) {}
+      const pill = c.querySelector('#chat-status-pill');
+      if (pill) {
+        const lbl = pill.querySelector('.chat-status-label');
+        if (lbl) lbl.textContent = 'Connecting…';
+      }
+      try { await ensureDefaultTeamMembership?.(); } catch(_) {}
+      // Drop the team cache so the next read pulls fresh members[].
+      try {
+        if (userProfile?.teamId) {
+          localStorage.removeItem('tp_team_' + userProfile.teamId);
+          localStorage.removeItem('tp_team_ts_' + userProfile.teamId);
+        }
+      } catch(_) {}
+      try { await loadTeamData?.(); } catch(_) {}
+      attachBackgroundChat();
+    } catch(e) {
+      console.warn('chat retry:', e);
+    }
+  });
   // Don't capture teamId at bind time — auto-join can populate it after
   // the chat panel renders and we'd be stuck with a null closure that
   // makes the Send button silently no-op forever.

@@ -1311,41 +1311,55 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   font-weight:500;
 }
 
-/* WhatsApp-style chat: full-bleed flex container that fills the viewport
-   between the team-tab strip and the bottom nav, with the composer
-   pinned at the bottom and the message list scrolling inside.
-   Gives the chat its own scroll context so the composer is always
-   visible above the keyboard / tab bar without page-level scrolling. */
+/* Chat layout: keeps the team-tab strip visible, gives the message list
+   its own contained scroll, and pins the composer to the bottom of the
+   viewport above the app's bottom nav. Page scrolling stays intact for
+   anything else, so switching back to Hub still works the same way. */
 #lb-chat-content{
-  position:fixed;
-  inset:auto 0 0 0;
-  top:calc(56px + env(safe-area-inset-top, 0px) + 50px); /* header + tab strip */
-  bottom:calc(var(--tab-h, 70px) + env(safe-area-inset-bottom, 0px));
   display:flex;
   flex-direction:column;
-  background:var(--bg);
-  z-index:4;
-  overflow:hidden;
-  padding:0;
-  max-width:100vw;
+  gap:0;
+  margin:0 -8px; /* reach edge-to-edge inside the content gutter */
 }
-#lb-chat-content .chat-status-row{flex-shrink:0;padding:0 12px}
-#lb-chat-content .chat-scope-row{flex-shrink:0;padding:6px 12px;display:flex;gap:6px;overflow-x:auto}
+#lb-chat-content .chat-status-row{
+  padding:0 12px;
+}
+#lb-chat-content .chat-scope-row{
+  padding:6px 12px 8px;
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+/* Inner messages container — fixed height so it scrolls inside, no page
+   scroll fight. Sized to fit the viewport between header (56px) +
+   team-tab-bar (~52px) + composer (~96px) + bottom nav (var(--tab-h)). */
 #lb-chat-content #team-chat-list{
-  flex:1;
-  min-height:0;
+  height:calc(100vh - 56px - env(safe-area-inset-top, 0px) - 52px - 96px - var(--tab-h, 70px) - env(safe-area-inset-bottom, 0px));
+  min-height:240px;
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
   padding:10px 8px 4px;
   scroll-behavior:smooth;
 }
-
-/* Composer pinned to the bottom of the chat container (not the page). */
+#lb-chat-content .msg-empty{
+  height:calc(100vh - 56px - env(safe-area-inset-top, 0px) - 52px - 96px - var(--tab-h, 70px) - env(safe-area-inset-bottom, 0px));
+  min-height:240px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+/* Composer — sticky at the bottom of the page, just above the tab bar. */
 .msg-composer{
-  flex-shrink:0;
-  padding:10px 8px calc(10px + env(safe-area-inset-bottom, 0px));
+  position:sticky;
+  bottom:calc(var(--tab-h, 70px) + env(safe-area-inset-bottom, 0px));
+  z-index:5;
+  padding:10px 8px 12px;
   background:var(--bg);
   border-top:1px solid var(--border);
+  margin-top:0;
 }
 .msg-composer-row{
   display:flex;
