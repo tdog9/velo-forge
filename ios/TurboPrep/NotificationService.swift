@@ -70,11 +70,22 @@ enum NotificationService {
     /// Called from AppDelegate
     /// `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`
     /// once iOS hands back the APNs token.
+    ///
+    /// Always cache the hex token in UserDefaults so the web layer can
+    /// fetch it when the JS bridge is ready. The native Firebase Auth
+    /// instance is separate from the WKWebView's auth state — native
+    /// often has no current user even when the web is signed in — so a
+    /// direct Firestore write from here would silently lose the token.
+    /// The web side reads the cached token via the `read-apns-token`
+    /// bridge call and writes it to users/{uid}/devices using its own
+    /// signed-in Firestore session.
     static func handleRegistration(token: Data) async {
         let hex = token.map { String(format: "%02x", $0) }.joined()
+        UserDefaults.standard.set(hex, forKey: "tp_pending_apns_token")
+        // Best-effort native-Firestore write too, in case native auth IS
+        // signed in. No-op if not — the web bridge is the canonical path.
         guard let uid = Auth.auth().currentUser?.uid else {
-            print("ℹ️ Got APNs token but no signed-in user — caching locally.")
-            UserDefaults.standard.set(hex, forKey: "tp_pending_apns_token")
+            print("ℹ️ APNs token cached for web bridge to forward (native Auth not signed in).")
             return
         }
         let suffix = String(hex.suffix(16))
@@ -91,7 +102,7 @@ enum NotificationService {
                 .collection("devices").document(suffix)
                 .setData(payload, merge: true)
         } catch {
-            print("⚠️ Failed to register device token: \(error.localizedDescription)")
+            print("⚠️ Native Firestore device-token write failed: \(error.localizedDescription)")
         }
     }
 

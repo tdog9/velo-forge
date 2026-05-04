@@ -99,8 +99,10 @@ struct WebViewContainer: UIViewRepresentable {
             case "push-status":
                 // Web is asking for the current push authorization state +
                 // whether iOS thinks we're registered for remote notifications.
-                // Kicks off a re-prompt + re-register attempt and reports back
-                // via window.tpNative.onPushStatus({status,registered,...}).
+                // Also returns the cached APNs token (hex) so the web can
+                // write it to users/{uid}/devices/* using its signed-in
+                // Firestore session — native Auth is often unsigned even
+                // when the WebView is signed in.
                 let webViewRef = webView
                 Task { @MainActor in
                     let center = UNUserNotificationCenter.current()
@@ -123,12 +125,18 @@ struct WebViewContainer: UIViewRepresentable {
                         UIApplication.shared.registerForRemoteNotifications()
                     }
                     await NotificationService.flushPendingToken()
+                    let cachedToken = UserDefaults.standard.string(forKey: "tp_pending_apns_token") ?? ""
+                    let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+                    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
                     let json: [String: Any] = [
                         "status": statusStr,
                         "registered": isRegistered,
                         "alertSetting": settings.alertSetting == .enabled,
                         "soundSetting": settings.soundSetting == .enabled,
                         "badgeSetting": settings.badgeSetting == .enabled,
+                        "apnsToken": cachedToken,
+                        "appBuild": appBuild,
+                        "appVersion": appVersion,
                     ]
                     if let data = try? JSONSerialization.data(withJSONObject: json),
                        let str = String(data: data, encoding: .utf8),

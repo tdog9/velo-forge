@@ -448,10 +448,30 @@ if (typeof window !== 'undefined') {
   // web posts a "push-status" message. Latest reply is parked on
   // window._tpPushStatus and a "tp:push-status" CustomEvent fires so
   // the diagnostic UI can react without polling.
+  // ALSO: when the iOS payload carries an apnsToken, write it to
+  // Firestore using THIS web session's signed-in user — native Auth is
+  // separate from WKWebView Auth and is usually unsigned, so the
+  // native-side write would silently no-op.
   window.tpNative.onPushStatus = function(info) {
     try {
       window._tpPushStatus = info || null;
       window.dispatchEvent(new CustomEvent('tp:push-status', { detail: info || null }));
+      const tok = info?.apnsToken;
+      if (tok && currentUser?.uid && db) {
+        const suffix = String(tok).slice(-16);
+        setDoc(
+          doc(db, 'users', currentUser.uid, 'devices', suffix),
+          {
+            platform: 'ios',
+            apnsToken: tok,
+            lastSeenAt: serverTimestamp(),
+            appBuild: info?.appBuild || '?',
+            appVersion: info?.appVersion || '?',
+          },
+          { merge: true }
+        ).then(() => console.log('[push] device token written to Firestore'))
+         .catch(e => console.warn('[push] device token write failed:', e?.code, e?.message));
+      }
     } catch (e) { console.warn('onPushStatus:', e); }
   };
   // Watch pair-code validator. iPhone forwards the digits the user
@@ -10389,6 +10409,16 @@ function attachTeamLiveListener() {
       if (newJoiners.length > 0 || nextMemberIds.length !== prevMemberIds.size) {
         try { localStorage.removeItem('tp_team_ts_' + snap.id); } catch(e) {}
         try { await loadTeamData(true); } catch(e) {}
+        // If MY uid just got added to members[], the chat listener was
+        // probably failing with permission-denied. Force-reattach now
+        // that we have permission so the user doesn't have to tap Retry.
+        if (currentUser?.uid && nextMemberIds.includes(currentUser.uid) && !prevMemberIds.has(currentUser.uid)) {
+          console.log('[chat] our uid joined members[], reattaching listener');
+          _bgChatLive = false;
+          _bgChatRetryCount = 0;
+          try { unsubscribeTeamChat?.(); } catch(_) {}
+          try { attachBackgroundChat?.(); } catch(_) {}
+        }
       }
       if (currentPage === 'team') renderTeam();
     }, (err) => {
@@ -11046,6 +11076,17 @@ function startApp() {
         try { attachBackgroundChat(); } catch(e) {}
         refresh();
       }).catch(() => {});
+      // Auto-fetch the cached APNs token from native and write it to
+      // Firestore using THIS web session's auth. Native Auth is usually
+      // unsigned even when WebView is signed in, so the native-side
+      // write would no-op — we do it from web instead. Fires silently
+      // a couple of seconds after sign-in to give the bridge time to
+      // settle, then again 8s later in case the bridge wasn't ready.
+      try {
+        const tickPushSync = () => { try { postNative('push-status'); } catch(_) {} };
+        setTimeout(tickPushSync, 2000);
+        setTimeout(tickPushSync, 8000);
+      } catch(_) {}
       loadUserRaceLogs().then(refresh).catch(() => {});
       if (isAdmin) loadAdminData().then(refresh).catch(() => {});
       // Non-critical bulk loads — defer 500ms, then refresh once when all done.
