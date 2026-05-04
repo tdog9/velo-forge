@@ -1693,7 +1693,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '463b5f8';
+const APP_VERSION = '7c46d47';
 const CHANGELOG = [
   { version: '2.4.0', date: 'Mar 2026', items: [
     'App tour for new users',
@@ -7125,7 +7125,8 @@ function renderTeamChatPanelInto(el) {
   const inMembers = Array.isArray(teamData?.members) && teamData.members.includes(myUidLocal);
   const isHeadCoachLocal2 = teamData?.createdBy === myUidLocal;
   const lastErr = window._tpChatLastError || '';
-  const showDiag = !inMembers || !!lastErr;
+  // Always show diagnostic so we can see live state, not only when broken.
+  const showDiag = true;
   const diagHtml = showDiag ? `
     <div id="chat-diag" style="margin:0 4px 10px;padding:12px;border:1px solid var(--border);border-radius:10px;background:rgba(var(--destructive-rgb),0.06);font-size:12px;line-height:1.5">
       <div style="font-weight:800;color:var(--destructive);margin-bottom:6px">Chat diagnostic</div>
@@ -10391,7 +10392,7 @@ function _scheduleChatRetry() {
   }, 3000);
 }
 
-function attachBackgroundChat() {
+async function attachBackgroundChat() {
   if (!currentUser) { console.log('[chat] no currentUser, skipping'); return; }
   if (!userProfile?.teamId) {
     console.log('[chat] no teamId yet, will retry');
@@ -10408,6 +10409,42 @@ function attachBackgroundChat() {
     return;
   }
   _bgChatPending = false;
+  // Pre-flight: read the team doc directly (no cache) and ensure our
+  // uid is in members[] BEFORE attaching the listener. This eliminates
+  // the permission-denied → backoff → retry cycle that left chat
+  // "eternally connecting" for users with stale localStorage.
+  try {
+    const tref = doc(db, 'teams', userProfile.teamId);
+    const tsnap = await getDoc(tref);
+    if (tsnap.exists()) {
+      const td = tsnap.data();
+      const members = Array.isArray(td.members) ? td.members : [];
+      if (!members.includes(currentUser.uid)) {
+        console.warn('[chat] preflight: uid not in members[], adding now', { uid: currentUser.uid, members });
+        try {
+          await updateDoc(tref, { members: arrayUnion(currentUser.uid) });
+          // Wait briefly for propagation to read replicas before listener attach.
+          await new Promise(r => setTimeout(r, 300));
+        } catch (heal) {
+          console.error('[chat] preflight self-heal write failed:', heal?.code, heal?.message);
+          window._tpChatLastError = 'preflight-write-' + (heal?.code || 'fail') + ': ' + (heal?.message || '');
+          // Don't bail — try the listener anyway. Some rules still allow
+          // read where they don't allow write.
+        }
+        try {
+          localStorage.removeItem('tp_team_' + userProfile.teamId);
+          localStorage.removeItem('tp_team_ts_' + userProfile.teamId);
+        } catch(_) {}
+      }
+    } else {
+      console.warn('[chat] preflight: team doc does not exist', userProfile.teamId);
+      window._tpChatLastError = 'team-doc-missing';
+    }
+  } catch (preErr) {
+    console.warn('[chat] preflight team-read failed:', preErr?.code, preErr?.message);
+    window._tpChatLastError = 'preflight-read-' + (preErr?.code || 'fail');
+    // Continue anyway — better to try the listener than abort.
+  }
   console.log('[chat] attaching listener for teamId=' + userProfile.teamId);
   try {
     subscribeTeamChat(userProfile.teamId, () => {
@@ -10943,7 +10980,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '463b5f8';
+  const APP_VERSION = '7c46d47';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
