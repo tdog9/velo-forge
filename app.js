@@ -1823,28 +1823,6 @@ function showSelectModal(title, options, currentValue, onSave) {
   });
 }
 const APP_VERSION = '7c46d47';
-const CHANGELOG = [
-  { version: '2.4.0', date: 'Mar 2026', items: [
-    'App tour for new users',
-    '14 achievement badges to earn',
-    'Heart rate zones from Strava',
-    'Race result logging with form',
-    'AI Coach now gives app navigation help',
-    'Two-way Strava sync',
-    'App split into modules for performance',
-    'Off-season & holiday plan generation'
-  ]},
-  { version: '2.3.0', date: 'Mar 2026', items: [
-    'GPS activity tracker',
-    'Dark/light map tiles',
-    'XP leaderboard',
-    'Auto team challenge scoring',
-    'Activity detail view with route maps'
-  ]}
-];
-function showWhatsNew() {
-  // Disabled — replaced by welcome setup for new users
-}
 function showWelcomeSetup() {
   const name = userProfile?.displayName || 'there';
   const overlay = document.createElement('div');
@@ -9838,18 +9816,14 @@ function bindTeamChatPanel(c) {
     errBox.textContent = '';
     errBox.hidden = true;
   };
-  // Pre-flight diagnostic so a silent fail can't masquerade as "the
-  // button does nothing". We try a cheap path that exercises the same
-  // permission a chat write needs — if Firestore can't even verify
-  // membership, we surface that immediately rather than discover it on send.
+  // Pre-flight — only block on conditions Firestore can't recover from.
+  // Don't gate on a stale local teamData.members cache: if our copy is
+  // out of date, we'd block a send the server would accept. The server
+  // path (sendChatMessage → permission-denied → ensureDefaultTeamMembership
+  // → retry) handles real membership drift.
   const preflight = () => {
     if (!currentUser) return 'Not signed in.';
     if (!userProfile?.teamId) return 'No team yet — join or create one before chatting.';
-    if (!teamData) return 'Team data still loading — give it a second.';
-    const members = Array.isArray(teamData.members) ? teamData.members : [];
-    if (!members.includes(currentUser.uid)) {
-      return 'You are not in this team\'s members list yet. Open Team → tap your team to refresh.';
-    }
     return null;
   };
   ta?.addEventListener('input', clearErr);

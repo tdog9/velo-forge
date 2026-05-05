@@ -1670,6 +1670,19 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   -webkit-backdrop-filter: none !important;
 }
 
+/* AI fab is hidden on the Team page — it was overlapping the bottom of
+   the Hub content and confusing users. JavaScript already gates it to
+   today/fitness/races, but force-hide via CSS as belt-and-braces. */
+body:has(#page-team.active) .ai-fab,
+#page-team.active ~ .ai-fab{
+  display:none !important;
+}
+
+/* Make sure Team page content always scrolls fully past the bottom nav. */
+#page-team{
+  padding-bottom:calc(var(--tab-h, 80px) + env(safe-area-inset-bottom, 0px) + 24px);
+}
+
 /* ============================================================
    Hub — race countdown card
    ============================================================ */
