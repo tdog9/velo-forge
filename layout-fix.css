@@ -1593,6 +1593,126 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
 }
 
 /* ============================================================
+   Hub — race countdown card
+   ============================================================ */
+.hub-race-card{
+  margin-bottom:14px;
+  padding:14px 16px;
+  border-radius:14px;
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(135deg, var(--card), rgba(var(--primary-rgb), .04));
+  border:1px solid var(--border);
+}
+.hub-race-card.hub-phase-race-week{
+  background:linear-gradient(135deg, rgba(239, 68, 68, .12), rgba(239, 68, 68, .03));
+  border-color:rgba(239, 68, 68, .35);
+}
+.hub-race-card.hub-phase-peak{
+  background:linear-gradient(135deg, rgba(249, 115, 22, .12), rgba(249, 115, 22, .03));
+  border-color:rgba(249, 115, 22, .35);
+}
+.hub-race-card.hub-phase-build{
+  background:linear-gradient(135deg, rgba(59, 130, 246, .12), rgba(59, 130, 246, .03));
+  border-color:rgba(59, 130, 246, .35);
+}
+.hub-race-card.hub-phase-base{
+  background:linear-gradient(135deg, rgba(34, 197, 94, .12), rgba(34, 197, 94, .03));
+  border-color:rgba(34, 197, 94, .35);
+}
+.hub-race-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px}
+.hub-race-phase{
+  font-size:10px;font-weight:800;letter-spacing:.1em;
+  color:var(--primary);
+  background:rgba(var(--primary-rgb), .15);
+  padding:3px 8px;border-radius:99px;
+}
+.hub-race-card.hub-phase-race-week .hub-race-phase{color:#ef4444;background:rgba(239,68,68,.15)}
+.hub-race-card.hub-phase-peak .hub-race-phase{color:#f97316;background:rgba(249,115,22,.15)}
+.hub-race-card.hub-phase-build .hub-race-phase{color:#3b82f6;background:rgba(59,130,246,.15)}
+.hub-race-card.hub-phase-base .hub-race-phase{color:#22c55e;background:rgba(34,197,94,.15)}
+.hub-race-when{
+  font-size:13px;font-weight:800;
+  color:var(--fg);
+  font-variant-numeric:tabular-nums;
+}
+.hub-race-name{font-size:16px;font-weight:800;color:var(--fg);margin-bottom:2px;letter-spacing:-.01em}
+.hub-race-loc{font-size:12px;color:var(--muted-fg)}
+
+/* ============================================================
+   Hub — team pulse strip (3 stat cells)
+   ============================================================ */
+.hub-pulse{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:6px;
+  margin-bottom:14px;
+}
+.hub-pulse-cell{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:11px 8px;
+  text-align:center;
+  min-width:0;
+}
+.hub-pulse-val{
+  font-size:22px;font-weight:800;
+  color:var(--fg);
+  font-variant-numeric:tabular-nums;
+  line-height:1.1;
+}
+.hub-pulse-of, .hub-pulse-unit{
+  font-size:13px;font-weight:700;
+  color:var(--muted-fg);
+  margin-left:1px;
+}
+.hub-pulse-lbl{
+  font-size:10px;font-weight:700;
+  letter-spacing:.04em;
+  color:var(--muted-fg);
+  margin-top:4px;
+  text-transform:uppercase;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* ============================================================
+   Hub — featured member card
+   ============================================================ */
+.hub-featured{
+  margin-bottom:14px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:linear-gradient(135deg, rgba(var(--primary-rgb), .10), rgba(var(--primary-rgb), .02));
+  border:1px solid rgba(var(--primary-rgb), .25);
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.hub-featured:active{transform:scale(.99)}
+.hub-featured-label{
+  font-size:10px;font-weight:800;
+  letter-spacing:.1em;
+  color:var(--primary);
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+.hub-featured-row{display:flex;align-items:center;gap:12px}
+.hub-featured-avatar{
+  width:42px;height:42px;border-radius:50%;
+  background:rgba(var(--primary-rgb), .15);
+  border:1px solid rgba(var(--primary-rgb), .3);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:15px;color:var(--primary);
+  flex-shrink:0;overflow:hidden;
+}
+.hub-featured-avatar img{width:100%;height:100%;object-fit:cover}
+.hub-featured-text{flex:1;min-width:0}
+.hub-featured-name{font-size:15px;font-weight:800;color:var(--fg);line-height:1.2}
+.hub-featured-stats{font-size:11.5px;color:var(--muted-fg);margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* ============================================================
    Hub page (Team → Hub sub-tab) — bigger, more defined sections.
    Was: thin spacing, small headings, sections blended together.
    Now: each block sits in a defined card with clear hierarchy.

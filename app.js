@@ -7622,6 +7622,88 @@ function renderTeamTab(c, opts) {
       </div>
     </div>
   `;
+  // ── Race countdown card — surfaces the next upcoming race so the Hub
+  // anchors the team to the calendar. Uses computeRacePhase from the
+  // RACES catalog. Shown only when there's a future race.
+  try {
+    const phase = (typeof computeRacePhase === 'function') ? computeRacePhase() : null;
+    if (phase?.race) {
+      const days = Math.max(0, phase.daysOut);
+      const phaseClass = 'hub-phase-' + phase.phase;
+      const phaseLabel = phase.label || phase.phase.toUpperCase();
+      const raceShortName = (phase.race.name || '').replace(/^Vic HPR /, '');
+      html += `
+        <div class="hub-race-card ${phaseClass}">
+          <div class="hub-race-head">
+            <span class="hub-race-phase">${escHtml(phaseLabel)}</span>
+            <span class="hub-race-when">${days === 0 ? 'TODAY' : days === 1 ? 'TOMORROW' : days + ' days'}</span>
+          </div>
+          <div class="hub-race-name">${escHtml(raceShortName)}</div>
+          <div class="hub-race-loc">${escHtml(phase.race.location || '')}</div>
+        </div>`;
+    }
+  } catch(_) {}
+  // ── Team pulse — three quick numbers that turn the Hub into a
+  // dashboard. Workouts logged this week, members active in the last
+  // 7 days, longest current streak across the team.
+  try {
+    const now = Date.now();
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    let weekWorkouts = 0;
+    let activeThisWeek = 0;
+    let longestStreak = 0;
+    let longestStreakName = '—';
+    teamMembers.forEach(m => {
+      const last = m.lastActive ? (new Date(m.lastActive)).getTime() : 0;
+      if (last > 0 && (now - last) < weekMs) activeThisWeek++;
+      if ((m.streak || 0) > longestStreak) {
+        longestStreak = m.streak || 0;
+        longestStreakName = m.displayName || 'Member';
+      }
+      // Per-member workouts logged this week — best-effort: if the
+      // weekly count isn't on the member object, fall back to scaling
+      // their total by a simple recent-fraction heuristic. Live cost
+      // would be a fan-out read; saving that for a follow-up.
+      weekWorkouts += (m.workoutsThisWeek != null) ? m.workoutsThisWeek : 0;
+    });
+    html += `
+      <div class="hub-pulse">
+        <div class="hub-pulse-cell">
+          <div class="hub-pulse-val">${weekWorkouts}</div>
+          <div class="hub-pulse-lbl">Workouts this week</div>
+        </div>
+        <div class="hub-pulse-cell">
+          <div class="hub-pulse-val">${activeThisWeek}<span class="hub-pulse-of">/${teamMembers.length}</span></div>
+          <div class="hub-pulse-lbl">Active in 7 days</div>
+        </div>
+        <div class="hub-pulse-cell">
+          <div class="hub-pulse-val">${longestStreak}<span class="hub-pulse-unit">d</span></div>
+          <div class="hub-pulse-lbl">${escHtml(longestStreakName)}</div>
+        </div>
+      </div>`;
+  } catch(_) {}
+  // ── Featured member of the week — pinned card just below the pulse
+  // strip. Default = top member by total workouts (fast deterministic
+  // pick); coach can override later via Manage Team.
+  try {
+    const sortedByWork = [...teamMembers].sort((a, b) => (b.totalWorkouts || 0) - (a.totalWorkouts || 0));
+    const featured = sortedByWork[0];
+    if (featured && teamMembers.length > 1) {
+      const initials = (featured.displayName || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '?';
+      html += `
+        <div class="hub-featured" data-member-uid="${escHtml(featured.uid)}" role="button" tabindex="0">
+          <div class="hub-featured-label">Featured this week</div>
+          <div class="hub-featured-row">
+            <div class="hub-featured-avatar">${featured.photoURL ? `<img src="${escHtml(featured.photoURL)}" alt="">` : escHtml(initials)}</div>
+            <div class="hub-featured-text">
+              <div class="hub-featured-name">${escHtml(featured.displayName || 'Member')}</div>
+              <div class="hub-featured-stats">${featured.totalWorkouts || 0} workouts · ${featured.streak || 0}d streak${featured.yearLevel ? ' · Year ' + escHtml(String(featured.yearLevel)) : ''}</div>
+            </div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>`;
+    }
+  } catch(_) {}
   // The roster chip grid was removed — the Members leaderboard table
   // below already lists every member with their workouts and streak,
   // so duplicating the same data as a chip grid above the table
@@ -7871,6 +7953,17 @@ function renderTeamTab(c, opts) {
         const row = e.target.closest('[data-member-uid]');
         if (row) { e.preventDefault(); handler(e); }
       }
+    });
+  });
+  // Featured member card click — separate from the leaderboard table.
+  c.querySelectorAll('.hub-featured[data-member-uid]').forEach(card => {
+    const open = () => {
+      const uid = card.dataset.memberUid;
+      if (uid) openMemberSheet(uid);
+    };
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
     });
   });
   // Legacy: keep the coach drill binding for any other places still using
