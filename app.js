@@ -158,6 +158,17 @@ Promise.allSettled([
         hydrateChatFromLocal(userProfile.teamId);
       }
     } catch(e) {}
+    // CRITICAL: initTeamChat needs to run with the real ctx after this
+    // module lands. The earlier initTeamChat(buildModuleCtx()) call in
+    // onAuthStateChanged hit the noop stub when teamchat.js hadn't yet
+    // resolved, so the module's internal `A` (db, addDoc, etc.) was
+    // never set. Net effect: sendChatMessage failed the `!A.db` guard
+    // and returned false silently — every chat send was a no-op.
+    try {
+      if (typeof initTeamChat === 'function' && typeof buildModuleCtx === 'function') {
+        initTeamChat(buildModuleCtx());
+      }
+    } catch(e) { console.warn('teamchat post-import init:', e); }
     // teamchat.js just landed — if attachBackgroundChat ran earlier
     // against the noop stub, retry now that the real subscribe function
     // is bound. Without this hook the chat pill stayed on Connecting
@@ -9889,14 +9900,47 @@ function bindTeamChatPanel(c) {
     }
     try { refreshTeamChatList(); } catch(_) {}
     try { scrollChatToBottom(); } catch(_) {}
+    // Direct-write fallback. teamchat.js's exported sendChatMessage
+    // depends on its module-internal ctx being populated by initTeamChat.
+    // If that context is empty (init race or import failure), the call
+    // returns false silently. We do the addDoc ourselves from app.js
+    // scope using the real Firebase functions imported here — same
+    // payload shape, same Firestore rules.
+    const directSend = async () => {
+      const safeName = ((userProfile?.displayName || currentUser?.displayName || currentUser?.email || (isCoachUser ? 'Coach' : 'Member')).toString().trim()) || (isCoachUser ? 'Coach' : 'Member');
+      const payload = {
+        uid: currentUser.uid,
+        displayName: safeName,
+        text: text,
+        kind: (isCoachUser && pushChecked) ? 'coach' : 'chat',
+        subteamId: String(targetScope || ''),
+        createdAt: serverTimestamp(),
+      };
+      if (isCoachUser && pushChecked) payload.broadcastPush = true;
+      await addDoc(collection(db, 'teams', teamId, 'chat'), payload);
+      return true;
+    };
     // Inner sender — wraps the actual write so we can retry once after
     // self-healing membership if Firestore says permission-denied.
     const doSend = async () => {
-      if (isCoachUser && pushChecked) {
-        return await sendCoachBroadcast(teamId, text, { push: true, subteamId: targetScope });
-      } else {
-        return await sendChatMessage(teamId, text, { subteamId: targetScope });
+      let result;
+      try {
+        if (isCoachUser && pushChecked) {
+          result = await sendCoachBroadcast(teamId, text, { push: true, subteamId: targetScope });
+        } else {
+          result = await sendChatMessage(teamId, text, { subteamId: targetScope });
+        }
+      } catch (e) {
+        throw e; // rethrow so outer catch handles permission-denied retry
       }
+      // If the wrapped function returned false (module ctx missing or
+      // some other silent abort), fall back to a direct write so the
+      // user's message actually goes through.
+      if (result === false) {
+        console.warn('[chat] sendChat returned false — falling back to direct addDoc');
+        return await directSend();
+      }
+      return result;
     };
     try {
       if (isCoachUser && pushChecked) {
