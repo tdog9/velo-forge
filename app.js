@@ -462,20 +462,23 @@ if (typeof window !== 'undefined') {
       window._tpPushStatus = info || null;
       window.dispatchEvent(new CustomEvent('tp:push-status', { detail: info || null }));
       const tok = info?.apnsToken;
-      if (tok && currentUser?.uid && db) {
-        const suffix = String(tok).slice(-16);
-        setDoc(
-          doc(db, 'users', currentUser.uid, 'devices', suffix),
-          {
-            platform: 'ios',
-            apnsToken: tok,
-            lastSeenAt: serverTimestamp(),
-            appBuild: info?.appBuild || '?',
-            appVersion: info?.appVersion || '?',
-          },
-          { merge: true }
-        ).then(() => console.log('[push] device token written to Firestore'))
-         .catch(e => console.warn('[push] device token write failed:', e?.code, e?.message));
+      const fcm = info?.fcmToken;
+      if ((tok || fcm) && currentUser?.uid && db) {
+        // Use the APNs hex tail as the doc id so writes are idempotent
+        // across token refreshes for the same physical device. Falls
+        // back to the FCM token's tail when only FCM is available.
+        const suffix = (tok ? String(tok).slice(-16) : String(fcm).slice(-16));
+        const payload = {
+          platform: 'ios',
+          lastSeenAt: serverTimestamp(),
+          appBuild: info?.appBuild || '?',
+          appVersion: info?.appVersion || '?',
+        };
+        if (tok) payload.apnsToken = tok;
+        if (fcm) payload.fcmToken = fcm;
+        setDoc(doc(db, 'users', currentUser.uid, 'devices', suffix), payload, { merge: true })
+          .then(() => console.log('[push] device tokens written:', { hasApns: !!tok, hasFcm: !!fcm }))
+          .catch(e => console.warn('[push] device token write failed:', e?.code, e?.message));
       }
     } catch (e) { console.warn('onPushStatus:', e); }
   };

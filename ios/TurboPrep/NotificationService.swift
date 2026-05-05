@@ -3,26 +3,23 @@ import UIKit
 import UserNotifications
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseMessaging
 
-/// APNs / push notification handler for TurboPrep iOS.
+/// Push notification handler for TurboPrep iOS.
 ///
 /// Flow:
-///   1. requestAuthorization() — prompts the user once (system sheet).
-///   2. UIApplication.shared.registerForRemoteNotifications() — kicks off
-///      device-token retrieval. The AppDelegate forwards the resulting
-///      token (or error) to handleRegistration(token:) below.
-///   3. Token is written to users/{uid}/devices/{tokenSuffix} in Firestore
-///      so the Netlify push function knows where to deliver.
+///   1. requestAuthorization() — prompts the user once.
+///   2. registerForRemoteNotifications() — kicks off APNs token retrieval.
+///   3. APNs token forwarded to FCM via Messaging.apnsToken.
+///   4. FCM issues a registration token (delivered via MessagingDelegate).
+///   5. Both tokens cached in UserDefaults; the web bridge forwards them
+///      into Firestore at users/{uid}/devices/{suffix} so onChatWrite can
+///      look them up server-side.
 ///
-/// Inert until:
-///   - The TurboPrep target has the "Push Notifications" capability enabled
-///     in Signing & Capabilities (Xcode adds entitlement aps-environment).
-///   - You're running on a real device (simulators don't get APNs tokens).
-///   - You have a paid Apple Developer account + APNs auth key.
-/// Foreground delegate so notifications display as banner+sound+badge
-/// even while the user is inside the app. Without this iOS swallows
-/// foreground pushes silently (background/lock-screen still work).
-final class TurboPrepNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+/// We use FCM tokens for delivery (admin.messaging() in functions/) and
+/// keep the raw APNs token as a fallback path. FCM handles dev/prod
+/// transparently — no more APNs env mismatches.
+final class TurboPrepNotificationDelegate: NSObject, UNUserNotificationCenterDelegate, MessagingDelegate {
     static let shared = TurboPrepNotificationDelegate()
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
@@ -39,16 +36,29 @@ final class TurboPrepNotificationDelegate: NSObject, UNUserNotificationCenterDel
         }
         completionHandler()
     }
+    /// FCM hands us a registration token any time it issues or rotates one.
+    /// Cache + dispatch to the same path as the APNs token so the web
+    /// bridge picks it up when the WebView is ready.
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard let token = fcmToken, !token.isEmpty else { return }
+        UserDefaults.standard.set(token, forKey: "tp_pending_fcm_token")
+        Task { @MainActor in
+            await NotificationService.flushPendingToken()
+        }
+    }
 }
 
 @MainActor
 enum NotificationService {
 
-    /// Ask the user for permission and start APNs registration.
+    /// Ask the user for permission, register with APNs, and wire FCM.
     /// Safe to call multiple times — iOS only prompts once.
     static func requestAuthorization() async {
         let center = UNUserNotificationCenter.current()
         center.delegate = TurboPrepNotificationDelegate.shared
+        // FCM delegate — receives the FCM registration token via
+        // messaging(_:didReceiveRegistrationToken:).
+        Messaging.messaging().delegate = TurboPrepNotificationDelegate.shared
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .badge, .sound])
             guard granted else {
@@ -67,35 +77,35 @@ enum NotificationService {
         UIApplication.shared.applicationIconBadgeNumber = 0
     }
 
-    /// Called from AppDelegate
-    /// `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`
-    /// once iOS hands back the APNs token.
-    ///
-    /// Always cache the hex token in UserDefaults so the web layer can
-    /// fetch it when the JS bridge is ready. The native Firebase Auth
-    /// instance is separate from the WKWebView's auth state — native
-    /// often has no current user even when the web is signed in — so a
-    /// direct Firestore write from here would silently lose the token.
-    /// The web side reads the cached token via the `read-apns-token`
-    /// bridge call and writes it to users/{uid}/devices using its own
-    /// signed-in Firestore session.
+    /// Called from AppDelegate didRegisterForRemoteNotificationsWithDeviceToken.
+    /// Hands the APNs token to FCM (which uses it to issue an FCM token via
+    /// the MessagingDelegate callback) and caches the raw APNs hex too as
+    /// a fallback path.
     static func handleRegistration(token: Data) async {
+        // Hand to FCM — this triggers the FCM registration flow which ends
+        // in messaging(_:didReceiveRegistrationToken:).
+        Messaging.messaging().apnsToken = token
+        // Cache APNs hex as well — the web bridge sends both up so the
+        // server can fall back if the FCM token isn't available yet.
         let hex = token.map { String(format: "%02x", $0) }.joined()
         UserDefaults.standard.set(hex, forKey: "tp_pending_apns_token")
-        // Best-effort native-Firestore write too, in case native auth IS
-        // signed in. No-op if not — the web bridge is the canonical path.
-        guard let uid = Auth.auth().currentUser?.uid else {
-            print("ℹ️ APNs token cached for web bridge to forward (native Auth not signed in).")
-            return
-        }
+        // Best-effort native-Firestore write — usually no-op (native Auth
+        // is typically unsigned even when the WebView is signed in). The
+        // web bridge is the canonical path; this just cuts a few seconds
+        // of latency when native does happen to be signed in.
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let fcmToken = UserDefaults.standard.string(forKey: "tp_pending_fcm_token") ?? ""
         let suffix = String(hex.suffix(16))
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "platform": "ios",
             "apnsToken": hex,
             "lastSeenAt": FieldValue.serverTimestamp(),
             "appBuild": Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?",
             "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?",
         ]
+        if !fcmToken.isEmpty {
+            payload["fcmToken"] = fcmToken
+        }
         do {
             try await Firestore.firestore()
                 .collection("users").document(uid)
@@ -110,14 +120,12 @@ enum NotificationService {
         print("⚠️ APNs registration failed: \(error.localizedDescription)")
     }
 
-    /// Replay any cached APNs token after the user signs in (in case the
-    /// token arrived before sign-in completed).
+    /// Replay any cached APNs/FCM tokens after the user signs in.
     static func flushPendingToken() async {
-        guard let cached = UserDefaults.standard.string(forKey: "tp_pending_apns_token"),
-              !cached.isEmpty,
-              Auth.auth().currentUser != nil else { return }
+        guard Auth.auth().currentUser != nil else { return }
+        let cached = UserDefaults.standard.string(forKey: "tp_pending_apns_token") ?? ""
+        guard !cached.isEmpty else { return }
         await handleRegistration(token: Data(hexString: cached) ?? Data())
-        UserDefaults.standard.removeObject(forKey: "tp_pending_apns_token")
     }
 }
 

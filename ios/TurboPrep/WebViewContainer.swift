@@ -126,6 +126,7 @@ struct WebViewContainer: UIViewRepresentable {
                     }
                     await NotificationService.flushPendingToken()
                     let cachedToken = UserDefaults.standard.string(forKey: "tp_pending_apns_token") ?? ""
+                    let fcmToken = UserDefaults.standard.string(forKey: "tp_pending_fcm_token") ?? ""
                     let appBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
                     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
                     let json: [String: Any] = [
@@ -135,6 +136,7 @@ struct WebViewContainer: UIViewRepresentable {
                         "soundSetting": settings.soundSetting == .enabled,
                         "badgeSetting": settings.badgeSetting == .enabled,
                         "apnsToken": cachedToken,
+                        "fcmToken": fcmToken,
                         "appBuild": appBuild,
                         "appVersion": appVersion,
                     ]
