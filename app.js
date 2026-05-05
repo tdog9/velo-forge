@@ -37,7 +37,9 @@ let initTeamChat = () => {}, subscribeTeamChat = () => null, unsubscribeTeamChat
     getTeamChatCache = () => [], sendChatMessage = async () => false,
     sendCoachBroadcast = async () => false, postWorkoutToTeamChat = async () => {},
     deleteChatMessage = async () => {}, renderChatPanel = () => '', isMessageClean = () => false,
-    filterMessagesForScope = (m) => m, hydrateChatFromLocal = () => [];
+    filterMessagesForScope = (m) => m, hydrateChatFromLocal = () => [],
+    addPendingChatMessage = () => {}, markPendingChatFailed = () => {},
+    removePendingChatMessage = () => {};
 let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     openRaceLogForm = () => {}, getFootageForRace = () => [],
     getStreamForRace = () => null, renderFootageLinks = () => '',
@@ -143,6 +145,9 @@ Promise.allSettled([
       renderChatPanel = renderChatPanel, isMessageClean = isMessageClean,
       filterMessagesForScope = filterMessagesForScope,
       hydrateChatFromLocal = hydrateChatFromLocal,
+      addPendingChatMessage = addPendingChatMessage,
+      markPendingChatFailed = markPendingChatFailed,
+      removePendingChatMessage = removePendingChatMessage,
     } = m);
     // Hydrate the chat cache from localStorage immediately if we
     // already know the team. This means the next chat-tab open paints
@@ -7125,8 +7130,9 @@ function renderTeamChatPanelInto(el) {
   const inMembers = Array.isArray(teamData?.members) && teamData.members.includes(myUidLocal);
   const isHeadCoachLocal2 = teamData?.createdBy === myUidLocal;
   const lastErr = window._tpChatLastError || '';
-  // Always show diagnostic so we can see live state, not only when broken.
-  const showDiag = true;
+  // Only show the diagnostic when something's actually wrong: not in
+  // members[], or the last listener attempt errored.
+  const showDiag = !inMembers || !!lastErr;
   const diagHtml = showDiag ? `
     <div id="chat-diag" style="margin:0 4px 10px;padding:12px;border:1px solid var(--border);border-radius:10px;background:rgba(var(--destructive-rgb),0.06);font-size:12px;line-height:1.5">
       <div style="font-weight:800;color:var(--destructive);margin-bottom:6px">Chat diagnostic</div>
@@ -9657,6 +9663,32 @@ function bindTeamChatPanel(c) {
       const sub = (teamData?.subteams || []).find(s => s.id === targetScope);
       return sub ? (sub.name || 'subteam') : 'subteam';
     })();
+    // Optimistic insert — the typed message appears in the list right
+    // now, before Firestore even gets the write. The snapshot listener
+    // dedupes when the real version lands. If the write fails, we mark
+    // the pending bubble as failed (with retry affordance).
+    const clientId = 'pending-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const pendingKind = (isCoachUser && pushChecked) ? 'coach' : 'chat';
+    const pendingMsg = {
+      _clientId: clientId,
+      id: clientId,
+      uid: currentUser?.uid || '',
+      displayName: (userProfile?.displayName || currentUser?.displayName || currentUser?.email || (isCoachUser ? 'Coach' : 'Member')).toString().trim() || (isCoachUser ? 'Coach' : 'Member'),
+      text: text,
+      kind: pendingKind,
+      subteamId: targetScope,
+      broadcastPush: pendingKind === 'coach' ? !!pushChecked : false,
+      createdAt: new Date(),
+    };
+    try { addPendingChatMessage?.(pendingMsg); } catch(_) {}
+    // Clear the input + repaint immediately so the user sees the message.
+    if (ta) {
+      ta.value = '';
+      ta.style.height = 'auto';
+      clearErr();
+    }
+    try { refreshTeamChatList(); } catch(_) {}
+    try { scrollChatToBottom(); } catch(_) {}
     // Inner sender — wraps the actual write so we can retry once after
     // self-healing membership if Firestore says permission-denied.
     const doSend = async () => {
@@ -9694,6 +9726,7 @@ function bindTeamChatPanel(c) {
           ok = await doSend();
         } catch (retryErr) {
           console.error('[chat] send retry failed:', retryErr);
+          try { markPendingChatFailed?.(clientId, retryErr?.code || 'failed'); } catch(_) {}
           showErr(retryErr?.code === 'permission-denied'
             ? 'Still blocked after self-heal. Coach needs to add you to the team manually.'
             : (retryErr?.message || 'Send failed.'));
@@ -9701,6 +9734,7 @@ function bindTeamChatPanel(c) {
         }
       } else {
         console.error('[chat] send handler threw:', err);
+        try { markPendingChatFailed?.(clientId, err?.code || 'failed'); } catch(_) {}
         showErr(err?.message || 'Send failed.');
         ok = false;
       }
@@ -9708,28 +9742,27 @@ function bindTeamChatPanel(c) {
       sendBtn.dataset.sending = '';
       sendBtn.disabled = false;
       sendBtn.style.opacity = '';
-    }
-    if (ok && ta) {
-      ta.value = '';
-      ta.style.height = 'auto';
-      clearErr();
-      // Belt-and-braces: re-establish the live subscription if it wasn't
-      // active when the chat tab opened (e.g. teamId arrived late from
-      // auto-join). Idempotent — subscribeTeamChat unsubscribes any
-      // prior listener before attaching the new one.
-      if (typeof subscribeTeamChat === 'function' && userProfile?.teamId) {
-        try {
-          subscribeTeamChat(userProfile.teamId, () => {
-            if (currentPage === 'team' && lbSubTab === 'chat') refreshTeamChatList();
-          });
-        } catch(e) { console.warn('[chat] re-subscribe failed:', e); }
+      // If the send succeeded, drop the pending so the real message
+      // (arriving via snapshot any moment) takes its place. If failed,
+      // pending stays visible with the failed indicator.
+      if (ok) {
+        try { removePendingChatMessage?.(clientId); } catch(_) {}
+        try { refreshTeamChatList(); } catch(_) {}
+      } else {
+        try { refreshTeamChatList(); } catch(_) {}
       }
-      // Force-refresh once so the freshly sent message appears even if
-      // the snapshot listener hasn't fired yet.
+    }
+    if (ok) {
+      // Input was already cleared at optimistic insert. Belt-and-braces
+      // re-attach the listener if it isn't currently live (rare; e.g.
+      // teamId arrived late). Idempotent — subscribeTeamChat unsubs
+      // any prior listener.
+      if (!_bgChatLive && typeof attachBackgroundChat === 'function') {
+        try { attachBackgroundChat(); } catch(_) {}
+      }
+      // Force a refresh ~250ms later so the real Firestore message
+      // replaces the pending bubble even if the snapshot lands slowly.
       setTimeout(() => { try { refreshTeamChatList(); } catch(e) {} }, 250);
-      // Always scroll to the freshly-sent message — user is unambiguously
-      // at the end of the thread when they send.
-      try { scrollChatToBottom(); } catch(e) {}
     }
     // Note: no generic "Send failed" fallback here. sendChatMessage
     // surfaces its own context errors via showToast (no team / not

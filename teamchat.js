@@ -56,6 +56,28 @@ function persistChatToLocal(teamId) {
   } catch(_) {}
 }
 
+// Optimistic send — push a placeholder message into the cache so the
+// UI can render it immediately while the actual Firestore write is
+// in flight. The placeholder gets replaced when the snapshot lands
+// (matched on _clientId) or marked failed if the write rejects.
+export function addPendingChatMessage(msg) {
+  if (!msg || !msg._clientId) return;
+  chatCache = [{ ...msg, _pending: true }, ...chatCache];
+}
+
+export function markPendingChatFailed(clientId, errorCode) {
+  if (!clientId) return;
+  const i = chatCache.findIndex(m => m._clientId === clientId);
+  if (i >= 0) {
+    chatCache[i] = { ...chatCache[i], _pending: false, _failed: true, _failedCode: errorCode || '' };
+  }
+}
+
+export function removePendingChatMessage(clientId) {
+  if (!clientId) return;
+  chatCache = chatCache.filter(m => m._clientId !== clientId);
+}
+
 // Conservative profanity word-list. Substrings on whole-word boundaries.
 // Not exhaustive (there's no perfect list) — purpose is "first line of
 // defence" for school context, not legal-grade moderation. Coaches review
@@ -311,6 +333,20 @@ export async function deleteChatMessage(teamId, messageId) {
 export function renderChatPanel(messages, opts = {}) {
   const isCoach = !!opts.isCoach;
   const myUid = opts.myUid || '';
+  // Dedupe: drop pending messages that match a real (non-pending)
+  // message with the same uid + text. The real one wins because it
+  // has a Firestore-assigned id and timestamp.
+  const realKeys = new Set(
+    (messages || []).filter(m => !m._clientId)
+      .map(m => `${m.uid}|${(m.text || '').trim()}`)
+  );
+  messages = (messages || []).filter(m => {
+    if (m._clientId) {
+      const key = `${m.uid}|${(m.text || '').trim()}`;
+      if (realKeys.has(key)) return false;
+    }
+    return true;
+  });
   if (!messages || messages.length === 0) {
     return `<div class="msg-empty">
       <svg class="msg-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
@@ -415,9 +451,13 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
 
   // Standard chat bubble: aligned by sender, grouped, with optional tail.
   const side = isMine ? 'msg-mine' : 'msg-other';
-  const groupCls = [isFirstInGroup ? 'msg-first' : '', isLastInGroup ? 'msg-last' : ''].filter(Boolean).join(' ');
+  const stateCls = m._failed ? ' msg-failed' : (m._pending ? ' msg-pending' : '');
+  const groupCls = [isFirstInGroup ? 'msg-first' : '', isLastInGroup ? 'msg-last' : '', stateCls.trim()].filter(Boolean).join(' ');
   const tailCls = isLastInGroup ? ' msg-bubble-tail' : '';
   const delBtn = canDelete ? `<button class="msg-del chat-msg-del" data-del-id="${id}" aria-label="Delete">×</button>` : '';
+  const stateIndicator = m._failed
+    ? '<span class="msg-state msg-state-failed" title="Send failed">!</span>'
+    : (m._pending ? '<span class="msg-state msg-state-pending" title="Sending…"></span>' : '');
   const avatar = !isMine
     ? (isFirstInGroup
         ? (photoUrl
@@ -435,7 +475,7 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
     ${avatar}
     <div class="msg-stack">
       ${author}
-      <div class="msg-bubble${tailCls}">${escHtml(m.text || '')}${delBtn}</div>
+      <div class="msg-bubble${tailCls}">${escHtml(m.text || '')}${stateIndicator}${delBtn}</div>
       ${meta}
     </div>
   </div>`;
