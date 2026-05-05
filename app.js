@@ -7161,6 +7161,10 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
     <div class="msg-composer">
       <div id="team-chat-error" class="msg-composer-error" hidden></div>
       <div class="msg-composer-row">
+        <button id="team-chat-attach" class="msg-composer-attach" aria-label="Attach photo" type="button" title="Attach photo">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+        <input type="file" id="team-chat-photo-input" accept="image/*" hidden>
         <textarea id="team-chat-input" class="msg-composer-input" placeholder="${escHtml(placeholder)}" maxlength="500" rows="1" aria-label="Type a message"></textarea>
         ${isCoachUser ? `<label class="msg-composer-push" title="Send as push notification"><input type="checkbox" id="team-chat-push"><span>Push</span></label>` : ''}
         <button id="team-chat-send" class="msg-composer-send" aria-label="Send" type="button">
@@ -9561,6 +9565,90 @@ function bindTeamChatPanel(c) {
       log('Done. Try sending a message now.');
     } catch(err) {
       log('Outer error: code=' + err?.code + ' msg=' + err?.message);
+    }
+  });
+  // Photo attachment — opens iOS photo picker, uploads to Storage,
+  // writes a chat message with imageUrl. Works server-side via the
+  // onChatWrite Function for push delivery.
+  const attachBtn = c.querySelector('#team-chat-attach');
+  const photoInput = c.querySelector('#team-chat-photo-input');
+  attachBtn?.addEventListener('click', () => photoInput?.click());
+  photoInput?.addEventListener('change', async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    photoInput.value = ''; // reset so picking same file twice still fires change
+    if (!storageRef || !uploadBytes || !getDownloadURL) {
+      showErr('Photo upload not available on this build.');
+      return;
+    }
+    if (!userProfile?.teamId || !currentUser?.uid) {
+      showErr('No team yet — join one before sending photos.');
+      return;
+    }
+    const teamId = userProfile.teamId;
+    if (file.size > 8 * 1024 * 1024) {
+      showErr('Photo too big (max 8 MB).');
+      return;
+    }
+    const clientId = 'pending-img-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    // Optimistic preview — show the local file immediately as a pending image bubble.
+    const previewUrl = URL.createObjectURL(file);
+    const pendingMsg = {
+      _clientId: clientId,
+      id: clientId,
+      uid: currentUser.uid,
+      displayName: ((userProfile?.displayName || currentUser.displayName || currentUser.email || 'Member').toString().trim()) || 'Member',
+      text: '',
+      kind: 'chat',
+      subteamId: getMySubteamId() || (userProfile?.isCoach ? getChatScope() : ''),
+      imageUrl: previewUrl,
+      createdAt: new Date(),
+    };
+    try { addPendingChatMessage?.(pendingMsg); } catch(_) {}
+    try { refreshTeamChatList(); scrollChatToBottom(); } catch(_) {}
+    try {
+      const path = `teams/${teamId}/chat/${currentUser.uid}_${Date.now()}.jpg`;
+      const ref = storageRef(getStorage(), path);
+      await uploadBytes(ref, file, { contentType: file.type || 'image/jpeg' });
+      const downloadUrl = await getDownloadURL(ref);
+      // Dual-write: chat message (ephemeral, auto-cleared at 24h) and a
+      // gallery doc that lives forever. So photos shared in chat
+      // permanently appear in the team gallery even after the chat
+      // bubble clears.
+      const chatWritePromise = addDoc(collection(db, 'teams', teamId, 'chat'), {
+        uid: currentUser.uid,
+        displayName: pendingMsg.displayName,
+        text: '',
+        kind: 'chat',
+        subteamId: pendingMsg.subteamId,
+        imageUrl: downloadUrl,
+        imagePath: path,
+        fromChat: true,
+        createdAt: serverTimestamp(),
+      });
+      const galleryWritePromise = addDoc(collection(db, 'teams', teamId, 'gallery'), {
+        uploadedBy: currentUser.uid,
+        uploadedByName: pendingMsg.displayName,
+        dataUrl: downloadUrl, // gallery renders from this; works for both Storage URLs and legacy base64
+        storagePath: path,
+        subteamId: pendingMsg.subteamId || '',
+        ts: Date.now(),
+        source: 'chat',
+        caption: '',
+      }).catch(err => {
+        // Gallery write is best-effort — chat message is the primary path.
+        console.warn('[chat] gallery dual-write failed:', err?.code, err?.message);
+      });
+      await Promise.all([chatWritePromise, galleryWritePromise]);
+      try { removePendingChatMessage?.(clientId); } catch(_) {}
+      try { refreshTeamChatList(); } catch(_) {}
+    } catch (err) {
+      console.error('[chat] photo upload failed:', err);
+      try { markPendingChatFailed?.(clientId, err?.code || 'upload-failed'); } catch(_) {}
+      try { refreshTeamChatList(); } catch(_) {}
+      showErr('Photo upload failed: ' + (err?.message || 'unknown'));
+    } finally {
+      try { URL.revokeObjectURL(previewUrl); } catch(_) {}
     }
   });
   // Manual retry button on the status pill — resets retry counter and

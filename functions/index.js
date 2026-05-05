@@ -19,9 +19,10 @@
 //   APNS_ENV        — "production" or "development"
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const http2 = require('node:http2');
 const crypto = require('node:crypto');
 
@@ -104,12 +105,39 @@ async function sendBatchWithFallback({ tokens, payload, jwt, bundleId, env }) {
   return first;
 }
 
-// ─── Trigger: coach broadcast → push notification ────────────────────────
+// ─── Server-side moderation ─────────────────────────────────────────────
 //
-// Fires whenever a chat message is created. Only acts when the message
-// is a coach broadcast with broadcastPush set. Targets either the whole
-// team or a specific subteam, filters by recipients' notificationPrefs,
-// and fires APNs in parallel with the dev/prod fallback.
+// School-context blocklist — same words as the client-side filter in
+// teamchat.js. Runs server-side as a defence-in-depth: even if a custom
+// client bypasses the client filter, we catch it here before pushes
+// fire. Coaches and admins bypass (same as client). Future: swap the
+// substring check for an Anthropic moderation API call.
+const BAD_WORDS = [
+  'fuck','shit','bitch','asshole','dick','cunt','prick','wanker','bastard',
+  'slut','whore','cock','tits','pussy','retard','faggot','nigger',
+];
+const BAD_RE = new RegExp('\\b(' + BAD_WORDS.join('|') + ')\\b', 'i');
+
+async function isModerationBypass(uid, teamCreatedBy) {
+  if (!uid) return false;
+  if (uid === teamCreatedBy) return true; // head coach
+  try {
+    const profSnap = await getFirestore().collection('users').doc(uid).get();
+    const prof = profSnap.exists ? profSnap.data() : null;
+    if (prof?.isCoach === true) return true;
+    if (prof?.isAdmin === true) return true;
+  } catch (_) {}
+  return false;
+}
+
+// ─── Trigger: chat message lifecycle ────────────────────────────────────
+//
+// Fires whenever a chat message is created. Two responsibilities:
+//   1. Server-side moderation: if text trips the blocklist and the
+//      sender isn't a coach/admin, soft-delete the message. UI shows
+//      "Removed by moderator" using the deleted: true marker.
+//   2. Coach-broadcast push delivery: if the message is kind:'coach'
+//      with broadcastPush, fire APNs to recipients in scope.
 exports.onChatWrite = onDocumentCreated(
   {
     document: 'teams/{teamId}/chat/{messageId}',
@@ -121,6 +149,33 @@ exports.onChatWrite = onDocumentCreated(
     if (!snap) return;
     const msg = snap.data() || {};
     const { teamId } = event.params;
+
+    const db = getFirestore();
+    const teamSnap = await db.collection('teams').doc(teamId).get();
+    if (!teamSnap.exists) {
+      console.warn('[onChatWrite] team doc missing:', teamId);
+      return;
+    }
+    const team = teamSnap.data() || {};
+
+    // Step 1: moderation. Check the raw text. If it matches the
+    // blocklist AND the sender isn't a coach/admin, soft-delete.
+    const rawText = String(msg.text || '');
+    if (rawText && BAD_RE.test(rawText)) {
+      const bypass = await isModerationBypass(msg.uid, team.createdBy);
+      if (!bypass) {
+        await snap.ref.set({
+          deleted: true,
+          deletedReason: 'moderation',
+          deletedAt: FieldValue.serverTimestamp(),
+          text: '[Removed by moderator]',
+        }, { merge: true });
+        console.log('[onChatWrite] moderated: team=' + teamId + ' uid=' + msg.uid);
+        // Don't deliver push for moderated messages.
+        return;
+      }
+    }
+
     if (msg.kind !== 'coach') return;
     if (!msg.broadcastPush) return;
 
@@ -128,15 +183,7 @@ exports.onChatWrite = onDocumentCreated(
     if (!text) return;
     const senderName = String(msg.displayName || 'Coach').slice(0, 80);
 
-    const db = getFirestore();
-
     // Resolve recipients: team members or subteam members.
-    const teamSnap = await db.collection('teams').doc(teamId).get();
-    if (!teamSnap.exists) {
-      console.warn('[onChatWrite] team doc missing:', teamId);
-      return;
-    }
-    const team = teamSnap.data() || {};
     let recipientUids = Array.isArray(team.members) ? team.members.slice() : [];
     const scope = msg.subteamId || '';
     if (scope) {
@@ -216,5 +263,54 @@ exports.onChatWrite = onDocumentCreated(
     }
 
     console.log(`[onChatWrite] team=${teamId} scope=${scope || 'all'} tokens=${tokens.length} delivered=${delivered} failed=${failed}`);
+  }
+);
+
+// ─── Scheduled cleanup: chat messages auto-clear after 24 hours ─────────
+//
+// Photos sent via chat are dual-written into the team gallery before
+// they land here, so the gallery copy persists forever. This job just
+// trims the chat collection to keep storage costs low.
+//
+// Runs every hour. Per run, scans every team's chat subcollection,
+// deletes messages whose createdAt is older than 24h, in batches of 400.
+// Limit per team per run = 800 deletes to keep the job under the 9-min
+// timeout even if a team has months of legacy messages.
+exports.cleanupOldChatMessages = onSchedule(
+  {
+    schedule: 'every 60 minutes',
+    region: 'us-central1',
+    timeoutSeconds: 540,
+    memory: '256MiB',
+  },
+  async () => {
+    const db = getFirestore();
+    const cutoff = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+    const teamsSnap = await db.collection('teams').get();
+    let totalDeleted = 0;
+    for (const teamDoc of teamsSnap.docs) {
+      const teamId = teamDoc.id;
+      let teamDeleted = 0;
+      // Loop until either we hit the per-team cap or we run out of
+      // expired docs. Firestore caps deleteAll at 500 per batch.
+      for (let pass = 0; pass < 2; pass++) {
+        const expired = await db
+          .collection('teams').doc(teamId).collection('chat')
+          .where('createdAt', '<', cutoff)
+          .limit(400)
+          .get();
+        if (expired.empty) break;
+        const batch = db.batch();
+        expired.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+        teamDeleted += expired.size;
+        totalDeleted += expired.size;
+        if (expired.size < 400) break;
+      }
+      if (teamDeleted > 0) {
+        console.log(`[cleanupOldChatMessages] team=${teamId} deleted=${teamDeleted}`);
+      }
+    }
+    console.log(`[cleanupOldChatMessages] total deleted: ${totalDeleted}`);
   }
 );

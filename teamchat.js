@@ -442,11 +442,30 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
   const meta = isLastInGroup
     ? `<div class="msg-meta">${timeStr}</div>`
     : '';
+  // Moderated/deleted messages render as a centered notice so the
+  // thread reads naturally with a clear gap, not as a normal bubble.
+  if (m.deleted === true) {
+    return `<div class="msg-event msg-event-moderated" data-msg-id="${id}">
+      <span class="msg-event-text">${escHtml(m.deletedReason === 'moderation' ? 'Message removed by moderator' : 'Message deleted')}</span>
+    </div>`;
+  }
+  // Image-bubble support: messages can carry imageUrl in addition to or
+  // instead of text. Tap-to-fullscreen handled by the panel via event
+  // delegation on .msg-image elements.
+  const hasImg = !!m.imageUrl;
+  const imageHtml = hasImg
+    ? `<img class="msg-image" src="${escHtml(m.imageUrl)}" alt="" loading="lazy" data-img-src="${escHtml(m.imageUrl)}">`
+    : '';
+  const textHtml = (m.text || '').trim() ? `<span class="msg-text">${escHtml(m.text)}</span>` : '';
+  const bubbleClass = hasImg ? 'msg-bubble msg-bubble-image' : 'msg-bubble';
+  const bubbleInner = hasImg && !textHtml
+    ? `${imageHtml}${stateIndicator}${delBtn}`
+    : `${imageHtml}${textHtml}${stateIndicator}${delBtn}`;
   return `<div class="msg-row ${side} ${groupCls}" data-msg-id="${id}">
     ${avatar}
     <div class="msg-stack">
       ${author}
-      <div class="msg-bubble${tailCls}">${escHtml(m.text || '')}${stateIndicator}${delBtn}</div>
+      <div class="${bubbleClass}${tailCls}">${bubbleInner}</div>
       ${meta}
     </div>
   </div>`;

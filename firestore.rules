@@ -243,8 +243,12 @@ service cloud.firestore {
           && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
+          // Text may be empty when the message carries an image; cap at 500.
           && request.resource.data.text.size() <= 500
+          && (request.resource.data.text.size() > 0
+              || (('imageUrl' in request.resource.data)
+                  && request.resource.data.imageUrl is string
+                  && request.resource.data.imageUrl.size() <= 1024))
           && request.resource.data.kind in ['chat', 'workout', 'coach', 'system']
           // 'coach' kind only writable by an actual head coach of this team.
           && (request.resource.data.kind != 'coach'
