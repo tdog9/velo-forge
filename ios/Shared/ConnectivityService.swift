@@ -22,6 +22,8 @@ final class ConnectivityService: NSObject, ObservableObject {
     var onRaceDayLapsReceived: (([String: Any]) -> Void)?
     /// iPhone-only: invoked when the Watch reports its HealthKit summary.
     var onHealthSummaryReceived: (([String: Any]) -> Void)?
+    /// iPhone-only: invoked when the Watch finishes a training session.
+    var onTrainingSessionEndReceived: (([String: Any]) -> Void)?
     /// Watch-only: invoked when the iPhone pushes a fresh state snapshot.
     var onStateSnapshotReceived: (([String: Any]) -> Void)?
     /// iPhone-side: called when the Watch sends a "requestSnapshot" ping
@@ -90,6 +92,12 @@ final class ConnectivityService: NSObject, ObservableObject {
     /// so the iPhone can update the web app's userProfile.health.
     func sendHealthSummary(_ summary: [String: Any]) {
         send(["payload": "healthSummary", "data": summary])
+    }
+
+    /// Watch → iPhone: training session ended. iPhone routes to the web
+    /// which writes users/{uid}/training_sessions/{id}.
+    func sendTrainingSessionEnd(_ payload: [String: Any]) {
+        send(["payload": "trainingSessionEnd", "data": payload])
     }
 
     private func send(_ dict: [String: Any], onSent: (@MainActor (Bool) -> Void)? = nil) {
@@ -190,6 +198,8 @@ extension ConnectivityService: WCSessionDelegate {
             onRaceDayLapsReceived?(body)
         case "healthSummary":
             onHealthSummaryReceived?(body)
+        case "trainingSessionEnd":
+            onTrainingSessionEndReceived?(body)
         case "requestSnapshot":
             onSnapshotRequested?()
         case "watchPairAttempt":

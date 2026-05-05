@@ -175,6 +175,13 @@ struct WebViewContainer: UIViewRepresentable {
                     let js = "if (window.tpNative && typeof window.tpNative.onHealthSummary === 'function') { window.tpNative.onHealthSummary(\(json)); }"
                     webView.evaluateJavaScript(js, completionHandler: nil)
                 }
+                WatchWorkoutReceiver.jsTrainingRelay = { [weak webView] payload in
+                    guard let webView,
+                          let data = try? JSONSerialization.data(withJSONObject: payload),
+                          let json = String(data: data, encoding: .utf8) else { return }
+                    let js = "if (window.tpNative && typeof window.tpNative.onTrainingSessionEnd === 'function') { window.tpNative.onTrainingSessionEnd(\(json)); }"
+                    webView.evaluateJavaScript(js, completionHandler: nil)
+                }
                 // Watch sign-in gate: when the Watch's Refresh button
                 // pings us via WCSession, ask the web app to re-publish
                 // its current state snapshot. The web has a

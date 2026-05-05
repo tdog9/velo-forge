@@ -24,6 +24,13 @@ struct WatchRootView: View {
                 // Today / Fitness / Dev mid-stint.
                 WatchRecordView()
                     .containerBackground(Theme.primary.opacity(0.04).gradient, for: .tabView)
+            } else if state.trainingActive {
+                // TRAINING-MODE LOCK
+                // Same focus pattern as race-day but for scheduled
+                // training sessions. Watch locks to a single screen
+                // showing HR + lap timer + finish.
+                WatchTrainingView()
+                    .containerBackground(Theme.primary.opacity(0.06).gradient, for: .tabView)
             } else {
                 TabView {
                     WatchTodayView()

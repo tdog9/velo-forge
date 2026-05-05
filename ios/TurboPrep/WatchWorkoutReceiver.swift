@@ -13,6 +13,8 @@ enum WatchWorkoutReceiver {
     static var jsRelay: (([String: Any]) -> Void)?
     /// Set by WebViewContainer for health-summary forwarding into web.
     static var jsHealthRelay: (([String: Any]) -> Void)?
+    /// Set by WebViewContainer for training-session-end forwarding into web.
+    static var jsTrainingRelay: (([String: Any]) -> Void)?
 
     static func install() {
         ConnectivityService.shared.onWorkoutReceived = { payload in
@@ -23,6 +25,9 @@ enum WatchWorkoutReceiver {
         }
         ConnectivityService.shared.onHealthSummaryReceived = { summary in
             jsHealthRelay?(summary)
+        }
+        ConnectivityService.shared.onTrainingSessionEndReceived = { payload in
+            jsTrainingRelay?(payload)
         }
     }
 

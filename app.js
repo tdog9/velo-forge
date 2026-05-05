@@ -429,14 +429,117 @@ function pushWatchState() {
     const iPhoneSignedIn = !!currentUser;
     const iPhoneUserEmail = currentUser?.email || null;
     const iPhoneUserDisplayName = userProfile?.displayName || currentUser?.displayName || null;
+    // Training mode flags — local-only state on the phone (lightweight,
+    // not persisted to Firestore). Watch reads these to flip into a
+    // locked training screen with HR + timer.
+    const trainingActive = !!window._tpTrainingActive;
+    const trainingType = window._tpTrainingType || 'ride';
+    const trainingTitle = window._tpTrainingTitle || 'Training';
     postNative('watch-state', {
       state: {
         racePhase, todayWorkouts, completedWorkouts,
         raceDayActive, raceDayLeaderboard,
         iPhoneSignedIn, iPhoneUserEmail, iPhoneUserDisplayName,
+        trainingActive, trainingType, trainingTitle,
       },
     });
   } catch(e) {}
+}
+
+/// Start a training session — flips local state, pushes to Watch, opens
+/// the on-phone overlay. Watch will lock its screen to WatchTrainingView
+/// the next time the state lands. Called from the Today page or wherever
+/// we surface a "Start training" entry.
+function startTrainingSession({ type = 'ride', title = 'Training' } = {}) {
+  if (window._tpTrainingActive) return;
+  window._tpTrainingActive = true;
+  window._tpTrainingType = type;
+  window._tpTrainingTitle = title;
+  window._tpTrainingStartedAt = Date.now();
+  try { pushWatchState(); } catch(_) {}
+  try { openTrainingOverlay(); } catch(_) {}
+}
+
+/// End the active training session locally. The Watch's own Finish
+/// button does this server-side via WCSession (which lands in
+/// onTrainingSessionEnd below); this path covers the case where the
+/// user ends from the phone.
+function endTrainingSession() {
+  window._tpTrainingActive = false;
+  window._tpTrainingType = null;
+  window._tpTrainingTitle = null;
+  window._tpTrainingStartedAt = null;
+  try { pushWatchState(); } catch(_) {}
+  document.getElementById('training-overlay')?.remove();
+}
+
+/// Persist a finished training session. Called when the Watch sends
+/// 'training-session-end' over WCSession.
+async function saveTrainingSession({ startedAtMs, endedAtMs, trainingType, trainingTitle, laps }) {
+  if (!db || !currentUser?.uid) return;
+  try {
+    const ref = doc(collection(db, 'users', currentUser.uid, 'training_sessions'));
+    await setDoc(ref, {
+      startedAt: new Date(startedAtMs || Date.now()),
+      endedAt: new Date(endedAtMs || Date.now()),
+      durationSeconds: Math.max(0, Math.round(((endedAtMs || 0) - (startedAtMs || 0)) / 1000)),
+      type: trainingType || 'ride',
+      title: trainingTitle || 'Training',
+      laps: Array.isArray(laps) ? laps : [],
+      teamId: userProfile?.teamId || null,
+      createdAt: serverTimestamp(),
+    });
+    showToast?.('Training session saved.', 'success');
+  } catch(e) {
+    console.warn('saveTrainingSession failed:', e);
+    showToast?.('Could not save session.', 'warn');
+  }
+}
+
+/// Lightweight phone-side training overlay — full-screen takeover with
+/// timer + Watch hint + End button. The Watch is the primary surface
+/// (where HR streams live); the phone is the controller.
+function openTrainingOverlay() {
+  document.getElementById('training-overlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'training-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;';
+  const startedAt = window._tpTrainingStartedAt || Date.now();
+  const fmt = (sec) => {
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+  };
+  ov.innerHTML = `
+    <div style="font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--primary);text-transform:uppercase;margin-bottom:8px">Training in progress</div>
+    <div id="training-overlay-title" style="font-size:24px;font-weight:800;margin-bottom:6px">${escHtml(window._tpTrainingTitle || 'Training')}</div>
+    <div id="training-overlay-type" style="font-size:13px;color:var(--muted-fg);text-transform:capitalize;margin-bottom:24px">${escHtml(window._tpTrainingType || 'ride')}</div>
+    <div id="training-overlay-timer" style="font-size:64px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--fg);line-height:1;margin-bottom:8px">0:00</div>
+    <div style="font-size:12px;color:var(--muted-fg);margin-bottom:32px;max-width:280px">Watch is locked to the training screen. Tap to lap on the Watch; Finish there or end here.</div>
+    <button id="training-overlay-end" type="button" style="padding:14px 28px;border-radius:14px;background:rgba(var(--destructive-rgb),.15);border:1px solid rgba(var(--destructive-rgb),.4);color:var(--destructive);font-weight:800;font-size:14px;cursor:pointer">End session</button>
+  `;
+  document.body.appendChild(ov);
+  // Live timer.
+  const tick = () => {
+    if (!window._tpTrainingActive) return;
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    const t = ov.querySelector('#training-overlay-timer');
+    if (t) t.textContent = fmt(elapsed);
+  };
+  tick();
+  const interval = setInterval(tick, 1000);
+  ov.querySelector('#training-overlay-end')?.addEventListener('click', () => {
+    if (!confirm('End the training session?')) return;
+    clearInterval(interval);
+    endTrainingSession();
+  });
+  // Auto-cleanup if the overlay leaves the DOM via another path.
+  const mo = new MutationObserver(() => {
+    if (!document.body.contains(ov)) {
+      clearInterval(interval);
+      mo.disconnect();
+    }
+  });
+  mo.observe(document.body, { childList: true });
 }
 // Native → web: handler the iPhone WebView calls when the Watch ends a stint.
 // Wires up here so it exists by the time Watch sends anything.
@@ -448,6 +551,24 @@ if (typeof window !== 'undefined') {
   // gate dissolves once iPhoneSignedIn flips true.
   window.tpNative.requestWatchSnapshot = function() {
     try { pushWatchState(); } catch (e) { console.warn('requestWatchSnapshot:', e); }
+  };
+  // Watch → web: training session finished. Save to Firestore + clear
+  // local training state. Mirrors the race-day-laps relay path.
+  window.tpNative.onTrainingSessionEnd = async function(payload) {
+    try {
+      window._tpTrainingActive = false;
+      try { document.getElementById('training-overlay')?.remove(); } catch(_) {}
+      try { pushWatchState(); } catch(_) {}
+      if (payload && typeof payload === 'object') {
+        await saveTrainingSession({
+          startedAtMs: payload.startedAtMs,
+          endedAtMs: payload.endedAtMs,
+          trainingType: payload.trainingType,
+          trainingTitle: payload.trainingTitle,
+          laps: payload.laps || [],
+        });
+      }
+    } catch (e) { console.warn('onTrainingSessionEnd:', e); }
   };
   // Native push-status callback. Wired up by the iOS bridge after the
   // web posts a "push-status" message. Latest reply is parked on
@@ -8196,6 +8317,16 @@ async function renderProfile() {
     { id: 'training',        label: '📅 Training Reminders', desc: 'Daily plan + workout nudges' },
     { id: 'team_chat',       label: '💬 Team Chat', desc: 'New messages in your team chat' },
   ];
+  // Training session entry — starts training mode (locks the Watch
+  // and shows a phone overlay). Auto-trigger from a scheduled session
+  // is a follow-up; this manual entry covers V1.
+  html += '<div class="profile-section"><div class="profile-section-title">Training</div>';
+  html += `<button id="start-training-btn" type="button" style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 80%,#000));color:var(--primary-fg);border:none;font-weight:800;font-size:14px;letter-spacing:.02em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="width:16px;height:16px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    Start training session
+  </button>`;
+  html += '<div style="font-size:11px;color:var(--muted-fg);margin-top:8px;line-height:1.5">Locks the Watch screen to a focused training UI with HR + lap timer. Phone shows the session timer; Watch records laps.</div>';
+  html += '</div>';
   html += '<div class="profile-section"><div class="profile-section-title">Notifications</div>';
   html += '<div style="font-size:11px;color:var(--muted-fg);margin-bottom:8px">Mute categories you don\'t want to be notified about. You\'ll still see them in the app.</div>';
   NOTIF_CATS.forEach(cat => {
@@ -8476,6 +8607,10 @@ async function renderProfile() {
   // Native push re-register. Asks iOS for current authorization state,
   // re-prompts if notDetermined, re-registers if authorized-but-not-
   // registered, and reports back via window._tpPushStatus.
+  $('start-training-btn')?.addEventListener('click', () => {
+    if (typeof closeProfile === 'function') { try { closeProfile(); } catch(_) {} }
+    startTrainingSession({ type: 'ride', title: 'Training' });
+  });
   $('push-register-btn')?.addEventListener('click', () => {
     const out = $('push-test-result');
     if (!out) return;

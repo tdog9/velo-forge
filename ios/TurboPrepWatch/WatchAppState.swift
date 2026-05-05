@@ -32,6 +32,17 @@ final class WatchAppState: ObservableObject {
     @Published var raceDayStartedAt: Date? { didSet { scheduleRaceDaySave() } }
     @Published var raceDayLeaderboard: [WatchLeaderboardEntry] = []
 
+    /// Training-mode state. Mirror of raceDayActive but for scheduled
+    /// training sessions. When the iPhone pushes trainingActive=true,
+    /// the Watch locks into the training screen — same focus pattern
+    /// as race-day but without the multi-driver / stint scaffolding.
+    /// trainingStartedAt is set when the user taps Start Session.
+    @Published var trainingActive: Bool = false
+    @Published var trainingStartedAt: Date? = nil
+    @Published var trainingType: String = "ride"
+    @Published var trainingTitle: String = "Training"
+    @Published var trainingLaps: [WatchLap] = []
+
     /// Pre-set stint duration in minutes. Drives the countdown timer on
     /// the active-stint screen. Default 30 — typical Vic HPR stint length.
     @Published var stintDurationMinutes: Int = max(5, UserDefaults.standard.integer(forKey: "tp_watch_stint_min") == 0 ? 30 : UserDefaults.standard.integer(forKey: "tp_watch_stint_min")) {

@@ -7,6 +7,9 @@ export function initRaceDay(appCtx) { ctx = appCtx; }
 let rdd = { active:false, date:null, activatedBy:null, teamId:null, startPoint:null, startPointSet:false };
 let rosterData  = [];
 let setupFields = [];
+// Cleanup hooks for the overlay's live listeners. Populated by
+// attachRdOverlayListeners on open; called on close.
+let _rdOverlayUnsubs = [];
 let todayStints = [];
 
 let stintActive       = false;
@@ -282,6 +285,96 @@ export function getRaceDayData(){ return rdd; }
 export function getTodayStints(){ return todayStints; }
 
 // ── Main Overlay ─────────────────────────────────────────────────────────────
+/// Attach onSnapshot listeners for the data the race-day overlay shows
+/// (root doc, roster, setup, stints). Replaces the one-shot getDoc/
+/// getDocs reads so updates from any team member fan out instantly to
+/// every device — no more "wait until you reopen for fresh data".
+/// Cleanup hooks are pushed into _rdOverlayUnsubs.
+function attachRdOverlayListeners() {
+  if (!ctx?.db || !ctx.onSnapshot || !rdd.date) return;
+  const teardown = (fn) => { try { fn(); } catch(_) {} };
+  // Clear any previous listeners (re-open of overlay).
+  _rdOverlayUnsubs.forEach(teardown);
+  _rdOverlayUnsubs = [];
+
+  // 1. Root race_day/{date} doc — covers active flag + activatedAtMs.
+  try {
+    const u = ctx.onSnapshot(ctx.doc(ctx.db, 'race_day', rdd.date), (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      const wasActive = rdd.active;
+      Object.assign(rdd, d);
+      // If the active flag flipped while we're in the overlay, react.
+      if (wasActive && !d.active) {
+        // Race day was ended remotely — close the overlay.
+        const ov = document.getElementById('raceday-overlay');
+        if (ov) ov.remove();
+        try { updateRaceDayTabBar(false); } catch(_) {}
+      }
+    }, (err) => console.warn('[rd-listener] root:', err));
+    _rdOverlayUnsubs.push(u);
+  } catch(e) { console.warn('[rd-listener] root attach:', e); }
+
+  // 2. Roster — entries[] array. Updates from coach drag-and-drop on
+  //    any device propagate live to everyone watching.
+  try {
+    const u = ctx.onSnapshot(ctx.doc(ctx.db, 'race_day', rdd.date, 'roster', 'order'), (snap) => {
+      const entries = (snap.exists() ? snap.data() : {}).entries || [];
+      // Avoid stomping local edits in flight — only update if differing.
+      const before = JSON.stringify(rosterData.map(r => r.uid || r.name));
+      const after  = JSON.stringify(entries.map(r => r.uid || r.name));
+      if (before === after) return;
+      rosterData = entries;
+      // Re-render the roster tab if it's the active one.
+      const inner = document.getElementById('rd-inner');
+      const active = inner?.querySelector('.rd-tab-btn.active')?.dataset.rdtab;
+      if (active === 'roster' && inner) {
+        try { showRdTab(inner, 'roster'); } catch(_) {}
+      }
+    }, (err) => console.warn('[rd-listener] roster:', err));
+    _rdOverlayUnsubs.push(u);
+  } catch(e) { console.warn('[rd-listener] roster attach:', e); }
+
+  // 3. Setup fields — coach-edited setup notes (gear, tyres, etc.).
+  try {
+    const tid = ctx.userProfile?.teamId || 'default';
+    const u = ctx.onSnapshot(ctx.doc(ctx.db, 'race_day', rdd.date, 'setup', tid), (snap) => {
+      const fields = (snap.exists() ? snap.data() : {}).fields;
+      if (!fields) return;
+      const before = JSON.stringify(setupFields);
+      const after  = JSON.stringify(fields);
+      if (before === after) return;
+      setupFields = fields;
+      const inner = document.getElementById('rd-inner');
+      const active = inner?.querySelector('.rd-tab-btn.active')?.dataset.rdtab;
+      if (active === 'setup' && inner) {
+        try { showRdTab(inner, 'setup'); } catch(_) {}
+      }
+    }, (err) => console.warn('[rd-listener] setup:', err));
+    _rdOverlayUnsubs.push(u);
+  } catch(e) { console.warn('[rd-listener] setup attach:', e); }
+
+  // 4. Stints subcollection — every driver's stint history. Updates
+  //    when any rider finishes a stint.
+  try {
+    const u = ctx.onSnapshot(ctx.collection(ctx.db, 'race_day', rdd.date, 'stints'), (snap) => {
+      try { todayStints = snap.docs.map(d => ({ uid: d.id, ...d.data() })); } catch(_) {}
+      const inner = document.getElementById('rd-inner');
+      const active = inner?.querySelector('.rd-tab-btn.active')?.dataset.rdtab;
+      if ((active === 'stints' || active === 'leaderboard') && inner) {
+        try { showRdTab(inner, active); } catch(_) {}
+      }
+      try { ctx.pushWatchState?.(); } catch(_) {}
+    }, (err) => console.warn('[rd-listener] stints:', err));
+    _rdOverlayUnsubs.push(u);
+  } catch(e) { console.warn('[rd-listener] stints attach:', e); }
+}
+
+function detachRdOverlayListeners() {
+  _rdOverlayUnsubs.forEach((fn) => { try { fn(); } catch(_) {} });
+  _rdOverlayUnsubs = [];
+}
+
 export async function openRaceDayOverlay() {
   await Promise.all([loadRoster(),loadSetupFields(),loadTodayStints()]);
   document.getElementById('raceday-overlay')?.remove();
@@ -322,6 +415,11 @@ export async function openRaceDayOverlay() {
   document.body.appendChild(ov);
   bindOverlay(inner);
   showRdTab(inner,'roster');
+  // Live listeners — race-day data updates from any team member now
+  // fan out to every connected device instantly. Cleaned up in
+  // closeOverlay (and via MutationObserver if the overlay is removed
+  // by another path).
+  attachRdOverlayListeners();
 }
 
 function buildOverlayHTML() {
@@ -403,6 +501,7 @@ function bindOverlay(ov) {
     // setInterval id; clearTimeout/clearInterval are interchangeable on
     // the same numeric id in browsers but call both to be safe.
     if (spectatorUnsub) { try { if (typeof spectatorUnsub === 'function') spectatorUnsub(); else { try { clearInterval(spectatorUnsub); } catch(e) {} try { clearTimeout(spectatorUnsub); } catch(e) {} } } catch(e) {} spectatorUnsub=null; }
+    detachRdOverlayListeners();
     if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
     const ma=document.getElementById('main-app');
     if (ma) ma.style.display='flex';
@@ -418,6 +517,7 @@ function bindOverlay(ov) {
       if (!document.body.contains(ov)) {
         if (window._rdNavBlock) { window.removeEventListener('popstate', window._rdNavBlock); delete window._rdNavBlock; }
         if (spectatorUnsub) { try { if (typeof spectatorUnsub === 'function') spectatorUnsub(); else { try { clearInterval(spectatorUnsub); } catch(e) {} try { clearTimeout(spectatorUnsub); } catch(e) {} } } catch(e) {} spectatorUnsub=null; }
+        detachRdOverlayListeners();
         mo.disconnect();
       }
     });
