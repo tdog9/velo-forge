@@ -224,41 +224,12 @@ export async function sendCoachBroadcast(teamId, text, { push = false, subteamId
       broadcastPush: !!push,
       createdAt: A.serverTimestamp(),
     });
-    if (push) {
-      // Fire push to recipients in scope. Whole-team scope (empty) hits
-      // every member; subteam scope hits only that subteam's members.
-      try {
-        const teamSnap = await A.getDoc(A.doc(A.db, 'teams', teamId));
-        const teamDoc = teamSnap.exists() ? teamSnap.data() : null;
-        let members = teamDoc?.members || [];
-        if (scope) {
-          const subs = Array.isArray(teamDoc?.subteams) ? teamDoc.subteams : [];
-          const sub = subs.find(s => s.id === scope);
-          if (sub) {
-            const ids = new Set(sub.members || []);
-            if (sub.subCoachUid) ids.add(sub.subCoachUid);
-            members = Array.from(ids);
-          }
-        }
-        // Server-side rate limiting / per-recipient caps not yet implemented;
-        // for now we rely on coach discretion + a confirm() before sending.
-        const token = await A.currentUser.getIdToken().catch(() => null);
-        for (const uid of members) {
-          if (uid === A.currentUser.uid) continue;
-          fetch('/.netlify/functions/send-push', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({
-              uid,
-              title: (A.userProfile?.displayName || 'Coach'),
-              body: trimmed.length > 120 ? trimmed.slice(0, 117) + '…' : trimmed,
-              category: 'coach_broadcast',
-              data: { teamId, threadId: 'team-chat' },
-            }),
-          }).catch(() => {});
-        }
-      } catch(e) {}
-    }
+    // Push delivery is now handled by the onChatWrite Cloud Function
+    // (functions/index.js). It triggers on the chat doc create, reads
+    // recipients server-side, fires APNs with the dev/prod fallback,
+    // and stamps pushDelivery metadata back on the message. The web
+    // client just writes the message — much more reliable than the
+    // previous client-driven Netlify hop.
     return true;
   } catch(e) {
     console.error('[chat] sendCoachBroadcast failed:', e);
