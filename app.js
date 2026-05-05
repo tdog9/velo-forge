@@ -10588,6 +10588,13 @@ async function attachBackgroundChat() {
       const code = err?.code || err?.message || String(err || 'unknown');
       console.warn('[chat] listener error (#' + _bgChatRetryCount + '):', code);
       window._tpChatLastError = code;
+      // Force the chat panel to re-render so the diagnostic strip appears
+      // (it's gated on lastErr; without re-render, the previous render
+      // never sees the new error).
+      if (currentPage === 'team' && lbSubTab === 'chat' && _bgChatRetryCount >= 2) {
+        const cc = document.getElementById('lb-chat-content');
+        if (cc) { try { renderTeamChatPanelInto(cc); } catch(_) {} }
+      }
       // Surface the actual error in the pill — generic "Reconnecting…"
       // gave us no signal to debug with. Cached messages keep chat
       // functional, so don't show the pill if we have any.
