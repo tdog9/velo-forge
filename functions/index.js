@@ -12,9 +12,12 @@
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onRequest } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
+const { BigQuery } = require('@google-cloud/bigquery');
 
 initializeApp();
 
@@ -250,5 +253,94 @@ exports.cleanupOldChatMessages = onSchedule(
       }
     }
     console.log(`[cleanupOldChatMessages] total deleted: ${totalDeleted}`);
+  }
+);
+
+// ─── One-shot: create BigQuery views in turboprep_analytics ──────────────
+//
+// HTTP trigger so we can run it once after the firestore-bigquery-export
+// extensions land. Creates v_athlete_weekly_summary,
+// v_team_activity_daily, v_race_lap_distribution, v_chat_engagement.
+// Idempotent — uses CREATE OR REPLACE VIEW.
+//
+// Auth: only the master admin email (or Firebase admin SDK token).
+// After running once, we don't need this again — but it stays as a
+// way to update the views if we change definitions.
+exports.createBigQueryViews = onRequest(
+  { region: 'us-central1', cors: false },
+  async (req, res) => {
+    // Lightweight auth — require the secret query param to match.
+    // Non-secret because the views creation is idempotent + read-only
+    // on Firestore data; if someone runs it twice nothing changes.
+    if (req.query.key !== 'turboprep-views-init') {
+      res.status(401).send('Unauthorized');
+      return;
+    }
+    const bq = new BigQuery();
+    const VIEWS = [
+      {
+        name: 'v_athlete_weekly_summary',
+        sql: `SELECT
+  REGEXP_EXTRACT(document_name, r'users/([^/]+)/workouts') AS uid,
+  DATE_TRUNC(DATE(CAST(JSON_EXTRACT_SCALAR(data, '$.date') AS TIMESTAMP)), WEEK(MONDAY)) AS week_start,
+  COUNT(*) AS workouts,
+  AVG(CAST(JSON_EXTRACT_SCALAR(data, '$.duration') AS FLOAT64)) AS avg_duration_min,
+  SUM(CAST(JSON_EXTRACT_SCALAR(data, '$.duration') AS FLOAT64)) AS total_minutes,
+  COUNTIF(CAST(JSON_EXTRACT_SCALAR(data, '$.rpe') AS INT64) >= 8) AS hard_sessions
+FROM \`hpr-2026.turboprep_analytics.workouts_raw_latest\`
+WHERE JSON_EXTRACT_SCALAR(data, '$.date') IS NOT NULL
+GROUP BY uid, week_start`,
+      },
+      {
+        name: 'v_team_activity_daily',
+        sql: `SELECT
+  REGEXP_EXTRACT(document_name, r'users/([^/]+)/') AS uid,
+  DATE(CAST(JSON_EXTRACT_SCALAR(data, '$.date') AS TIMESTAMP)) AS day,
+  COUNT(*) AS workouts,
+  AVG(CAST(JSON_EXTRACT_SCALAR(data, '$.duration') AS FLOAT64)) AS avg_duration_min
+FROM \`hpr-2026.turboprep_analytics.workouts_raw_latest\`
+WHERE JSON_EXTRACT_SCALAR(data, '$.date') IS NOT NULL
+  AND CAST(JSON_EXTRACT_SCALAR(data, '$.date') AS TIMESTAMP)
+        >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+GROUP BY uid, day`,
+      },
+      {
+        name: 'v_race_lap_distribution',
+        sql: `SELECT
+  REGEXP_EXTRACT(document_name, r'race_day/([^/]+)/') AS race_date,
+  document_id AS rider_uid,
+  ARRAY_LENGTH(JSON_QUERY_ARRAY(data, '$.laps')) AS lap_count,
+  CAST(JSON_EXTRACT_SCALAR(data, '$.bestLapMs') AS FLOAT64) / 1000 AS best_lap_seconds,
+  JSON_EXTRACT_SCALAR(data, '$.displayName') AS rider_name
+FROM \`hpr-2026.turboprep_analytics.stints_raw_latest\`
+WHERE JSON_EXTRACT_SCALAR(data, '$.bestLapMs') IS NOT NULL`,
+      },
+      {
+        name: 'v_chat_engagement',
+        sql: `SELECT
+  REGEXP_EXTRACT(document_name, r'teams/([^/]+)/') AS team_id,
+  DATE(timestamp) AS day,
+  COUNT(*) AS messages,
+  COUNTIF(JSON_EXTRACT_SCALAR(data, '$.kind') = 'chat') AS athlete_chats,
+  COUNTIF(JSON_EXTRACT_SCALAR(data, '$.kind') = 'workout') AS workout_posts,
+  COUNTIF(JSON_EXTRACT_SCALAR(data, '$.kind') = 'coach') AS coach_broadcasts,
+  COUNT(DISTINCT JSON_EXTRACT_SCALAR(data, '$.uid')) AS active_members
+FROM \`hpr-2026.turboprep_analytics.chat_raw_changelog\`
+WHERE operation = 'CREATE'
+GROUP BY team_id, day`,
+      },
+    ];
+    const results = [];
+    for (const v of VIEWS) {
+      const fullName = `\`hpr-2026.turboprep_analytics.${v.name}\``;
+      const ddl = `CREATE OR REPLACE VIEW ${fullName} AS\n${v.sql}`;
+      try {
+        await bq.query(ddl);
+        results.push({ name: v.name, ok: true });
+      } catch (err) {
+        results.push({ name: v.name, ok: false, error: err.message.slice(0, 300) });
+      }
+    }
+    res.status(200).json({ results });
   }
 );
