@@ -2826,9 +2826,12 @@ function switchPage(page) {
   const pageEl = $('page-' + page);
   if (pageEl) pageEl.classList.add('active');
   renderCurrentPage();
-  // Show ai-fab only on relevant pages
+  // AI Coach fab is now opt-in to reduce visual chrome. Default OFF.
+  // User flips `tp_ai_fab_enabled = '1'` from Profile → AI Coach toggle.
   const aiFabPages = ['today','fitness','races'];
-  aiFabPages.includes(page) ? show('ai-fab') : hide('ai-fab');
+  let aiFabOn = false;
+  try { aiFabOn = localStorage.getItem('tp_ai_fab_enabled') === '1'; } catch(_) {}
+  (aiFabOn && aiFabPages.includes(page)) ? show('ai-fab') : hide('ai-fab');
   // Feature 3: Restore scroll position
   const savedScroll = scrollPositions[page] || 0;
   $('content').scrollTop = savedScroll;
@@ -8298,6 +8301,20 @@ async function renderProfile() {
     { id: 'training',        label: '📅 Training Reminders', desc: 'Daily plan + workout nudges' },
     { id: 'team_chat',       label: '💬 Team Chat', desc: 'New messages in your team chat' },
   ];
+  // AI Coach toggle — fab is opt-in so the default UI stays calm.
+  let aiFabEnabled = false;
+  try { aiFabEnabled = localStorage.getItem('tp_ai_fab_enabled') === '1'; } catch(_) {}
+  html += '<div class="profile-section"><div class="profile-section-title">AI Coach</div>';
+  html += `<div class="profile-row">
+    <div>
+      <span class="profile-row-label">Show AI Coach button</span>
+      <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">Adds a floating button on Today / Fitness / Races for quick coach chat. Off by default.</div>
+    </div>
+    <div class="theme-toggle${aiFabEnabled ? ' on' : ''}" id="ai-fab-toggle" role="switch" aria-checked="${aiFabEnabled}" aria-label="AI Coach button">
+      <div class="theme-toggle-knob"></div>
+    </div>
+  </div>`;
+  html += '</div>';
   // Training session entry — starts training mode (locks the Watch
   // and shows a phone overlay). Auto-trigger from a scheduled session
   // is a follow-up; this manual entry covers V1.
@@ -8591,6 +8608,19 @@ async function renderProfile() {
   $('start-training-btn')?.addEventListener('click', () => {
     if (typeof closeProfile === 'function') { try { closeProfile(); } catch(_) {} }
     startTrainingSession({ type: 'ride', title: 'Training' });
+  });
+  $('ai-fab-toggle')?.addEventListener('click', () => {
+    const on = $('ai-fab-toggle')?.classList.contains('on');
+    const next = !on;
+    try { localStorage.setItem('tp_ai_fab_enabled', next ? '1' : '0'); } catch(_) {}
+    $('ai-fab-toggle')?.classList.toggle('on', next);
+    $('ai-fab-toggle')?.setAttribute('aria-checked', String(next));
+    // Reflect immediately on the current page.
+    const page = currentPage;
+    const aiFabPages = ['today','fitness','races'];
+    (next && aiFabPages.includes(page)) ? show('ai-fab') : hide('ai-fab');
+    haptic('light');
+    showToast(next ? 'AI Coach button shown.' : 'AI Coach button hidden.', 'info');
   });
   $('push-register-btn')?.addEventListener('click', () => {
     const out = $('push-test-result');
