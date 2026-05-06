@@ -15,6 +15,11 @@
       "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log", "*.local"]
     }
   ],
+  "extensions": {
+    "workouts-bq": "firebase/firestore-bigquery-export@0.3.1",
+    "chat-bq": "firebase/firestore-bigquery-export@0.3.1",
+    "stints-bq": "firebase/firestore-bigquery-export@0.3.1"
+  },
   "emulators": {
     "firestore": { "port": 8080 },
     "storage": { "port": 9199 },

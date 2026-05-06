@@ -1,45 +1,19 @@
 #!/usr/bin/env bash
-# Install the Firestore → BigQuery streaming extension three times,
-# once per collection we want to query analytically. Each install is
-# its own Cloud Function + BigQuery sink, so collections stay
-# independently-managed.
-#
-# What it produces:
-#   BigQuery dataset: turboprep_analytics
-#     - workouts_raw_changelog       (every users/{uid}/workouts/* write)
-#     - workouts_raw_latest          (latest snapshot per workout doc)
-#     - chat_raw_changelog / latest  (every team chat message)
-#     - race_stints_raw_*            (every race-day stint result)
+# Deploy three Firestore→BigQuery streaming extensions declared in
+# firebase.json. Each pulls config from extensions/<instance>.env.
+# Resources created (free tier for school traffic):
+#   - 3 Cloud Functions (one per collection)
+#   - BigQuery dataset: turboprep_analytics
+#   - 6 BigQuery tables (raw_changelog + raw_latest per instance)
 #
 # Run: bash extensions/setup-bigquery.sh
-# Each install prompts once for "OK with creating these resources?"
-# — that's expected; type 'y'.
 
 set -e
 cd "$(dirname "$0")/.."
-
-CLI="npx -y firebase-tools@latest"
-
-echo "1/3 — workouts collection (users/{uid}/workouts)"
-$CLI ext:install firebase/firestore-bigquery-export \
-  --instance-id workouts-bq \
-  --params=extensions/firestore-bigquery-workouts.env
-
-echo "2/3 — chat collection (teams/{teamId}/chat)"
-$CLI ext:install firebase/firestore-bigquery-export \
-  --instance-id chat-bq \
-  --params=extensions/firestore-bigquery-chat.env
-
-echo "3/3 — race-day stints collection (race_day/{date}/stints)"
-$CLI ext:install firebase/firestore-bigquery-export \
-  --instance-id stints-bq \
-  --params=extensions/firestore-bigquery-stints.env
-
-echo "Done. Three extensions installed; each will start streaming"
-echo "writes into BigQuery dataset turboprep_analytics within a minute."
+npx -y firebase-tools@latest deploy --only extensions --force
 echo ""
-echo "Open BigQuery console:"
-echo "  https://console.cloud.google.com/bigquery?project=hpr-2026"
+echo "Done. Within ~1 minute every Firestore write to the configured"
+echo "collections will stream into BigQuery dataset turboprep_analytics."
 echo ""
-echo "Run a sample query (paste into the BigQuery editor):"
-echo "  -- See extensions/sample-queries.sql"
+echo "Open BigQuery: https://console.cloud.google.com/bigquery?project=hpr-2026"
+echo "Sample queries: extensions/sample-queries.sql"
