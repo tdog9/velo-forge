@@ -1839,11 +1839,53 @@ function showWelcomeSetup() {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'welcome-overlay';
+  // Read current optional-feature toggle state for the picker.
+  const featOn = (k, dflt) => {
+    try { const v = localStorage.getItem(k); if (v === '1') return true; if (v === '0') return false; } catch(_) {}
+    return dflt;
+  };
+  const aiFabOn   = featOn('tp_ai_fab_enabled', false);
+  const recoveryOn = featOn('tp_widget_recovery', true);
+  const healthCardOn = featOn('tp_widget_health', true);
+  const aiInsightsOn = featOn('tp_widget_ai_insights', false);
   overlay.innerHTML = `<div class="modal-backdrop"></div>
     <div class="modal-card" style="max-width:360px;padding:20px">
-      <div style="text-align:center;font-size:36px;margin-bottom:8px">🚀</div>
       <div class="modal-title" style="text-align:center;margin-bottom:4px">Welcome, ${escHtml(name)}!</div>
-      <div style="text-align:center;font-size:13px;color:var(--muted-fg);margin-bottom:16px">Connect your accounts to get the most out of TurboPrep</div>
+      <div style="text-align:center;font-size:13px;color:var(--muted-fg);margin-bottom:16px">Pick what you want, skip what you don't. You can change these later in Profile.</div>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:4px 2px 8px">Optional features</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        <label class="welcome-feat" data-feat="tp_ai_fab_enabled" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">AI Coach button</div>
+            <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Floating button for quick coach chat</div>
+          </div>
+          <div class="theme-toggle${aiFabOn ? ' on' : ''}" data-toggle="tp_ai_fab_enabled" role="switch" aria-checked="${aiFabOn}"><div class="theme-toggle-knob"></div></div>
+        </label>
+        <label class="welcome-feat" data-feat="tp_widget_ai_insights" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">AI insights on Today</div>
+            <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Daily insight cards from the AI coach</div>
+          </div>
+          <div class="theme-toggle${aiInsightsOn ? ' on' : ''}" data-toggle="tp_widget_ai_insights" role="switch" aria-checked="${aiInsightsOn}"><div class="theme-toggle-knob"></div></div>
+        </label>
+        <label class="welcome-feat" data-feat="tp_widget_recovery" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">Recovery card</div>
+            <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Sleep + workout-load suggestion when you should rest</div>
+          </div>
+          <div class="theme-toggle${recoveryOn ? ' on' : ''}" data-toggle="tp_widget_recovery" role="switch" aria-checked="${recoveryOn}"><div class="theme-toggle-knob"></div></div>
+        </label>
+        <label class="welcome-feat" data-feat="tp_widget_health" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">Health stats card</div>
+            <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">HR, steps, sleep from Watch / Strava</div>
+          </div>
+          <div class="theme-toggle${healthCardOn ? ' on' : ''}" data-toggle="tp_widget_health" role="switch" aria-checked="${healthCardOn}"><div class="theme-toggle-knob"></div></div>
+        </label>
+      </div>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:4px 2px 8px">Connect (optional)</div>
       <div id="welcome-steps" style="display:flex;flex-direction:column;gap:8px">
         <button class="btn welcome-step" id="ws-strava" style="width:100%;padding:12px;font-size:13px;font-weight:600;background:var(--card);border:1.5px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left">
           <span style="font-size:20px;width:28px;text-align:center">⬡</span>
@@ -1883,6 +1925,42 @@ function showWelcomeSetup() {
       tail.style.color = 'var(--primary)';
     }
   };
+  // Feature picker toggles. Save to localStorage AND, where the
+  // existing widget system uses it (recovery/health/ai-insights),
+  // apply the same pinnedWidgets state so renderToday picks it up
+  // without a reload.
+  overlay.querySelectorAll('[data-toggle]').forEach(tog => {
+    tog.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const key = tog.getAttribute('data-toggle');
+      const wasOn = tog.classList.contains('on');
+      const next = !wasOn;
+      tog.classList.toggle('on', next);
+      tog.setAttribute('aria-checked', String(next));
+      try { localStorage.setItem(key, next ? '1' : '0'); } catch(_) {}
+      // For widget-style flags, also patch tp_widgets so renderToday
+      // sees the change immediately on next render.
+      const widgetMap = {
+        tp_widget_recovery: 'recovery',
+        tp_widget_health:   'health',
+        tp_widget_ai_insights: 'aiInsights',
+      };
+      if (widgetMap[key]) {
+        try {
+          const stored = JSON.parse(localStorage.getItem('tp_widgets') || '{}');
+          stored[widgetMap[key]] = next;
+          localStorage.setItem('tp_widgets', JSON.stringify(stored));
+          window._tpPinnedWidgetsCache = null;
+        } catch(_) {}
+      }
+      // Show/hide AI fab live without reload.
+      if (key === 'tp_ai_fab_enabled') {
+        const aiFabPages = ['today','fitness','races'];
+        (next && aiFabPages.includes(currentPage)) ? show('ai-fab') : hide('ai-fab');
+      }
+      haptic('light');
+    });
+  });
   $('ws-strava')?.addEventListener('click', () => {
     stravaStartAuth();
     markDone($('ws-strava'));
