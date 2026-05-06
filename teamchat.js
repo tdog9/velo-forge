@@ -45,15 +45,29 @@ export function hydrateChatFromLocal(teamId) {
   return [];
 }
 
+// Debounced persist — every snapshot fires this, but localStorage I/O
+// for a 100-message JSON.stringify is the hottest write path in the
+// app. 5s debounce coalesces rapid updates (active chat) into one
+// write while still keeping the cache fresh enough that a force-quit
+// + reopen never loses more than a few seconds of messages.
+let _persistTimer = null;
+let _persistPendingTeamId = null;
 function persistChatToLocal(teamId) {
   if (!teamId || !Array.isArray(chatCache) || chatCache.length === 0) return;
-  try {
-    const slim = chatCache.slice(0, CHAT_CACHE_MAX).map(m => ({
-      ...m,
-      createdAt: m.createdAt?.toMillis ? m.createdAt.toMillis() : m.createdAt,
-    }));
-    localStorage.setItem(CHAT_CACHE_KEY(teamId), JSON.stringify(slim));
-  } catch(_) {}
+  _persistPendingTeamId = teamId;
+  if (_persistTimer) return;
+  _persistTimer = setTimeout(() => {
+    _persistTimer = null;
+    const tid = _persistPendingTeamId;
+    if (!tid) return;
+    try {
+      const slim = chatCache.slice(0, CHAT_CACHE_MAX).map(m => ({
+        ...m,
+        createdAt: m.createdAt?.toMillis ? m.createdAt.toMillis() : m.createdAt,
+      }));
+      localStorage.setItem(CHAT_CACHE_KEY(tid), JSON.stringify(slim));
+    } catch(_) {}
+  }, 5000);
 }
 
 // Optimistic send — push a placeholder message into the cache so the

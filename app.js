@@ -514,7 +514,7 @@ function openTrainingOverlay() {
   document.getElementById('training-overlay')?.remove();
   const ov = document.createElement('div');
   ov.id = 'training-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:205;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;';
   const startedAt = window._tpTrainingStartedAt || Date.now();
   const fmt = (sec) => {
     const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
@@ -2856,6 +2856,14 @@ function renderCurrentPage() {
   try { initTimer(_ctx); }      catch(e) { console.warn('re-init timer:', e); }
   try { initAiFeatures(_ctx); } catch(e) { console.warn('re-init aifeatures:', e); }
   try { initRaceDay(_ctx); }    catch(e) { console.warn('re-init raceday:', e); }
+  // Inoculate against the same module-init race that bit teamchat.js:
+  // these modules' internal A context never got populated if their
+  // init was first called against a noop stub (before the dynamic
+  // import resolved). Calling each init here every render is cheap
+  // and keeps A in sync with the real exports.
+  try { initFitbit(_ctx); }     catch(e) { console.warn('re-init fitbit:', e); }
+  try { initGarmin(_ctx); }     catch(e) { console.warn('re-init garmin:', e); }
+  try { initTeamChat(_ctx); }   catch(e) { console.warn('re-init teamchat:', e); }
   // Each page render is wrapped so a thrown error in one tab can't blank the
   // page silently — the user sees the failure and can screenshot it.
   function safeRender(name, fn) {
@@ -3244,33 +3252,6 @@ function renderDemonstration() {
   html += `<div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px"><div class="demo-cat-count" style="margin-bottom:0">${filtered.length} exercise${filtered.length !== 1 ? 's' : ''}</div>${filtered.length > 12 ? '<button class="demo-collapse-all" id="demos-collapse-all">Collapse All</button>' : ''}</div>`;
   html += '</div>'; // end sticky
 
-  // Learn to Ride — single featured instructional video at the top of
-  // Demos. Hidden while the user is actively searching the library so it
-  // doesn't interrupt their query.
-  if (!demosSearch) {
-    const slot = {
-      key: 'learnToRide_1',
-      title: 'Learn to Ride a Bike',
-      desc: 'Foundations: balance, mounting, pedalling and stopping safely. Watch this first if you are new to riding.',
-      defaultUrl: 'https://www.youtube.com/watch?v=wqmzwVrkTU4',
-    };
-    const url = exerciseDemoVideos[slot.key] || slot.defaultUrl || '';
-    const embedUrl = getEmbedUrl(url);
-    html += `<div class="learn-ride-section">
-      <div class="learn-ride-head">${escHtml(slot.title)}</div>
-      <div class="learn-ride-card-desc" style="margin-bottom:10px">${escHtml(slot.desc)}</div>
-      ${embedUrl ? `
-        <div class="learn-ride-video">
-          <iframe src="${escHtml(embedUrl)}" allowfullscreen loading="lazy" title="${escHtml(slot.title)}"></iframe>
-        </div>
-      ` : `
-        <div class="learn-ride-empty">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:24px;height:24px;color:var(--muted-fg);margin-bottom:6px"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-          <div>Video not set yet</div>
-        </div>
-      `}
-    </div>`;
-  }
   if (filtered.length === 0) {
     html += '<div class="empty-state"><div class="empty-state-title">No Exercises Found</div><div class="empty-state-desc">Try a different search term or category filter.</div></div>';
   } else {
@@ -7303,7 +7284,18 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
     });
   });
 
-  bindTeamChatPanel(el);
+  // Single-bind guard — bindTeamChatPanel attaches click handlers to
+  // the send + attach buttons. If we re-bind on every panel render
+  // (which happens on every snapshot), each render leaves orphan
+  // handlers on the previous detached buttons. The newest button
+  // technically wins for fresh clicks, but the dataset.sending flag
+  // can get stuck on a stale instance. Guard so we bind once per
+  // mount; on next mount (panel removed + recreated) the new el
+  // doesn't have the flag yet so it binds normally.
+  if (!el._tpChatBound) {
+    el._tpChatBound = true;
+    bindTeamChatPanel(el);
+  }
   // Subscription is established by setLbSubTab when the chat tab opens.
   // Don't subscribe here — re-subscribing on every paint causes the
   // composer to lose focus + typed text on each new message.
@@ -9839,11 +9831,16 @@ function bindTeamChatPanel(c) {
   };
   ta?.addEventListener('input', clearErr);
   sendBtn?.addEventListener('click', async () => {
-    // Read teamId fresh on every click so a late auto-join doesn't leave
-    // us bound to a null closure. Same for the userProfile flags.
+    // CRITICAL: re-query the textarea + button on every click. The bind-
+    // time refs (ta, sendBtn closure vars) become detached when
+    // renderTeamChatPanelInto re-renders the panel for snapshot updates
+    // or scope changes. Reading via c.querySelector ensures we're always
+    // talking to the current live DOM nodes.
+    const taLive = c.querySelector('#team-chat-input');
+    const btnLive = c.querySelector('#team-chat-send');
     const teamId = userProfile?.teamId;
-    const text = (ta?.value || '').trim();
-    if (!text) return;
+    const text = (taLive?.value || '').trim();
+    if (!text) { showErr('Type a message first.'); return; }
     clearErr();
     const pre = preflight();
     if (pre) { showErr(pre); console.warn('[chat] preflight blocked:', pre); return; }
@@ -9859,10 +9856,12 @@ function bindTeamChatPanel(c) {
       showErr('Message blocked — keep it clean.');
       return;
     }
-    if (sendBtn.dataset.sending === '1') return; // prevent double-send
-    sendBtn.dataset.sending = '1';
-    sendBtn.disabled = true;
-    sendBtn.style.opacity = '0.55';
+    if (btnLive?.dataset.sending === '1') return; // prevent double-send
+    if (btnLive) {
+      btnLive.dataset.sending = '1';
+      btnLive.disabled = true;
+      btnLive.style.opacity = '0.55';
+    }
     const pushChecked = !!c.querySelector('#team-chat-push')?.checked;
     let ok = false;
     // Resolve target scope. Athletes are pinned to their own subteam (or
@@ -9891,15 +9890,28 @@ function bindTeamChatPanel(c) {
       broadcastPush: pendingKind === 'coach' ? !!pushChecked : false,
       createdAt: new Date(),
     };
-    try { addPendingChatMessage?.(pendingMsg); } catch(_) {}
-    // Clear the input + repaint immediately so the user sees the message.
-    if (ta) {
-      ta.value = '';
-      ta.style.height = 'auto';
+    // Optimistic insert — surface failures instead of swallowing.
+    let optimisticOk = false;
+    try {
+      addPendingChatMessage?.(pendingMsg);
+      optimisticOk = true;
+    } catch(e) {
+      console.error('[chat] optimistic insert threw:', e);
+    }
+    // Clear the input + repaint. Use the fresh textarea ref so we
+    // don't write to a detached DOM node from a stale closure.
+    const taClear = c.querySelector('#team-chat-input');
+    if (taClear) {
+      taClear.value = '';
+      taClear.style.height = 'auto';
       clearErr();
     }
-    try { refreshTeamChatList(); } catch(_) {}
-    try { scrollChatToBottom(); } catch(_) {}
+    if (optimisticOk) {
+      try { refreshTeamChatList(); } catch(e) { console.warn('[chat] refresh after optimistic insert:', e); }
+      try { scrollChatToBottom(); } catch(e) { console.warn('[chat] scroll after optimistic insert:', e); }
+    } else {
+      showErr('Could not queue message locally — sending anyway, watch the result.');
+    }
     // Direct-write fallback. teamchat.js's exported sendChatMessage
     // depends on its module-internal ctx being populated by initTeamChat.
     // If that context is empty (init race or import failure), the call
@@ -9983,15 +9995,20 @@ function bindTeamChatPanel(c) {
         ok = false;
       }
     } finally {
-      sendBtn.dataset.sending = '';
-      sendBtn.disabled = false;
-      sendBtn.style.opacity = '';
-      // If the send succeeded, drop the pending so the real message
-      // (arriving via snapshot any moment) takes its place. If failed,
-      // pending stays visible with the failed indicator.
+      // Re-query the button — the bind-time ref is detached if the
+      // chat list re-rendered during the await. Reset whichever is live.
+      const finallyBtn = c.querySelector('#team-chat-send');
+      if (finallyBtn) {
+        finallyBtn.dataset.sending = '';
+        finallyBtn.disabled = false;
+        finallyBtn.style.opacity = '';
+      }
+      // Drop the pending — onSnapshot will land the real version.
+      // We don't refresh here on success; the listener fires its own
+      // refresh, double-rendering DOM-replaces the chat list twice.
+      // On failure, refresh once so the failed indicator shows.
       if (ok) {
         try { removePendingChatMessage?.(clientId); } catch(_) {}
-        try { refreshTeamChatList(); } catch(_) {}
       } else {
         try { refreshTeamChatList(); } catch(_) {}
       }
@@ -10004,9 +10021,6 @@ function bindTeamChatPanel(c) {
       if (!_bgChatLive && typeof attachBackgroundChat === 'function') {
         try { attachBackgroundChat(); } catch(_) {}
       }
-      // Force a refresh ~250ms later so the real Firestore message
-      // replaces the pending bubble even if the snapshot lands slowly.
-      setTimeout(() => { try { refreshTeamChatList(); } catch(e) {} }, 250);
     }
     // Note: no generic "Send failed" fallback here. sendChatMessage
     // surfaces its own context errors via showToast (no team / not

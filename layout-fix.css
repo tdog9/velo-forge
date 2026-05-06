@@ -1912,7 +1912,8 @@ body:has(#page-team.active) .ai-fab,
 .member-sheet{
   background:var(--bg);
   width:100%;max-width:520px;
-  max-height:88vh;overflow-y:auto;
+  max-height:calc(88vh - env(safe-area-inset-bottom, 0px));
+  overflow-y:auto;
   border-radius:18px 18px 0 0;
   border-top:1px solid var(--border);
   padding:20px 18px calc(28px + env(safe-area-inset-bottom,0px));
