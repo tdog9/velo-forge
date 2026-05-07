@@ -3501,7 +3501,7 @@ function renderWorkoutLibrary(el) {
     { key:'mob',  label:'Mobility & recovery', desc:'Antidote to long rides.', match:(id)=>id.startsWith('mob-') || id.startsWith('func-') },
     { key:'starter', label:'By year level', desc:'Y7 → Y12 progression.', match:(id)=>id.startsWith('starter-') },
     { key:'access', label:'Accessory',   desc:'Arms + shoulder pre-hab.', match:(id)=>id.startsWith('access-') },
-    { key:'quick', label:'Quick (≤10 min)', desc:'When you have a few minutes.', match:(id)=>id.startsWith('quick-') || w => w.duration <= 10 },
+    { key:'quick', label:'Quick (≤10 min)', desc:'When you have a few minutes.', match:(id, w)=>id.startsWith('quick-') || (w && (w.duration||0) <= 10) },
     { key:'end',  label:'Endurance',     desc:'Long aerobic blocks.', match:(id)=>id.startsWith('end-') },
   ];
   const activeMuscle = window._tpLibMuscle || 'all';
@@ -3554,7 +3554,7 @@ function renderWorkoutLibrary(el) {
     CATEGORIES.forEach(cat => {
       const matches = filtered.filter(w => {
         if (seen.has(w.id)) return false;
-        return typeof cat.match === 'function' ? cat.match(w.id) : false;
+        return typeof cat.match === 'function' ? cat.match(w.id, w) : false;
       });
       if (matches.length === 0) return;
       matches.forEach(m => seen.add(m.id));
