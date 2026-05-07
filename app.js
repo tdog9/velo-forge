@@ -6582,6 +6582,36 @@ function renderPlans() {
   const years = ['Y7','Y8','Y9','Y10','Y11','Y12'];
   const tiers = ['basic','average','intense'];
   let html = '<div class="page-title">Training Plans</div>';
+  // Active plan hero — the centerpiece of the Plans page. Named asset
+  // (race target + week count + outcome) instead of just a row in a
+  // list. Mirrors Shred's "Your plan: Beast Mode 8-week build" pattern
+  // but framed for HPR race prep.
+  const activePlanIdHero = userProfile?.activePlanId;
+  if (activePlanIdHero) {
+    const activePlan = (typeof findPlan === 'function') ? findPlan(activePlanIdHero) : null;
+    if (activePlan) {
+      const pd = (typeof getPlanDisplayData === 'function') ? getPlanDisplayData(activePlan) : { name: activePlan.id };
+      const phase = (typeof computeRacePhase === 'function') ? computeRacePhase() : null;
+      const raceName = phase?.race ? (phase.race.name || '').replace(/^Vic HPR /, '') : null;
+      const daysOut = phase?.daysOut;
+      const weekCount = activePlan.weekCount || activePlan.weeks || (Array.isArray(activePlan.workouts) ? Math.max(...activePlan.workouts.map(w => w.week || 1)) : 0);
+      const targetLine = raceName
+        ? `${weekCount}-week build to <strong>${escHtml(raceName)}</strong>${daysOut != null ? ' · ' + daysOut + 'd to go' : ''}`
+        : `${weekCount}-week training block`;
+      html += `
+        <div class="plan-hero">
+          <div class="plan-hero-tag">YOUR PLAN</div>
+          <div class="plan-hero-name">${escHtml(pd.name || activePlan.id)}</div>
+          <div class="plan-hero-target">${targetLine}</div>
+          <div class="plan-hero-meta">
+            <span class="plan-hero-pill">Year ${escHtml(activePlan.yearLevel || '—')}</span>
+            <span class="plan-hero-pill">${escHtml((activePlan.tier || 'standard').toUpperCase())}</span>
+            <span class="plan-hero-pill">${escHtml((activePlan.category || 'mixed').replace('_',' '))}</span>
+          </div>
+          <button class="plan-hero-cta" id="plan-hero-open" type="button">Open today's session →</button>
+        </div>`;
+    }
+  }
   // My AI Plans (inline at top — replaces separate sub-tab)
   if (customPlans.length > 0) {
     html += `<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:6px">My AI Plans · ${customPlans.length}</div>`;
@@ -6757,6 +6787,11 @@ function bindPlanSearchAndCards(c) {
     });
   });
   // Bind plan expand/collapse
+  // Plan hero CTA → jump to Today where today's session is.
+  c.querySelector('#plan-hero-open')?.addEventListener('click', () => {
+    haptic('light');
+    try { switchPage('today'); } catch(_) {}
+  });
   c.querySelectorAll('.plan-header').forEach(hdr => {
     hdr.addEventListener('click', () => {
       const card = hdr.closest('.plan-card');
@@ -7969,12 +8004,19 @@ function renderTeamTab(c, opts) {
       // bug where coaches could only tap their own row in the leader-
       // board because the "open management sheet" path was a separate
       // attribute that swallowed the click in some iOS WebView builds.
+      // Cheer button is always present except on your own row — a
+      // one-tap social primitive that posts a "cheer" event to chat.
+      // Subteam-scoped only (matches existing chat scope rules).
+      const cheerCell = isMe
+        ? '<td class="lb-cheer-cell"></td>'
+        : `<td class="lb-cheer-cell" style="text-align:right;padding-right:8px"><button class="lb-cheer-btn" type="button" data-cheer-uid="${escHtml(m.uid)}" data-cheer-name="${escHtml(m.displayName || 'teammate')}" aria-label="Cheer ${escHtml(m.displayName || 'teammate')}">👏</button></td>`;
       html += `<tr class="${isMe ? 'lb-me' : ''}" data-member-uid="${escHtml(m.uid)}" style="cursor:pointer" tabindex="0" role="button" aria-label="View ${escHtml(m.displayName || 'Unknown')}">
         <td class="lb-rank${rankClass}">${i + 1}</td>
         <td class="lb-name">${escHtml(m.displayName || 'Unknown')} <span style="color:var(--muted-fg);font-size:10px">›</span></td>
         <td class="lb-year">${m.yearLevel || '—'}</td>
         <td class="lb-stat" style="text-align:right">${m.totalWorkouts || 0}</td>
         <td class="lb-stat" style="text-align:right">${m.streak || 0}d</td>
+        ${cheerCell}
       </tr>`;
     });
   }
@@ -8148,6 +8190,47 @@ function renderTeamTab(c, opts) {
       if (e.key === 'Enter' || e.key === ' ') {
         const row = e.target.closest('[data-member-uid]');
         if (row) { e.preventDefault(); handler(e); }
+      }
+    });
+  });
+  // Cheer buttons on the leaderboard. Stop event propagation so the
+  // row's tap-to-open-member-sheet doesn't fire on the same click.
+  c.querySelectorAll('.lb-cheer-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const targetUid = btn.dataset.cheerUid;
+      const targetName = btn.dataset.cheerName || 'teammate';
+      if (!targetUid || !userProfile?.teamId || !currentUser?.uid) return;
+      // Visual feedback — the button stays "cheered" + spawns a small
+      // floating emoji, even before the Firestore write lands.
+      btn.classList.add('cheered');
+      btn.disabled = true;
+      btn.textContent = '✓';
+      haptic('light');
+      try {
+        const safeName = ((userProfile?.displayName || currentUser.displayName || currentUser.email || 'Teammate').toString().trim()) || 'Teammate';
+        await addDoc(collection(db, 'teams', userProfile.teamId, 'chat'), {
+          uid: currentUser.uid,
+          displayName: safeName,
+          text: `cheered ${targetName} 👏`,
+          kind: 'cheer',
+          targetUid,
+          subteamId: getMySubteamId() || (userProfile?.isCoach ? getChatScope() : ''),
+          createdAt: serverTimestamp(),
+        });
+        // Re-enable after a short delay so users can cheer multiple
+        // teammates in quick succession but not spam the same one.
+        setTimeout(() => {
+          btn.classList.remove('cheered');
+          btn.disabled = false;
+          btn.textContent = '👏';
+        }, 4000);
+      } catch (err) {
+        console.warn('cheer failed:', err);
+        btn.classList.remove('cheered');
+        btn.disabled = false;
+        btn.textContent = '👏';
       }
     });
   });

@@ -249,7 +249,7 @@ service cloud.firestore {
               || (('imageUrl' in request.resource.data)
                   && request.resource.data.imageUrl is string
                   && request.resource.data.imageUrl.size() <= 1024))
-          && request.resource.data.kind in ['chat', 'workout', 'coach', 'system']
+          && request.resource.data.kind in ['chat', 'workout', 'coach', 'system', 'cheer', 'pr']
           // 'coach' kind only writable by an actual head coach of this team.
           && (request.resource.data.kind != 'coach'
               || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
