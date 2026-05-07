@@ -3016,6 +3016,9 @@ function renderFitness() {
   if (fitnessSubTab === 'workouts') {
     if (wc) wc.style.display = '';
     renderWorkouts();
+  } else if (fitnessSubTab === 'library') {
+    if (wc) wc.style.display = '';
+    renderWorkoutLibrary(wc);
   } else if (fitnessSubTab === 'plans') {
     if (pc) pc.style.display = '';
     renderPlans();
@@ -3039,7 +3042,7 @@ document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
 });
 // --- Feature 5: Swipe between fitness sub-tabs ---
 const fitnessPage = $('page-fitness');
-const fitSubOrder = ['workouts', 'plans', 'health', 'demos'];
+const fitSubOrder = ['workouts', 'library', 'plans', 'health', 'demos'];
 let swipeStartX = 0, swipeStartY = 0, swipeDeltaX = 0, swiping = false;
 if (fitnessPage) fitnessPage.addEventListener('touchstart', (e) => {
   swipeStartX = e.touches[0].clientX;
@@ -3312,6 +3315,264 @@ function extractAllExercises() {
   });
   return Object.values(exerciseMap).sort((a, b) => a.name.localeCompare(b.name));
 }
+// ─── Workout Library + Body Diagram ─────────────────────────────────────
+//
+// Curated workout library with target-muscle highlighting on a stylized
+// body diagram. Each workout has: id, name, intensity, duration, target
+// muscles, exercises (free-text for V1), and a one-line description.
+// Tap a workout → modal with body diagram + Start button. Start kicks
+// off the existing workout timer.
+//
+// Adding more workouts: extend WORKOUT_LIBRARY below. Aim ~30 today,
+// scale to hundreds with the same shape — no schema changes needed.
+const MUSCLE_LABELS = {
+  chest:'Chest', shoulders:'Shoulders', biceps:'Biceps', triceps:'Triceps',
+  forearms:'Forearms', abs:'Core', obliques:'Obliques',
+  quads:'Quads', hamstrings:'Hamstrings', glutes:'Glutes', calves:'Calves',
+  back:'Back', lats:'Lats', traps:'Traps',
+};
+
+const WORKOUT_LIBRARY = [
+  // Upper body / push
+  { id:'push-power-1', name:'Push Power', intensity:'hard', duration:25, muscles:['chest','shoulders','triceps'], description:'Strength block focused on max-force pushing. Builds the upper-body engine for HPR seated start-line surges.', exercises:['Pushups 4x10','Pike pushups 3x8','Diamond pushups 3x10','Plank to pushup 3x12','Wall handstand hold 2x30s'] },
+  { id:'push-bw-1', name:'Bodyweight Push', intensity:'moderate', duration:18, muscles:['chest','shoulders','triceps'], description:'Equipment-free upper-body session. Run anywhere — bedroom, hallway, school yard.', exercises:['Pushups 3x12','Incline pushups 3x10','Tricep dips 3x10','Pike pushups 3x8'] },
+  // Pull / back
+  { id:'pull-back-1', name:'Pull Apart', intensity:'moderate', duration:22, muscles:['back','lats','biceps'], description:'Posterior-chain upper work. HPR riders bend forward all session — this counterbalances hours in the cockpit.', exercises:['Inverted rows 4x8','Reverse snow angels 3x15','Superman holds 3x30s','Bicep curl iso 3x20s'] },
+  { id:'pull-bb-1', name:'Bands & Bars', intensity:'hard', duration:30, muscles:['back','lats','biceps','forearms'], description:'Resistance-band pulling block. Bring a doorframe band anchor.', exercises:['Band pull-aparts 4x15','Band rows 4x12','Face pulls 3x12','Dead hang 3x20s'] },
+  // Core
+  { id:'core-engine-1', name:'Core Engine', intensity:'hard', duration:20, muscles:['abs','obliques'], description:'Race-pace core stability. Crucial for HPR — every pedal stroke fires through your trunk.', exercises:['Plank 3x60s','Side plank 3x30s each','Hollow hold 3x30s','Leg raises 3x12','Russian twists 3x20'] },
+  { id:'core-quick-1', name:'Quick Core', intensity:'easy', duration:10, muscles:['abs','obliques'], description:'10 minutes, every day. Tiny dose, compounds fast.', exercises:['Plank 2x45s','Crunches 3x15','Bicycle kicks 3x20'] },
+  { id:'core-rotate-1', name:'Rotational Power', intensity:'moderate', duration:25, muscles:['obliques','abs','glutes'], description:'Anti-rotation + power for the lateral demands of cornering and sprinting.', exercises:['Pallof press 4x10 each','Woodchoppers 3x12 each','Side plank reach 3x10','Cable rotations 3x12'] },
+  // Legs
+  { id:'leg-power-1', name:'Leg Power', intensity:'hard', duration:35, muscles:['quads','hamstrings','glutes','calves'], description:'Max-effort lower body. Non-negotiable: this is what makes the bike go fast.', exercises:['Back squats 5x5','Romanian deadlifts 4x8','Walking lunges 3x10 each','Calf raises 4x15','Box jumps 3x6'] },
+  { id:'leg-glutes-1', name:'Glute Builder', intensity:'moderate', duration:22, muscles:['glutes','hamstrings'], description:'Posterior-chain emphasis. Glute strength = direct power transfer to the pedals.', exercises:['Hip thrusts 4x10','Glute bridges 3x15','Single-leg RDLs 3x8 each','Donkey kicks 3x12 each'] },
+  { id:'leg-cyc-1', name:'Cyclist Legs', intensity:'moderate', duration:28, muscles:['quads','hamstrings','calves'], description:'HPR-specific leg circuit — mimics the muscle engagement pattern of a sustained pedal effort.', exercises:['Goblet squats 4x12','Wall sit 3x60s','Step-ups 3x10 each','Calf raises 4x20'] },
+  // Plyometric / power
+  { id:'plyo-burst-1', name:'Plyo Burst', intensity:'hard', duration:18, muscles:['quads','glutes','calves'], description:'Explosive lower-body power. Builds the snap you need for race starts and pit-out drills.', exercises:['Box jumps 5x5','Broad jumps 4x6','Tuck jumps 3x10','Lateral bounds 3x10 each','Sprint starts 4x10m'] },
+  { id:'plyo-sport-1', name:'Sport Plyo', intensity:'hard', duration:20, muscles:['quads','glutes','calves','abs'], description:'Multi-plane explosive work. Improves agility for tight HPR circuits.', exercises:['Skater jumps 4x10','Squat jumps 3x12','Single-leg hops 3x8 each','Burpee box jump 3x6'] },
+  // Full body
+  { id:'full-amrap-1', name:'AMRAP 15', intensity:'hard', duration:15, muscles:['chest','quads','glutes','abs','shoulders'], description:'15 minutes, as many rounds as possible. Tracks fitness improvements over the season.', exercises:['10 pushups','15 air squats','20 mountain climbers','5 burpees'] },
+  { id:'full-emom-1', name:'EMOM 20', intensity:'moderate', duration:20, muscles:['chest','quads','glutes','abs'], description:'Every minute on the minute. Builds work-capacity for closed-circuit relay racing.', exercises:['Min 1: 12 pushups','Min 2: 15 squats','Min 3: 30s plank','Repeat for 20 min'] },
+  { id:'full-circuit-1', name:'Total Body Circuit', intensity:'moderate', duration:30, muscles:['chest','back','quads','glutes','abs','shoulders'], description:'Balanced full-body session. Good once-a-week strength block when riding 4+ days.', exercises:['Squats 4x10','Pushups 4x10','Inverted rows 4x8','Plank 3x60s','Lunges 3x10 each'] },
+  { id:'full-tabata-1', name:'Tabata Total', intensity:'hard', duration:20, muscles:['chest','quads','glutes','abs','calves'], description:'4-min Tabata blocks (20s on / 10s off × 8). Brutal but efficient.', exercises:['Block 1: Air squats','Block 2: Pushups','Block 3: Mountain climbers','Block 4: Burpees'] },
+  // Cardio (cyclist focus)
+  { id:'card-spin-1', name:'Spin Sprints', intensity:'hard', duration:30, muscles:['quads','hamstrings','calves'], description:'Indoor trainer / spin bike. 6×3min @ Z4, 3min Z2 between. Race-pace replication.', exercises:['Warmup 8min Z2','6x (3min Z4 / 3min Z2)','Cooldown 4min'] },
+  { id:'card-zone-1', name:'Zone 2 Base', intensity:'easy', duration:60, muscles:['quads','hamstrings','calves'], description:'Long aerobic ride at conversational pace. The unsexy work that builds the engine.', exercises:['60min steady Z2 — chat-pace, never breathless'] },
+  { id:'card-vo2-1', name:'VO2 Intervals', intensity:'hard', duration:35, muscles:['quads','hamstrings','calves','abs'], description:'5×4min hard / 4min easy. Lifts your top-end. One per week max.', exercises:['Warmup 10min','5x (4min Z5 / 4min Z2)','Cooldown 5min'] },
+  // Mobility
+  { id:'mob-cyclist-1', name:'Cyclist Mobility', intensity:'easy', duration:15, muscles:['hamstrings','glutes','back','quads'], description:'Targets the tightness that builds up in HPR cockpit position. Daily, 15 min.', exercises:['Hip flexor stretch 2x60s each','Pigeon pose 2x60s each','Cat-cow 2x60s','Thoracic rotation 2x10 each'] },
+  { id:'mob-recovery-1', name:'Active Recovery', intensity:'easy', duration:20, muscles:['hamstrings','glutes','calves','back'], description:'Day-after-hard-session flow. Promotes blood flow, reduces soreness.', exercises:['Easy spin 10min','Foam roll 5min','Static stretch 5min'] },
+  // Beginner / starter
+  { id:'starter-y7-1', name:'Y7 Starter', intensity:'easy', duration:20, muscles:['chest','quads','abs'], description:'New to HPR training? Start here. Bodyweight only, twice a week.', exercises:['10 pushups','15 squats','20s plank','Repeat 3x with 90s rest'] },
+  { id:'starter-y8-1', name:'Y8 Build', intensity:'moderate', duration:25, muscles:['chest','quads','glutes','abs'], description:'Year 8 build session. Gentle progression from Y7 starter.', exercises:['12 pushups','20 squats','30s plank','10 lunges each leg','Repeat 3x'] },
+  // Sprint / power
+  { id:'sprint-1', name:'Sprint Pyramid', intensity:'hard', duration:20, muscles:['quads','glutes','calves','abs'], description:'Hill sprints or trainer sprints. Builds anaerobic capacity for race-day starts.', exercises:['10s sprint / 50s rest x4','20s sprint / 100s rest x4','30s sprint / 90s rest x3','Cool down 5min'] },
+  { id:'sprint-tabata-1', name:'Spin Tabata', intensity:'hard', duration:14, muscles:['quads','glutes','calves'], description:'Pure pain. 8 rounds × (20s all-out / 10s rest). 4 min of work, gigantic adaptation.', exercises:['Warmup 5min','Tabata 4min','Cooldown 5min'] },
+  // Endurance
+  { id:'end-long-1', name:'Long Endurance', intensity:'moderate', duration:90, muscles:['quads','hamstrings','calves'], description:'90 min steady ride. Saturday ritual. Builds the deep aerobic engine for 6h+ enduros.', exercises:['90min Z2-low Z3 — keep HR < 80% max'] },
+  // Race-specific
+  { id:'race-stint-1', name:'Stint Sim', intensity:'hard', duration:30, muscles:['quads','hamstrings','calves','abs'], description:'30-min HPR-stint simulation: 28min @ race pace + 2min sprint to flag. Practice your race face.', exercises:['Warmup 5min','28min @ stint pace','2min all-out finish','Cooldown 3min'] },
+  { id:'race-pit-1', name:'Pit-Out Drill', intensity:'hard', duration:15, muscles:['quads','glutes','calves','abs'], description:'Race-start replication. Static start → 30s sprint → easy → repeat. Trains the race-specific muscle memory.', exercises:['8x (10s static start / 30s sprint / 60s easy)','2min cooldown'] },
+  // Strength accessory
+  { id:'access-arm-1', name:'Arms Finisher', intensity:'moderate', duration:12, muscles:['biceps','triceps','forearms'], description:'12-min arms session — quick add-on after a leg day.', exercises:['Curls 3x12','Tricep extensions 3x12','Hammer curls 3x10','Diamond pushups 3x8'] },
+  { id:'access-shoulder-1', name:'Shoulder Stability', intensity:'easy', duration:15, muscles:['shoulders','traps','back'], description:'Pre-hab shoulder work. Cyclists slouch — this fixes it.', exercises:['Wall slides 3x10','Y-T-W raises 3x8','Band pull-aparts 3x15','Plank shoulder taps 3x16'] },
+];
+
+/// Stylized front-view body silhouette as inline SVG. Each muscle group
+/// is a separate path with class .muscle-<group>. Pass the active set
+/// to highlight specific muscles.
+function renderBodyDiagram(activeMuscles = [], opts = {}) {
+  const active = new Set(activeMuscles);
+  const cls = (m) => `muscle ${active.has(m) ? 'muscle-active' : ''}`;
+  const size = opts.size || 220;
+  // Stylized silhouette: head + torso + arms + legs as anatomical-ish
+  // shapes. Not medically accurate — designed to read clearly at
+  // small sizes and highlight color-coded muscle groups on touch.
+  return `
+    <svg class="body-diagram" viewBox="0 0 200 320" width="${size}" height="${Math.round(size * 1.45)}" xmlns="http://www.w3.org/2000/svg" aria-label="Body diagram">
+      <!-- head -->
+      <ellipse class="body-base" cx="100" cy="22" rx="16" ry="20"/>
+      <!-- neck -->
+      <rect class="body-base" x="93" y="40" width="14" height="10" rx="3"/>
+      <!-- torso outline -->
+      <path class="body-base" d="M 70 50 Q 65 54 65 65 L 60 110 Q 58 130 60 145 L 64 165 L 80 175 L 80 200 L 75 230 Q 73 255 78 280 L 82 310 L 92 314 L 96 282 L 100 250 L 104 282 L 108 314 L 118 310 L 122 280 Q 127 255 125 230 L 120 200 L 120 175 L 136 165 L 140 145 Q 142 130 140 110 L 135 65 Q 135 54 130 50 Z"/>
+      <!-- shoulders -->
+      <ellipse class="${cls('shoulders')}" cx="68" cy="60" rx="12" ry="9"/>
+      <ellipse class="${cls('shoulders')}" cx="132" cy="60" rx="12" ry="9"/>
+      <!-- chest -->
+      <path class="${cls('chest')}" d="M 75 65 Q 100 60 125 65 L 125 95 Q 100 100 75 95 Z"/>
+      <!-- arms (upper) -->
+      <ellipse class="body-base" cx="58" cy="90" rx="10" ry="22"/>
+      <ellipse class="body-base" cx="142" cy="90" rx="10" ry="22"/>
+      <!-- biceps overlay -->
+      <ellipse class="${cls('biceps')}" cx="58" cy="85" rx="8" ry="14"/>
+      <ellipse class="${cls('biceps')}" cx="142" cy="85" rx="8" ry="14"/>
+      <!-- forearms -->
+      <ellipse class="body-base" cx="55" cy="125" rx="9" ry="18"/>
+      <ellipse class="body-base" cx="145" cy="125" rx="9" ry="18"/>
+      <ellipse class="${cls('forearms')}" cx="55" cy="125" rx="7" ry="14"/>
+      <ellipse class="${cls('forearms')}" cx="145" cy="125" rx="7" ry="14"/>
+      <!-- abs -->
+      <path class="${cls('abs')}" d="M 85 100 Q 100 102 115 100 L 113 145 Q 100 148 87 145 Z"/>
+      <!-- obliques -->
+      <path class="${cls('obliques')}" d="M 73 105 Q 78 118 80 145 L 84 145 L 86 110 Q 78 105 73 105 Z"/>
+      <path class="${cls('obliques')}" d="M 127 105 Q 122 118 120 145 L 116 145 L 114 110 Q 122 105 127 105 Z"/>
+      <!-- quads -->
+      <path class="${cls('quads')}" d="M 78 180 L 95 180 L 96 245 L 80 245 Z"/>
+      <path class="${cls('quads')}" d="M 105 180 L 122 180 L 120 245 L 104 245 Z"/>
+      <!-- calves -->
+      <ellipse class="${cls('calves')}" cx="86" cy="280" rx="9" ry="20"/>
+      <ellipse class="${cls('calves')}" cx="114" cy="280" rx="9" ry="20"/>
+      <!-- triceps (small back-of-arm hint via lighter ellipse) -->
+      <ellipse class="${cls('triceps')}" cx="60" cy="98" rx="5" ry="10" opacity="0.85"/>
+      <ellipse class="${cls('triceps')}" cx="140" cy="98" rx="5" ry="10" opacity="0.85"/>
+      <!-- glutes (top of legs hint) -->
+      <ellipse class="${cls('glutes')}" cx="86" cy="180" rx="11" ry="6" opacity="0.9"/>
+      <ellipse class="${cls('glutes')}" cx="114" cy="180" rx="11" ry="6" opacity="0.9"/>
+      <!-- hamstrings (back-of-thigh hint) -->
+      <path class="${cls('hamstrings')}" d="M 80 200 L 95 200 L 95 245 L 82 245 Z" opacity="0.85"/>
+      <path class="${cls('hamstrings')}" d="M 105 200 L 120 200 L 118 245 L 105 245 Z" opacity="0.85"/>
+    </svg>
+  `;
+}
+
+function renderWorkoutLibrary(el) {
+  if (!el) return;
+  // Filter chips for muscle groups + intensity.
+  const activeMuscle = window._tpLibMuscle || 'all';
+  const activeIntensity = window._tpLibIntensity || 'all';
+  const muscles = ['all', 'chest', 'shoulders', 'biceps', 'triceps', 'abs', 'quads', 'glutes', 'hamstrings', 'calves', 'back'];
+  const intensities = ['all', 'easy', 'moderate', 'hard'];
+  let filtered = WORKOUT_LIBRARY;
+  if (activeMuscle !== 'all') filtered = filtered.filter(w => (w.muscles || []).includes(activeMuscle));
+  if (activeIntensity !== 'all') filtered = filtered.filter(w => w.intensity === activeIntensity);
+
+  let html = '<div class="page-title">Workout Library</div>';
+  html += `<div style="font-size:12.5px;color:var(--muted-fg);margin-bottom:12px">${WORKOUT_LIBRARY.length} workouts · tap any for details + targeted muscles</div>`;
+  // Muscle chips.
+  html += '<div style="display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch;margin:0 -2px">';
+  muscles.forEach(m => {
+    const isActive = activeMuscle === m;
+    html += `<button class="lib-chip${isActive ? ' active' : ''}" data-lib-muscle="${escHtml(m)}">${escHtml(m === 'all' ? 'All muscles' : (MUSCLE_LABELS[m] || m))}</button>`;
+  });
+  html += '</div>';
+  // Intensity chips.
+  html += '<div style="display:flex;gap:6px;margin-bottom:12px">';
+  intensities.forEach(i => {
+    const isActive = activeIntensity === i;
+    html += `<button class="lib-chip${isActive ? ' active' : ''}" data-lib-intensity="${escHtml(i)}">${escHtml(i === 'all' ? 'Any intensity' : i.charAt(0).toUpperCase() + i.slice(1))}</button>`;
+  });
+  html += '</div>';
+  // Workouts grid.
+  html += '<div style="display:flex;flex-direction:column;gap:8px">';
+  if (filtered.length === 0) {
+    html += '<div class="empty-state"><div class="empty-state-title">No matches</div><div class="empty-state-desc">Try a different muscle group or intensity.</div></div>';
+  } else {
+    filtered.forEach(w => {
+      const intensityColor = w.intensity === 'hard' ? '#ef4444' : w.intensity === 'moderate' ? '#f97316' : '#22c55e';
+      const muscleList = (w.muscles || []).slice(0, 3).map(m => MUSCLE_LABELS[m] || m).join(' · ');
+      html += `<div class="lib-card" data-lib-workout="${escHtml(w.id)}" tabindex="0" role="button">
+        <div class="lib-card-row">
+          <div class="lib-card-text">
+            <div class="lib-card-name">${escHtml(w.name)}</div>
+            <div class="lib-card-meta">
+              <span style="color:${intensityColor};font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:10px">${escHtml(w.intensity)}</span>
+              <span style="color:var(--muted-fg)"> · ${w.duration}m · ${escHtml(muscleList)}</span>
+            </div>
+            <div class="lib-card-desc">${escHtml((w.description || '').slice(0, 110))}${(w.description || '').length > 110 ? '…' : ''}</div>
+          </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg);flex-shrink:0;align-self:center"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>`;
+    });
+  }
+  html += '</div>';
+  el.innerHTML = html;
+  el.querySelectorAll('[data-lib-muscle]').forEach(b => {
+    b.addEventListener('click', () => {
+      window._tpLibMuscle = b.dataset.libMuscle;
+      renderWorkoutLibrary(el);
+    });
+  });
+  el.querySelectorAll('[data-lib-intensity]').forEach(b => {
+    b.addEventListener('click', () => {
+      window._tpLibIntensity = b.dataset.libIntensity;
+      renderWorkoutLibrary(el);
+    });
+  });
+  el.querySelectorAll('[data-lib-workout]').forEach(c => {
+    c.addEventListener('click', () => openWorkoutLibraryDetail(c.dataset.libWorkout));
+    c.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openWorkoutLibraryDetail(c.dataset.libWorkout); }
+    });
+  });
+}
+
+function openWorkoutLibraryDetail(id) {
+  const w = WORKOUT_LIBRARY.find(x => x.id === id);
+  if (!w) return;
+  document.getElementById('lib-detail-overlay')?.remove();
+  const intensityColor = w.intensity === 'hard' ? '#ef4444' : w.intensity === 'moderate' ? '#f97316' : '#22c55e';
+  const ov = document.createElement('div');
+  ov.id = 'lib-detail-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:206;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;animation:planRevealFade .25s ease-out';
+  ov.innerHTML = `
+    <div style="background:var(--bg);width:100%;max-width:520px;max-height:90vh;border-radius:18px 18px 0 0;border-top:1px solid var(--border);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 18px calc(28px + env(safe-area-inset-bottom,0px))">
+      <button id="lib-close" type="button" aria-label="Close" style="position:sticky;top:0;display:block;margin-left:auto;background:transparent;border:0;color:var(--muted-fg);font-size:24px;cursor:pointer;padding:0 4px">×</button>
+      <div style="width:40px;height:4px;border-radius:99px;background:var(--border);margin:-4px auto 14px"></div>
+      <div style="text-align:center;font-size:11px;font-weight:800;letter-spacing:.14em;color:${intensityColor};text-transform:uppercase;margin-bottom:4px">${escHtml(w.intensity)} · ${w.duration} min</div>
+      <div style="text-align:center;font-size:24px;font-weight:800;color:var(--fg);letter-spacing:-.01em;margin-bottom:8px">${escHtml(w.name)}</div>
+      <div style="text-align:center;font-size:13px;color:var(--muted-fg);line-height:1.5;margin:0 auto 16px;max-width:320px">${escHtml(w.description)}</div>
+
+      <div style="display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px">
+        <div style="flex-shrink:0">${renderBodyDiagram(w.muscles, { size: 110 })}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:6px">Targets</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            ${(w.muscles || []).map(m => `<span style="font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:99px;background:rgba(var(--primary-rgb),.12);color:var(--primary);border:1px solid rgba(var(--primary-rgb),.3)">${escHtml(MUSCLE_LABELS[m] || m)}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:6px 2px 8px">Exercises</div>
+      <ol style="margin:0;padding:0 0 0 24px;font-size:13.5px;line-height:1.6;color:var(--fg)">
+        ${(w.exercises || []).map(ex => `<li style="margin-bottom:4px">${escHtml(ex)}</li>`).join('')}
+      </ol>
+
+      <button id="lib-start" type="button" style="width:100%;margin-top:18px;padding:14px;border-radius:12px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:800;font-size:15px;cursor:pointer;letter-spacing:.01em">Start now →</button>
+      <button id="lib-log" type="button" style="width:100%;margin-top:8px;padding:10px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--fg);font-weight:600;font-size:12.5px;cursor:pointer">Log as completed</button>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  ov.querySelector('#lib-close')?.addEventListener('click', close);
+  ov.querySelector('#lib-start')?.addEventListener('click', () => {
+    haptic('medium');
+    close();
+    // Hand off to the existing workout-timer flow if present.
+    try {
+      if (typeof openWorkoutTimer === 'function') {
+        openWorkoutTimer({ name: w.name, duration: w.duration, type: 'Library' });
+      } else {
+        showToast(`Started: ${w.name}`, 'success');
+      }
+    } catch (e) { showToast(`Started: ${w.name}`, 'success'); }
+  });
+  ov.querySelector('#lib-log')?.addEventListener('click', () => {
+    haptic('light');
+    close();
+    // Open the workout-log sheet pre-filled.
+    try {
+      if (typeof openLogSheet === 'function') {
+        openLogSheet({ name: w.name, duration: w.duration, type: 'Library' });
+      } else {
+        showToast(`Logged: ${w.name}`, 'success');
+      }
+    } catch (e) { showToast(`Logged: ${w.name}`, 'success'); }
+  });
+}
+
 function renderDemonstration() {
   const el = $('demos-content');
   const allExercises = extractAllExercises();

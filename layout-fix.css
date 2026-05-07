@@ -1670,6 +1670,66 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   -webkit-backdrop-filter: none !important;
 }
 
+/* Workout Library — chips + cards + body diagram. */
+.lib-chip{
+  flex-shrink:0;
+  font-size:12px;font-weight:700;
+  padding:7px 13px;
+  border-radius:99px;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--muted-fg);
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background .12s, color .12s, border-color .12s;
+}
+.lib-chip:hover{background:rgba(var(--primary-rgb),.06)}
+.lib-chip.active{
+  background:var(--primary);
+  border-color:var(--primary);
+  color:var(--primary-fg);
+}
+.lib-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px;
+  cursor:pointer;
+  transition:transform .12s, border-color .12s, background .12s;
+}
+.lib-card:hover{border-color:rgba(var(--primary-rgb),.4);background:rgba(var(--primary-rgb),.02)}
+.lib-card:active{transform:scale(.99)}
+.lib-card-row{display:flex;gap:10px}
+.lib-card-text{flex:1;min-width:0}
+.lib-card-name{font-size:15px;font-weight:800;color:var(--fg);margin-bottom:3px}
+.lib-card-meta{font-size:11px;margin-bottom:5px}
+.lib-card-desc{font-size:12.5px;color:var(--muted-fg);line-height:1.4}
+
+/* Body diagram — silhouette + muscle highlights. */
+.body-diagram{display:block;margin:0 auto}
+.body-diagram .body-base{
+  fill:rgba(255,255,255,.06);
+  stroke:var(--border);
+  stroke-width:0.8;
+}
+.body-diagram .muscle{
+  fill:rgba(255,255,255,.04);
+  stroke:rgba(var(--border-rgb,100,100,100),.4);
+  stroke-width:0.5;
+  transition:fill .25s ease;
+}
+.body-diagram .muscle-active{
+  fill:rgba(var(--primary-rgb),.85);
+  stroke:var(--primary);
+  stroke-width:1;
+  filter:drop-shadow(0 0 8px rgba(var(--primary-rgb),.5));
+  animation:musclePulse 2s ease-in-out infinite;
+}
+@keyframes musclePulse{
+  0%,100%{filter:drop-shadow(0 0 6px rgba(var(--primary-rgb),.4))}
+  50%{filter:drop-shadow(0 0 14px rgba(var(--primary-rgb),.7))}
+}
+
 /* Plan hero — the named-asset card at the top of the Plans page. */
 .plan-hero{
   position:relative;
