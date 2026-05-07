@@ -3550,26 +3550,35 @@ function openWorkoutLibraryDetail(id) {
   ov.querySelector('#lib-start')?.addEventListener('click', () => {
     haptic('medium');
     close();
-    // Hand off to the existing workout-timer flow if present.
+    // openWorkoutTimer signature: (workoutName, durationMin, exercises[]).
     try {
       if (typeof openWorkoutTimer === 'function') {
-        openWorkoutTimer({ name: w.name, duration: w.duration, type: 'Library' });
+        openWorkoutTimer(w.name, w.duration, w.exercises || []);
       } else {
         showToast(`Started: ${w.name}`, 'success');
       }
-    } catch (e) { showToast(`Started: ${w.name}`, 'success'); }
+    } catch (e) {
+      console.warn('openWorkoutTimer failed:', e);
+      showToast(`Started: ${w.name}`, 'success');
+    }
   });
   ov.querySelector('#lib-log')?.addEventListener('click', () => {
     haptic('light');
     close();
-    // Open the workout-log sheet pre-filled.
+    // openWorkoutSheet has no args — pre-fill name + duration after open.
     try {
-      if (typeof openLogSheet === 'function') {
-        openLogSheet({ name: w.name, duration: w.duration, type: 'Library' });
-      } else {
-        showToast(`Logged: ${w.name}`, 'success');
-      }
-    } catch (e) { showToast(`Logged: ${w.name}`, 'success'); }
+      openWorkoutSheet();
+      // Pre-fill on next tick so the sheet's input nodes exist.
+      setTimeout(() => {
+        const nameInput = document.getElementById('wo-name');
+        const durInput = document.getElementById('wo-duration');
+        if (nameInput) nameInput.value = w.name;
+        if (durInput) durInput.value = String(w.duration);
+      }, 50);
+    } catch (e) {
+      console.warn('openWorkoutSheet failed:', e);
+      showToast(`Logged: ${w.name}`, 'success');
+    }
   });
 }
 
@@ -12928,11 +12937,6 @@ function renderCoachRaceDay(el) {
       <button id="coach-demo-link" style="padding:9px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--fg);font-weight:600;font-size:12px;cursor:pointer">Copy spectator link</button>
     </div>
 
-    <div style="margin-top:8px;padding:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:2px">Team turbo session</div>
-      <div style="font-size:12.5px;color:var(--muted-fg);line-height:1.45">Live HR + cadence dashboard for everyone training together right now. Each rider's tile updates in real-time as their Watch streams data.</div>
-      <button id="coach-team-turbo" style="padding:11px;border-radius:10px;background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 80%,#000));color:var(--primary-fg);border:none;font-weight:800;font-size:13px;cursor:pointer">Open team turbo dashboard</button>
-    </div>
   `;
   el.querySelector('#coach-rd-start')?.addEventListener('click', async () => {
     const ok = await activateRaceDay();
@@ -12951,10 +12955,6 @@ function renderCoachRaceDay(el) {
   el.querySelector('#coach-demo-start')?.addEventListener('click', async () => {
     const ok = await startDemoRace();
     if (ok) renderCoachPage();
-  });
-  el.querySelector('#coach-team-turbo')?.addEventListener('click', () => {
-    haptic('light');
-    openTeamTurboOverlay();
   });
   el.querySelector('#coach-demo-stop')?.addEventListener('click', async () => {
     await stopDemoRace();
