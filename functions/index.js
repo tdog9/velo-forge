@@ -256,6 +256,67 @@ exports.cleanupOldChatMessages = onSchedule(
   }
 );
 
+// ─── Streak-at-risk daily push (Shred-inspired #4) ───────────────────────
+//
+// Runs once a day at 18:00 local. For each user with an active streak
+// who hasn't logged a workout TODAY, send a single push: "Your team
+// avg is 4/wk; you're at 2 with N days left this week" — if true.
+// Avoids generic "log a workout" spam by only firing when the streak
+// is genuinely about to break.
+exports.streakAtRiskPush = onSchedule(
+  {
+    schedule: 'every day 18:00',
+    timeZone: 'Australia/Melbourne',
+    region: 'us-central1',
+    timeoutSeconds: 540,
+    memory: '256MiB',
+  },
+  async () => {
+    const db = getFirestore();
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const usersSnap = await db.collection('users').get();
+    let pushed = 0;
+    for (const u of usersSnap.docs) {
+      const profile = u.data();
+      const uid = u.id;
+      // Skip users with no team or notifications muted for training.
+      if (!profile.teamId) continue;
+      if (profile.notificationPrefs?.training === false) continue;
+      // Read today's workouts for this user.
+      try {
+        const today = await db.collection('users').doc(uid).collection('workouts')
+          .where('date', '>=', startOfDay)
+          .limit(1)
+          .get();
+        if (!today.empty) continue; // already trained today, no nudge
+        const streak = profile.streak || 0;
+        if (streak < 3) continue; // streak too short to be at risk
+        // Resolve FCM tokens.
+        const devSnap = await db.collection('users').doc(uid).collection('devices').get();
+        const tokens = devSnap.docs.map(d => d.data())
+          .filter(d => d.platform === 'ios' && d.fcmToken)
+          .map(d => d.fcmToken);
+        if (tokens.length === 0) continue;
+        const body = `${streak}-day streak at risk — log anything before midnight to keep it.`;
+        await getMessaging().sendEachForMulticast({
+          tokens,
+          notification: { title: 'TurboPrep', body },
+          apns: {
+            headers: { 'apns-priority': '10', 'apns-push-type': 'alert' },
+            payload: { aps: { sound: 'default', 'thread-id': 'tp.training', 'interruption-level': 'passive' } },
+          },
+          data: { teamId: profile.teamId || '', threadId: 'streak-at-risk', category: 'training' },
+        });
+        pushed++;
+      } catch (e) {
+        console.warn('[streakAtRisk] uid=' + uid, e?.message || e);
+      }
+    }
+    console.log(`[streakAtRiskPush] sent ${pushed} streak-at-risk pushes`);
+  }
+);
+
 // ─── One-shot: create BigQuery views in turboprep_analytics ──────────────
 //
 // HTTP trigger so we can run it once after the firestore-bigquery-export

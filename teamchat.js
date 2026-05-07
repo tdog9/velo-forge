@@ -416,6 +416,14 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
       <span class="msg-event-text">${escHtml(m.text || 'cheered a teammate')}</span>
     </div>`;
   }
+  // PR events (#8) — same shape as workout/cheer, gold-styled to stand out.
+  if (m.kind === 'pr') {
+    return `<div class="msg-event msg-event-pr" data-msg-id="${id}">
+      <span class="msg-event-tag">🏆 PR</span>
+      <span class="msg-event-actor">${escHtml(m.displayName || 'Member')}</span>
+      <span class="msg-event-text">${escHtml(m.text || 'set a new PR')}</span>
+    </div>`;
+  }
   // Workout posts: centered event row, like an iMessage system notice.
   if (m.kind === 'workout') {
     const ws = m.workoutSummary || {};

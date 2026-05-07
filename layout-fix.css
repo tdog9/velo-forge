@@ -1763,6 +1763,25 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
 }
 .lb-cheer-cell{width:42px}
 
+/* PR event in chat — gold-tinted celebratory pill. */
+.msg-event-pr{
+  text-align:center;
+  font-size:12.5px;
+  padding:8px 14px;
+  margin:6px auto;
+  background:linear-gradient(135deg, rgba(255,215,0,.10), rgba(255,165,0,.05));
+  border:1px solid rgba(255,215,0,.4);
+  border-radius:99px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  align-self:center;
+  font-weight:600;
+}
+.msg-event-pr .msg-event-tag{font-weight:800;color:#ffd700}
+.msg-event-pr .msg-event-actor{font-weight:700;color:var(--fg)}
+.msg-event-pr .msg-event-text{color:var(--muted-fg)}
+
 /* Cheer event in chat — tiny, centered, doesn't break the bubble flow. */
 .msg-event-cheer{
   text-align:center;

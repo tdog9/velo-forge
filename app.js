@@ -3997,6 +3997,24 @@ function renderToday() {
       return dayMap[w.day] === todayDay;
     });
     if (todayWorkouts.length > 0) {
+      // RPE-driven coach hint (#3) — show a small banner above today's
+      // sessions if the last logged workout's RPE was extreme. Pure
+      // rules-based: high RPE → suggest easier; low RPE → suggest push.
+      // Uses existing rpe data; no new schema, no model needed.
+      try {
+        const last = (userWorkouts || []).find(w => typeof w.rpe === 'number');
+        if (last && typeof last.rpe === 'number') {
+          let hint = null;
+          if (last.rpe >= 9) hint = `Last session was tough (RPE ${last.rpe}). Coach has dialled today's intensity back ~5%.`;
+          else if (last.rpe <= 4 && last.duration >= 20) hint = `Last session felt easy (RPE ${last.rpe}). Coach has nudged today's target up ~5%.`;
+          if (hint) {
+            html += `<div style="margin-bottom:10px;padding:10px 12px;background:linear-gradient(135deg, rgba(var(--primary-rgb),.10), rgba(var(--primary-rgb),.02));border:1px solid rgba(var(--primary-rgb),.25);border-radius:10px;font-size:12.5px;color:var(--fg);display:flex;align-items:flex-start;gap:8px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--primary);flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <div><strong style="color:var(--primary);letter-spacing:.04em">COACH ADJUSTED</strong><div style="margin-top:2px;line-height:1.4;color:var(--muted-fg)">${escHtml(hint)}</div></div>
+            </div>`;
+          }
+        }
+      } catch (e) {}
       html += '<div class="space-y">';
       todayWorkouts.forEach((origW) => {
         const globalIdx = activePlan.workouts.indexOf(origW);
@@ -6469,6 +6487,51 @@ async function saveWorkout(rpe, photoData, workoutType) {
     hideLoading();
     const oldXp = calcXp();
     showToast('Workout logged!', 'success');
+    // PR auto-detection (#8) — scan the user's history for this
+    // workout type and check whether this session set any of: longest
+    // duration, longest distance, or fastest avg pace (distance/min).
+    // Surfaces a celebratory toast + posts a kind:'pr' chat event so
+    // teammates see it. Pure derived data, no manual logging.
+    try {
+      const history = (userWorkouts || []).filter(w =>
+        (w.type || '').toLowerCase() === (type || '').toLowerCase()
+      );
+      const prs = [];
+      const prevMaxDur = history.reduce((m, w) => Math.max(m, w.duration || 0), 0);
+      const prevMaxDist = history.reduce((m, w) => Math.max(m, w.distance || 0), 0);
+      const prevBestPace = history.reduce((b, w) => {
+        if (!w.distance || !w.duration) return b;
+        const p = w.distance / w.duration; // km/min
+        return (b == null || p > b) ? p : b;
+      }, null);
+      if (duration > prevMaxDur && prevMaxDur > 0) {
+        prs.push({ kind: 'longest', label: `${duration} min ${type.toLowerCase()}` });
+      }
+      if (distance && distance > prevMaxDist && prevMaxDist > 0) {
+        prs.push({ kind: 'distance', label: `${distance.toFixed(1)} km ${type.toLowerCase()}` });
+      }
+      if (distance && duration) {
+        const newPace = distance / duration;
+        if (prevBestPace && newPace > prevBestPace * 1.02) {
+          const minPerKm = duration / distance;
+          prs.push({ kind: 'pace', label: `fastest ${type.toLowerCase()} pace · ${minPerKm.toFixed(2)} min/km` });
+        }
+      }
+      if (prs.length > 0) {
+        showToast(`🏆 New ${prs[0].kind === 'longest' ? 'longest session' : prs[0].kind === 'distance' ? 'distance' : 'pace'} PR — ${prs[0].label}`, 'success');
+        if (userProfile?.teamId) {
+          const safeName = ((userProfile?.displayName || currentUser.displayName || currentUser.email || 'Member').toString().trim()) || 'Member';
+          addDoc(collection(db, 'teams', userProfile.teamId, 'chat'), {
+            uid: currentUser.uid,
+            displayName: safeName,
+            text: `set a new PR — ${prs.map(p => p.label).join(', ')}`,
+            kind: 'pr',
+            subteamId: '',
+            createdAt: serverTimestamp(),
+          }).catch(() => {});
+        }
+      }
+    } catch (e) { console.warn('[pr-detect] failed:', e); }
     // Auto-post into team chat (silent — no push). Best-effort; never
     // blocks the workout save. Workouts post to the whole-team channel
     // (subteamId: '') so the activity feed is visible to every teammate
