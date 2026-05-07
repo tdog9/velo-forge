@@ -1672,8 +1672,15 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
 
 /* ── Workout Library — expanded layout ── */
 
+/* Make sure the Library content area scrolls all the way down, like
+   the Team page does. Without this, the bottom cards sit under the
+   tab bar — looks like an "invisible barrier" cutting them off. */
+#workouts-content{
+  padding-bottom:calc(var(--tab-h, 80px) + env(safe-area-inset-bottom, 0px) + 24px);
+}
+
 .lib-hero{
-  margin:-4px -4px 16px;
+  margin:0 0 16px;
   padding:22px 18px;
   border-radius:18px;
   background:linear-gradient(135deg, rgba(var(--primary-rgb),.16), rgba(var(--primary-rgb),.02));
@@ -1849,29 +1856,46 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   line-height:1.45;
 }
 
-/* Body diagram — silhouette + muscle highlights. */
-.body-diagram{display:block;margin:0 auto}
-.body-diagram .body-base{
-  fill:rgba(255,255,255,.06);
-  stroke:var(--border);
-  stroke-width:0.8;
+/* Muscle pill display — replacement for the SVG silhouette. Reads
+   cleaner at small sizes; active muscles glow in primary colour. */
+.muscle-display{display:flex;flex-direction:column;gap:10px;width:100%}
+.muscle-group{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px 12px;
+  transition:border-color .25s, background .25s;
 }
-.body-diagram .muscle{
-  fill:rgba(255,255,255,.04);
-  stroke:rgba(var(--border-rgb,100,100,100),.4);
-  stroke-width:0.5;
-  transition:fill .25s ease;
+.muscle-group.has-active{
+  border-color:rgba(var(--primary-rgb),.4);
+  background:rgba(var(--primary-rgb),.04);
 }
-.body-diagram .muscle-active{
-  fill:rgba(var(--primary-rgb),.85);
-  stroke:var(--primary);
-  stroke-width:1;
-  filter:drop-shadow(0 0 8px rgba(var(--primary-rgb),.5));
-  animation:musclePulse 2s ease-in-out infinite;
+.muscle-group-label{
+  font-size:10px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted-fg);
+  margin-bottom:6px;
+}
+.muscle-pills{display:flex;flex-wrap:wrap;gap:5px}
+.muscle-pill{
+  font-size:11px;font-weight:700;
+  padding:5px 10px;
+  border-radius:99px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+  color:var(--muted-fg);
+  transition:background .25s, color .25s, border-color .25s, transform .15s;
+}
+.muscle-pill-active{
+  background:var(--primary);
+  border-color:var(--primary);
+  color:var(--primary-fg);
+  font-weight:800;
+  animation:musclePulse 1.6s ease-in-out infinite;
 }
 @keyframes musclePulse{
-  0%,100%{filter:drop-shadow(0 0 6px rgba(var(--primary-rgb),.4))}
-  50%{filter:drop-shadow(0 0 14px rgba(var(--primary-rgb),.7))}
+  0%,100%{box-shadow:0 0 0 0 rgba(var(--primary-rgb),.4)}
+  50%{box-shadow:0 0 0 6px rgba(var(--primary-rgb),0)}
 }
 
 /* Plan hero — the named-asset card at the top of the Plans page. */

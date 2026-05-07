@@ -3381,109 +3381,37 @@ const WORKOUT_LIBRARY = [
   { id:'quick-deskbreak-1', name:'Desk Break 5', intensity:'easy', duration:5, muscles:['back','shoulders','glutes','quads'], description:'5 minutes between zoom calls or homework sessions. Keeps the body honest.', exercises:['30s neck rolls','30s shoulder rolls','60s standing forward fold','60s couch stretch','60s squats','30s plank'] },
 ];
 
-/// Stylized front-view body silhouette as inline SVG. Cleaner anatomical
-/// figure: smooth bezier silhouette + clearly delineated muscle regions
-/// that read well at small sizes. Each muscle group is a single path
-/// with class .muscle .muscle-active when highlighted.
+/// Muscle-group display — replaced the SVG body silhouette (looked
+/// off at small sizes; clean anatomy is hard to do in pure SVG without
+/// a real illustration asset). This pattern shows targeted muscles as
+/// large coloured pills arranged in a 2-column grid keyed roughly to
+/// upper / lower body. Same active-muscle highlight model — works
+/// identically with the existing `activeMuscles` arg.
 function renderBodyDiagram(activeMuscles = [], opts = {}) {
   const active = new Set(activeMuscles);
-  const cls = (m) => `muscle ${active.has(m) ? 'muscle-active' : ''}`;
-  const size = opts.size || 220;
-  return `
-    <svg class="body-diagram" viewBox="0 0 240 360" width="${size}" height="${Math.round(size * 1.5)}" xmlns="http://www.w3.org/2000/svg" aria-label="Body diagram">
-      <!-- silhouette outline (under everything) -->
-      <path class="body-base" d="
-        M 120 18
-        c -14 0 -22 11 -22 24 c 0 9 4 16 8 20
-        c -2 4 -3 8 -8 10
-        c -10 4 -22 8 -28 16
-        c -4 6 -6 14 -8 22
-        l -4 28
-        c -1 8 1 16 4 22
-        c 3 6 7 10 9 12
-        c -1 8 -2 16 -1 22
-        c 1 7 4 12 6 18
-        l 6 26
-        c 1 6 0 14 -2 22
-        l -6 36
-        c -2 12 -2 22 0 32
-        l 4 40
-        c 1 6 5 10 10 10
-        c 5 0 8 -4 9 -10
-        l 2 -42
-        l 4 -40
-        c 1 -6 4 -10 7 -10
-        h 6
-        c 3 0 6 4 7 10
-        l 4 40
-        l 2 42
-        c 1 6 4 10 9 10
-        c 5 0 9 -4 10 -10
-        l 4 -40
-        c 2 -10 2 -20 0 -32
-        l -6 -36
-        c -2 -8 -3 -16 -2 -22
-        l 6 -26
-        c 2 -6 5 -11 6 -18
-        c 1 -6 0 -14 -1 -22
-        c 2 -2 6 -6 9 -12
-        c 3 -6 5 -14 4 -22
-        l -4 -28
-        c -2 -8 -4 -16 -8 -22
-        c -6 -8 -18 -12 -28 -16
-        c -5 -2 -6 -6 -8 -10
-        c 4 -4 8 -11 8 -20
-        c 0 -13 -8 -24 -22 -24 z" />
-
-      <!-- shoulders (deltoid caps) -->
-      <path class="${cls('shoulders')}" d="M 76 70 c -10 2 -18 8 -22 18 c 8 4 18 4 26 0 c 2 -6 0 -14 -4 -18 z" />
-      <path class="${cls('shoulders')}" d="M 164 70 c 10 2 18 8 22 18 c -8 4 -18 4 -26 0 c -2 -6 0 -14 4 -18 z" />
-
-      <!-- chest (pectorals — two halves) -->
-      <path class="${cls('chest')}" d="M 80 78 c 12 -4 28 -4 38 0 c 0 12 -2 22 -8 28 c -10 2 -22 0 -28 -4 c -4 -8 -4 -16 -2 -24 z" />
-      <path class="${cls('chest')}" d="M 160 78 c -12 -4 -28 -4 -38 0 c 0 12 2 22 8 28 c 10 2 22 0 28 -4 c 4 -8 4 -16 2 -24 z" />
-
-      <!-- biceps (front of upper arm) -->
-      <path class="${cls('biceps')}" d="M 56 92 c -6 4 -10 12 -12 22 c 4 8 12 12 18 10 c 2 -10 0 -22 -6 -32 z" />
-      <path class="${cls('biceps')}" d="M 184 92 c 6 4 10 12 12 22 c -4 8 -12 12 -18 10 c -2 -10 0 -22 6 -32 z" />
-
-      <!-- triceps (subtle outer-arm region) -->
-      <path class="${cls('triceps')}" d="M 50 96 c -4 6 -6 14 -8 24 c 2 6 6 8 10 8 c 0 -12 0 -22 -2 -32 z" />
-      <path class="${cls('triceps')}" d="M 190 96 c 4 6 6 14 8 24 c -2 6 -6 8 -10 8 c 0 -12 0 -22 2 -32 z" />
-
-      <!-- forearms -->
-      <path class="${cls('forearms')}" d="M 46 130 c -4 10 -6 22 -6 32 c 2 4 6 6 10 6 c 0 -12 0 -26 -4 -38 z" />
-      <path class="${cls('forearms')}" d="M 194 130 c 4 10 6 22 6 32 c -2 4 -6 6 -10 6 c 0 -12 0 -26 4 -38 z" />
-
-      <!-- abs (rectus abdominis — visible 6-pack pattern) -->
-      <path class="${cls('abs')}" d="M 102 110 c 12 -2 24 -2 36 0 v 56 c -10 2 -26 2 -36 0 z M 110 116 h 20 v 8 h -20 z M 110 128 h 20 v 8 h -20 z M 110 140 h 20 v 8 h -20 z M 110 152 h 20 v 8 h -20 z" />
-
-      <!-- obliques (side abs) -->
-      <path class="${cls('obliques')}" d="M 86 116 c -4 8 -6 20 -6 32 c 0 8 2 16 6 20 l 14 0 v -52 c -4 -2 -10 -2 -14 0 z" />
-      <path class="${cls('obliques')}" d="M 154 116 c 4 8 6 20 6 32 c 0 8 -2 16 -6 20 l -14 0 v -52 c 4 -2 10 -2 14 0 z" />
-
-      <!-- glutes -->
-      <path class="${cls('glutes')}" d="M 88 178 c 0 6 4 10 12 10 l 0 -12 c -4 -2 -10 -2 -12 2 z" />
-      <path class="${cls('glutes')}" d="M 152 178 c 0 6 -4 10 -12 10 l 0 -12 c 4 -2 10 -2 12 2 z" />
-
-      <!-- quads (front of thigh) -->
-      <path class="${cls('quads')}" d="M 96 188 c -2 18 -4 38 -4 60 c 0 6 4 10 8 10 c 2 -22 4 -46 4 -68 c -2 -2 -6 -4 -8 -2 z" />
-      <path class="${cls('quads')}" d="M 144 188 c 2 18 4 38 4 60 c 0 6 -4 10 -8 10 c -2 -22 -4 -46 -4 -68 c 2 -2 6 -4 8 -2 z" />
-
-      <!-- hamstrings (back of thigh hint) -->
-      <path class="${cls('hamstrings')}" d="M 106 200 v 50 c 0 4 2 6 4 6 c 0 -16 0 -38 -4 -56 z" />
-      <path class="${cls('hamstrings')}" d="M 134 200 v 50 c 0 4 -2 6 -4 6 c 0 -16 0 -38 4 -56 z" />
-
-      <!-- calves -->
-      <path class="${cls('calves')}" d="M 92 270 c -2 14 -2 28 0 38 c 4 4 10 4 12 0 c 0 -12 0 -26 -2 -40 c -4 -2 -8 -2 -10 2 z" />
-      <path class="${cls('calves')}" d="M 148 270 c 2 14 2 28 0 38 c -4 4 -10 4 -12 0 c 0 -12 0 -26 2 -40 c 4 -2 8 -2 10 2 z" />
-
-      <!-- back hint (centred — only highlights when 'back' is targeted) -->
-      <path class="${cls('back')}" d="M 110 78 c 8 -2 16 -2 24 0 v 4 c -8 1 -16 1 -24 0 z" opacity="0" />
-      <path class="${cls('lats')}" d="M 86 86 c -2 8 -2 16 0 22 v -22 z M 156 86 c 2 8 2 16 0 22 v -22 z" opacity="0" />
-      <path class="${cls('traps')}" d="M 102 56 c 8 -2 16 -2 24 0 c 0 4 -2 8 -4 8 c -6 -2 -12 -2 -16 0 c -2 0 -4 -4 -4 -8 z" opacity="0" />
-    </svg>
-  `;
+  // Group order roughly mirrors body anatomy top-to-bottom so the
+  // pill grid reads like a body chart.
+  const groups = [
+    ['Upper Body', ['shoulders', 'chest', 'back', 'biceps', 'triceps', 'forearms', 'lats', 'traps']],
+    ['Core',       ['abs', 'obliques']],
+    ['Lower Body', ['glutes', 'quads', 'hamstrings', 'calves']],
+  ];
+  let html = '<div class="muscle-display">';
+  groups.forEach(([groupLabel, list]) => {
+    const visible = list.filter(m => MUSCLE_LABELS[m]);
+    if (visible.length === 0) return;
+    const anyActive = visible.some(m => active.has(m));
+    html += `<div class="muscle-group ${anyActive ? 'has-active' : ''}">
+      <div class="muscle-group-label">${escHtml(groupLabel)}</div>
+      <div class="muscle-pills">`;
+    visible.forEach(m => {
+      const isActive = active.has(m);
+      html += `<span class="muscle-pill ${isActive ? 'muscle-pill-active' : ''}">${escHtml(MUSCLE_LABELS[m] || m)}</span>`;
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+  return html;
 }
 
 function renderWorkoutLibrary(el) {
@@ -3644,14 +3572,9 @@ function openWorkoutLibraryDetail(id) {
       <div style="text-align:center;font-size:24px;font-weight:800;color:var(--fg);letter-spacing:-.01em;margin-bottom:8px">${escHtml(w.name)}</div>
       <div style="text-align:center;font-size:13px;color:var(--muted-fg);line-height:1.5;margin:0 auto 16px;max-width:320px">${escHtml(w.description)}</div>
 
-      <div style="display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px">
-        <div style="flex-shrink:0">${renderBodyDiagram(w.muscles, { size: 110 })}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:6px">Targets</div>
-          <div style="display:flex;flex-wrap:wrap;gap:5px">
-            ${(w.muscles || []).map(m => `<span style="font-size:10.5px;font-weight:700;padding:4px 9px;border-radius:99px;background:rgba(var(--primary-rgb),.12);color:var(--primary);border:1px solid rgba(var(--primary-rgb),.3)">${escHtml(MUSCLE_LABELS[m] || m)}</span>`).join('')}
-          </div>
-        </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:10px">Targets</div>
+        ${renderBodyDiagram(w.muscles)}
       </div>
 
       <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:6px 2px 8px">Exercises</div>
