@@ -12923,12 +12923,8 @@ function renderCoachRaceDay(el) {
     </div>
 
     <div style="margin-top:8px;padding:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:2px">Spectator demo</div>
-      <div style="font-size:12.5px;color:var(--muted-fg);line-height:1.45">Spin up a fake driver lapping Albert Park with random lap times — for testing the spectator view without anyone actually riding.</div>
-      ${demoOn
-        ? `<button id="coach-demo-stop" style="padding:11px;border-radius:10px;background:rgba(var(--destructive-rgb),.12);border:1px solid rgba(var(--destructive-rgb),.35);color:var(--destructive);font-weight:700;font-size:13px;cursor:pointer">Stop demo race</button>`
-        : `<button id="coach-demo-start" style="padding:11px;border-radius:10px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Start demo race · Albert Park</button>`
-      }
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:2px">Spectator link</div>
+      <div style="font-size:12.5px;color:var(--muted-fg);line-height:1.45">Share the live race-day spectator view with parents and supporters.</div>
       <button id="coach-demo-link" style="padding:9px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--fg);font-weight:600;font-size:12px;cursor:pointer">Copy spectator link</button>
     </div>
 
