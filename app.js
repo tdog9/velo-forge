@@ -3040,41 +3040,9 @@ document.querySelectorAll('.fitness-sub-tab').forEach(btn => {
     $('content').scrollTop = 0;
   });
 });
-// --- Feature 5: Swipe between fitness sub-tabs ---
-const fitnessPage = $('page-fitness');
-const fitSubOrder = ['workouts', 'library', 'plans', 'health', 'demos'];
-let swipeStartX = 0, swipeStartY = 0, swipeDeltaX = 0, swiping = false;
-if (fitnessPage) fitnessPage.addEventListener('touchstart', (e) => {
-  swipeStartX = e.touches[0].clientX;
-  swipeStartY = e.touches[0].clientY;
-  swiping = true;
-  swipeDeltaX = 0;
-}, { passive: true });
-fitnessPage?.addEventListener('touchmove', (e) => {
-  if (!swiping) return;
-  swipeDeltaX = e.touches[0].clientX - swipeStartX;
-  const deltaY = Math.abs(e.touches[0].clientY - swipeStartY);
-  if (deltaY > Math.abs(swipeDeltaX)) { swiping = false; }
-}, { passive: true });
-fitnessPage?.addEventListener('touchend', () => {
-  if (!swiping) return;
-  swiping = false;
-  if (Math.abs(swipeDeltaX) < 60) return;
-  const curIdx = fitSubOrder.indexOf(fitnessSubTab);
-  if (swipeDeltaX < -60 && curIdx < fitSubOrder.length - 1) {
-    haptic('light');
-    fitnessSubTab = fitSubOrder[curIdx + 1];
-    try { localStorage.setItem('tp_fitnessSub', fitnessSubTab); } catch(e) {}
-    renderFitness();
-    $('content').scrollTop = 0;
-  } else if (swipeDeltaX > 60 && curIdx > 0) {
-    haptic('light');
-    fitnessSubTab = fitSubOrder[curIdx - 1];
-    try { localStorage.setItem('tp_fitnessSub', fitnessSubTab); } catch(e) {}
-    renderFitness();
-    $('content').scrollTop = 0;
-  }
-}, { passive: true });
+// Swipe-to-switch fitness tabs was removed — it was flicking to
+// retired sub-tabs (demos) and confusing users. Tap-the-tab is the
+// only way to switch now.
 const contentEl = $('content');
 // --- Keyboard dismiss on scroll ---
 if (contentEl) {
@@ -3376,6 +3344,41 @@ const WORKOUT_LIBRARY = [
   // Strength accessory
   { id:'access-arm-1', name:'Arms Finisher', intensity:'moderate', duration:12, muscles:['biceps','triceps','forearms'], description:'12-min arms session — quick add-on after a leg day.', exercises:['Curls 3x12','Tricep extensions 3x12','Hammer curls 3x10','Diamond pushups 3x8'] },
   { id:'access-shoulder-1', name:'Shoulder Stability', intensity:'easy', duration:15, muscles:['shoulders','traps','back'], description:'Pre-hab shoulder work. Cyclists slouch — this fixes it.', exercises:['Wall slides 3x10','Y-T-W raises 3x8','Band pull-aparts 3x15','Plank shoulder taps 3x16'] },
+  // Push extension
+  { id:'push-strength-1', name:'Push Strength Block', intensity:'hard', duration:32, muscles:['chest','shoulders','triceps'], description:'Heavier compound lifts when you have access to barbell + bench.', exercises:['Bench press 5x5','Overhead press 4x6','Dips 3x8','Skull crushers 3x10'] },
+  { id:'push-explosive-1', name:'Explosive Push', intensity:'hard', duration:18, muscles:['chest','shoulders','triceps'], description:'Plyo pushup variations for upper-body power.', exercises:['Clap pushups 4x6','Plyo pushups 3x8','Med-ball chest pass 3x10','Hand-release pushups 3x12'] },
+  // Pull extension
+  { id:'pull-strength-1', name:'Pull Strength', intensity:'hard', duration:30, muscles:['back','lats','biceps','forearms'], description:'Pull-up + row block. Best with a chin-up bar.', exercises:['Pullups 5x AMRAP','Bent-over rows 4x8','Lat pulldowns 3x10','Bicep curls 3x10'] },
+  { id:'pull-grip-1', name:'Grip + Forearm', intensity:'moderate', duration:14, muscles:['forearms','biceps'], description:'Bar grip endurance. Helps with HPR steering fatigue on long stints.', exercises:['Dead hangs 4x30s','Farmer carries 3x40m','Wrist curls 3x15','Towel pullups 3x AMRAP'] },
+  // Core extension
+  { id:'core-anti-1', name:'Anti-Extension', intensity:'moderate', duration:18, muscles:['abs','obliques'], description:'Stops your low back arching during long efforts. Core stability that transfers to the saddle.', exercises:['Dead bug 3x10','Hollow rocks 3x12','Bird-dog 3x10 each','Plank 3x60s'] },
+  { id:'core-power-1', name:'Core Power', intensity:'hard', duration:22, muscles:['abs','obliques','glutes'], description:'Explosive trunk training — dynamic stability for race-pace surges.', exercises:['Med-ball slams 4x8','Russian twist throws 3x12 each','V-ups 3x12','Toes-to-bar 3x6'] },
+  { id:'core-back-1', name:'Lower Back Care', intensity:'easy', duration:12, muscles:['back','glutes','hamstrings'], description:'Antidote to a stiff lower back after long rides. Gentle but strict form.', exercises:['Bird-dog 3x10','Glute bridge 3x12','Cobra hold 3x30s','Cat-cow 2x60s'] },
+  // Legs extension
+  { id:'leg-singleleg-1', name:'Single-Leg Day', intensity:'hard', duration:30, muscles:['quads','glutes','hamstrings','calves'], description:'Unilateral leg work — fixes left/right strength imbalances that limit pedalling efficiency.', exercises:['Bulgarian split squats 4x8 each','Single-leg RDLs 3x8 each','Pistol-squat progression 3x5 each','Single-leg calf raise 3x12'] },
+  { id:'leg-quad-1', name:'Quad Crusher', intensity:'hard', duration:25, muscles:['quads','glutes'], description:'Quad-dominant block. The muscle that drives the pedal down.', exercises:['Front squats 5x5','Step-ups 4x8 each','Leg extensions 3x12','Wall sit 3x90s'] },
+  { id:'leg-ham-1', name:'Hamstring Build', intensity:'moderate', duration:22, muscles:['hamstrings','glutes','calves'], description:'Strong hamstrings = balanced pedalling + injury-proofing.', exercises:['RDLs 4x8','Hamstring curls 4x10','Nordic curls 3x6','Single-leg deadlifts 3x8 each'] },
+  // HIIT / metcon
+  { id:'hiit-1', name:'HIIT 12', intensity:'hard', duration:12, muscles:['chest','quads','glutes','abs','calves'], description:'12 minutes of all-out work. Brutal but the endorphin payoff is huge.', exercises:['30s on / 30s off x 12','Round 1: burpees','Round 2: jumping squats','Round 3: pushups','Round 4: mountain climbers'] },
+  { id:'hiit-2', name:'Sprint & Squat', intensity:'hard', duration:18, muscles:['quads','glutes','calves','abs'], description:'Alternates max-effort sprints with bodyweight squats. Cyclist-relevant power + endurance.', exercises:['10x (30s sprint / 60s air squat steady)'] },
+  // Functional / mobility extension
+  { id:'func-balance-1', name:'Balance & Stabilise', intensity:'easy', duration:15, muscles:['quads','glutes','abs'], description:'Single-leg balance + slow tempo. Wakes up stabiliser muscles before a hard ride.', exercises:['Single-leg stand 3x60s each','Tempo squats 3x8 (3s down)','Heel-to-toe walks 3x20 steps','Wall sits 3x45s'] },
+  { id:'func-mobility-1', name:'Hip Opener', intensity:'easy', duration:18, muscles:['glutes','hamstrings','quads','back'], description:'Mobility flow targeting hip flexors + glutes — the muscles that lock up in cockpit position.', exercises:['90/90 stretch 2x90s each','Couch stretch 2x60s each','Pigeon pose 2x60s each','Hip CARs 2x10 each'] },
+  // Pure cardio extension
+  { id:'card-fartlek-1', name:'Fartlek 40', intensity:'moderate', duration:40, muscles:['quads','hamstrings','calves'], description:'Random-pace ride. Builds adaptability and dose of intensity without rigid intervals.', exercises:['10min easy','20min mixed: surge 30s every 2-3min','10min cool down'] },
+  { id:'card-tempo-1', name:'Tempo Ride', intensity:'moderate', duration:50, muscles:['quads','hamstrings','calves'], description:'Sustained Z3 effort. The bread-and-butter of HPR fitness — comfortable but committed.', exercises:['10min Z2 warmup','30min steady Z3 (just below conversational)','10min Z2 cool down'] },
+  { id:'card-recovery-1', name:'Recovery Spin', intensity:'easy', duration:30, muscles:['quads','hamstrings','calves'], description:'Day-after-hard easy spin. Spins out the legs without adding fatigue.', exercises:['30min Z1-low Z2 — should feel almost too easy'] },
+  // Race-specific extension
+  { id:'race-double-1', name:'Double Stint', intensity:'hard', duration:65, muscles:['quads','hamstrings','calves','abs'], description:'Two race-pace stints back-to-back with a 5min pit. Trains the second-stint fatigue you hit at hour 3 of an enduro.', exercises:['10min warmup','25min @ stint pace','5min easy (pit sim)','25min @ stint pace'] },
+  { id:'race-start-1', name:'Race Start Drills', intensity:'hard', duration:20, muscles:['quads','glutes','calves'], description:'Standing-start sprints. Replicates the energy-system demand of a Le Mans-style race start.', exercises:['Warmup 5min','10x (15s standing sprint / 105s easy)','Cooldown 5min'] },
+  { id:'race-recovery-1', name:'Post-Race Recovery', intensity:'easy', duration:25, muscles:['hamstrings','glutes','calves','quads','back'], description:'The Sunday-after-race-day flow. Easy spin + thorough stretch.', exercises:['10min easy spin','5min foam roll','10min full-body static stretch (60s holds)'] },
+  // Beginner ladder extension
+  { id:'starter-y9-1', name:'Y9 Foundation', intensity:'moderate', duration:30, muscles:['chest','quads','glutes','abs','shoulders'], description:'Year 9 foundation session. Three rounds, builds work capacity progressively.', exercises:['12 pushups','20 squats','40s plank','12 lunges each leg','30s mountain climbers','3 rounds, 60s rest'] },
+  { id:'starter-y10-1', name:'Y10 Work Capacity', intensity:'hard', duration:35, muscles:['chest','quads','glutes','abs','shoulders'], description:'Year 10 build. The session that turns a season-starter into a competitor.', exercises:['15 pushups','25 squats','45s plank','15 lunges each leg','30s burpees','4 rounds, 45s rest'] },
+  { id:'starter-y11-1', name:'Y11 Race Ready', intensity:'hard', duration:45, muscles:['chest','quads','glutes','abs','shoulders','calves'], description:'Year 11 training-load session. Higher density, longer block.', exercises:['20 pushups','30 squats','60s plank','20 lunges each leg','30s burpees','30s box jumps','4 rounds, 30s rest'] },
+  // Quick / on-the-go
+  { id:'quick-7min-1', name:'7-Min Lunch', intensity:'moderate', duration:7, muscles:['chest','quads','glutes','abs'], description:'When you have 7 minutes between classes. Stays in the streak.', exercises:['30s squats','30s pushups','30s plank','30s mountain climbers','30s lunges','30s burpees','30s rest','Repeat'] },
+  { id:'quick-deskbreak-1', name:'Desk Break 5', intensity:'easy', duration:5, muscles:['back','shoulders','glutes','quads'], description:'5 minutes between zoom calls or homework sessions. Keeps the body honest.', exercises:['30s neck rolls','30s shoulder rolls','60s standing forward fold','60s couch stretch','60s squats','30s plank'] },
 ];
 
 /// Stylized front-view body silhouette as inline SVG. Each muscle group
@@ -3438,55 +3441,125 @@ function renderBodyDiagram(activeMuscles = [], opts = {}) {
 
 function renderWorkoutLibrary(el) {
   if (!el) return;
-  // Filter chips for muscle groups + intensity.
+  // Categorise by id-prefix → human-readable section.
+  const CATEGORIES = [
+    { key:'race', label:'Race-specific', desc:'HPR-tuned sessions for race-day prep.', match:(id)=>id.startsWith('race-') },
+    { key:'leg',  label:'Lower body',    desc:'Quads, glutes, hamstrings — the engine.', match:(id)=>id.startsWith('leg-') },
+    { key:'core', label:'Core',          desc:'Trunk stability + power.', match:(id)=>id.startsWith('core-') },
+    { key:'push', label:'Push',          desc:'Chest, shoulders, triceps.', match:(id)=>id.startsWith('push-') },
+    { key:'pull', label:'Pull',          desc:'Back, lats, biceps — counterbalances cockpit position.', match:(id)=>id.startsWith('pull-') },
+    { key:'card', label:'Cardio',        desc:'Steady, tempo, intervals.', match:(id)=>id.startsWith('card-') },
+    { key:'sprint', label:'Sprint & power', desc:'Max-effort, race-start drills.', match:(id)=>id.startsWith('sprint-') || id.startsWith('plyo-') },
+    { key:'full', label:'Full body / metcon', desc:'AMRAPs, Tabatas, EMOMs.', match:(id)=>id.startsWith('full-') || id.startsWith('hiit-') },
+    { key:'mob',  label:'Mobility & recovery', desc:'Antidote to long rides.', match:(id)=>id.startsWith('mob-') || id.startsWith('func-') },
+    { key:'starter', label:'By year level', desc:'Y7 → Y12 progression.', match:(id)=>id.startsWith('starter-') },
+    { key:'access', label:'Accessory',   desc:'Arms + shoulder pre-hab.', match:(id)=>id.startsWith('access-') },
+    { key:'quick', label:'Quick (≤10 min)', desc:'When you have a few minutes.', match:(id)=>id.startsWith('quick-') || w => w.duration <= 10 },
+    { key:'end',  label:'Endurance',     desc:'Long aerobic blocks.', match:(id)=>id.startsWith('end-') },
+  ];
   const activeMuscle = window._tpLibMuscle || 'all';
   const activeIntensity = window._tpLibIntensity || 'all';
   const muscles = ['all', 'chest', 'shoulders', 'biceps', 'triceps', 'abs', 'quads', 'glutes', 'hamstrings', 'calves', 'back'];
   const intensities = ['all', 'easy', 'moderate', 'hard'];
-  let filtered = WORKOUT_LIBRARY;
+  let filtered = WORKOUT_LIBRARY.slice();
   if (activeMuscle !== 'all') filtered = filtered.filter(w => (w.muscles || []).includes(activeMuscle));
   if (activeIntensity !== 'all') filtered = filtered.filter(w => w.intensity === activeIntensity);
+  const filteredById = new Map(filtered.map(w => [w.id, w]));
+  // Hero stats.
+  const totalCount = WORKOUT_LIBRARY.length;
+  const filteredCount = filtered.length;
+  const totalMins = WORKOUT_LIBRARY.reduce((s, w) => s + (w.duration || 0), 0);
 
-  let html = '<div class="page-title">Workout Library</div>';
-  html += `<div style="font-size:12.5px;color:var(--muted-fg);margin-bottom:12px">${WORKOUT_LIBRARY.length} workouts · tap any for details + targeted muscles</div>`;
-  // Muscle chips.
-  html += '<div style="display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch;margin:0 -2px">';
+  let html = '';
+  // ── Hero ──
+  html += `<div class="lib-hero">
+    <div class="lib-hero-eyebrow">WORKOUT LIBRARY</div>
+    <div class="lib-hero-title">Pick a session.<br>Match it to a muscle group.</div>
+    <div class="lib-hero-stats">
+      <div class="lib-hero-stat"><div class="lib-hero-stat-val">${totalCount}</div><div class="lib-hero-stat-lbl">workouts</div></div>
+      <div class="lib-hero-stat"><div class="lib-hero-stat-val">${Math.round(totalMins / 60)}<span class="lib-hero-stat-unit">h</span></div><div class="lib-hero-stat-lbl">total time</div></div>
+      <div class="lib-hero-stat"><div class="lib-hero-stat-val">11</div><div class="lib-hero-stat-lbl">muscle groups</div></div>
+    </div>
+  </div>`;
+  // ── Filters ──
+  html += '<div class="lib-filters">';
+  html += '<div class="lib-filter-label">Filter by muscle</div>';
+  html += '<div class="lib-chip-row">';
   muscles.forEach(m => {
     const isActive = activeMuscle === m;
-    html += `<button class="lib-chip${isActive ? ' active' : ''}" data-lib-muscle="${escHtml(m)}">${escHtml(m === 'all' ? 'All muscles' : (MUSCLE_LABELS[m] || m))}</button>`;
+    html += `<button class="lib-chip${isActive ? ' active' : ''}" data-lib-muscle="${escHtml(m)}">${escHtml(m === 'all' ? 'All' : (MUSCLE_LABELS[m] || m))}</button>`;
   });
   html += '</div>';
-  // Intensity chips.
-  html += '<div style="display:flex;gap:6px;margin-bottom:12px">';
+  html += '<div class="lib-filter-label" style="margin-top:10px">Intensity</div>';
+  html += '<div class="lib-chip-row">';
   intensities.forEach(i => {
     const isActive = activeIntensity === i;
-    html += `<button class="lib-chip${isActive ? ' active' : ''}" data-lib-intensity="${escHtml(i)}">${escHtml(i === 'all' ? 'Any intensity' : i.charAt(0).toUpperCase() + i.slice(1))}</button>`;
+    html += `<button class="lib-chip${isActive ? ' active' : ''}" data-lib-intensity="${escHtml(i)}">${escHtml(i === 'all' ? 'Any' : i.charAt(0).toUpperCase() + i.slice(1))}</button>`;
   });
   html += '</div>';
-  // Workouts grid.
-  html += '<div style="display:flex;flex-direction:column;gap:8px">';
-  if (filtered.length === 0) {
-    html += '<div class="empty-state"><div class="empty-state-title">No matches</div><div class="empty-state-desc">Try a different muscle group or intensity.</div></div>';
-  } else {
-    filtered.forEach(w => {
-      const intensityColor = w.intensity === 'hard' ? '#ef4444' : w.intensity === 'moderate' ? '#f97316' : '#22c55e';
-      const muscleList = (w.muscles || []).slice(0, 3).map(m => MUSCLE_LABELS[m] || m).join(' · ');
-      html += `<div class="lib-card" data-lib-workout="${escHtml(w.id)}" tabindex="0" role="button">
-        <div class="lib-card-row">
-          <div class="lib-card-text">
-            <div class="lib-card-name">${escHtml(w.name)}</div>
-            <div class="lib-card-meta">
-              <span style="color:${intensityColor};font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:10px">${escHtml(w.intensity)}</span>
-              <span style="color:var(--muted-fg)"> · ${w.duration}m · ${escHtml(muscleList)}</span>
-            </div>
-            <div class="lib-card-desc">${escHtml((w.description || '').slice(0, 110))}${(w.description || '').length > 110 ? '…' : ''}</div>
-          </div>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg);flex-shrink:0;align-self:center"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-      </div>`;
-    });
-  }
+  html += `<div class="lib-result-count">${filteredCount} of ${totalCount} match</div>`;
   html += '</div>';
+  // ── Grouped results ──
+  if (filtered.length === 0) {
+    html += '<div class="empty-state" style="margin-top:24px"><div class="empty-state-title">No matches</div><div class="empty-state-desc">Try a different muscle or intensity.</div></div>';
+  } else {
+    const seen = new Set();
+    CATEGORIES.forEach(cat => {
+      const matches = filtered.filter(w => {
+        if (seen.has(w.id)) return false;
+        return typeof cat.match === 'function' ? cat.match(w.id) : false;
+      });
+      if (matches.length === 0) return;
+      matches.forEach(m => seen.add(m.id));
+      html += `<div class="lib-section">
+        <div class="lib-section-header">
+          <div class="lib-section-title">${escHtml(cat.label)}</div>
+          <div class="lib-section-count">${matches.length}</div>
+        </div>
+        <div class="lib-section-desc">${escHtml(cat.desc)}</div>
+        <div class="lib-section-cards">`;
+      matches.forEach(w => {
+        const intensityColor = w.intensity === 'hard' ? '#ef4444' : w.intensity === 'moderate' ? '#f97316' : '#22c55e';
+        const muscleChips = (w.muscles || []).slice(0, 3).map(m => `<span class="lib-mini-chip">${escHtml(MUSCLE_LABELS[m] || m)}</span>`).join('');
+        html += `<div class="lib-card" data-lib-workout="${escHtml(w.id)}" tabindex="0" role="button">
+          <div class="lib-card-head">
+            <div class="lib-card-name">${escHtml(w.name)}</div>
+            <div class="lib-card-duration">${w.duration}<span class="lib-card-duration-unit">min</span></div>
+          </div>
+          <div class="lib-card-meta-row">
+            <span class="lib-card-intensity" style="color:${intensityColor};border-color:${intensityColor}33;background:${intensityColor}14">${escHtml(w.intensity.toUpperCase())}</span>
+            ${muscleChips}
+          </div>
+          <div class="lib-card-desc">${escHtml((w.description || '').slice(0, 130))}${(w.description || '').length > 130 ? '…' : ''}</div>
+        </div>`;
+      });
+      html += '</div></div>';
+    });
+    // Anything left that didn't match a category goes into "Other".
+    const orphans = filtered.filter(w => !seen.has(w.id));
+    if (orphans.length > 0) {
+      html += `<div class="lib-section">
+        <div class="lib-section-header">
+          <div class="lib-section-title">Other</div>
+          <div class="lib-section-count">${orphans.length}</div>
+        </div>
+        <div class="lib-section-cards">`;
+      orphans.forEach(w => {
+        const intensityColor = w.intensity === 'hard' ? '#ef4444' : w.intensity === 'moderate' ? '#f97316' : '#22c55e';
+        html += `<div class="lib-card" data-lib-workout="${escHtml(w.id)}" tabindex="0" role="button">
+          <div class="lib-card-head">
+            <div class="lib-card-name">${escHtml(w.name)}</div>
+            <div class="lib-card-duration">${w.duration}<span class="lib-card-duration-unit">min</span></div>
+          </div>
+          <div class="lib-card-meta-row">
+            <span class="lib-card-intensity" style="color:${intensityColor};border-color:${intensityColor}33;background:${intensityColor}14">${escHtml(w.intensity.toUpperCase())}</span>
+          </div>
+          <div class="lib-card-desc">${escHtml((w.description || '').slice(0, 130))}${(w.description || '').length > 130 ? '…' : ''}</div>
+        </div>`;
+      });
+      html += '</div></div>';
+    }
+  }
   el.innerHTML = html;
   el.querySelectorAll('[data-lib-muscle]').forEach(b => {
     b.addEventListener('click', () => {
@@ -8598,6 +8671,20 @@ function renderTeamTab(c, opts) {
       btn.disabled = true;
       btn.textContent = '✓';
       haptic('light');
+      // Cheers are subteam-only — keeps the social signal tight to
+      // squad-mates and avoids spamming the whole-team channel.
+      const targetMember = teamMembers.find(m => m.uid === targetUid);
+      const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+      const targetSubId = (() => {
+        const s = subs.find(s => Array.isArray(s.members) && s.members.includes(targetUid));
+        return s ? s.id : '';
+      })();
+      const mySubId = getMySubteamId();
+      // Use the receiver's subteam if they're in one and so are we;
+      // otherwise the cheerer's subteam; otherwise whole team.
+      const subteamId = (mySubId && targetSubId === mySubId)
+        ? mySubId
+        : (mySubId || targetSubId || '');
       try {
         const safeName = ((userProfile?.displayName || currentUser.displayName || currentUser.email || 'Teammate').toString().trim()) || 'Teammate';
         await addDoc(collection(db, 'teams', userProfile.teamId, 'chat'), {
@@ -8606,7 +8693,7 @@ function renderTeamTab(c, opts) {
           text: `cheered ${targetName} 👏`,
           kind: 'cheer',
           targetUid,
-          subteamId: getMySubteamId() || (userProfile?.isCoach ? getChatScope() : ''),
+          subteamId,
           createdAt: serverTimestamp(),
         });
         // Re-enable after a short delay so users can cheer multiple
