@@ -6686,6 +6686,7 @@ function renderPlans() {
     });
     html += '</div>';
   }
+  html += `<button class="btn" id="plan-quiz-btn" style="width:100%;margin-bottom:8px;padding:10px;font-size:13px;font-weight:700;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:6px">Find my matched plan</button>`;
   html += `<button class="btn" id="plans-generate-btn" style="width:100%;margin-bottom:12px;padding:10px;font-size:13px;font-weight:600;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;color:var(--purple);display:flex;align-items:center;justify-content:center;gap:6px">✨ Generate Plan with AI</button>`;
   // Search bar
   html += `<div class="demo-search-wrap" style="margin-bottom:10px">
@@ -6854,6 +6855,10 @@ function bindPlanSearchAndCards(c) {
   c.querySelector('#plan-hero-open')?.addEventListener('click', () => {
     haptic('light');
     try { switchPage('today'); } catch(_) {}
+  });
+  c.querySelector('#plan-quiz-btn')?.addEventListener('click', () => {
+    haptic('medium');
+    showPlanRevealModal();
   });
   c.querySelectorAll('.plan-header').forEach(hdr => {
     hdr.addEventListener('click', () => {
@@ -12458,6 +12463,188 @@ function renderCoachTeam(el) {
   renderTeamTab(el, { showManageControls: true });
 }
 
+/// Plan reveal modal (#1, Shred-inspired) — animated reveal of the
+/// matched plan based on year level + tier + race target. Demo-friendly
+/// "your plan: <name>" hero moment that drops the user straight into
+/// Today via the CTA. Uses existing matching logic from welcome flow.
+function showPlanRevealModal() {
+  document.getElementById('plan-reveal-modal')?.remove();
+  const year = userProfile?.yearLevel || 'Y9';
+  const tier = userProfile?.fitnessLevel || 'basic';
+  // Match in priority order: floor + year + tier, then year + tier, then tier, fallback first.
+  const match = ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier && p.category === 'floor')
+    || ALL_PLANS.find(p => p.yearLevel === year && p.tier === tier)
+    || ALL_PLANS.find(p => p.tier === tier)
+    || ALL_PLANS[0];
+  if (!match) { showToast('Could not find a matching plan.', 'warn'); return; }
+  const pd = (typeof getPlanDisplayData === 'function') ? getPlanDisplayData(match) : { name: match.id };
+  const phase = (typeof computeRacePhase === 'function') ? computeRacePhase() : null;
+  const raceName = phase?.race ? (phase.race.name || '').replace(/^Vic HPR /, '') : null;
+  const daysOut = phase?.daysOut;
+  const weekCount = match.weekCount || match.weeks || (Array.isArray(match.workouts) ? Math.max(...match.workouts.map(w => w.week || 1)) : 0);
+  const targetLine = raceName
+    ? `${weekCount}-week build to <strong>${escHtml(raceName)}</strong>${daysOut != null ? ' · ' + daysOut + 'd to go' : ''}`
+    : `${weekCount}-week training block`;
+  const ov = document.createElement('div');
+  ov.id = 'plan-reveal-modal';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:206;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:24px;animation:planRevealFade .3s ease-out';
+  ov.innerHTML = `
+    <style>
+      @keyframes planRevealFade{from{opacity:0}to{opacity:1}}
+      @keyframes planRevealPop{0%{opacity:0;transform:scale(.86) translateY(20px)}60%{transform:scale(1.04) translateY(-4px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+    </style>
+    <div style="max-width:380px;width:100%;background:linear-gradient(135deg, rgba(var(--primary-rgb),.18), rgba(var(--primary-rgb),.04));border:1px solid rgba(var(--primary-rgb),.4);border-radius:22px;padding:28px 22px 22px;text-align:center;animation:planRevealPop .55s cubic-bezier(.34,1.56,.64,1);box-shadow:0 20px 60px rgba(0,0,0,.6)">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.18em;color:var(--primary);text-transform:uppercase;margin-bottom:8px">YOUR PLAN</div>
+      <div style="font-size:30px;font-weight:800;color:var(--fg);letter-spacing:-.01em;line-height:1.15;margin-bottom:10px">${escHtml(pd.name || match.id)}</div>
+      <div style="font-size:14px;color:var(--muted-fg);margin-bottom:16px">${targetLine}</div>
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-bottom:22px">
+        <span style="font-size:10.5px;font-weight:800;letter-spacing:.06em;padding:5px 11px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--muted-fg)">YEAR ${escHtml(match.yearLevel || '—')}</span>
+        <span style="font-size:10.5px;font-weight:800;letter-spacing:.06em;padding:5px 11px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--muted-fg)">${escHtml((match.tier || 'standard').toUpperCase())}</span>
+        <span style="font-size:10.5px;font-weight:800;letter-spacing:.06em;padding:5px 11px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--muted-fg)">${escHtml((match.category || 'mixed').replace('_',' ').toUpperCase())}</span>
+      </div>
+      <button id="plan-reveal-activate" style="width:100%;padding:14px;border-radius:12px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:800;font-size:15px;cursor:pointer;margin-bottom:8px;letter-spacing:.01em">Start this plan →</button>
+      <button id="plan-reveal-close" style="width:100%;padding:10px;background:transparent;border:none;color:var(--muted-fg);font-weight:600;font-size:12px;cursor:pointer">Maybe later</button>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  ov.querySelector('#plan-reveal-close')?.addEventListener('click', close);
+  ov.querySelector('#plan-reveal-activate')?.addEventListener('click', async () => {
+    haptic('medium');
+    try {
+      await activatePlan(match.id);
+      showToast('Plan activated!', 'success');
+    } catch (_) {}
+    close();
+    try { switchPage('today'); } catch(_) {}
+  });
+}
+
+/// Synchronous team turbo session (#6) — coach-facing live HR
+/// dashboard for everyone training together right now. V1 uses
+/// teamMembers data + simulated HR animation for the demo; the real
+/// path will read from each rider's Watch via the existing race-day
+/// onSnapshot scaffolding (race_day/{date}/live/{uid}).
+function openTeamTurboOverlay() {
+  document.getElementById('team-turbo-overlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'team-turbo-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:205;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;';
+  const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+  const mySub = subs.find(s => Array.isArray(s.members) && s.members.includes(currentUser?.uid));
+  // Demo-mode rider list — pull active subteam members or top 6 by
+  // workouts. Each tile shows simulated HR that drifts within a
+  // realistic Z3-Z4 range, animated by JS.
+  const memberPool = mySub
+    ? teamMembers.filter(m => mySub.members.includes(m.uid))
+    : [...teamMembers].sort((a, b) => (b.totalWorkouts || 0) - (a.totalWorkouts || 0)).slice(0, 8);
+  const riders = memberPool.slice(0, 8);
+  const sessionStart = Date.now();
+  const fmtElapsed = () => {
+    const s = Math.floor((Date.now() - sessionStart) / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(sec).padStart(2, '0')}`;
+  };
+  ov.innerHTML = `
+    <header style="height:56px;min-height:calc(56px + env(safe-area-inset-top, 0px));padding:0 16px;padding-top:env(safe-area-inset-top, 0px);display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
+      <button id="tt-close" type="button" aria-label="Close" style="background:transparent;border:0;color:var(--muted-fg);font-size:24px;cursor:pointer;padding:0 6px">‹</button>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--primary)">TEAM TURBO · LIVE</div>
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:-1px">${escHtml(mySub?.name || teamData?.name || 'Team')} · <span id="tt-elapsed">0:00</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <div style="width:7px;height:7px;border-radius:50%;background:#ef4444;animation:rdPulse 1.4s ease infinite"></div>
+        <span style="font-size:11px;font-weight:700;color:#ef4444">LIVE</span>
+      </div>
+    </header>
+    <div style="flex:1;overflow-y:auto;padding:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--muted-fg);text-transform:uppercase">Riders training</div>
+          <div id="tt-rider-count" style="font-size:28px;font-weight:800;color:var(--fg);font-variant-numeric:tabular-nums">${riders.length}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--muted-fg);text-transform:uppercase">Avg HR</div>
+          <div id="tt-avg-hr" style="font-size:28px;font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums">—</div>
+        </div>
+      </div>
+      <div id="tt-grid" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px"></div>
+      ${riders.length === 0
+        ? '<div style="text-align:center;padding:40px 20px;color:var(--muted-fg);font-size:13px">No riders connected yet. When teammates start a training session on their Watch, their HR will appear here.</div>'
+        : ''}
+    </div>
+  `;
+  document.body.appendChild(ov);
+  ov.querySelector('#tt-close')?.addEventListener('click', () => ov.remove());
+  // Simulated HR per rider — assign each a base + drift. In the real
+  // wired version, replace this loop with onSnapshot on
+  // race_day/{date}/live/{uid} reading the streamed HR from each
+  // rider's Watch (already plumbed via WatchTrainingView).
+  const state = riders.map(r => ({
+    uid: r.uid,
+    name: r.displayName || 'Rider',
+    base: 130 + Math.floor(Math.random() * 30),
+    drift: 0,
+    laps: 0,
+  }));
+  const grid = ov.querySelector('#tt-grid');
+  const renderTile = (r) => {
+    const hr = Math.round(r.base + r.drift);
+    const zone = hr < 130 ? 'Z2' : hr < 150 ? 'Z3' : hr < 170 ? 'Z4' : 'Z5';
+    const zoneColor = hr < 130 ? '#3b82f6' : hr < 150 ? '#22c55e' : hr < 170 ? '#f97316' : '#ef4444';
+    const initials = (r.name || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+    return `
+      <div class="tt-tile" data-uid="${escHtml(r.uid)}" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:28px;height:28px;border-radius:50%;background:rgba(var(--primary-rgb),.15);color:var(--primary);font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${escHtml(initials)}</div>
+          <div style="flex:1;min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r.name)}</div>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <div style="font-size:30px;font-weight:800;color:${zoneColor};font-variant-numeric:tabular-nums;line-height:1">${hr}</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted-fg);letter-spacing:.06em">BPM</div>
+          <div style="margin-left:auto;font-size:10px;font-weight:800;color:${zoneColor};letter-spacing:.06em">${zone}</div>
+        </div>
+        <div style="font-size:10px;color:var(--muted-fg)">Lap ${r.laps}</div>
+      </div>
+    `;
+  };
+  if (grid && state.length > 0) {
+    grid.innerHTML = state.map(renderTile).join('');
+  }
+  const tick = () => {
+    if (!document.body.contains(ov)) { clearInterval(timer); return; }
+    state.forEach(r => {
+      r.drift += (Math.random() - 0.5) * 4;
+      r.drift = Math.max(-15, Math.min(40, r.drift));
+      if (Math.random() < 0.02) r.laps += 1;
+    });
+    if (grid) grid.innerHTML = state.map(renderTile).join('');
+    const avg = state.length > 0
+      ? Math.round(state.reduce((s, r) => s + r.base + r.drift, 0) / state.length)
+      : 0;
+    const avgEl = ov.querySelector('#tt-avg-hr');
+    if (avgEl) avgEl.textContent = avg || '—';
+    const elapsedEl = ov.querySelector('#tt-elapsed');
+    if (elapsedEl) elapsedEl.textContent = fmtElapsed();
+  };
+  const timer = setInterval(tick, 1500);
+  tick();
+  // Block back/swipe nav while open.
+  window.history.pushState(null, '', window.location.href);
+  const blockNav = () => { window.history.pushState(null, '', window.location.href); };
+  window.addEventListener('popstate', blockNav);
+  const cleanup = () => {
+    clearInterval(timer);
+    window.removeEventListener('popstate', blockNav);
+  };
+  const mo = new MutationObserver(() => {
+    if (!document.body.contains(ov)) { cleanup(); mo.disconnect(); }
+  });
+  mo.observe(document.body, { childList: true });
+}
+
 function renderCoachRaceDay(el) {
   if (!el) return;
   const isActive = getRaceDayActive();
@@ -12483,6 +12670,12 @@ function renderCoachRaceDay(el) {
       }
       <button id="coach-demo-link" style="padding:9px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--fg);font-weight:600;font-size:12px;cursor:pointer">Copy spectator link</button>
     </div>
+
+    <div style="margin-top:8px;padding:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:2px">Team turbo session</div>
+      <div style="font-size:12.5px;color:var(--muted-fg);line-height:1.45">Live HR + cadence dashboard for everyone training together right now. Each rider's tile updates in real-time as their Watch streams data.</div>
+      <button id="coach-team-turbo" style="padding:11px;border-radius:10px;background:linear-gradient(135deg,var(--primary),color-mix(in srgb,var(--primary) 80%,#000));color:var(--primary-fg);border:none;font-weight:800;font-size:13px;cursor:pointer">Open team turbo dashboard</button>
+    </div>
   `;
   el.querySelector('#coach-rd-start')?.addEventListener('click', async () => {
     const ok = await activateRaceDay();
@@ -12501,6 +12694,10 @@ function renderCoachRaceDay(el) {
   el.querySelector('#coach-demo-start')?.addEventListener('click', async () => {
     const ok = await startDemoRace();
     if (ok) renderCoachPage();
+  });
+  el.querySelector('#coach-team-turbo')?.addEventListener('click', () => {
+    haptic('light');
+    openTeamTurboOverlay();
   });
   el.querySelector('#coach-demo-stop')?.addEventListener('click', async () => {
     await stopDemoRace();
