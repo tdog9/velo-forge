@@ -3381,37 +3381,98 @@ const WORKOUT_LIBRARY = [
   { id:'quick-deskbreak-1', name:'Desk Break 5', intensity:'easy', duration:5, muscles:['back','shoulders','glutes','quads'], description:'5 minutes between zoom calls or homework sessions. Keeps the body honest.', exercises:['30s neck rolls','30s shoulder rolls','60s standing forward fold','60s couch stretch','60s squats','30s plank'] },
 ];
 
-/// Muscle-group display — replaced the SVG body silhouette (looked
-/// off at small sizes; clean anatomy is hard to do in pure SVG without
-/// a real illustration asset). This pattern shows targeted muscles as
-/// large coloured pills arranged in a 2-column grid keyed roughly to
-/// upper / lower body. Same active-muscle highlight model — works
-/// identically with the existing `activeMuscles` arg.
+/// Anatomical body diagram — front + back views with named muscle
+/// paths. Active muscles are filled with the primary colour; inactive
+/// muscles render in a muted "rested" tone so the chart reads even
+/// when no muscles are active. The base silhouette sits behind the
+/// muscle layer for shape definition.
 function renderBodyDiagram(activeMuscles = [], opts = {}) {
-  const active = new Set(activeMuscles);
-  // Group order roughly mirrors body anatomy top-to-bottom so the
-  // pill grid reads like a body chart.
-  const groups = [
-    ['Upper Body', ['shoulders', 'chest', 'back', 'biceps', 'triceps', 'forearms', 'lats', 'traps']],
-    ['Core',       ['abs', 'obliques']],
-    ['Lower Body', ['glutes', 'quads', 'hamstrings', 'calves']],
-  ];
-  let html = '<div class="muscle-display">';
-  groups.forEach(([groupLabel, list]) => {
-    const visible = list.filter(m => MUSCLE_LABELS[m]);
-    if (visible.length === 0) return;
-    const anyActive = visible.some(m => active.has(m));
-    html += `<div class="muscle-group ${anyActive ? 'has-active' : ''}">
-      <div class="muscle-group-label">${escHtml(groupLabel)}</div>
-      <div class="muscle-pills">`;
-    visible.forEach(m => {
-      const isActive = active.has(m);
-      html += `<span class="muscle-pill ${isActive ? 'muscle-pill-active' : ''}">${escHtml(MUSCLE_LABELS[m] || m)}</span>`;
-    });
-    html += '</div></div>';
-  });
-  html += '</div>';
-  return html;
+  const active = new Set(activeMuscles || []);
+  const cls = m => `muscle ${active.has(m) ? 'muscle-active' : ''}`;
+  const showLegend = opts.legend !== false;
+  // Ordered list for label rendering below the SVG.
+  const activeLabels = (activeMuscles || []).map(m => MUSCLE_LABELS[m] || m);
+
+  // Two figures share the same silhouette base; muscles differ by
+  // front/back. Each figure is 110 wide, 260 tall, centred at x=55.
+  const silhouette = `
+    <ellipse class="body-base" cx="55" cy="20" rx="11" ry="12"/>
+    <path class="body-base" d="M48 30 Q55 34 62 30 L66 38 L44 38 Z"/>
+    <path class="body-base" d="M30 38 Q24 50 28 75 L34 110 Q38 122 36 132 L74 132 Q72 122 76 110 L82 75 Q86 50 80 38 Q70 36 55 36 Q40 36 30 38 Z"/>
+    <path class="body-base" d="M30 38 L20 60 L14 95 L13 130 L20 138 L27 132 L29 100 L33 70 Z"/>
+    <path class="body-base" d="M80 38 L90 60 L96 95 L97 130 L90 138 L83 132 L81 100 L77 70 Z"/>
+    <path class="body-base" d="M36 130 L34 168 L42 175 L52 170 L55 132 Z"/>
+    <path class="body-base" d="M74 130 L76 168 L68 175 L58 170 L55 132 Z"/>
+    <path class="body-base" d="M36 168 L34 220 L37 245 L48 245 L50 220 L52 175 Z"/>
+    <path class="body-base" d="M74 168 L76 220 L73 245 L62 245 L60 220 L58 175 Z"/>
+  `;
+
+  const frontMuscles = `
+    <path class="${cls('chest')}" data-muscle="chest" d="M40 42 Q34 53 41 62 Q49 64 53 52 L54 42 Z"/>
+    <path class="${cls('chest')}" data-muscle="chest" d="M70 42 Q76 53 69 62 Q61 64 57 52 L56 42 Z"/>
+    <path class="${cls('shoulders')}" data-muscle="shoulders" d="M30 40 Q23 50 27 60 Q33 60 36 52 L36 42 Z"/>
+    <path class="${cls('shoulders')}" data-muscle="shoulders" d="M80 40 Q87 50 83 60 Q77 60 74 52 L74 42 Z"/>
+    <path class="${cls('biceps')}" data-muscle="biceps" d="M22 64 Q17 76 21 90 Q27 88 28 78 L28 64 Z"/>
+    <path class="${cls('biceps')}" data-muscle="biceps" d="M88 64 Q93 76 89 90 Q83 88 82 78 L82 64 Z"/>
+    <path class="${cls('forearms')}" data-muscle="forearms" d="M19 94 Q15 110 18 128 Q24 126 26 114 L26 96 Z"/>
+    <path class="${cls('forearms')}" data-muscle="forearms" d="M91 94 Q95 110 92 128 Q86 126 84 114 L84 96 Z"/>
+    <path class="${cls('abs')}" data-muscle="abs" d="M48 64 L62 64 L62 105 L48 105 Z"/>
+    <path class="${cls('obliques')}" data-muscle="obliques" d="M38 70 Q35 90 47 105 L47 80 Z"/>
+    <path class="${cls('obliques')}" data-muscle="obliques" d="M72 70 Q75 90 63 105 L63 80 Z"/>
+    <path class="${cls('quads')}" data-muscle="quads" d="M38 138 Q34 165 41 195 Q48 192 51 162 L51 138 Z"/>
+    <path class="${cls('quads')}" data-muscle="quads" d="M72 138 Q76 165 69 195 Q62 192 59 162 L59 138 Z"/>
+    <path class="${cls('calves')}" data-muscle="calves" d="M40 200 Q37 222 42 240 Q47 238 48 222 L48 202 Z"/>
+    <path class="${cls('calves')}" data-muscle="calves" d="M70 200 Q73 222 68 240 Q63 238 62 222 L62 202 Z"/>
+  `;
+
+  const backMuscles = `
+    <path class="${cls('traps')}" data-muscle="traps" d="M48 36 L62 36 Q70 44 68 56 L55 64 L42 56 Q40 44 48 36 Z"/>
+    <path class="${cls('shoulders')}" data-muscle="shoulders" d="M30 40 Q23 50 27 60 Q33 60 36 52 L36 42 Z"/>
+    <path class="${cls('shoulders')}" data-muscle="shoulders" d="M80 40 Q87 50 83 60 Q77 60 74 52 L74 42 Z"/>
+    <path class="${cls('back')}" data-muscle="back" d="M42 60 L68 60 L66 90 L44 90 Z"/>
+    <path class="${cls('lats')}" data-muscle="lats" d="M38 60 L40 92 Q44 102 53 100 L53 64 Z"/>
+    <path class="${cls('lats')}" data-muscle="lats" d="M72 60 L70 92 Q66 102 57 100 L57 64 Z"/>
+    <path class="${cls('triceps')}" data-muscle="triceps" d="M22 64 Q17 76 21 90 Q27 88 28 78 L28 64 Z"/>
+    <path class="${cls('triceps')}" data-muscle="triceps" d="M88 64 Q93 76 89 90 Q83 88 82 78 L82 64 Z"/>
+    <path class="${cls('forearms')}" data-muscle="forearms" d="M19 94 Q15 110 18 128 Q24 126 26 114 L26 96 Z"/>
+    <path class="${cls('forearms')}" data-muscle="forearms" d="M91 94 Q95 110 92 128 Q86 126 84 114 L84 96 Z"/>
+    <path class="${cls('glutes')}" data-muscle="glutes" d="M37 108 Q32 128 49 134 L54 110 Z"/>
+    <path class="${cls('glutes')}" data-muscle="glutes" d="M73 108 Q78 128 61 134 L56 110 Z"/>
+    <path class="${cls('hamstrings')}" data-muscle="hamstrings" d="M38 140 Q34 165 41 195 Q48 192 51 162 L51 140 Z"/>
+    <path class="${cls('hamstrings')}" data-muscle="hamstrings" d="M72 140 Q76 165 69 195 Q62 192 59 162 L59 140 Z"/>
+    <path class="${cls('calves')}" data-muscle="calves" d="M40 200 Q37 222 42 240 Q47 238 48 222 L48 202 Z"/>
+    <path class="${cls('calves')}" data-muscle="calves" d="M70 200 Q73 222 68 240 Q63 238 62 222 L62 202 Z"/>
+  `;
+
+  const labelHtml = activeLabels.length
+    ? `<div class="bd-active-labels">${activeLabels.map(l => `<span class="bd-active-pill">${escHtml(l)}</span>`).join('')}</div>`
+    : '';
+
+  const legendHtml = showLegend
+    ? `<div class="bd-legend">
+         <span class="bd-dot bd-dot-active"></span><span>Targeted</span>
+         <span class="bd-dot bd-dot-rest"></span><span>Rested</span>
+       </div>`
+    : '';
+
+  return `
+    <div class="body-diagram-wrap">
+      ${legendHtml}
+      <svg viewBox="0 0 240 260" class="body-diagram" xmlns="http://www.w3.org/2000/svg" aria-label="Muscle map" role="img">
+        <g class="bd-figure">
+          ${silhouette}
+          ${frontMuscles}
+          <text x="55" y="256" class="bd-caption">Front</text>
+        </g>
+        <g class="bd-figure" transform="translate(125,0)">
+          ${silhouette}
+          ${backMuscles}
+          <text x="55" y="256" class="bd-caption">Back</text>
+        </g>
+      </svg>
+      ${labelHtml}
+    </div>
+  `;
 }
 
 function renderWorkoutLibrary(el) {
@@ -12913,130 +12974,6 @@ function showPlanRevealModal() {
     close();
     try { switchPage('today'); } catch(_) {}
   });
-}
-
-/// Synchronous team turbo session (#6) — coach-facing live HR
-/// dashboard for everyone training together right now. V1 uses
-/// teamMembers data + simulated HR animation for the demo; the real
-/// path will read from each rider's Watch via the existing race-day
-/// onSnapshot scaffolding (race_day/{date}/live/{uid}).
-function openTeamTurboOverlay() {
-  document.getElementById('team-turbo-overlay')?.remove();
-  const ov = document.createElement('div');
-  ov.id = 'team-turbo-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:205;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;';
-  const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
-  const mySub = subs.find(s => Array.isArray(s.members) && s.members.includes(currentUser?.uid));
-  // Demo-mode rider list — pull active subteam members or top 6 by
-  // workouts. Each tile shows simulated HR that drifts within a
-  // realistic Z3-Z4 range, animated by JS.
-  const memberPool = mySub
-    ? teamMembers.filter(m => mySub.members.includes(m.uid))
-    : [...teamMembers].sort((a, b) => (b.totalWorkouts || 0) - (a.totalWorkouts || 0)).slice(0, 8);
-  const riders = memberPool.slice(0, 8);
-  const sessionStart = Date.now();
-  const fmtElapsed = () => {
-    const s = Math.floor((Date.now() - sessionStart) / 1000);
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${String(sec).padStart(2, '0')}`;
-  };
-  ov.innerHTML = `
-    <header style="height:56px;min-height:calc(56px + env(safe-area-inset-top, 0px));padding:0 16px;padding-top:env(safe-area-inset-top, 0px);display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0">
-      <button id="tt-close" type="button" aria-label="Close" style="background:transparent;border:0;color:var(--muted-fg);font-size:24px;cursor:pointer;padding:0 6px">‹</button>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--primary)">TEAM TURBO · LIVE</div>
-        <div style="font-size:11px;color:var(--muted-fg);margin-top:-1px">${escHtml(mySub?.name || teamData?.name || 'Team')} · <span id="tt-elapsed">0:00</span></div>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <div style="width:7px;height:7px;border-radius:50%;background:#ef4444;animation:rdPulse 1.4s ease infinite"></div>
-        <span style="font-size:11px;font-weight:700;color:#ef4444">LIVE</span>
-      </div>
-    </header>
-    <div style="flex:1;overflow-y:auto;padding:14px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:14px">
-        <div>
-          <div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--muted-fg);text-transform:uppercase">Riders training</div>
-          <div id="tt-rider-count" style="font-size:28px;font-weight:800;color:var(--fg);font-variant-numeric:tabular-nums">${riders.length}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--muted-fg);text-transform:uppercase">Avg HR</div>
-          <div id="tt-avg-hr" style="font-size:28px;font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums">—</div>
-        </div>
-      </div>
-      <div id="tt-grid" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px"></div>
-      ${riders.length === 0
-        ? '<div style="text-align:center;padding:40px 20px;color:var(--muted-fg);font-size:13px">No riders connected yet. When teammates start a training session on their Watch, their HR will appear here.</div>'
-        : ''}
-    </div>
-  `;
-  document.body.appendChild(ov);
-  ov.querySelector('#tt-close')?.addEventListener('click', () => ov.remove());
-  // Simulated HR per rider — assign each a base + drift. In the real
-  // wired version, replace this loop with onSnapshot on
-  // race_day/{date}/live/{uid} reading the streamed HR from each
-  // rider's Watch (already plumbed via WatchTrainingView).
-  const state = riders.map(r => ({
-    uid: r.uid,
-    name: r.displayName || 'Rider',
-    base: 130 + Math.floor(Math.random() * 30),
-    drift: 0,
-    laps: 0,
-  }));
-  const grid = ov.querySelector('#tt-grid');
-  const renderTile = (r) => {
-    const hr = Math.round(r.base + r.drift);
-    const zone = hr < 130 ? 'Z2' : hr < 150 ? 'Z3' : hr < 170 ? 'Z4' : 'Z5';
-    const zoneColor = hr < 130 ? '#3b82f6' : hr < 150 ? '#22c55e' : hr < 170 ? '#f97316' : '#ef4444';
-    const initials = (r.name || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
-    return `
-      <div class="tt-tile" data-uid="${escHtml(r.uid)}" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="width:28px;height:28px;border-radius:50%;background:rgba(var(--primary-rgb),.15);color:var(--primary);font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${escHtml(initials)}</div>
-          <div style="flex:1;min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(r.name)}</div>
-        </div>
-        <div style="display:flex;align-items:baseline;gap:4px">
-          <div style="font-size:30px;font-weight:800;color:${zoneColor};font-variant-numeric:tabular-nums;line-height:1">${hr}</div>
-          <div style="font-size:10px;font-weight:700;color:var(--muted-fg);letter-spacing:.06em">BPM</div>
-          <div style="margin-left:auto;font-size:10px;font-weight:800;color:${zoneColor};letter-spacing:.06em">${zone}</div>
-        </div>
-        <div style="font-size:10px;color:var(--muted-fg)">Lap ${r.laps}</div>
-      </div>
-    `;
-  };
-  if (grid && state.length > 0) {
-    grid.innerHTML = state.map(renderTile).join('');
-  }
-  const tick = () => {
-    if (!document.body.contains(ov)) { clearInterval(timer); return; }
-    state.forEach(r => {
-      r.drift += (Math.random() - 0.5) * 4;
-      r.drift = Math.max(-15, Math.min(40, r.drift));
-      if (Math.random() < 0.02) r.laps += 1;
-    });
-    if (grid) grid.innerHTML = state.map(renderTile).join('');
-    const avg = state.length > 0
-      ? Math.round(state.reduce((s, r) => s + r.base + r.drift, 0) / state.length)
-      : 0;
-    const avgEl = ov.querySelector('#tt-avg-hr');
-    if (avgEl) avgEl.textContent = avg || '—';
-    const elapsedEl = ov.querySelector('#tt-elapsed');
-    if (elapsedEl) elapsedEl.textContent = fmtElapsed();
-  };
-  const timer = setInterval(tick, 1500);
-  tick();
-  // Block back/swipe nav while open.
-  window.history.pushState(null, '', window.location.href);
-  const blockNav = () => { window.history.pushState(null, '', window.location.href); };
-  window.addEventListener('popstate', blockNav);
-  const cleanup = () => {
-    clearInterval(timer);
-    window.removeEventListener('popstate', blockNav);
-  };
-  const mo = new MutationObserver(() => {
-    if (!document.body.contains(ov)) { cleanup(); mo.disconnect(); }
-  });
-  mo.observe(document.body, { childList: true });
 }
 
 function renderCoachRaceDay(el) {
