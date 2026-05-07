@@ -4066,39 +4066,91 @@ function renderToday() {
     </div>`;
   }
   }
-  // Health data from wearable sync
+  // Health data from wearable sync. Hardened for ship:
+  //   - Always shows the card when the widget is on (empty state if no
+  //     data, instead of disappearing silently)
+  //   - Pulls a fresh value from each available source (Watch HR push,
+  //     Strava avg HR last 7d, manual workout HR averages)
+  //   - Surfaces freshness ("now", "5m ago", "stale > 24h" badge)
+  //   - Trends: arrow + delta vs last week
   if (isWidgetOn('health')) {
-  const healthData = userProfile?.health;
-  if (healthData && (healthData.latestHr || healthData.latestSteps || healthData.latestSleep)) {
+    const h = userProfile?.health || {};
+    const lastSyncMs = h.lastSync ? new Date(h.lastSync).getTime() : 0;
+    const ageMin = lastSyncMs ? Math.round((Date.now() - lastSyncMs) / 60000) : null;
+    const stale = ageMin != null && ageMin > 24 * 60;
+    // Derive a fallback HR from recent workouts if Watch hasn't synced.
+    const recentHrs = (userWorkouts || [])
+      .filter(w => typeof w.heartRate === 'number' && w.heartRate > 0)
+      .slice(0, 5)
+      .map(w => w.heartRate);
+    const avgRecentHr = recentHrs.length > 0
+      ? Math.round(recentHrs.reduce((s, x) => s + x, 0) / recentHrs.length)
+      : null;
+    // Trend: this-week avg HR vs prior-week from logged workouts.
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const thisWk = (userWorkouts || []).filter(w => {
+      const t = w.date?.toDate ? w.date.toDate().getTime() : (w.date ? new Date(w.date).getTime() : 0);
+      return t > now - weekMs && typeof w.heartRate === 'number';
+    });
+    const prevWk = (userWorkouts || []).filter(w => {
+      const t = w.date?.toDate ? w.date.toDate().getTime() : (w.date ? new Date(w.date).getTime() : 0);
+      return t > now - 2 * weekMs && t <= now - weekMs && typeof w.heartRate === 'number';
+    });
+    const avg = (a) => a.length === 0 ? null : Math.round(a.reduce((s, w) => s + w.heartRate, 0) / a.length);
+    const thisAvg = avg(thisWk);
+    const prevAvg = avg(prevWk);
+    const trendDelta = (thisAvg && prevAvg) ? (thisAvg - prevAvg) : null;
+    const trendArrow = trendDelta == null ? '' : (Math.abs(trendDelta) < 2 ? '→' : (trendDelta > 0 ? '↑' : '↓'));
+    const trendColor = trendDelta == null ? 'var(--muted-fg)' : (trendDelta > 2 ? 'var(--destructive)' : trendDelta < -2 ? 'var(--success)' : 'var(--muted-fg)');
+
+    const hr = h.latestHr || avgRecentHr || null;
+    const steps = h.latestSteps || null;
+    const sleep = h.latestSleep || null;
+    const restingHr = h.restingHr || null;
+    const hasAny = hr || steps || sleep || restingHr;
+
     html += `<div id="health-card-tap" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:var(--fg)">❤️ Health Sync</div>
+        <div style="font-size:13px;font-weight:800;color:var(--fg);display:flex;align-items:center;gap:6px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:14px;height:14px;color:var(--destructive)"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          Health
+        </div>
         <div style="display:flex;align-items:center;gap:6px">
-          ${healthData.lastSync ? '<span style="font-size:10px;color:var(--muted-fg)">' + timeAgo(new Date(healthData.lastSync)) + '</span>' : ''}
+          ${ageMin == null ? `<span style="font-size:10px;color:var(--muted-fg)">No sync yet</span>`
+            : stale ? `<span style="font-size:10px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,.10);padding:2px 7px;border-radius:99px">stale</span>`
+            : `<span style="font-size:10px;color:var(--muted-fg)">${escHtml(ageMin < 1 ? 'now' : ageMin < 60 ? ageMin + 'm ago' : Math.floor(ageMin / 60) + 'h ago')}</span>`}
           <span style="font-size:12px;color:var(--muted-fg)">›</span>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
-        ${healthData.latestHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--destructive-rgb),.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:var(--destructive)">${healthData.latestHr}</div>
-          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">❤️ bpm</div>
-        </div>` : ''}
-        ${healthData.latestSteps ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--success-rgb),.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:var(--success)">${healthData.latestSteps > 999 ? (healthData.latestSteps / 1000).toFixed(1) + 'k' : healthData.latestSteps}</div>
-          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">👟 steps</div>
-        </div>` : ''}
-        ${healthData.latestSleep ? `<div style="text-align:center;padding:10px 4px;background:rgba(124,58,237,.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:var(--purple)">${healthData.latestSleep}</div>
-          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">😴 hours</div>
-        </div>` : ''}
-        ${healthData.restingHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(59,130,246,.06);border-radius:10px">
-          <div style="font-size:22px;font-weight:800;color:#3b82f6">${healthData.restingHr}</div>
-          <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">💓 resting</div>
-        </div>` : ''}
-      </div>
-      <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted-fg)">Tap for details</div>
+      ${hasAny ? `
+        <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+          ${hr ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--destructive-rgb),.06);border-radius:10px">
+            <div style="font-size:22px;font-weight:800;color:var(--destructive)">${hr}</div>
+            <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">${h.latestHr ? 'live HR' : 'avg HR (last 5)'}</div>
+          </div>` : ''}
+          ${steps ? `<div style="text-align:center;padding:10px 4px;background:rgba(var(--success-rgb),.06);border-radius:10px">
+            <div style="font-size:22px;font-weight:800;color:var(--success)">${steps > 999 ? (steps / 1000).toFixed(1) + 'k' : steps}</div>
+            <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">steps today</div>
+          </div>` : ''}
+          ${sleep ? `<div style="text-align:center;padding:10px 4px;background:rgba(124,58,237,.06);border-radius:10px">
+            <div style="font-size:22px;font-weight:800;color:var(--purple)">${sleep}<span style="font-size:13px;font-weight:700;color:var(--muted-fg)">h</span></div>
+            <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">last sleep</div>
+          </div>` : ''}
+          ${restingHr ? `<div style="text-align:center;padding:10px 4px;background:rgba(59,130,246,.06);border-radius:10px">
+            <div style="font-size:22px;font-weight:800;color:#3b82f6">${restingHr}</div>
+            <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">resting HR</div>
+          </div>` : ''}
+        </div>
+        ${trendDelta != null ? `<div style="text-align:center;margin-top:10px;font-size:11.5px;color:${trendColor};font-weight:600">${trendArrow} ${Math.abs(trendDelta)} bpm avg vs last week</div>` : ''}
+      ` : `
+        <div style="text-align:center;padding:18px 12px">
+          <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:4px">No health data yet</div>
+          <div style="font-size:12px;color:var(--muted-fg);line-height:1.45">Open the iOS app on your iPhone to grant Apple Health access, or connect Strava in Profile → Sync.</div>
+        </div>
+      `}
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted-fg)">${hasAny ? 'Tap for full dashboard' : 'Tap to set up sync'}</div>
     </div>`;
-  }
   }
   // Announcements (only if active)
   const activeAnns = adminAnnouncements.filter(a => a.active);
