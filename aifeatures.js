@@ -227,9 +227,24 @@ export function generateRacePrepPlan(raceName, daysUntil) {
   messagesEl.appendChild(typingMsg);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
+  // Build a "palette" the AI picks from instead of inventing exercises:
+  //   - WORKOUT_LIBRARY: 56 curated workouts (name + duration + intensity + muscles)
+  //   - frequent exercises: top 25 exercises by plan-frequency (the moves
+  //     that already appear most often in our 54 built-in plans, so AI
+  //     plans feel consistent with the rest of the app)
+  const lib = (A.WORKOUT_LIBRARY || []).slice(0, 56);
+  const libSummary = lib.map(w => `${w.name} (${w.duration}min, ${w.intensity}, ${(w.muscles || []).join('/')})`).join('; ');
+  const frequent = (typeof A.getFrequentExercises === 'function') ? A.getFrequentExercises() : [];
+  const frequentSummary = frequent.map(e => `${e.name} [${e.type}]`).join(', ');
   A.aiCoachFetch({
     message: `Create a race preparation plan for ${raceName} which is ${daysUntil} days away.`,
-    context: `RACE_PREP_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Race: ${raceName}, ${daysUntil} days away. Total workouts logged: ${(A.userWorkouts||[]).length}. Give a day-by-day race prep plan that: 1) Reduces volume progressively in the final week 2) Maintains some intensity 3) Includes rest days before race 4) Gives race-day nutrition and warm-up advice. Be specific with exercises and durations.`
+    context: `RACE_PREP_MODE. Student: ${A.userProfile?.yearLevel || 'Y10'}, ${A.userProfile?.fitnessLevel || 'basic'} tier. Race: ${raceName}, ${daysUntil} days away. Total workouts logged: ${(A.userWorkouts||[]).length}.
+
+WORKOUT LIBRARY (use these names where possible — they're known to the app and tap-startable): ${libSummary}.
+
+MOST-FREQUENT EXERCISES across our built-in plans (re-use these so the plan feels native): ${frequentSummary}.
+
+Give a day-by-day race prep plan that: 1) Reduces volume progressively in the final week 2) Maintains some intensity 3) Includes rest days before race 4) Gives race-day nutrition and warm-up advice. When picking sessions, prefer named workouts from the LIBRARY above so the student can tap them directly. When listing exercises, prefer names from the FREQUENT list. Be specific with durations.`
   }).then(r => r.json()).then(data => {
     typingMsg.innerHTML = data.reply || 'Sorry, couldn\'t generate a race prep plan.';
   }).catch((e) => {

@@ -3381,60 +3381,107 @@ const WORKOUT_LIBRARY = [
   { id:'quick-deskbreak-1', name:'Desk Break 5', intensity:'easy', duration:5, muscles:['back','shoulders','glutes','quads'], description:'5 minutes between zoom calls or homework sessions. Keeps the body honest.', exercises:['30s neck rolls','30s shoulder rolls','60s standing forward fold','60s couch stretch','60s squats','30s plank'] },
 ];
 
-/// Stylized front-view body silhouette as inline SVG. Each muscle group
-/// is a separate path with class .muscle-<group>. Pass the active set
-/// to highlight specific muscles.
+/// Stylized front-view body silhouette as inline SVG. Cleaner anatomical
+/// figure: smooth bezier silhouette + clearly delineated muscle regions
+/// that read well at small sizes. Each muscle group is a single path
+/// with class .muscle .muscle-active when highlighted.
 function renderBodyDiagram(activeMuscles = [], opts = {}) {
   const active = new Set(activeMuscles);
   const cls = (m) => `muscle ${active.has(m) ? 'muscle-active' : ''}`;
   const size = opts.size || 220;
-  // Stylized silhouette: head + torso + arms + legs as anatomical-ish
-  // shapes. Not medically accurate — designed to read clearly at
-  // small sizes and highlight color-coded muscle groups on touch.
   return `
-    <svg class="body-diagram" viewBox="0 0 200 320" width="${size}" height="${Math.round(size * 1.45)}" xmlns="http://www.w3.org/2000/svg" aria-label="Body diagram">
-      <!-- head -->
-      <ellipse class="body-base" cx="100" cy="22" rx="16" ry="20"/>
-      <!-- neck -->
-      <rect class="body-base" x="93" y="40" width="14" height="10" rx="3"/>
-      <!-- torso outline -->
-      <path class="body-base" d="M 70 50 Q 65 54 65 65 L 60 110 Q 58 130 60 145 L 64 165 L 80 175 L 80 200 L 75 230 Q 73 255 78 280 L 82 310 L 92 314 L 96 282 L 100 250 L 104 282 L 108 314 L 118 310 L 122 280 Q 127 255 125 230 L 120 200 L 120 175 L 136 165 L 140 145 Q 142 130 140 110 L 135 65 Q 135 54 130 50 Z"/>
-      <!-- shoulders -->
-      <ellipse class="${cls('shoulders')}" cx="68" cy="60" rx="12" ry="9"/>
-      <ellipse class="${cls('shoulders')}" cx="132" cy="60" rx="12" ry="9"/>
-      <!-- chest -->
-      <path class="${cls('chest')}" d="M 75 65 Q 100 60 125 65 L 125 95 Q 100 100 75 95 Z"/>
-      <!-- arms (upper) -->
-      <ellipse class="body-base" cx="58" cy="90" rx="10" ry="22"/>
-      <ellipse class="body-base" cx="142" cy="90" rx="10" ry="22"/>
-      <!-- biceps overlay -->
-      <ellipse class="${cls('biceps')}" cx="58" cy="85" rx="8" ry="14"/>
-      <ellipse class="${cls('biceps')}" cx="142" cy="85" rx="8" ry="14"/>
+    <svg class="body-diagram" viewBox="0 0 240 360" width="${size}" height="${Math.round(size * 1.5)}" xmlns="http://www.w3.org/2000/svg" aria-label="Body diagram">
+      <!-- silhouette outline (under everything) -->
+      <path class="body-base" d="
+        M 120 18
+        c -14 0 -22 11 -22 24 c 0 9 4 16 8 20
+        c -2 4 -3 8 -8 10
+        c -10 4 -22 8 -28 16
+        c -4 6 -6 14 -8 22
+        l -4 28
+        c -1 8 1 16 4 22
+        c 3 6 7 10 9 12
+        c -1 8 -2 16 -1 22
+        c 1 7 4 12 6 18
+        l 6 26
+        c 1 6 0 14 -2 22
+        l -6 36
+        c -2 12 -2 22 0 32
+        l 4 40
+        c 1 6 5 10 10 10
+        c 5 0 8 -4 9 -10
+        l 2 -42
+        l 4 -40
+        c 1 -6 4 -10 7 -10
+        h 6
+        c 3 0 6 4 7 10
+        l 4 40
+        l 2 42
+        c 1 6 4 10 9 10
+        c 5 0 9 -4 10 -10
+        l 4 -40
+        c 2 -10 2 -20 0 -32
+        l -6 -36
+        c -2 -8 -3 -16 -2 -22
+        l 6 -26
+        c 2 -6 5 -11 6 -18
+        c 1 -6 0 -14 -1 -22
+        c 2 -2 6 -6 9 -12
+        c 3 -6 5 -14 4 -22
+        l -4 -28
+        c -2 -8 -4 -16 -8 -22
+        c -6 -8 -18 -12 -28 -16
+        c -5 -2 -6 -6 -8 -10
+        c 4 -4 8 -11 8 -20
+        c 0 -13 -8 -24 -22 -24 z" />
+
+      <!-- shoulders (deltoid caps) -->
+      <path class="${cls('shoulders')}" d="M 76 70 c -10 2 -18 8 -22 18 c 8 4 18 4 26 0 c 2 -6 0 -14 -4 -18 z" />
+      <path class="${cls('shoulders')}" d="M 164 70 c 10 2 18 8 22 18 c -8 4 -18 4 -26 0 c -2 -6 0 -14 4 -18 z" />
+
+      <!-- chest (pectorals — two halves) -->
+      <path class="${cls('chest')}" d="M 80 78 c 12 -4 28 -4 38 0 c 0 12 -2 22 -8 28 c -10 2 -22 0 -28 -4 c -4 -8 -4 -16 -2 -24 z" />
+      <path class="${cls('chest')}" d="M 160 78 c -12 -4 -28 -4 -38 0 c 0 12 2 22 8 28 c 10 2 22 0 28 -4 c 4 -8 4 -16 2 -24 z" />
+
+      <!-- biceps (front of upper arm) -->
+      <path class="${cls('biceps')}" d="M 56 92 c -6 4 -10 12 -12 22 c 4 8 12 12 18 10 c 2 -10 0 -22 -6 -32 z" />
+      <path class="${cls('biceps')}" d="M 184 92 c 6 4 10 12 12 22 c -4 8 -12 12 -18 10 c -2 -10 0 -22 6 -32 z" />
+
+      <!-- triceps (subtle outer-arm region) -->
+      <path class="${cls('triceps')}" d="M 50 96 c -4 6 -6 14 -8 24 c 2 6 6 8 10 8 c 0 -12 0 -22 -2 -32 z" />
+      <path class="${cls('triceps')}" d="M 190 96 c 4 6 6 14 8 24 c -2 6 -6 8 -10 8 c 0 -12 0 -22 2 -32 z" />
+
       <!-- forearms -->
-      <ellipse class="body-base" cx="55" cy="125" rx="9" ry="18"/>
-      <ellipse class="body-base" cx="145" cy="125" rx="9" ry="18"/>
-      <ellipse class="${cls('forearms')}" cx="55" cy="125" rx="7" ry="14"/>
-      <ellipse class="${cls('forearms')}" cx="145" cy="125" rx="7" ry="14"/>
-      <!-- abs -->
-      <path class="${cls('abs')}" d="M 85 100 Q 100 102 115 100 L 113 145 Q 100 148 87 145 Z"/>
-      <!-- obliques -->
-      <path class="${cls('obliques')}" d="M 73 105 Q 78 118 80 145 L 84 145 L 86 110 Q 78 105 73 105 Z"/>
-      <path class="${cls('obliques')}" d="M 127 105 Q 122 118 120 145 L 116 145 L 114 110 Q 122 105 127 105 Z"/>
-      <!-- quads -->
-      <path class="${cls('quads')}" d="M 78 180 L 95 180 L 96 245 L 80 245 Z"/>
-      <path class="${cls('quads')}" d="M 105 180 L 122 180 L 120 245 L 104 245 Z"/>
+      <path class="${cls('forearms')}" d="M 46 130 c -4 10 -6 22 -6 32 c 2 4 6 6 10 6 c 0 -12 0 -26 -4 -38 z" />
+      <path class="${cls('forearms')}" d="M 194 130 c 4 10 6 22 6 32 c -2 4 -6 6 -10 6 c 0 -12 0 -26 4 -38 z" />
+
+      <!-- abs (rectus abdominis — visible 6-pack pattern) -->
+      <path class="${cls('abs')}" d="M 102 110 c 12 -2 24 -2 36 0 v 56 c -10 2 -26 2 -36 0 z M 110 116 h 20 v 8 h -20 z M 110 128 h 20 v 8 h -20 z M 110 140 h 20 v 8 h -20 z M 110 152 h 20 v 8 h -20 z" />
+
+      <!-- obliques (side abs) -->
+      <path class="${cls('obliques')}" d="M 86 116 c -4 8 -6 20 -6 32 c 0 8 2 16 6 20 l 14 0 v -52 c -4 -2 -10 -2 -14 0 z" />
+      <path class="${cls('obliques')}" d="M 154 116 c 4 8 6 20 6 32 c 0 8 -2 16 -6 20 l -14 0 v -52 c 4 -2 10 -2 14 0 z" />
+
+      <!-- glutes -->
+      <path class="${cls('glutes')}" d="M 88 178 c 0 6 4 10 12 10 l 0 -12 c -4 -2 -10 -2 -12 2 z" />
+      <path class="${cls('glutes')}" d="M 152 178 c 0 6 -4 10 -12 10 l 0 -12 c 4 -2 10 -2 12 2 z" />
+
+      <!-- quads (front of thigh) -->
+      <path class="${cls('quads')}" d="M 96 188 c -2 18 -4 38 -4 60 c 0 6 4 10 8 10 c 2 -22 4 -46 4 -68 c -2 -2 -6 -4 -8 -2 z" />
+      <path class="${cls('quads')}" d="M 144 188 c 2 18 4 38 4 60 c 0 6 -4 10 -8 10 c -2 -22 -4 -46 -4 -68 c 2 -2 6 -4 8 -2 z" />
+
+      <!-- hamstrings (back of thigh hint) -->
+      <path class="${cls('hamstrings')}" d="M 106 200 v 50 c 0 4 2 6 4 6 c 0 -16 0 -38 -4 -56 z" />
+      <path class="${cls('hamstrings')}" d="M 134 200 v 50 c 0 4 -2 6 -4 6 c 0 -16 0 -38 4 -56 z" />
+
       <!-- calves -->
-      <ellipse class="${cls('calves')}" cx="86" cy="280" rx="9" ry="20"/>
-      <ellipse class="${cls('calves')}" cx="114" cy="280" rx="9" ry="20"/>
-      <!-- triceps (small back-of-arm hint via lighter ellipse) -->
-      <ellipse class="${cls('triceps')}" cx="60" cy="98" rx="5" ry="10" opacity="0.85"/>
-      <ellipse class="${cls('triceps')}" cx="140" cy="98" rx="5" ry="10" opacity="0.85"/>
-      <!-- glutes (top of legs hint) -->
-      <ellipse class="${cls('glutes')}" cx="86" cy="180" rx="11" ry="6" opacity="0.9"/>
-      <ellipse class="${cls('glutes')}" cx="114" cy="180" rx="11" ry="6" opacity="0.9"/>
-      <!-- hamstrings (back-of-thigh hint) -->
-      <path class="${cls('hamstrings')}" d="M 80 200 L 95 200 L 95 245 L 82 245 Z" opacity="0.85"/>
-      <path class="${cls('hamstrings')}" d="M 105 200 L 120 200 L 118 245 L 105 245 Z" opacity="0.85"/>
+      <path class="${cls('calves')}" d="M 92 270 c -2 14 -2 28 0 38 c 4 4 10 4 12 0 c 0 -12 0 -26 -2 -40 c -4 -2 -8 -2 -10 2 z" />
+      <path class="${cls('calves')}" d="M 148 270 c 2 14 2 28 0 38 c -4 4 -10 4 -12 0 c 0 -12 0 -26 2 -40 c 4 -2 8 -2 10 2 z" />
+
+      <!-- back hint (centred — only highlights when 'back' is targeted) -->
+      <path class="${cls('back')}" d="M 110 78 c 8 -2 16 -2 24 0 v 4 c -8 1 -16 1 -24 0 z" opacity="0" />
+      <path class="${cls('lats')}" d="M 86 86 c -2 8 -2 16 0 22 v -22 z M 156 86 c 2 8 2 16 0 22 v -22 z" opacity="0" />
+      <path class="${cls('traps')}" d="M 102 56 c 8 -2 16 -2 24 0 c 0 4 -2 8 -4 8 c -6 -2 -12 -2 -16 0 c -2 0 -4 -4 -4 -8 z" opacity="0" />
     </svg>
   `;
 }
@@ -11842,6 +11889,21 @@ function buildModuleCtx() {
     // DOM + UI helpers
     $, show, hide, showToast, showError, logError, showLoading, hideLoading, haptic, openSheet, closeSheet,
     escHtml,
+    // Workout library + exercise frequency for AI plan generation.
+    // aifeatures.js reads these to build a "use these workouts/exercises"
+    // palette into its plan-generation prompts.
+    get WORKOUT_LIBRARY() { return (typeof WORKOUT_LIBRARY !== 'undefined') ? WORKOUT_LIBRARY : []; },
+    getFrequentExercises: () => {
+      try {
+        const all = (typeof extractAllExercises === 'function') ? extractAllExercises() : [];
+        // extractAllExercises already groups by name + counts plan-references.
+        return all
+          .filter(e => Array.isArray(e.plans) && e.plans.length >= 3)
+          .sort((a, b) => (b.plans?.length || 0) - (a.plans?.length || 0))
+          .slice(0, 25)
+          .map(e => ({ name: e.name, type: e.exerciseType || e.catLabel, planCount: e.plans.length }));
+      } catch (e) { return []; }
+    },
     renderGodAdminPanel, bindGodAdminPanel,
     get globalSettings() { return globalSettings; },
     activateRaceDay, deactivateRaceDay, openRaceDayOverlay, checkRaceDaySchedule,
