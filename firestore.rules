@@ -355,6 +355,41 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /team_invites/{inviteId} {
+      // Direct-add invites issued by a head coach to an unassigned
+      // user (teamId == null). Replaces share-a-code as the primary
+      // onboarding path: coach picks the user from a list, this doc
+      // is written, the invitee sees it on their team gate next time
+      // they sign in and one-taps Accept.
+      // Schema: { userId, teamId, teamName, teamCode, fromUid,
+      //           fromName, ts }
+      // Doc ID format: ${teamId}_${userId}
+      allow read: if isSignedIn()
+        && (
+          // The invitee may read their own invites (used by the team
+          // gate to surface them).
+          resource.data.userId == request.auth.uid
+          // Head coach who issued the invite may read it.
+          || resource.data.fromUid == request.auth.uid
+          || isAdmin()
+        );
+      allow create: if isSignedIn()
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.userId is string
+        && request.resource.data.teamId is string
+        // Only the head coach (createdBy) of the named team may issue
+        // an invite — prevents drive-by spam.
+        && request.auth.uid == get(/databases/$(database)/documents/teams/$(request.resource.data.teamId)).data.createdBy;
+      // Invitee may delete (= dismiss) their own; head coach may
+      // rescind.
+      allow delete: if isSignedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || resource.data.fromUid == request.auth.uid
+          || isAdmin()
+        );
+    }
+
     match /coach_pro_requests/{uid} {
       // Coach Pro upgrade requests. Doc ID = user uid so each user has at
       // most one outstanding request. User creates/reads their own; admin

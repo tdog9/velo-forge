@@ -2883,6 +2883,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // Record tab — bound after modules init (see Phase 4)
 
 function switchPage(page) {
+  // Hard team gate: a real user without a team cannot navigate the
+  // app. The overlay is shown by enforceTeamGate(); we just refuse
+  // navigation while it's up so the underlying page state stays put.
+  if (enforceTeamGate()) return;
   // Feature 3: Save scroll position before leaving
   scrollPositions[currentPage] = $('content').scrollTop;
   // Tear down the chat snapshot listener when leaving Team — was
@@ -3381,6 +3385,101 @@ const WORKOUT_LIBRARY = [
   { id:'quick-deskbreak-1', name:'Desk Break 5', intensity:'easy', duration:5, muscles:['back','shoulders','glutes','quads'], description:'5 minutes between zoom calls or homework sessions. Keeps the body honest.', exercises:['30s neck rolls','30s shoulder rolls','60s standing forward fold','60s couch stretch','60s squats','30s plank'] },
 ];
 
+/// Coach hints — per-exercise advice keyed by lowercase name fragment.
+/// Used by the workout timer to surface technique cues alongside the
+/// reps/duration so the rider gets quality coaching, not just a clock.
+const COACH_HINTS = [
+  { match: /\bsquat/i, hint: 'Drive through your heels, knees track over toes. Chest up.' },
+  { match: /\bpush ?up|press ?up/i, hint: 'Elbows ~45° to ribs, full lockout, head neutral.' },
+  { match: /\bplank/i, hint: 'Squeeze glutes, brace abs. Don\'t let hips drop or hike.' },
+  { match: /\bdead ?lift|rdl/i, hint: 'Hinge at the hips, neutral spine, bar close to legs.' },
+  { match: /\blunge/i, hint: 'Front knee tracks over the foot. Long stride, tall posture.' },
+  { match: /\bjump|plyo|bound/i, hint: 'Land soft, bend knees on impact. Reset every rep.' },
+  { match: /\brow|pull/i, hint: 'Pull with your back, not your arms. Squeeze shoulder blades.' },
+  { match: /\bcurl/i, hint: 'Slow tempo, full ROM. No swinging — keep elbows pinned.' },
+  { match: /\bdip/i, hint: 'Shoulders down + back. Drop only as deep as you can control.' },
+  { match: /\bbridge|hip ?thrust/i, hint: 'Big glute squeeze at the top. Ribs down, no overarch.' },
+  { match: /\bcalf ?raise/i, hint: 'Full extension up, deliberate stretch at the bottom.' },
+  { match: /\bcrunch|bicycle|leg ?raise|hollow/i, hint: 'Slow + controlled. Lower back stays glued to the floor.' },
+  { match: /\bburpee/i, hint: 'Land tight in the plank, jump explosive on the way up.' },
+  { match: /\bmountain ?climber/i, hint: 'Hips low + flat. Drive knees fast under your chest.' },
+  { match: /\brest|catch your breath/i, hint: 'Stay loose. Walk slow circles. Don\'t cool down completely.' },
+  { match: /\bsprint/i, hint: 'Max effort. Drive arms, full extension. Walk back to start.' },
+  { match: /\bhang/i, hint: 'Active shoulders — pack down + back, no shrug.' },
+  { match: /\bband.*pull|pull.*apart|face ?pull/i, hint: 'Lead with your elbows. Squeeze the back of your shoulders.' },
+  { match: /\bsuperman|reverse ?snow/i, hint: 'Stretch tall through the fingers, lift from the upper back.' },
+  { match: /\bwall ?sit/i, hint: 'Thighs parallel, back flat. Breathe through the burn.' },
+  { match: /\bstep ?up/i, hint: 'Drive through the front foot, don\'t push off the ground.' },
+  { match: /\bwoodchop|pallof|cable.*rot/i, hint: 'Resist the rotation — abs do the work, not the arms.' },
+  { match: /\bstretch|fold|couch|child/i, hint: 'Breathe deep, ease in. No bouncing — relax into it.' },
+  { match: /\bhandstand/i, hint: 'Stack ribs over hips, push the floor away. Look between hands.' },
+];
+function coachHintFor(name) {
+  const s = name || '';
+  const m = COACH_HINTS.find(h => h.match.test(s));
+  return m ? m.hint : '';
+}
+
+/// Parse a free-text exercise string into a structured object the
+/// timer can iterate through. Handles the common formats used in
+/// WORKOUT_LIBRARY:
+///   "30s squats"            → { name:'Squats', duration:'30 sec' }
+///   "Pushups 4x10"          → { name:'Pushups', sets:4, reps:'10' }
+///   "Plank 3x60s"           → { name:'Plank', sets:3, duration:'60 sec' }
+///   "Step-ups 3x10 each"    → { name:'Step-ups (each side)', sets:3, reps:'10' }
+///   "Wall sit 3x60s"        → { name:'Wall sit', sets:3, duration:'60 sec' }
+function parseExerciseLine(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  let s = raw.trim();
+  if (!s) return null;
+  let sets = 1;
+  let reps = null;
+  let duration = null;
+  let eachSide = false;
+
+  // "each" / "each side" annotation
+  if (/\beach( side)?\b/i.test(s)) {
+    eachSide = true;
+    s = s.replace(/\beach( side)?\b/gi, '').trim();
+  }
+  // sets × duration in seconds: "3x60s", "4x30 sec"
+  const setsDur = s.match(/(\d+)\s*[x×]\s*(\d+)\s*(?:s|sec(?:onds?)?)\b/i);
+  if (setsDur) {
+    sets = parseInt(setsDur[1], 10);
+    duration = parseInt(setsDur[2], 10) + ' sec';
+    s = s.replace(setsDur[0], '').trim();
+  } else {
+    // sets × reps: "4x10"
+    const setsReps = s.match(/(\d+)\s*[x×]\s*(\d+)\b(?!\s*(?:m|km|min))/i);
+    if (setsReps) {
+      sets = parseInt(setsReps[1], 10);
+      reps = setsReps[2];
+      s = s.replace(setsReps[0], '').trim();
+    } else {
+      // standalone duration "30s" or "60 sec"
+      const dur = s.match(/(\d+)\s*(?:s|sec(?:onds?)?)\b/i);
+      if (dur) {
+        duration = parseInt(dur[1], 10) + ' sec';
+        s = s.replace(dur[0], '').trim();
+      }
+    }
+  }
+  // Strip leading qualifiers like "Repeat" / a stray hyphen, then capitalise.
+  s = s.replace(/^[—–-]\s*|\s*[—–-]\s*$/g, '').trim();
+  if (!s) s = raw.trim();
+  // Capitalise first character if all-lower — exercises in WORKOUT_LIBRARY
+  // are inconsistent ("30s squats" vs "Pushups 4x10").
+  if (s && s[0] === s[0].toLowerCase()) s = s[0].toUpperCase() + s.slice(1);
+  if (eachSide) s += ' (each side)';
+  const ex = { name: s };
+  if (sets > 1) ex.sets = sets;
+  if (reps) ex.reps = reps;
+  if (duration) ex.duration = duration;
+  const hint = coachHintFor(s);
+  if (hint) ex.notes = hint;
+  return ex;
+}
+
 /// Anatomical body diagram — front + back views with named muscle
 /// paths. Active muscles are filled with the primary colour; inactive
 /// muscles render in a muted "rested" tone so the chart reads even
@@ -3638,10 +3737,35 @@ function openWorkoutLibraryDetail(id) {
         ${renderBodyDiagram(w.muscles)}
       </div>
 
-      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:6px 2px 8px">Exercises</div>
-      <ol style="margin:0;padding:0 0 0 24px;font-size:13.5px;line-height:1.6;color:var(--fg)">
-        ${(w.exercises || []).map(ex => `<li style="margin-bottom:4px">${escHtml(ex)}</li>`).join('')}
-      </ol>
+      <div style="background:rgba(var(--primary-rgb),.06);border:1px solid rgba(var(--primary-rgb),.25);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--primary);margin-bottom:6px">Coach tip</div>
+        <div style="font-size:13px;line-height:1.55;color:var(--fg)">${escHtml(w.description)}</div>
+      </div>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:6px 2px 8px">Exercises (${(w.exercises || []).length})</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${(w.exercises || []).map((ex, i) => {
+          const p = parseExerciseLine(ex);
+          const meta = p ? [
+            p.sets > 1 ? p.sets + ' sets' : '',
+            p.reps ? p.reps + ' reps' : '',
+            p.duration || '',
+          ].filter(Boolean).join(' · ') : '';
+          return `<div style="display:flex;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+            <div style="flex-shrink:0;width:22px;height:22px;border-radius:99px;background:rgba(var(--primary-rgb),.12);color:var(--primary);font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center">${i+1}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13.5px;font-weight:700;color:var(--fg);line-height:1.3">${escHtml(p ? p.name : ex)}</div>
+              ${meta ? `<div style="font-size:11.5px;color:var(--muted-fg);margin-top:2px">${escHtml(meta)}</div>` : ''}
+              ${p?.notes ? `<div style="font-size:11.5px;color:var(--primary);margin-top:4px;line-height:1.4">${escHtml(p.notes)}</div>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div style="background:rgba(var(--primary-rgb),.04);border:1px solid rgba(var(--primary-rgb),.2);border-radius:10px;padding:10px 12px;margin-top:14px;display:flex;gap:10px;align-items:center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--primary);flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <div style="font-size:12px;color:var(--muted-fg);line-height:1.4">Tap <strong style="color:var(--fg)">Start now</strong> — your Apple Watch flips to training mode and tracks HR while you go.</div>
+      </div>
 
       <button id="lib-start" type="button" style="width:100%;margin-top:18px;padding:14px;border-radius:12px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:800;font-size:15px;cursor:pointer;letter-spacing:.01em">Start now →</button>
       <button id="lib-log" type="button" style="width:100%;margin-top:8px;padding:10px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--fg);font-weight:600;font-size:12.5px;cursor:pointer">Log as completed</button>
@@ -3654,10 +3778,18 @@ function openWorkoutLibraryDetail(id) {
   ov.querySelector('#lib-start')?.addEventListener('click', () => {
     haptic('medium');
     close();
-    // openWorkoutTimer signature: (workoutName, durationMin, exercises[]).
+    // Parse free-text exercise lines into structured objects so the
+    // timer can step through with sets/reps/duration + coach hints.
+    const parsed = (w.exercises || [])
+      .map(parseExerciseLine)
+      .filter(Boolean);
+    // Push the workout into training mode — Watch flips to its
+    // training view (HR + duration tracking) so the rider can read
+    // the session from the wrist while the phone runs the timer.
+    try { startTrainingSession({ type: 'workout', title: w.name }); } catch(_) {}
     try {
       if (typeof openWorkoutTimer === 'function') {
-        openWorkoutTimer(w.name, w.duration, w.exercises || []);
+        openWorkoutTimer(w.name, w.duration, parsed.length ? parsed : (w.exercises || []));
       } else {
         showToast(`Started: ${w.name}`, 'success');
       }
@@ -8641,21 +8773,11 @@ function renderTeamTab(c, opts) {
       if (btn2) btn2.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     }, 1500);
   });
-  // Invite button — share team code via native share, fall back to clipboard.
-  // Useful when a user has signed up but isn't on the team (e.g. Felix has an
-  // account with teamId=null — he needs the code to actually join).
-  $('team-invite-hint-btn')?.addEventListener('click', async () => {
-    const code = teamData.code;
-    const msg = `Join my TurboPrep team "${teamData.name}". Open the app, go to the Team tab and tap "Join Team by Code". Code: ${code}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: 'Join my team on TurboPrep', text: msg });
-        return;
-      }
-    } catch(e) { /* user cancelled or share unsupported */ }
-    try { await navigator.clipboard.writeText(msg); showToast('Invite copied to clipboard', 'success'); }
-    catch(e) { showToast('Code: ' + code, 'info'); }
-  });
+  // Invite button — opens the unassigned-users picker so the head
+  // coach can directly pick athletes who've signed up but haven't
+  // joined any team. Falls back to share-a-code path inside the
+  // sheet for users who aren't yet in the system.
+  $('team-invite-hint-btn')?.addEventListener('click', () => openInvitePicker());
   // Bind leave (null-guarded so a missing element doesn't kill the rest of the bind block)
   $('leave-team-btn')?.addEventListener('click', leaveTeam);
   // Subteam leaderboard filter — re-render team tab with new filter.
@@ -11865,6 +11987,327 @@ async function ensureDefaultTeamMembership() {
   }
 }
 
+/// Coach-side invite picker — opens a sheet listing every signed-up
+/// user who currently has no team (teamId == null). Coach taps "Add"
+/// to send a direct invite (via team_invites/{teamId}_{userId}). The
+/// invitee sees the invite as a "Coach X invited you to {team}"
+/// banner on the team gate and can accept in one tap.
+async function openInvitePicker() {
+  if (!teamData?.id || !currentUser) return;
+  const isHeadCoach = teamData.createdBy === currentUser.uid;
+  if (!isHeadCoach) {
+    showToast('Only the head coach can invite directly.', 'info');
+    return;
+  }
+  const sheetEl = document.getElementById('sheet-content');
+  if (!sheetEl) return;
+  sheetEl.innerHTML = `
+    <div class="sheet-title">Invite to ${escHtml(teamData.name)}</div>
+    <div style="font-size:12.5px;color:var(--muted-fg);margin-bottom:12px;line-height:1.5">Pick from athletes who've signed up but haven't joined a team yet. They'll see your invite when they next open the app.</div>
+    <div class="demo-search-wrap" style="margin-bottom:10px">
+      <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="demo-search" type="text" id="invite-pick-search" placeholder="Filter by name or email...">
+    </div>
+    <div id="invite-pick-list" style="max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -4px">
+      <div style="text-align:center;padding:24px;color:var(--muted-fg);font-size:12.5px"><div class="spinner" style="margin:0 auto 10px"></div>Loading unassigned users…</div>
+    </div>
+    <button class="btn btn-secondary" id="invite-share-link-btn" style="width:100%;margin-top:12px;font-size:12.5px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+      Or share team code instead
+    </button>
+  `;
+  openSheet();
+  let allUnassigned = [];
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    allUnassigned = snap.docs
+      .map(d => ({ uid: d.id, ...d.data() }))
+      .filter(u => !u.teamId && u.uid !== currentUser.uid)
+      // Coaches and parents manage their own teams — skip in the picker.
+      .filter(u => !u.isCoach && u.role !== 'parent');
+  } catch(e) {
+    console.warn('Invite picker: load unassigned users failed:', e);
+    sheetEl.querySelector('#invite-pick-list').innerHTML =
+      '<div style="text-align:center;padding:20px;color:var(--destructive);font-size:12.5px">Couldn\'t load users. Check your connection.</div>';
+    return;
+  }
+  // Pre-fetch outstanding invites this coach has already sent for
+  // this team so the picker shows "Invited" pills instead of letting
+  // the coach spam the same person.
+  const pendingByUid = {};
+  try {
+    const inviteSnap = await getDocs(query(
+      collection(db, 'team_invites'),
+      where('teamId', '==', teamData.id)
+    ));
+    inviteSnap.forEach(d => { pendingByUid[d.data().userId] = d.id; });
+  } catch(_) {}
+
+  const renderList = (filterStr) => {
+    const f = (filterStr || '').toLowerCase().trim();
+    const filtered = !f ? allUnassigned : allUnassigned.filter(u =>
+      (u.displayName || '').toLowerCase().includes(f)
+      || (u.email || '').toLowerCase().includes(f)
+    );
+    const listEl = sheetEl.querySelector('#invite-pick-list');
+    if (filtered.length === 0) {
+      listEl.innerHTML = `
+        <div style="text-align:center;padding:24px;color:var(--muted-fg);font-size:12.5px">
+          ${f ? 'No matches.' : 'Everyone in the system already has a team. Nice problem to have.'}
+        </div>`;
+      return;
+    }
+    listEl.innerHTML = filtered.map(u => {
+      const initials = (u.displayName || u.email || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+      const invited = pendingByUid[u.uid];
+      const yearLabel = u.yearLevel ? ' · ' + escHtml(u.yearLevel) : '';
+      return `
+        <div data-pick-uid="${escHtml(u.uid)}" style="display:flex;gap:10px;align-items:center;padding:10px;border-bottom:1px solid var(--border)">
+          <div style="width:34px;height:34px;border-radius:50%;background:rgba(var(--primary-rgb),.12);color:var(--primary);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${escHtml(initials)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.displayName || '(no name)')}${yearLabel}</div>
+            <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.email || '')}</div>
+          </div>
+          ${invited
+            ? `<span style="font-size:11px;font-weight:700;padding:5px 9px;border-radius:99px;background:rgba(120,160,140,.15);color:var(--muted-fg);border:1px solid var(--border);flex-shrink:0">Invited</span>`
+            : `<button data-invite-uid="${escHtml(u.uid)}" data-invite-name="${escHtml(u.displayName || '')}" type="button" style="font-size:12px;font-weight:700;padding:6px 12px;border-radius:99px;background:var(--primary);color:var(--primary-fg);border:0;cursor:pointer;flex-shrink:0">Invite</button>`}
+        </div>`;
+    }).join('');
+    listEl.querySelectorAll('button[data-invite-uid]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const uid = btn.dataset.inviteUid;
+        const name = btn.dataset.inviteName || 'them';
+        btn.disabled = true;
+        btn.textContent = '…';
+        try {
+          const inviteId = `${teamData.id}_${uid}`;
+          await setDoc(doc(db, 'team_invites', inviteId), {
+            userId: uid,
+            teamId: teamData.id,
+            teamName: teamData.name,
+            teamCode: teamData.code,
+            fromUid: currentUser.uid,
+            fromName: userProfile?.displayName || 'Coach',
+            ts: serverTimestamp(),
+          });
+          pendingByUid[uid] = inviteId;
+          showToast(`Invited ${name}`, 'success');
+          renderList(sheetEl.querySelector('#invite-pick-search')?.value || '');
+        } catch(e) {
+          console.warn('Invite write failed:', e);
+          btn.disabled = false;
+          btn.textContent = 'Invite';
+          showToast('Could not send invite — check Firestore rules.', 'error');
+        }
+      });
+    });
+  };
+  renderList('');
+  sheetEl.querySelector('#invite-pick-search')?.addEventListener('input',
+    debounce(e => renderList(e.target.value), 200));
+  sheetEl.querySelector('#invite-share-link-btn')?.addEventListener('click', async () => {
+    const code = teamData.code;
+    const msg = `Join my TurboPrep team "${teamData.name}". Open the app, go to the Team tab and tap "Join Team by Code". Code: ${code}`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Join my team on TurboPrep', text: msg });
+      else { await navigator.clipboard.writeText(msg); showToast('Invite copied', 'success'); }
+    } catch(_) {}
+  });
+}
+
+/// Read this user's outstanding invites so the team gate can surface
+/// them with a one-tap Accept. Returns the docs as { id, ...data }.
+async function loadPendingInvitesForMe() {
+  if (!db || !currentUser) return [];
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'team_invites'),
+      where('userId', '==', currentUser.uid)
+    ));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {
+    console.warn('loadPendingInvitesForMe failed:', e);
+    return [];
+  }
+}
+
+/// Accept a pending invite — runs the same join-by-code flow under
+/// the hood (so all the existing Firestore rules apply), then deletes
+/// the invite doc.
+async function acceptInvite(invite) {
+  if (!invite || !invite.teamId || !currentUser || !db) return false;
+  showLoading('Joining ' + (invite.teamName || 'team') + '…');
+  try {
+    await updateDoc(doc(db, 'teams', invite.teamId), { members: arrayUnion(currentUser.uid) });
+    await updateDoc(doc(db, 'users', currentUser.uid), {
+      teamId: invite.teamId,
+      teamName: invite.teamName || ''
+    });
+    userProfile.teamId = invite.teamId;
+    userProfile.teamName = invite.teamName || '';
+    try { await deleteDoc(doc(db, 'team_invites', invite.id)); } catch(_) {}
+    await loadTeamData();
+    try { attachTeamLiveListener(); } catch(_) {}
+    hideLoading();
+    showToast('Joined "' + (invite.teamName || 'team') + '"!', 'success');
+    return true;
+  } catch(e) {
+    hideLoading();
+    console.warn('acceptInvite failed:', e);
+    showToast('Could not accept invite. Try again.', 'error');
+    return false;
+  }
+}
+
+/// Hard team gate — when a real (non-demo) user is signed in without
+/// a teamId, show a non-dismissible full-screen overlay forcing them
+/// to join one before they can use the app. Auto-join via
+/// ensureDefaultTeamMembership runs first, so this only fires for
+/// users who genuinely have no team (failed auto-join, coaches who
+/// haven't created a team yet, or accounts whose team was deleted).
+function enforceTeamGate() {
+  const skip = demoMode || !currentUser || (userProfile && userProfile.teamId);
+  const existing = document.getElementById('team-gate-overlay');
+  if (skip) {
+    if (existing) existing.remove();
+    return false;
+  }
+  if (existing) return true; // already shown
+  const isCoach = !!userProfile?.isCoach;
+  const ov = document.createElement('div');
+  ov.id = 'team-gate-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:var(--bg);display:flex;flex-direction:column;overflow-y:auto;padding:env(safe-area-inset-top, 0px) 20px env(safe-area-inset-bottom, 0px)';
+  ov.innerHTML = `
+    <div style="max-width:480px;width:100%;margin:auto;padding:32px 0">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="width:64px;height:64px;border-radius:18px;background:rgba(var(--primary-rgb),.12);border:1px solid rgba(var(--primary-rgb),.3);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:30px;height:30px;color:var(--primary)"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        </div>
+        <div style="font-size:22px;font-weight:800;margin-bottom:6px">Join your team</div>
+        <div style="font-size:13px;color:var(--muted-fg);line-height:1.5">TurboPrep is built for school HPR teams. Enter the code from your coach to get started.</div>
+      </div>
+      <div id="gate-invites" style="margin-bottom:18px"></div>
+      <div class="form-group" style="margin-bottom:8px">
+        <label class="label" for="gate-code-input">Team Code</label>
+        <input class="input" type="text" id="gate-code-input" placeholder="e.g. LGT2026" maxlength="6" style="text-transform:uppercase;letter-spacing:.1em;font-family:var(--font-mono)">
+      </div>
+      <div id="gate-error" class="auth-error hidden" style="margin-bottom:8px"></div>
+      <button class="btn btn-primary" id="gate-join-btn" style="width:100%;margin-bottom:18px">Join Team</button>
+      <div style="display:flex;align-items:center;gap:8px;margin:18px 0;color:var(--muted-fg);font-size:11px;letter-spacing:.06em;text-transform:uppercase">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span>or search</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      <div class="demo-search-wrap" style="margin-bottom:10px">
+        <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="demo-search" type="text" id="gate-search-input" placeholder="Search for your club...">
+      </div>
+      <div id="gate-search-results" style="margin-bottom:18px"></div>
+      ${isCoach ? `
+        <button class="btn btn-secondary" id="gate-create-btn" style="width:100%;margin-bottom:10px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Request a New Team
+        </button>
+      ` : ''}
+      <button class="btn btn-tertiary" id="gate-signout-btn" style="width:100%;background:transparent;color:var(--muted-fg);font-size:12px;padding:10px">Sign out</button>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  const codeEl = ov.querySelector('#gate-code-input');
+  setTimeout(() => codeEl?.focus(), 80);
+  // Surface any pending coach-issued invites at the top of the gate
+  // so the invitee can one-tap accept instead of typing a code.
+  loadPendingInvitesForMe().then(invites => {
+    const wrap = ov.querySelector('#gate-invites');
+    if (!wrap || invites.length === 0) return;
+    wrap.innerHTML = invites.map(inv => `
+      <div style="background:rgba(var(--primary-rgb),.08);border:1px solid rgba(var(--primary-rgb),.35);border-radius:14px;padding:14px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--primary);margin-bottom:6px">Invitation</div>
+        <div style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:2px">${escHtml(inv.fromName || 'Your coach')} invited you to</div>
+        <div style="font-size:18px;font-weight:800;color:var(--fg);margin-bottom:10px">${escHtml(inv.teamName || 'a team')}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" data-accept-id="${escHtml(inv.id)}" style="flex:1;padding:10px;font-size:13px">Accept</button>
+          <button class="btn btn-secondary" data-decline-id="${escHtml(inv.id)}" style="padding:10px 16px;font-size:13px">Decline</button>
+        </div>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('button[data-accept-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const inv = invites.find(i => i.id === btn.dataset.acceptId);
+        if (!inv) return;
+        const ok = await acceptInvite(inv);
+        if (ok) {
+          ov.remove();
+          try { renderCurrentPage(); } catch(_) {}
+        }
+      });
+    });
+    wrap.querySelectorAll('button[data-decline-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try { await deleteDoc(doc(db, 'team_invites', btn.dataset.declineId)); } catch(_) {}
+        btn.closest('div[style*="background:rgba"]')?.remove();
+      });
+    });
+  }).catch(() => {});
+  ov.querySelector('#gate-join-btn').addEventListener('click', async () => {
+    const code = codeEl.value.trim().toUpperCase();
+    const err = ov.querySelector('#gate-error');
+    if (!code || code.length < 4) {
+      err.textContent = 'Please enter a valid team code.';
+      err.classList.remove('hidden');
+      return;
+    }
+    err.classList.add('hidden');
+    if (!db || !currentUser) return;
+    showLoading('Joining team...');
+    try {
+      const q2 = query(collection(db, 'teams'), where('code', '==', code));
+      const snap = await getDocs(q2);
+      if (snap.empty) {
+        hideLoading();
+        err.textContent = 'Team not found. Check the code.';
+        err.classList.remove('hidden');
+        return;
+      }
+      const td = snap.docs[0];
+      const tid = td.id;
+      const tData = td.data();
+      await updateDoc(doc(db, 'teams', tid), { members: arrayUnion(currentUser.uid) });
+      await updateDoc(doc(db, 'users', currentUser.uid), { teamId: tid, teamName: tData.name });
+      userProfile.teamId = tid;
+      userProfile.teamName = tData.name;
+      await loadTeamData();
+      try { attachTeamLiveListener(); } catch(_) {}
+      hideLoading();
+      ov.remove();
+      showToast('Joined "' + tData.name + '"!', 'success');
+      try { renderCurrentPage(); } catch(_) {}
+    } catch(e) {
+      hideLoading();
+      console.error('Gate join error:', e);
+      err.textContent = (e.code === 'permission-denied') ? 'Database rules blocked the join. Tell your coach.' : 'Could not join — try again.';
+      err.classList.remove('hidden');
+    }
+  });
+  // Search-for-club — reuse the existing renderTeamSearchResults helper.
+  const searchEl = ov.querySelector('#gate-search-input');
+  const resultsEl = ov.querySelector('#gate-search-results');
+  if (typeof renderTeamSearchResults === 'function') {
+    try { renderTeamSearchResults(resultsEl, ''); } catch(_) {}
+    searchEl.addEventListener('input', debounce(e => {
+      try { renderTeamSearchResults(resultsEl, e.target.value); } catch(_) {}
+    }, 250));
+  }
+  ov.querySelector('#gate-create-btn')?.addEventListener('click', () => {
+    if (typeof openCreateTeamSheet === 'function') openCreateTeamSheet();
+  });
+  ov.querySelector('#gate-signout-btn').addEventListener('click', async () => {
+    try { await signOut(auth); } catch(_) {}
+    ov.remove();
+  });
+  return true;
+}
+
 // Auth State Observer
 // Build context object for sub-modules (admin.js, strava.js)
 // Uses getters so modules always read fresh state
@@ -12188,6 +12631,11 @@ function startApp() {
       // sign-in so testers who got their teamId stripped (or never had
       // one) self-heal.
       try { await ensureDefaultTeamMembership(); } catch(e) { logError('ensure-default-team', e, { uid: user.uid }); }
+      // Hard team gate: if we still have no team after the auto-join
+      // attempt (failed default team, coach without a team yet,
+      // deleted team), force the user to join one before letting them
+      // into the app.
+      try { enforceTeamGate(); } catch(e) { logError('team-gate', e, { uid: user.uid }); }
       // PHASE 2: Show the app NOW — don't wait for all data
       hideLoading();
       if (window.location.search.includes('code=')) {
