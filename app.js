@@ -697,6 +697,10 @@ if (typeof window !== 'undefined') {
             displayName: userProfile?.displayName || currentUser.email || '',
             uid: currentUser.uid,
             laps: priorLaps.concat(newLaps),
+            // Pit count comes off the Watch's pit button if the rider
+            // tapped it during the stint. Use the prior count as the
+            // floor so a partial sync doesn't lose taps.
+            pitStops: Math.max(prior.pitStops || 0, payload.pitCount || 0),
             lastWatchStintAt: Date.now(),
           }, { merge: true });
           // 2. Clear the live state — stint is over
@@ -751,6 +755,9 @@ if (typeof window !== 'undefined') {
           bestLapMs: Math.min(...laps.map(l => l.duration || 0)),
           stintStartedAt: payload.stintStartedAt || null,
           stintEndedAt: payload.stintEndedAt || null,
+          // Watch's pit count, if any — pre-populates the sheet so
+          // riders don't double-enter what they already tapped.
+          pitCount: payload.pitCount || 0,
         };
         setTimeout(() => openPostStintSheet(stintSummary), 600);
       }
@@ -824,7 +831,7 @@ function openPostStintSheet(summary) {
       <div style="display:flex;gap:10px;margin-bottom:14px">
         <div style="flex:1">
           <label class="label">Pit stops</label>
-          <input class="input" id="ps-pit" type="number" min="0" max="50" placeholder="0" inputmode="numeric">
+          <input class="input" id="ps-pit" type="number" min="0" max="50" value="${summary.pitCount || 0}" inputmode="numeric">
         </div>
         <div style="flex:1">
           <label class="label">Position</label>
@@ -2349,6 +2356,14 @@ function showAuthLogin() {
   hide('login-error');
   hide('ai-fab');
   $('login-btn').disabled = false;
+  // First-launch onboarding carousel — shown above the auth UI on
+  // very first app open. Sets tp_onboarded once the user clicks
+  // through, so subsequent launches skip it.
+  try {
+    if (!localStorage.getItem('tp_onboarded')) {
+      setTimeout(() => openOnboardingCarousel(), 60);
+    }
+  } catch(_) {}
 }
 function showAuthSignup() {
   hide('auth-login');
@@ -3880,6 +3895,18 @@ function renderWorkoutLibrary(el) {
       <div class="lib-hero-stat"><div class="lib-hero-stat-val">11</div><div class="lib-hero-stat-lbl">muscle groups</div></div>
     </div>
   </div>`;
+  // ── Build-your-own CTA ──
+  html += `<button id="lib-build-own" type="button" style="width:100%;background:linear-gradient(135deg, rgba(var(--primary-rgb),.18), rgba(var(--primary-rgb),.04));border:1px solid rgba(var(--primary-rgb),.3);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left;margin-bottom:14px">
+    <div style="width:40px;height:40px;border-radius:10px;background:rgba(var(--primary-rgb),.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;color:var(--primary)"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14px;font-weight:800;color:var(--fg)">Build your own workout</div>
+      <div style="font-size:11.5px;color:var(--muted-fg);margin-top:1px">Pick exercises, set reps, save as a personal preset.</div>
+    </div>
+    <span style="color:var(--primary);font-size:18px">›</span>
+  </button>
+  ${renderMyCustomWorkoutsHtml()}`;
   // ── Filters ──
   html += '<div class="lib-filters">';
   html += '<div class="lib-filter-label">Filter by muscle</div>';
@@ -3977,6 +4004,248 @@ function renderWorkoutLibrary(el) {
     c.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openWorkoutLibraryDetail(c.dataset.libWorkout); }
     });
+  });
+  el.querySelector('#lib-build-own')?.addEventListener('click', () => openCustomWorkoutBuilder());
+  el.querySelectorAll('[data-custom-workout]').forEach(c => {
+    c.addEventListener('click', () => openCustomWorkoutDetail(c.dataset.customWorkout));
+  });
+  el.querySelectorAll('[data-custom-delete]').forEach(c => {
+    c.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = c.dataset.customDelete;
+      if (!confirm('Delete this custom workout?')) return;
+      const list = loadCustomWorkouts().filter(w => w.id !== id);
+      saveCustomWorkouts(list);
+      renderWorkoutLibrary(el);
+    });
+  });
+}
+
+/// Personal custom workouts — saved per user in localStorage. Each
+/// entry: { id, name, duration, intensity, exercises: [parsed],
+/// muscles: [...], createdAt }. Cap at 30 to keep storage tidy.
+function loadCustomWorkouts() {
+  try {
+    const key = 'tp_custom_workouts_' + (currentUser?.uid || 'anon');
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch(_) { return []; }
+}
+function saveCustomWorkouts(list) {
+  try {
+    const key = 'tp_custom_workouts_' + (currentUser?.uid || 'anon');
+    localStorage.setItem(key, JSON.stringify(list.slice(0, 30)));
+  } catch(_) {}
+}
+function renderMyCustomWorkoutsHtml() {
+  const list = loadCustomWorkouts();
+  if (list.length === 0) return '';
+  let html = `<div style="margin-bottom:18px">
+    <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:6px 2px 8px">My custom workouts</div>
+    <div style="display:flex;flex-direction:column;gap:6px">`;
+  list.forEach(w => {
+    const intensityColor = w.intensity === 'hard' ? '#ef4444' : w.intensity === 'moderate' ? '#f97316' : '#22c55e';
+    html += `<div data-custom-workout="${escHtml(w.id)}" style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 12px;cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(w.name)}</div>
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${w.exercises?.length || 0} exercises · ${w.duration || '—'} min · <span style="color:${intensityColor}">${escHtml(w.intensity || 'moderate')}</span></div>
+      </div>
+      <button data-custom-delete="${escHtml(w.id)}" type="button" aria-label="Delete" style="background:transparent;border:0;color:var(--muted-fg);font-size:18px;cursor:pointer;padding:4px 8px">×</button>
+    </div>`;
+  });
+  html += '</div></div>';
+  return html;
+}
+
+/// Detail/start sheet for a saved custom workout — same shape as the
+/// library detail but with a Start now → openWorkoutTimer wiring.
+function openCustomWorkoutDetail(id) {
+  const w = loadCustomWorkouts().find(x => x.id === id);
+  if (!w) return;
+  document.getElementById('lib-detail-overlay')?.remove();
+  const intensityColor = w.intensity === 'hard' ? '#ef4444' : w.intensity === 'moderate' ? '#f97316' : '#22c55e';
+  const ov = document.createElement('div');
+  ov.id = 'lib-detail-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:206;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center';
+  const exercisesHtml = (w.exercises || []).map((ex, i) => {
+    const meta = [
+      ex.sets > 1 ? ex.sets + ' sets' : '',
+      ex.reps ? ex.reps + ' reps' : '',
+      ex.duration || '',
+    ].filter(Boolean).join(' · ');
+    return `<div style="display:flex;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+      <div style="flex-shrink:0;width:22px;height:22px;border-radius:99px;background:rgba(var(--primary-rgb),.12);color:var(--primary);font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center">${i+1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13.5px;font-weight:700;color:var(--fg)">${escHtml(ex.name)}</div>
+        ${meta ? `<div style="font-size:11.5px;color:var(--muted-fg);margin-top:2px">${escHtml(meta)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  ov.innerHTML = `
+    <div style="background:var(--bg);width:100%;max-width:520px;max-height:90vh;border-radius:18px 18px 0 0;border-top:1px solid var(--border);overflow-y:auto;padding:18px 18px calc(28px + env(safe-area-inset-bottom,0px))">
+      <button id="lib-close" type="button" aria-label="Close" style="position:sticky;top:0;display:block;margin-left:auto;background:transparent;border:0;color:var(--muted-fg);font-size:24px;cursor:pointer;padding:0 4px">×</button>
+      <div style="text-align:center;font-size:11px;font-weight:800;letter-spacing:.14em;color:${intensityColor};text-transform:uppercase;margin-bottom:4px">${escHtml(w.intensity || 'moderate')} · ${w.duration || '—'} min</div>
+      <div style="text-align:center;font-size:24px;font-weight:800;color:var(--fg);margin-bottom:14px">${escHtml(w.name)}</div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:6px 2px 8px">Exercises (${(w.exercises || []).length})</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${exercisesHtml}</div>
+      <button id="lib-start" type="button" style="width:100%;margin-top:18px;padding:14px;border-radius:12px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:800;font-size:15px;cursor:pointer">Start now →</button>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  ov.querySelector('#lib-close').addEventListener('click', close);
+  ov.querySelector('#lib-start').addEventListener('click', () => {
+    haptic('medium');
+    close();
+    try { startTrainingSession({ type: 'workout', title: w.name }); } catch(_) {}
+    try {
+      if (typeof openWorkoutTimer === 'function') {
+        openWorkoutTimer(w.name, w.duration, w.exercises || []);
+      }
+    } catch(e) { console.warn('openWorkoutTimer failed:', e); }
+  });
+}
+
+/// Custom workout builder — full-screen overlay. User taps exercises
+/// from the library catalogue, tweaks sets/reps, gives the bundle a
+/// name, saves. The saved workout shows up in the Library tab as a
+/// "My custom workouts" row that runs through the same timer flow.
+function openCustomWorkoutBuilder() {
+  document.getElementById('cwb-overlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'cwb-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:210;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top, 0px)';
+  // Build a flat exercise palette by extracting unique exercises from
+  // every library workout. Filtered by name to dedupe variants.
+  const palette = [];
+  const seen = new Set();
+  WORKOUT_LIBRARY.forEach(w => {
+    (w.exercises || []).forEach(line => {
+      const p = parseExerciseLine(line);
+      if (!p) return;
+      const key = (p.name || '').toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        palette.push({ ...p, sourceMuscles: w.muscles || [] });
+      }
+    });
+  });
+  palette.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  ov.innerHTML = `
+    <header style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <button id="cwb-close" type="button" aria-label="Close" style="background:transparent;border:0;color:var(--muted-fg);font-size:22px;cursor:pointer;padding:0 4px">‹</button>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--primary)">CUSTOM WORKOUT</div>
+        <div style="font-size:14px;font-weight:700;color:var(--fg);margin-top:-1px">Build your own</div>
+      </div>
+      <button id="cwb-save" type="button" style="font-size:12px;font-weight:700;padding:7px 14px;border-radius:99px;background:var(--primary);color:var(--primary-fg);border:0;cursor:pointer">Save</button>
+    </header>
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px 90px">
+      <input id="cwb-name" class="input" type="text" placeholder="Workout name (e.g. My pre-race circuit)" maxlength="60" style="margin-bottom:10px">
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <select id="cwb-intensity" class="input" style="flex:1">
+          <option value="easy">Easy</option>
+          <option value="moderate" selected>Moderate</option>
+          <option value="hard">Hard</option>
+        </select>
+        <input id="cwb-duration" class="input" type="number" min="5" max="180" placeholder="Duration (min)" style="flex:1" inputmode="numeric">
+      </div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:8px 2px 6px">Selected (<span id="cwb-sel-count">0</span>)</div>
+      <div id="cwb-selected" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;min-height:48px;padding:8px;background:rgba(255,255,255,.02);border-radius:10px;border:1px dashed var(--border)">
+        <div id="cwb-empty-hint" style="font-size:12px;color:var(--muted-fg);text-align:center;padding:6px">Tap exercises below to add them.</div>
+      </div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:8px 2px 6px">Add from library (${palette.length})</div>
+      <input id="cwb-search" class="input" type="text" placeholder="Filter exercises..." style="margin-bottom:8px">
+      <div id="cwb-palette" style="display:flex;flex-direction:column;gap:5px"></div>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  const selected = []; // [{ name, sets, reps, duration }]
+  const renderPalette = (filter) => {
+    const f = (filter || '').toLowerCase().trim();
+    const list = !f ? palette : palette.filter(p => (p.name || '').toLowerCase().includes(f));
+    const target = ov.querySelector('#cwb-palette');
+    target.innerHTML = list.map(p => {
+      const meta = [p.sets > 1 ? p.sets + 'x' + (p.reps || '') : (p.reps ? p.reps + ' reps' : ''), p.duration || ''].filter(Boolean).join(' · ');
+      return `<button type="button" data-cwb-add="${escHtml(p.name)}" style="display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;cursor:pointer;text-align:left">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(p.name)}</div>
+          ${meta ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${escHtml(meta)}</div>` : ''}
+        </div>
+        <span style="color:var(--primary);font-weight:800">+</span>
+      </button>`;
+    }).join('');
+    target.querySelectorAll('button[data-cwb-add]').forEach(b => {
+      b.addEventListener('click', () => {
+        const name = b.dataset.cwbAdd;
+        const pal = palette.find(x => x.name === name);
+        selected.push({ name, sets: pal?.sets || 1, reps: pal?.reps || null, duration: pal?.duration || null });
+        renderSelected();
+      });
+    });
+  };
+  const renderSelected = () => {
+    const target = ov.querySelector('#cwb-selected');
+    const countEl = ov.querySelector('#cwb-sel-count');
+    if (countEl) countEl.textContent = String(selected.length);
+    if (selected.length === 0) {
+      target.innerHTML = '<div id="cwb-empty-hint" style="font-size:12px;color:var(--muted-fg);text-align:center;padding:6px">Tap exercises below to add them.</div>';
+      return;
+    }
+    target.innerHTML = selected.map((ex, i) => {
+      return `<div style="display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+        <div style="font-size:11px;font-weight:800;color:var(--primary);width:18px">${i+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(ex.name)}</div>
+          <div style="display:flex;gap:6px;margin-top:4px;align-items:center">
+            <input data-cwb-sets="${i}" type="number" min="1" max="20" value="${ex.sets || 1}" placeholder="sets" inputmode="numeric" style="width:54px;padding:4px 6px;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg)">
+            <input data-cwb-reps="${i}" type="text" value="${ex.reps || ''}" placeholder="reps" inputmode="numeric" style="width:54px;padding:4px 6px;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg)">
+            <input data-cwb-dur="${i}" type="text" value="${ex.duration || ''}" placeholder="30 sec" style="width:70px;padding:4px 6px;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg)">
+          </div>
+        </div>
+        <button data-cwb-rm="${i}" type="button" aria-label="Remove" style="background:transparent;border:0;color:var(--destructive);font-size:18px;cursor:pointer;padding:4px 6px">×</button>
+      </div>`;
+    }).join('');
+    target.querySelectorAll('input[data-cwb-sets]').forEach(inp => {
+      inp.addEventListener('change', () => { selected[+inp.dataset.cwbSets].sets = parseInt(inp.value) || 1; });
+    });
+    target.querySelectorAll('input[data-cwb-reps]').forEach(inp => {
+      inp.addEventListener('change', () => { selected[+inp.dataset.cwbReps].reps = inp.value.trim() || null; });
+    });
+    target.querySelectorAll('input[data-cwb-dur]').forEach(inp => {
+      inp.addEventListener('change', () => { selected[+inp.dataset.cwbDur].duration = inp.value.trim() || null; });
+    });
+    target.querySelectorAll('button[data-cwb-rm]').forEach(b => {
+      b.addEventListener('click', () => {
+        selected.splice(+b.dataset.cwbRm, 1);
+        renderSelected();
+      });
+    });
+  };
+  renderPalette('');
+  ov.querySelector('#cwb-search').addEventListener('input', debounce((e) => renderPalette(e.target.value), 150));
+  ov.querySelector('#cwb-close').addEventListener('click', () => ov.remove());
+  ov.querySelector('#cwb-save').addEventListener('click', () => {
+    const name = (ov.querySelector('#cwb-name').value || '').trim();
+    const intensity = ov.querySelector('#cwb-intensity').value;
+    const duration = parseInt(ov.querySelector('#cwb-duration').value) || 0;
+    if (!name) { showToast('Give it a name.', 'warn'); return; }
+    if (selected.length === 0) { showToast('Add at least one exercise.', 'warn'); return; }
+    const list = loadCustomWorkouts();
+    list.unshift({
+      id: 'custom-' + Date.now(),
+      name,
+      intensity,
+      duration: duration || null,
+      exercises: selected.slice(),
+      createdAt: new Date().toISOString(),
+    });
+    saveCustomWorkouts(list);
+    ov.remove();
+    showToast('Custom workout saved.', 'success');
+    if (currentPage === 'fitness' && fitnessSubTab === 'library') {
+      renderWorkoutLibrary($('workouts-content'));
+    }
   });
 }
 
@@ -6813,9 +7082,109 @@ async function loadTrainingSessions() {
   } catch(e) { console.error('Load training sessions error:', e); }
 
 }
+/// Aggregate workout time per muscle group across the last `days` days.
+/// Library workouts contribute their `muscles` array directly. Manual
+/// workouts attribute time using a workout-type → muscles heuristic so
+/// rides count toward legs, gym sessions toward whole-body, etc.
+function computeMuscleVolume(days) {
+  const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+  const minutesPerMuscle = {};
+  // Type-based fallback when we can't match against the library.
+  const TYPE_TO_MUSCLES = {
+    ride:    ['quads', 'hamstrings', 'glutes', 'calves'],
+    bike:    ['quads', 'hamstrings', 'glutes', 'calves'],
+    hpv:     ['quads', 'hamstrings', 'glutes', 'calves', 'abs'],
+    run:     ['quads', 'hamstrings', 'calves', 'glutes'],
+    swim:    ['shoulders', 'back', 'lats', 'chest'],
+    gym:     ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'glutes'],
+    strength:['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'glutes'],
+    yoga:    ['back', 'abs', 'glutes', 'shoulders'],
+    other:   ['quads', 'glutes'],
+  };
+  (userWorkouts || []).forEach(w => {
+    let dateMs = 0;
+    if (w.date instanceof Date) dateMs = w.date.getTime();
+    else if (w.date?.toDate) { try { dateMs = w.date.toDate().getTime(); } catch(_) {} }
+    else if (typeof w.date === 'number') dateMs = w.date;
+    else if (typeof w.date === 'string') dateMs = Date.parse(w.date) || 0;
+    if (!dateMs || dateMs < cutoff) return;
+    const dur = Math.max(0, w.duration || 0);
+    if (dur === 0) return;
+    let muscles = null;
+    // First-pass: match by name against the library.
+    if (w.name && typeof WORKOUT_LIBRARY !== 'undefined') {
+      const hit = WORKOUT_LIBRARY.find(lw =>
+        (lw.name || '').toLowerCase() === w.name.toLowerCase()
+      );
+      if (hit?.muscles?.length) muscles = hit.muscles;
+    }
+    // Fallback: workout type heuristic.
+    if (!muscles) {
+      const type = (w.type || 'other').toLowerCase();
+      muscles = TYPE_TO_MUSCLES[type] || TYPE_TO_MUSCLES.other;
+    }
+    if (!muscles?.length) return;
+    const perMuscle = dur / muscles.length;
+    muscles.forEach(m => {
+      minutesPerMuscle[m] = (minutesPerMuscle[m] || 0) + perMuscle;
+    });
+  });
+  return minutesPerMuscle;
+}
+
+/// Render a horizontal bar chart of muscle-volume for the active
+/// window. Each muscle gets a row with a coloured fill bar + minutes
+/// label. Lets the rider see at a glance whether they're balanced.
+function renderVolumeChartHtml(days) {
+  const data = computeMuscleVolume(days);
+  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  if (total === 0) {
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:6px">Volume by muscle · last ${days}d</div>
+      <div style="font-size:12.5px;color:var(--muted-fg);text-align:center;padding:18px 8px;line-height:1.5">Log a few workouts and this chart will show how much time you're putting into each muscle group.</div>
+    </div>`;
+  }
+  const max = entries[0][1];
+  // Track if user has switched the window so the chip styling reflects it.
+  const window7 = days === 7 ? 'active' : '';
+  const window30 = days === 30 ? 'active' : '';
+  let rows = '';
+  entries.forEach(([muscle, minutes]) => {
+    const label = (typeof MUSCLE_LABELS !== 'undefined' && MUSCLE_LABELS[muscle]) || muscle;
+    const pct = Math.max(4, Math.round((minutes / max) * 100));
+    rows += `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+        <div style="flex:0 0 78px;font-size:12px;font-weight:700;color:var(--fg)">${escHtml(label)}</div>
+        <div style="flex:1;height:10px;background:rgba(255,255,255,.05);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg, var(--primary), rgba(var(--primary-rgb),.7));border-radius:99px"></div>
+        </div>
+        <div style="flex:0 0 56px;font-size:11.5px;font-weight:700;color:var(--muted-fg);text-align:right;font-variant-numeric:tabular-nums">${Math.round(minutes)} min</div>
+      </div>
+    `;
+  });
+  return `<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg)">Volume by muscle</div>
+      <div style="display:flex;gap:4px">
+        <button class="vol-window-chip ${window7}" data-vol-days="7" style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--border);background:${days === 7 ? 'var(--primary)' : 'transparent'};color:${days === 7 ? 'var(--primary-fg)' : 'var(--muted-fg)'};cursor:pointer">7d</button>
+        <button class="vol-window-chip ${window30}" data-vol-days="30" style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--border);background:${days === 30 ? 'var(--primary)' : 'transparent'};color:${days === 30 ? 'var(--primary-fg)' : 'var(--muted-fg)'};cursor:pointer">30d</button>
+      </div>
+    </div>
+    ${rows}
+    <div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:10px">${Math.round(total)} min total · split proportionally across muscles per workout</div>
+  </div>`;
+}
+
 function renderWorkouts() {
   const c = $('workouts-content');
+  const volDays = window._tpVolDays || 7;
   let html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:0 2px"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="flex-shrink:0;font-size:12px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Log manually</span></button></div>';
+  // Volume chart — top of activities list. Muscle aggregate over the
+  // selected window (default 7d). Hidden when the user has zero workouts.
+  if ((userWorkouts || []).length > 0) {
+    html += renderVolumeChartHtml(volDays);
+  }
   // Load stored routes for mini maps — tracker.js and strava.js both write to vf_routes
   let storedRoutes = {};
   try { storedRoutes = JSON.parse(localStorage.getItem('vf_routes') || '{}'); } catch(e) {}
@@ -7021,6 +7390,15 @@ function renderWorkouts() {
       const filter = btn.dataset.wofilter;
       window._tpWoFilter = filter;
       applyFilter(filter);
+    });
+  });
+  // Volume-chart window toggle (7d / 30d).
+  c.querySelectorAll('.vol-window-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const n = parseInt(btn.dataset.volDays);
+      if (!n) return;
+      window._tpVolDays = n;
+      renderWorkouts();
     });
   });
   // Delete buttons
@@ -12332,6 +12710,93 @@ async function ensureDefaultTeamMembership() {
   } catch(e) {
     console.warn('[auto-join] default team failed:', e);
   }
+}
+
+/// First-launch onboarding carousel — 4 swipeable slides shown above
+/// the login screen the very first time the app is opened. Sets
+/// tp_onboarded so subsequent launches skip it. Last slide invites
+/// the user to sign up; tapping any "Skip" lets the existing login
+/// screen take over.
+function openOnboardingCarousel() {
+  document.getElementById('onboarding-carousel')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'onboarding-carousel';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:400;background:var(--bg);display:flex;flex-direction:column;padding:env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px)';
+  const slides = [
+    {
+      eyebrow: 'WELCOME',
+      title: 'TurboPrep is built for HPR teams',
+      body: 'Train, track race-day stints, share results with your school team. Designed with Vic HPR coaches.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:54px;height:54px;color:var(--primary)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      cta: 'Next',
+    },
+    {
+      eyebrow: 'TRAINING',
+      title: 'A plan for every year level',
+      body: 'Pick a plan matched to your year and fitness tier. The Library has 56 sessions you can run anywhere — phone or wrist.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:54px;height:54px;color:var(--primary)"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16" fill="currentColor" stroke="none"/></svg>',
+      cta: 'Next',
+    },
+    {
+      eyebrow: 'RACE DAY',
+      title: 'Lock the watch into stint mode',
+      body: 'Tap to lap, stream HR, log pit stops. The whole team sees your stint live, and your coach gets a recap when you finish.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:54px;height:54px;color:var(--primary)"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      cta: 'Next',
+    },
+    {
+      eyebrow: 'PRIVACY',
+      title: 'Your data stays yours',
+      body: 'You can download everything anytime, and delete your account permanently from Profile. Coaches only see athletes on their own team.',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="width:54px;height:54px;color:var(--primary)"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+      cta: 'Get started',
+    },
+  ];
+  let idx = 0;
+  const finish = () => {
+    try { localStorage.setItem('tp_onboarded', '1'); } catch(_) {}
+    ov.remove();
+  };
+  const render = () => {
+    const s = slides[idx];
+    const dots = slides.map((_, i) => `<div style="width:${i === idx ? 22 : 6}px;height:6px;border-radius:99px;background:${i === idx ? 'var(--primary)' : 'rgba(255,255,255,.18)'};transition:width .25s, background .25s"></div>`).join('');
+    ov.innerHTML = `
+      <div style="display:flex;justify-content:flex-end;padding:14px 18px">
+        <button id="ob-skip" type="button" style="background:transparent;border:0;color:var(--muted-fg);font-size:13px;font-weight:600;cursor:pointer;padding:6px 8px">Skip</button>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px;text-align:center">
+        <div style="width:120px;height:120px;border-radius:32px;background:rgba(var(--primary-rgb),.10);border:1px solid rgba(var(--primary-rgb),.25);display:flex;align-items:center;justify-content:center;margin-bottom:32px">
+          ${s.icon}
+        </div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:.18em;color:var(--primary);margin-bottom:10px">${escHtml(s.eyebrow)}</div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.01em;color:var(--fg);margin-bottom:14px;max-width:340px;line-height:1.25">${escHtml(s.title)}</div>
+        <div style="font-size:14px;color:var(--muted-fg);max-width:340px;line-height:1.55">${escHtml(s.body)}</div>
+      </div>
+      <div style="padding:24px 28px;display:flex;flex-direction:column;align-items:center;gap:18px">
+        <div style="display:flex;gap:6px;align-items:center">${dots}</div>
+        <button id="ob-next" type="button" style="width:100%;max-width:340px;padding:14px;border-radius:12px;background:var(--primary);color:var(--primary-fg);border:0;font-size:15px;font-weight:800;cursor:pointer">${escHtml(s.cta)}</button>
+      </div>
+    `;
+    ov.querySelector('#ob-skip').addEventListener('click', finish);
+    ov.querySelector('#ob-next').addEventListener('click', () => {
+      if (idx < slides.length - 1) { idx++; render(); }
+      else finish();
+    });
+  };
+  render();
+  document.body.appendChild(ov);
+  // Swipe gesture support — left/right between slides on touch.
+  let startX = null;
+  ov.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+  ov.addEventListener('touchend', (e) => {
+    if (startX == null) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 60) {
+      if (dx < 0 && idx < slides.length - 1) { idx++; render(); }
+      else if (dx > 0 && idx > 0) { idx--; render(); }
+    }
+    startX = null;
+  });
 }
 
 /// Open Apple's Settings app to TurboPrep's section. Lets the user

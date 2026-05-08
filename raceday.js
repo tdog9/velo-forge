@@ -16,6 +16,7 @@ let stintActive       = false;
 let stintStartTime    = null;
 let stintPositions    = [];
 let stintLaps         = [];
+let stintPitStops     = []; // [{ ts: ms, durationMs: 0|null }] — auto-bumped via the pit button on the active-stint screen.
 let stintWatchId      = null;
 let stintGpsState     = 'idle';   // 'idle' | 'connecting' | 'live' | 'error'
 let stintGpsTimeout   = null;     // 15s timeout to surface a "GPS isn't responding" toast
@@ -1150,7 +1151,7 @@ async function startStint(c) {
   // null. Without this, endStint() would compute Date.now() - null =
   // Date.now() (≈55 years in ms) and bypass the 25-hour cap entirely.
   try { localStorage.setItem('tp_stint_start', String(stintStartTime)); } catch(e) {}
-  stintPositions=[]; stintLaps=[]; moveContinuousStart=null; lastLapTime=null;
+  stintPositions=[]; stintLaps=[]; stintPitStops=[]; moveContinuousStart=null; lastLapTime=null;
   stintMap=null; stintPolyline=null; stintMarker=null;
   stintGpsState='connecting';
   renderActiveStint(c);
@@ -1223,6 +1224,7 @@ async function publishLiveStint() {
       lapCount: stintLaps.length,
       bestLap: best,
       lastLap: stintLaps.length ? stintLaps[stintLaps.length-1].duration : null,
+      pitCount: stintPitStops.length,
       coord,
       updatedAt: ctx.serverTimestamp(),
     });
@@ -1331,17 +1333,20 @@ function renderActiveStint(c) {
       <div id="rd-sublabel" style="font-size:12px;color:var(--muted-fg);margin-top:4px">GPS connecting...</div>
     </div>
     <div id="rd-live-map" style="width:100%;height:140px;border-radius:12px;overflow:hidden;background:#0a1628;margin-bottom:10px"></div>
-    <div style="display:flex;align-items:center;justify-content:space-around;gap:6px;margin-bottom:10px;padding:8px 10px;border:1px solid var(--border);border-radius:99px;background:var(--card)">
+    <div style="display:flex;align-items:center;justify-content:space-around;gap:4px;margin-bottom:10px;padding:8px 8px;border:1px solid var(--border);border-radius:99px;background:var(--card)">
       <div style="text-align:center;min-width:0"><span id="rd-al" style="font-size:14px;font-weight:800;color:var(--primary)">0</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">laps</span></div>
       <div style="width:1px;height:14px;background:var(--border)"></div>
       <div style="text-align:center;min-width:0"><span id="rd-ll" style="font-size:14px;font-weight:800;color:var(--fg);font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">last</span></div>
       <div style="width:1px;height:14px;background:var(--border)"></div>
       <div style="text-align:center;min-width:0"><span id="rd-bl" style="font-size:14px;font-weight:800;color:var(--success);font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">best</span></div>
+      <div style="width:1px;height:14px;background:var(--border)"></div>
+      <div style="text-align:center;min-width:0"><span id="rd-pc" style="font-size:14px;font-weight:800;color:var(--warning, #f97316)">0</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">pits</span></div>
     </div>
     <div id="rd-laplist" style="margin-bottom:10px;max-height:180px;overflow-y:auto"></div>
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button id="rd-tap-lap" style="flex:1;padding:14px;border-radius:12px;background:rgba(var(--success-rgb),.10);border:1px solid rgba(var(--success-rgb),.35);color:var(--success);font-size:14px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">Tap Lap</button>
-      <button id="rd-end-stint" style="flex:1;padding:14px;border-radius:12px;background:var(--destructive);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">End Stint</button>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button id="rd-tap-lap" style="flex:1;padding:14px;border-radius:12px;background:rgba(var(--success-rgb),.10);border:1px solid rgba(var(--success-rgb),.35);color:var(--success);font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">Tap Lap</button>
+      <button id="rd-pit-btn" style="flex:1;padding:14px;border-radius:12px;background:rgba(var(--warning-rgb),.10);border:1px solid rgba(var(--warning-rgb),.35);color:var(--warning, #f97316);font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">+ Pit Stop</button>
+      <button id="rd-end-stint" style="flex:1;padding:14px;border-radius:12px;background:var(--destructive);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">End</button>
     </div>`;
 
   setTimeout(()=>{
@@ -1382,6 +1387,25 @@ function renderActiveStint(c) {
     const now = Date.now();
     const dur = lastLapTime ? (now - lastLapTime) : (now - stintStartTime);
     recordManualLap(dur, { time: now, source: 'manual' });
+  });
+  // Pit-stop counter — single-tap to log a stop. Also updates the
+  // live spectator state so coaches see pit count climb in real time.
+  c.querySelector('#rd-pit-btn')?.addEventListener('click', () => {
+    const now = Date.now();
+    stintPitStops.push({ ts: now });
+    try { ctx.haptic?.('light'); } catch(_) {}
+    const pc = document.getElementById('rd-pc');
+    if (pc) {
+      pc.textContent = String(stintPitStops.length);
+      pc.style.transition = 'transform .15s';
+      pc.style.transform = 'scale(1.25)';
+      setTimeout(() => { pc.style.transform = 'scale(1)'; }, 150);
+    }
+    try { ctx.showToast?.('Pit ' + stintPitStops.length + ' logged', 'info'); } catch(_) {}
+    // Best-effort live publish so the spectator panel ticks up. The
+    // 1s publishLiveStint loop will catch up too — this is just for
+    // immediate feedback.
+    try { publishLiveStint(); } catch(_) {}
   });
   updateActive();
 }
@@ -1456,7 +1480,9 @@ async function endStint(c) {
     // 24-hour Maryborough stint at 1Hz that's the first 8.3 minutes
     // only. Take the most-recent 500 to preserve the end of the stint
     // (where the rider's actually ridden the most distance).
-    laps:stintLaps, positions:stintPositions.slice(-500)
+    laps:stintLaps, positions:stintPositions.slice(-500),
+    pitStops: stintPitStops.length,
+    pitTimestamps: stintPitStops.map(p => p.ts),
   };
   // Save the stint FIRST. If this fails (network flake), we still want
   // the live doc up so the spectator panel doesn't show "off track" for
@@ -1477,18 +1503,22 @@ function renderStintSummary(c,stint) {
       <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Stint Complete</div>
       <div style="font-size:48px;font-weight:800;font-family:var(--font-mono);color:var(--primary)">${fmtTime(stint.duration)}</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:16px">
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--primary)">${stint.laps.length}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--primary)">${stint.laps.length}</div>
         <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">Laps</div>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--success)">${best}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--success)">${best}</div>
         <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">Best</div>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--fg)">${avg}</div>
+        <div style="font-size:20px;font-weight:800;color:var(--fg)">${avg}</div>
         <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">Avg</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:var(--warning, #f97316)">${stint.pitStops || 0}</div>
+        <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">Pits</div>
       </div>
     </div>
     ${stint.laps.map((lap,i)=>`

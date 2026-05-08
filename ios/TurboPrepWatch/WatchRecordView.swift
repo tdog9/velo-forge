@@ -234,22 +234,35 @@ struct RaceDayView: View {
             lapStatusView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Compact finish button — small enough not to compete with
-            // tap-to-lap, but always visible so the rider doesn't have to
-            // hunt through swipes to end the stint.
-            Button(role: .destructive, action: finishStint) {
-                HStack(spacing: 4) {
-                    Image(systemName: "stop.fill").font(.system(size: 10))
-                    Text("Finish stint")
-                        .font(.system(size: 11, weight: .heavy))
+            // Pit button + finish button on the same row. Pit is a
+            // single-tap counter; the count rides along with the stint
+            // payload sent to the iPhone on finish.
+            HStack(spacing: 4) {
+                Button(action: bumpPit) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "wrench.fill").font(.system(size: 10))
+                        Text("Pit \(state.raceDayPits)")
+                            .font(.system(size: 11, weight: .heavy))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 26)
+                    .background(Color(red: 0.97, green: 0.45, blue: 0.09))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, minHeight: 26)
-                .background(Theme.phasePeak)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .buttonStyle(.plain)
+                Button(role: .destructive, action: finishStint) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "stop.fill").font(.system(size: 10))
+                        Text("Finish")
+                            .font(.system(size: 11, weight: .heavy))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 26)
+                    .background(Theme.phasePeak)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 6)
         .padding(.top, 4)
@@ -458,7 +471,15 @@ struct RaceDayView: View {
         }
     }
 
+    private func bumpPit() {
+        WKInterfaceDevice.current().play(.click)
+        state.bumpPit()
+    }
+
     private func finishStint() {
+        // Capture the pit count before archive clears it, so we can
+        // forward it to the iPhone bridge alongside the lap payload.
+        let pitCount = state.raceDayPits
         // Archive the in-flight stint locally so the rider can review
         // laps after the test even if the iPhone bridge isn't reachable.
         state.archiveCurrentStint()
@@ -468,6 +489,7 @@ struct RaceDayView: View {
                 "stintId":        stintId.uuidString,
                 "stintStartedAt": last.startedAt.timeIntervalSince1970,
                 "stintEndedAt":   last.endedAt.timeIntervalSince1970,
+                "pitCount":       pitCount,
                 "laps": last.laps.map { lap in
                     [
                         "number":     lap.number,
@@ -484,6 +506,7 @@ struct RaceDayView: View {
         // (still in race-day mode, ready to start again). Race-day mode
         // itself is only exited when the iPhone toggles it off.
         state.raceDayLaps.removeAll()
+        state.raceDayPits = 0
         state.raceDayStartedAt = nil
         lastCountdownAlert = -1
         WKInterfaceDevice.current().play(.stop)

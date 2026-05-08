@@ -31,6 +31,10 @@ final class WatchAppState: ObservableObject {
     @Published var raceDayLaps: [WatchLap] = [] { didSet { scheduleRaceDaySave() } }
     @Published var raceDayStartedAt: Date? { didSet { scheduleRaceDaySave() } }
     @Published var raceDayLeaderboard: [WatchLeaderboardEntry] = []
+    /// Pit-stop tap count for the active stint. Cleared with the rest
+    /// of the stint state on finish/exit. Sent along with the stint
+    /// payload to the iPhone so it lands in race_day/{date}/stints.
+    @Published var raceDayPits: Int = 0 { didSet { scheduleRaceDaySave() } }
 
     /// Training-mode state. Mirror of raceDayActive but for scheduled
     /// training sessions. When the iPhone pushes trainingActive=true,
@@ -63,8 +67,10 @@ final class WatchAppState: ObservableObject {
     /// in the start time used by the lap-anchor + countdown.
     func startStint() {
         raceDayLaps.removeAll()
+        raceDayPits = 0
         raceDayStartedAt = Date()
     }
+    func bumpPit() { raceDayPits += 1 }
 
     /// Finished stints kept on the Watch so the athlete can review laps
     /// after the test — survives app restart via UserDefaults. Newest first.
