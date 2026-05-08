@@ -102,6 +102,35 @@ struct WebViewContainer: UIViewRepresentable {
             case "ping":
                 // No-op handshake. Kept so the bridge is testable from JS.
                 break
+            case "live-activity-start":
+                if #available(iOS 16.2, *) {
+                    let raceName = (body["raceName"] as? String) ?? "Race day"
+                    let riderName = (body["riderName"] as? String) ?? "You"
+                    let startMs = (body["startedAtMs"] as? Double) ?? Date().timeIntervalSince1970 * 1000
+                    let started = Date(timeIntervalSince1970: startMs / 1000)
+                    Task { @MainActor in
+                        LiveActivityManager.shared.startStint(raceName: raceName, riderName: riderName, startedAt: started)
+                    }
+                }
+            case "live-activity-update":
+                if #available(iOS 16.2, *) {
+                    let lapCount = (body["lapCount"] as? Int) ?? 0
+                    let pitCount = (body["pitCount"] as? Int) ?? 0
+                    let lastLapMs = body["lastLapMs"] as? Int
+                    let bestLapMs = body["bestLapMs"] as? Int
+                    Task { @MainActor in
+                        LiveActivityManager.shared.updateStint(
+                            lapCount: lapCount, pitCount: pitCount,
+                            lastLapMs: lastLapMs, bestLapMs: bestLapMs
+                        )
+                    }
+                }
+            case "live-activity-end":
+                if #available(iOS 16.2, *) {
+                    Task { @MainActor in
+                        LiveActivityManager.shared.endStint()
+                    }
+                }
             case "watch-state":
                 // Web has gathered a state snapshot for the Watch. Forward it
                 // via WCSession so the Watch's WatchAppState updates.

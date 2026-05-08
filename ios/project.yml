@@ -17,7 +17,8 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "1.0.0"
+    DEVELOPMENT_TEAM: "7HM78HZ5D4"
+    MARKETING_VERSION: "0.13.0"
     CURRENT_PROJECT_VERSION: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
 
@@ -43,6 +44,7 @@ targets:
         INFOPLIST_KEY_NSCameraUsageDescription: "Take a profile photo or attach an image to a race log."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Choose a profile photo or attach images to your race logs."
         INFOPLIST_KEY_NSMotionUsageDescription: "Detect ride starts so workouts can auto-log."
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: TurboPrep/TurboPrep.entitlements
     dependencies:
@@ -50,7 +52,12 @@ targets:
         product: FirebaseAuth
       - package: Firebase
         product: FirebaseFirestore
+      - package: Firebase
+        product: FirebaseMessaging
       - target: TurboPrepWatchApp
+        embed: true
+        codeSign: true
+      - target: TurboPrepLiveActivity
         embed: true
         codeSign: true
 
@@ -90,6 +97,24 @@ targets:
       - target: TurboPrepWatchComplication
         embed: true
         codeSign: true
+
+  TurboPrepLiveActivity:
+    # iOS Live Activity Widget Extension. Renders a stint-tracking
+    # activity on the lock screen + Dynamic Island while a race-day
+    # stint is in flight. Updates flow from the web app (raceday.js)
+    # via the tpNative bridge → LiveActivityManager → ActivityKit.
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: TurboPrepLiveActivity
+      - path: Shared/StintActivityAttributes.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.403productions.turboprep.liveactivity
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: TurboPrepLiveActivity/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: TurboPrep
 
   TurboPrepWatchComplication:
     # WidgetKit extension — provides the watch face complication for

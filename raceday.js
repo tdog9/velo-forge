@@ -461,6 +461,7 @@ function buildOverlayHTML() {
     <div style="width:7px;height:7px;border-radius:50%;background:var(--destructive);animation:rdPulse 1.4s ease infinite"></div>
     <span style="font-size:11px;font-weight:700;color:var(--destructive)">LIVE</span>
   </div>
+  <button id="rd-excel-btn" aria-label="Export race day as Excel" title="Export race day as Excel" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--success, #22c55e);font-weight:700;cursor:pointer;margin-left:4px">Excel</button>
   <button id="rd-share-btn" aria-label="Share spectator link" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-weight:700;cursor:pointer;margin-left:4px">Share</button>
   <button id="rd-watch-dismiss" aria-label="Hide race mode on my Watch" title="Hide race mode on my Watch" style="font-size:11px;padding:5px 10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--muted-fg);font-weight:700;cursor:pointer;margin-left:4px">Hide on Watch</button>
   ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
@@ -529,6 +530,13 @@ function bindOverlay(ov) {
   // Share spectator link — anyone can open this URL to follow the race
   // without signing in. Build with the team id so it's filtered to this
   // team's drivers.
+  ov.querySelector('#rd-excel-btn')?.addEventListener('click', () => {
+    if (typeof window.exportRaceDayExcel === 'function') {
+      window.exportRaceDayExcel({ dateKey: rdd.date });
+    } else if (ctx.exportRaceDayExcel) {
+      ctx.exportRaceDayExcel({ dateKey: rdd.date });
+    }
+  });
   ov.querySelector('#rd-share-btn')?.addEventListener('click', async () => {
     const tid = ctx.userProfile?.teamId || '';
     // Include the race date so spectators see THIS race day's roster
@@ -1152,6 +1160,20 @@ async function startStint(c) {
   // Date.now() (≈55 years in ms) and bypass the 25-hour cap entirely.
   try { localStorage.setItem('tp_stint_start', String(stintStartTime)); } catch(e) {}
   stintPositions=[]; stintLaps=[]; stintPitStops=[]; moveContinuousStart=null; lastLapTime=null;
+  // Kick off the iOS Live Activity (lock-screen + Dynamic Island).
+  // Best-effort — silently no-ops on non-iOS or when the user has
+  // disabled live activities in Settings.
+  try {
+    if (window.webkit?.messageHandlers?.tpNative) {
+      const raceName = (rdd.raceName || ctx.teamData?.name || 'Race day').toString().slice(0, 40);
+      const riderName = (ctx.userProfile?.displayName || 'Rider').toString().slice(0, 24);
+      window.webkit.messageHandlers.tpNative.postMessage({
+        type: 'live-activity-start',
+        raceName, riderName,
+        startedAtMs: stintStartTime,
+      });
+    }
+  } catch(_) {}
   stintMap=null; stintPolyline=null; stintMarker=null;
   stintGpsState='connecting';
   renderActiveStint(c);
@@ -1206,6 +1228,21 @@ async function startStint(c) {
 
 async function publishLiveStint() {
   if (!ctx?.db || !rdd.date || !ctx.currentUser) return;
+  // Update the iOS Live Activity in lockstep with the spectator
+  // publish — same data, different surface. Best-effort.
+  try {
+    if (window.webkit?.messageHandlers?.tpNative) {
+      const best = stintLaps.length ? Math.min(...stintLaps.map(l=>l.duration)) : null;
+      const last = stintLaps.length ? stintLaps[stintLaps.length-1].duration : null;
+      window.webkit.messageHandlers.tpNative.postMessage({
+        type: 'live-activity-update',
+        lapCount: stintLaps.length,
+        pitCount: stintPitStops.length,
+        lastLapMs: last,
+        bestLapMs: best,
+      });
+    }
+  } catch(_) {}
   try {
     const best = stintLaps.length ? Math.min(...stintLaps.map(l=>l.duration)) : null;
     // Latest GPS sample so locked teammates can see the live driver's
@@ -1449,6 +1486,10 @@ function updateActive() {
 
 async function endStint(c) {
   stintActive=false;
+  // Tear down the iOS Live Activity. Best-effort.
+  try {
+    window.webkit?.messageHandlers?.tpNative?.postMessage({ type: 'live-activity-end' });
+  } catch(_) {}
   // Hydrate stintStartTime from localStorage if it's null (cold-boot
   // mid-stint case), then clamp duration to the 25-hour max so a
   // stale persisted value can't write a 55-year stint to Firestore.

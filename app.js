@@ -848,6 +848,10 @@ function openPostStintSheet(summary) {
         <textarea class="input" id="ps-notes" rows="2" placeholder="Smooth start, traffic on lap 4..." maxlength="240" style="resize:vertical"></textarea>
       </div>
       <button id="ps-save" class="btn btn-primary" style="width:100%;padding:14px;font-weight:700">Post to team</button>
+      <button id="ps-excel" class="btn" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--fg);font-size:12.5px;padding:11px;margin-top:8px;border-radius:10px;display:flex;align-items:center;gap:8px;justify-content:center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--success)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download race day as Excel
+      </button>
       <button id="ps-skip" class="btn" style="width:100%;background:transparent;color:var(--muted-fg);font-size:12px;padding:10px;margin-top:6px">Skip</button>
     </div>
   `;
@@ -857,6 +861,7 @@ function openPostStintSheet(summary) {
   });
   const close = () => ov.remove();
   ov.querySelector('#ps-skip').addEventListener('click', close);
+  ov.querySelector('#ps-excel').addEventListener('click', () => exportRaceDayExcel());
   ov.querySelector('#ps-save').addEventListener('click', async () => {
     const pit = parseInt(ov.querySelector('#ps-pit').value) || 0;
     const pos = parseInt(ov.querySelector('#ps-pos').value) || null;
@@ -12712,6 +12717,143 @@ async function ensureDefaultTeamMembership() {
   }
 }
 
+/// Lazy-load SheetJS (xlsx.js) from a CDN. We don't bundle it — it's
+/// ~600KB minified and only used on the rare Excel-export tap. Returns
+/// the global XLSX once loaded; rejects if the network is offline.
+function _loadSheetJS() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (window._xlsxLoading) return window._xlsxLoading;
+  window._xlsxLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js';
+    s.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('XLSX load: global missing'));
+    s.onerror = () => reject(new Error('XLSX load: network'));
+    document.head.appendChild(s);
+  });
+  return window._xlsxLoading;
+}
+
+/// Export today's race-day data to a multi-sheet Excel workbook:
+/// (1) Stints summary, (2) per-stint lap times, (3) pit log. Triggers
+/// a browser download. Tap target lives on the post-stint sheet + the
+/// race-day overlay header.
+async function exportRaceDayExcel(opts = {}) {
+  if (!db || !currentUser) {
+    showToast('Sign in to export.', 'info');
+    return;
+  }
+  const dateKey = opts.dateKey || (() => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  })();
+  showLoading('Building Excel…');
+  try {
+    const XLSX = await _loadSheetJS();
+    // Pull every stint from today across the whole team.
+    let stints = [];
+    try {
+      const snap = await getDocs(collection(db, 'race_day', dateKey, 'stints'));
+      stints = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) { console.warn('Excel: stints read failed:', e); }
+    if (stints.length === 0) {
+      hideLoading();
+      showToast('No stints recorded today.', 'info');
+      return;
+    }
+    const fmtMs = (ms) => {
+      if (!ms || !isFinite(ms)) return '—';
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      const cs = Math.floor((ms % 1000) / 10);
+      return m > 0 ? `${m}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`
+                   : `${s}.${String(cs).padStart(2,'0')}s`;
+    };
+    const fmtSec = (sec) => {
+      if (!sec || !isFinite(sec)) return '—';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${String(s).padStart(2,'0')}`;
+    };
+
+    // Sheet 1 — stint summary, one row per rider stint.
+    const summary = stints.map(s => {
+      const laps = Array.isArray(s.laps) ? s.laps : [];
+      const lapMs = laps.map(l => Number(l.duration) || 0).filter(n => n > 0);
+      const best = lapMs.length ? Math.min(...lapMs) : null;
+      const avg = lapMs.length ? Math.round(lapMs.reduce((a,b)=>a+b,0) / lapMs.length) : null;
+      const startMs = s.startTime || (s.lastWatchStintAt && Number(s.lastWatchStintAt));
+      const endMs = s.endTime || s.lastWatchStintAt;
+      return {
+        Rider: s.displayName || '—',
+        UID: s.uid || '—',
+        'Started at': startMs ? new Date(Number(startMs)).toLocaleString('en-AU') : '—',
+        Duration: s.duration ? fmtSec(s.duration / 1000) : '—',
+        Laps: laps.length,
+        'Best lap': fmtMs(best),
+        'Avg lap': fmtMs(avg),
+        'Pit stops': s.pitStops || 0,
+        Position: s.finishPosition || '—',
+        RPE: s.rpe || '—',
+        Notes: s.notes || '',
+      };
+    });
+
+    // Sheet 2 — per-lap detail across all riders.
+    const lapsRows = [];
+    stints.forEach(s => {
+      const laps = Array.isArray(s.laps) ? s.laps : [];
+      laps.forEach((l, i) => {
+        lapsRows.push({
+          Rider: s.displayName || '—',
+          'Lap #': l.number || (i + 1),
+          Duration: fmtMs(Number(l.duration) || 0),
+          'Duration (ms)': Number(l.duration) || 0,
+          'Recorded at': l.recordedAt ? new Date(Number(l.recordedAt)).toLocaleTimeString('en-AU') : '—',
+          Source: l.source || '—',
+        });
+      });
+    });
+
+    // Sheet 3 — pit log (timestamps if available).
+    const pitRows = [];
+    stints.forEach(s => {
+      const pitTs = Array.isArray(s.pitTimestamps) ? s.pitTimestamps : [];
+      const count = s.pitStops || pitTs.length;
+      if (count === 0) return;
+      if (pitTs.length > 0) {
+        pitTs.forEach((t, i) => {
+          pitRows.push({
+            Rider: s.displayName || '—',
+            'Pit #': i + 1,
+            'Time': new Date(Number(t)).toLocaleTimeString('en-AU'),
+          });
+        });
+      } else {
+        // Count without timestamps — write a single-row summary.
+        pitRows.push({ Rider: s.displayName || '—', 'Pit #': '1..' + count, 'Time': '(count only)' });
+      }
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), 'Stints');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(lapsRows.length ? lapsRows : [{Note:'No laps recorded'}]), 'Laps');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pitRows.length ? pitRows : [{Note:'No pit stops recorded'}]), 'Pit Log');
+    const teamName = (teamData?.name || userProfile?.teamName || 'team').replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    const fname = `raceday-${teamName}-${dateKey}.xlsx`;
+    XLSX.writeFile(wb, fname);
+    hideLoading();
+    showToast('Excel downloaded.', 'success');
+  } catch(e) {
+    hideLoading();
+    console.error('Race day Excel export failed:', e);
+    showToast('Couldn\'t build the Excel file. Check your connection.', 'error');
+  }
+}
+
+// Expose race-day exporter on window so raceday.js (a separate ES
+// module) can reach it without us threading it through ctx.
+try { window.exportRaceDayExcel = exportRaceDayExcel; } catch(_) {}
+
 /// First-launch onboarding carousel — 4 swipeable slides shown above
 /// the login screen the very first time the app is opened. Sets
 /// tp_onboarded so subsequent launches skip it. Last slide invites
@@ -14335,18 +14477,186 @@ function renderCoachManageFeatures(el, goHome) {
 
 async function renderCoachStudents(el) {
   if (!el) return;
-  el.innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';
-  try {
-    if (typeof renderCoachDashboard === 'function') {
-      // Create a temp container with correct id
-      el.innerHTML = '<div id="admin-coach"></div>';
-      await renderCoachDashboard();
-    } else {
-      el.innerHTML = '<div class="empty-state"><div class="empty-state-title">Loading...</div></div>';
-    }
-  } catch(e) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-state-title">Error loading students</div><div class="empty-state-desc">' + e.message + '</div></div>';
+  if (!teamData || !teamMembers || teamMembers.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-title">No students yet</div><div class="empty-state-desc">Invite athletes to your team — they\'ll appear here once they join.</div></div>';
+    return;
   }
+  // Skeleton while compliance loads. The compliance grid wants a
+  // recent-workouts read per member; we draw the rows immediately
+  // and fill the heatmap cells in as the per-member queries land.
+  const dayKey = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  const today = new Date();
+  const last7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    last7.push({ key: dayKey(d), label: d.toLocaleDateString('en-AU', { weekday: 'short' }).slice(0, 1) });
+  }
+  const filterStr = (window._tpStudentSearch || '').toLowerCase();
+  const sortKey = window._tpStudentSort || 'compliance';
+
+  // Pre-compute compliance cache per member if not cached recently.
+  // Cache for 60 seconds — this is a coach view; data freshness <60s is fine.
+  if (!window._tpComplianceCache || (Date.now() - window._tpComplianceCacheAt) > 60000) {
+    window._tpComplianceCache = {};
+    window._tpComplianceCacheAt = Date.now();
+  }
+  const compliance = window._tpComplianceCache;
+
+  const renderShell = () => {
+    const filtered = (teamMembers || []).filter(m => {
+      if (!filterStr) return true;
+      return (m.displayName || '').toLowerCase().includes(filterStr)
+        || (m.email || '').toLowerCase().includes(filterStr);
+    });
+    // Sort by compliance score desc, fall back to streak / last active.
+    const sorted = filtered.slice().sort((a, b) => {
+      if (sortKey === 'name') return (a.displayName || '').localeCompare(b.displayName || '');
+      if (sortKey === 'workouts') return (b.totalWorkouts || 0) - (a.totalWorkouts || 0);
+      if (sortKey === 'streak') return (b.streak || 0) - (a.streak || 0);
+      // compliance default
+      const ac = compliance[a.uid]?.pct ?? -1;
+      const bc = compliance[b.uid]?.pct ?? -1;
+      return bc - ac;
+    });
+    let html = `
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+        <div class="demo-search-wrap">
+          <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="demo-search" type="text" id="cs-search" placeholder="Search athletes..." value="${escHtml(window._tpStudentSearch || '')}">
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:10.5px;font-weight:700;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase;margin-right:4px">Sort</span>
+          ${[['compliance','Compliance'], ['streak','Streak'], ['workouts','Workouts'], ['name','Name']].map(([k, lbl]) =>
+            `<button class="cs-sort-chip" data-cs-sort="${k}" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:99px;border:1px solid ${sortKey === k ? 'var(--primary)' : 'var(--border)'};background:${sortKey === k ? 'var(--primary)' : 'transparent'};color:${sortKey === k ? 'var(--primary-fg)' : 'var(--muted-fg)'};cursor:pointer">${lbl}</button>`
+          ).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted-fg);padding:0 4px">
+          <span>${sorted.length} of ${teamMembers.length} athletes</span>
+          <span style="display:flex;gap:6px;align-items:center">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(34,197,94,.7);border:1px solid rgba(34,197,94,.9)"></span>
+            <span>logged</span>
+            <span style="margin-left:4px;display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(255,255,255,.05);border:1px solid var(--border)"></span>
+            <span>missed</span>
+          </span>
+        </div>
+      </div>
+    `;
+    if (sorted.length === 0) {
+      html += '<div class="empty-state" style="padding:32px 12px"><div class="empty-state-title">No matches</div><div class="empty-state-desc" style="font-size:12px">Try a different search term.</div></div>';
+      el.innerHTML = html;
+      el.querySelector('#cs-search')?.addEventListener('input', debounce(e => {
+        window._tpStudentSearch = e.target.value;
+        renderShell();
+      }, 200));
+      el.querySelectorAll('.cs-sort-chip').forEach(b => {
+        b.addEventListener('click', () => {
+          window._tpStudentSort = b.dataset.csSort;
+          renderShell();
+        });
+      });
+      return;
+    }
+    // Header row for the compliance heatmap.
+    html += `<div style="display:grid;grid-template-columns:1fr repeat(7,18px) 60px;gap:4px;align-items:center;padding:6px 10px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);border-bottom:1px solid var(--border)">
+      <div>Athlete</div>
+      ${last7.map(d => `<div style="text-align:center">${escHtml(d.label)}</div>`).join('')}
+      <div style="text-align:right">Score</div>
+    </div>`;
+    sorted.forEach(m => {
+      const initials = (m.displayName || m.email || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+      const comp = compliance[m.uid];
+      const dayCells = last7.map(d => {
+        const fill = comp?.days?.[d.key] ? 'rgba(34,197,94,.7)' : 'rgba(255,255,255,.04)';
+        const border = comp?.days?.[d.key] ? 'rgba(34,197,94,.9)' : 'var(--border)';
+        return `<div style="width:18px;height:18px;border-radius:3px;background:${fill};border:1px solid ${border}" title="${d.key}"></div>`;
+      }).join('');
+      const pct = comp?.pct;
+      const pctText = pct == null ? '—' : pct + '%';
+      const pctColor = pct == null ? 'var(--muted-fg)' : pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--destructive)';
+      const lastActive = m.lastActive ? new Date(m.lastActive) : null;
+      const lastActiveStr = lastActive ? formatRelativeShort(lastActive) : '—';
+      html += `<div data-cs-uid="${escHtml(m.uid)}" style="display:grid;grid-template-columns:1fr repeat(7,18px) 60px;gap:4px;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <div style="width:28px;height:28px;border-radius:50%;background:rgba(var(--primary-rgb),.12);color:var(--primary);font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${escHtml(initials)}</div>
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.displayName || '(no name)')}</div>
+            <div style="font-size:10.5px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.yearLevel ? escHtml(m.yearLevel) + ' · ' : ''}${m.totalWorkouts || 0} sessions${m.streak ? ' · ' + m.streak + 'd streak' : ''} · ${escHtml(lastActiveStr)}</div>
+          </div>
+        </div>
+        ${dayCells}
+        <div style="text-align:right;font-size:13px;font-weight:800;color:${pctColor};font-variant-numeric:tabular-nums">${pctText}</div>
+      </div>`;
+    });
+    el.innerHTML = html;
+    el.querySelector('#cs-search')?.addEventListener('input', debounce(e => {
+      window._tpStudentSearch = e.target.value;
+      renderShell();
+    }, 200));
+    el.querySelectorAll('.cs-sort-chip').forEach(b => {
+      b.addEventListener('click', () => {
+        window._tpStudentSort = b.dataset.csSort;
+        renderShell();
+      });
+    });
+    el.querySelectorAll('[data-cs-uid]').forEach(row => {
+      row.addEventListener('click', () => openMemberSheet(row.dataset.csUid));
+    });
+  };
+
+  renderShell();
+
+  // Background-fill compliance per member. Each member's last 7 days
+  // of workouts → a Set of date keys → percentage and per-day flags.
+  // Skip writes if the cache is fresh (< 60s old per renderShell guard).
+  if (db) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 6);
+    cutoff.setHours(0, 0, 0, 0);
+    for (const m of teamMembers) {
+      if (compliance[m.uid]) continue;
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'users', m.uid, 'workouts'),
+          where('date', '>=', Timestamp.fromDate(cutoff))
+        ));
+        const days = {};
+        snap.forEach(doc => {
+          const data = doc.data();
+          const ts = data.date?.toDate ? data.date.toDate() : (data.date instanceof Date ? data.date : null);
+          if (!ts) return;
+          const k = dayKey(ts);
+          days[k] = true;
+        });
+        const hits = last7.filter(d => days[d.key]).length;
+        compliance[m.uid] = { days, pct: Math.round((hits / 7) * 100) };
+      } catch(e) {
+        // Permission denied or network — fall back to "unknown".
+        compliance[m.uid] = { days: {}, pct: null };
+      }
+      // Re-render every 4 members so the user sees progress.
+      if (Object.keys(compliance).length % 4 === 0 || Object.keys(compliance).length === teamMembers.length) {
+        renderShell();
+      }
+    }
+    renderShell();
+  }
+}
+
+/// Compact relative time formatter — "2h ago", "3d ago", "just now".
+function formatRelativeShort(date) {
+  if (!date) return '—';
+  const ms = Date.now() - date.getTime();
+  if (ms < 60000) return 'just now';
+  const min = Math.floor(ms / 60000);
+  if (min < 60) return min + 'm ago';
+  const h = Math.floor(min / 60);
+  if (h < 24) return h + 'h ago';
+  const d = Math.floor(h / 24);
+  if (d < 7) return d + 'd ago';
+  const w = Math.floor(d / 7);
+  if (w < 5) return w + 'w ago';
+  return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
 }
 
 function renderCoachTraining(el) {
