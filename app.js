@@ -2637,6 +2637,14 @@ $('logout-btn')?.addEventListener('click', async () => {
     if (_demoRaceTimer) { try { clearInterval(_demoRaceTimer); } catch(e) {} _demoRaceTimer = null; _demoRaceState = null; }
     if (_trainingReminderInterval) { try { clearInterval(_trainingReminderInterval); } catch(e) {} _trainingReminderInterval = null; }
     if (_announcementsUnsub) { try { _announcementsUnsub(); } catch(e) {} _announcementsUnsub = null; }
+    if (_globalSettingsUnsub) { try { _globalSettingsUnsub(); } catch(e) {} _globalSettingsUnsub = null; }
+    // Clear coach-tab cross-account caches so signing in as a
+    // different coach doesn't see the previous account's compliance
+    // grid leak through.
+    window._tpComplianceCache = null;
+    window._tpComplianceCacheAt = 0;
+    window._tpStudentSearch = '';
+    window._tpStudentSort = 'compliance';
     await signOut(auth);
     currentUser = null;
     userProfile = null;
@@ -13550,10 +13558,15 @@ function buildModuleCtx() {
 // ── God Admin — Global Settings ─────────────────────────────────────────────
 // hearn.tenny@icloud.com controls global_settings/config in Firestore.
 // Any change there propagates to ALL users in real time.
+let _globalSettingsUnsub = null;
 function listenGlobalSettings() {
   if (!db) return;
+  // Tear down any prior listener so signin/signout cycles don't
+  // stack subscriptions — was a real leak: each cycle added one and
+  // logout never cleared it.
+  if (_globalSettingsUnsub) { try { _globalSettingsUnsub(); } catch(_) {} _globalSettingsUnsub = null; }
   try {
-    onSnapshot(doc(db, 'global_settings', 'config'), snap => {
+    _globalSettingsUnsub = onSnapshot(doc(db, 'global_settings', 'config'), snap => {
       if (!snap.exists()) return;
       globalSettings = snap.data();
       applyGlobalSettings(globalSettings);
@@ -14613,32 +14626,39 @@ async function renderCoachStudents(el) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 6);
     cutoff.setHours(0, 0, 0, 0);
-    for (const m of teamMembers) {
-      if (compliance[m.uid]) continue;
+    const cutoffTs = Timestamp.fromDate(cutoff);
+    const fillOne = async (m) => {
+      if (compliance[m.uid]) return;
       try {
         const snap = await getDocs(query(
           collection(db, 'users', m.uid, 'workouts'),
-          where('date', '>=', Timestamp.fromDate(cutoff))
+          where('date', '>=', cutoffTs)
         ));
         const days = {};
-        snap.forEach(doc => {
-          const data = doc.data();
+        snap.forEach(d => {
+          const data = d.data();
           const ts = data.date?.toDate ? data.date.toDate() : (data.date instanceof Date ? data.date : null);
           if (!ts) return;
-          const k = dayKey(ts);
-          days[k] = true;
+          days[dayKey(ts)] = true;
         });
         const hits = last7.filter(d => days[d.key]).length;
         compliance[m.uid] = { days, pct: Math.round((hits / 7) * 100) };
-      } catch(e) {
-        // Permission denied or network — fall back to "unknown".
+      } catch(_) {
         compliance[m.uid] = { days: {}, pct: null };
       }
-      // Re-render every 4 members so the user sees progress.
-      if (Object.keys(compliance).length % 4 === 0 || Object.keys(compliance).length === teamMembers.length) {
-        renderShell();
+    };
+    // Cap concurrency at 6 so a 60-rider team doesn't hammer Firestore
+    // with 60 simultaneous getDocs. Was sequential (slow); now parallel
+    // with a small pool. Re-renders once when the batch lands.
+    const pool = 6;
+    const queue = teamMembers.filter(m => !compliance[m.uid]).slice();
+    const workers = Array.from({ length: Math.min(pool, queue.length) }, async () => {
+      while (queue.length) {
+        const m = queue.shift();
+        if (m) await fillOne(m);
       }
-    }
+    });
+    await Promise.all(workers);
     renderShell();
   }
 }
