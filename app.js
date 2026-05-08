@@ -353,6 +353,21 @@ function postNative(type, body) {
 }
 // Web → native: serialize the slices the Watch UI needs and post them.
 // Called from renderToday so the Watch picks up plan/race/workout changes.
+/// Adapt a parsed workout exercise into the shape the watch wants
+/// (camel-case label fields). Used by pushWatchState when a workout
+/// is in flight so the watch can show the current step.
+function _trainingExerciseForWatch(ex, idx) {
+  if (!ex || typeof ex !== 'object') return null;
+  return {
+    id: 'ex-' + idx,
+    name: ex.name || ('Exercise ' + (idx + 1)),
+    setsTotal: ex.sets || 1,
+    repsLabel: ex.reps ? String(ex.reps) : null,
+    durationLabel: ex.duration || null,
+    notes: ex.notes || null,
+  };
+}
+
 function pushWatchState() {
   if (!_hasNativeBridge()) return;
   try {
@@ -446,12 +461,20 @@ function pushWatchState() {
     const trainingActive = !!window._tpTrainingActive;
     const trainingType = window._tpTrainingType || 'ride';
     const trainingTitle = window._tpTrainingTitle || 'Training';
+    // Workout exercise list — when starting a workout from the
+    // Library, app.js stashes the parsed exercises here so we can
+    // forward them to the watch.
+    const exList = Array.isArray(window._tpTrainingExercises) ? window._tpTrainingExercises : [];
+    const trainingExercises = exList.map(_trainingExerciseForWatch).filter(Boolean);
+    const trainingCurrentIdx = window._tpTrainingCurrentIdx || 0;
+    const trainingCurrentSet = window._tpTrainingCurrentSet || 0;
     postNative('watch-state', {
       state: {
         racePhase, todayWorkouts, completedWorkouts,
         raceDayActive, raceDayLeaderboard,
         iPhoneSignedIn, iPhoneUserEmail, iPhoneUserDisplayName,
         trainingActive, trainingType, trainingTitle,
+        trainingExercises, trainingCurrentIdx, trainingCurrentSet,
       },
     });
   } catch(e) {}
@@ -461,14 +484,38 @@ function pushWatchState() {
 /// the on-phone overlay. Watch will lock its screen to WatchTrainingView
 /// the next time the state lands. Called from the Today page or wherever
 /// we surface a "Start training" entry.
-function startTrainingSession({ type = 'ride', title = 'Training' } = {}) {
+function startTrainingSession({ type = 'ride', title = 'Training', exercises = null, suppressOverlay = false } = {}) {
   if (window._tpTrainingActive) return;
   window._tpTrainingActive = true;
   window._tpTrainingType = type;
   window._tpTrainingTitle = title;
   window._tpTrainingStartedAt = Date.now();
+  // Stash the parsed exercise list so pushWatchState can forward it
+  // (and so timer.js progression updates can mutate the index).
+  window._tpTrainingExercises = Array.isArray(exercises) ? exercises : [];
+  window._tpTrainingCurrentIdx = 0;
+  window._tpTrainingCurrentSet = 0;
   try { pushWatchState(); } catch(_) {}
-  try { openTrainingOverlay(); } catch(_) {}
+  // Live Activity (lock-screen + Dynamic Island) — fires for every
+  // training session, not just race-day stints. Persists when the
+  // app is backgrounded so the rider can read the timer + exercise
+  // from the lock screen / Dynamic Island like Spotify's Now Playing.
+  try {
+    window.webkit?.messageHandlers?.tpNative?.postMessage({
+      type: 'live-activity-start',
+      raceName: title,
+      riderName: userProfile?.displayName || currentUser?.displayName || 'Rider',
+      startedAtMs: window._tpTrainingStartedAt,
+    });
+  } catch(_) {}
+  // The phone training overlay was a generic ride/run scaffold. For
+  // a workout (which has a richer in-app timer overlay with the full
+  // exercise list), opening this overlay on top covered the timer
+  // and made the experience worse. Caller passes suppressOverlay
+  // when they're already going to openWorkoutTimer.
+  if (!suppressOverlay) {
+    try { openTrainingOverlay(); } catch(_) {}
+  }
 }
 
 /// End the active training session locally. The Watch's own Finish
@@ -480,7 +527,13 @@ function endTrainingSession() {
   window._tpTrainingType = null;
   window._tpTrainingTitle = null;
   window._tpTrainingStartedAt = null;
+  window._tpTrainingExercises = [];
+  window._tpTrainingCurrentIdx = 0;
+  window._tpTrainingCurrentSet = 0;
   try { pushWatchState(); } catch(_) {}
+  try {
+    window.webkit?.messageHandlers?.tpNative?.postMessage({ type: 'live-activity-end' });
+  } catch(_) {}
   document.getElementById('training-overlay')?.remove();
 }
 
@@ -4140,7 +4193,14 @@ function openCustomWorkoutDetail(id) {
   ov.querySelector('#lib-start').addEventListener('click', () => {
     haptic('medium');
     close();
-    try { startTrainingSession({ type: 'workout', title: w.name }); } catch(_) {}
+    try {
+      startTrainingSession({
+        type: 'workout',
+        title: w.name,
+        exercises: w.exercises || [],
+        suppressOverlay: true,
+      });
+    } catch(_) {}
     try {
       if (typeof openWorkoutTimer === 'function') {
         openWorkoutTimer(w.name, w.duration, w.exercises || []);
@@ -4498,7 +4558,9 @@ function openWorkoutLibraryDetail(id) {
 
       <div style="background:rgba(var(--primary-rgb),.04);border:1px solid rgba(var(--primary-rgb),.2);border-radius:10px;padding:10px 12px;margin-top:14px;display:flex;gap:10px;align-items:center">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--primary);flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <div style="font-size:12px;color:var(--muted-fg);line-height:1.4">Tap <strong style="color:var(--fg)">Start now</strong> — your Apple Watch flips to training mode and tracks HR while you go.</div>
+        <div style="font-size:12px;color:var(--muted-fg);line-height:1.4">${window._tpWatchPaired
+          ? 'Tap <strong style="color:var(--fg)">Start now</strong> — Apple Watch tracks HR + shows the current exercise on your wrist.'
+          : 'Tap <strong style="color:var(--fg)">Start now</strong> — the timer + voice cues drive the session right here. No watch required.'}</div>
       </div>
 
       <button id="lib-start" type="button" style="width:100%;margin-top:18px;padding:14px;border-radius:12px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:800;font-size:15px;cursor:pointer;letter-spacing:.01em">Start now →</button>
@@ -4512,15 +4574,21 @@ function openWorkoutLibraryDetail(id) {
   ov.querySelector('#lib-start')?.addEventListener('click', () => {
     haptic('medium');
     close();
-    // Parse free-text exercise lines into structured objects so the
-    // timer can step through with sets/reps/duration + coach hints.
     const parsed = (w.exercises || [])
       .map(parseExerciseLine)
       .filter(Boolean);
-    // Push the workout into training mode — Watch flips to its
-    // training view (HR + duration tracking) so the rider can read
-    // the session from the wrist while the phone runs the timer.
-    try { startTrainingSession({ type: 'workout', title: w.name }); } catch(_) {}
+    // Forward to the watch: full exercise list + flip into training
+    // mode + start the Live Activity (lock-screen / Dynamic Island).
+    // suppressOverlay:true so the watch handoff doesn't cover the
+    // workout timer's exercise UI on the phone.
+    try {
+      startTrainingSession({
+        type: 'workout',
+        title: w.name,
+        exercises: parsed,
+        suppressOverlay: true,
+      });
+    } catch(_) {}
     try {
       if (typeof openWorkoutTimer === 'function') {
         openWorkoutTimer(w.name, w.duration, parsed.length ? parsed : (w.exercises || []));
@@ -13671,6 +13739,10 @@ function buildModuleCtx() {
     // DOM + UI helpers
     $, show, hide, showToast, showError, logError, showLoading, hideLoading, haptic, openSheet, closeSheet,
     escHtml,
+    // Watch + Live Activity bridges — exposed so timer.js can push
+    // exercise progression to the wrist + lock screen.
+    pushWatchState: () => { try { pushWatchState(); } catch(_) {} },
+    endTrainingSession: () => { try { endTrainingSession(); } catch(_) {} },
     // Workout library + exercise frequency for AI plan generation.
     // aifeatures.js reads these to build a "use these workouts/exercises"
     // palette into its plan-generation prompts.

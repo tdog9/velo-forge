@@ -46,6 +46,13 @@ final class WatchAppState: ObservableObject {
     @Published var trainingType: String = "ride"
     @Published var trainingTitle: String = "Training"
     @Published var trainingLaps: [WatchLap] = []
+    /// Workout exercise list pushed from the iPhone when starting a
+    /// training session from the Library or a plan day. Each item:
+    /// { name, setsTotal, repsLabel, durationLabel, notes }. Watch
+    /// displays the current step + a peek at the next.
+    @Published var trainingExercises: [WatchTrainingExercise] = []
+    @Published var trainingCurrentIdx: Int = 0
+    @Published var trainingCurrentSet: Int = 0
 
     /// Pre-set stint duration in minutes. Drives the countdown timer on
     /// the active-stint screen. Default 30 — typical Vic HPR stint length.
@@ -309,6 +316,28 @@ final class WatchAppState: ObservableObject {
         if let lb = dict["raceDayLeaderboard"] as? [[String: Any]] {
             self.raceDayLeaderboard = lb.compactMap(WatchLeaderboardEntry.init(from:))
         }
+        // Training mode flags — were silently ignored before today, so
+        // tapping "Start now" on a Library workout left the watch on
+        // its tabs view ("watch doesn't lock at all"). Now we apply
+        // every training-related field.
+        if let active = dict["trainingActive"] as? Bool {
+            if active != self.trainingActive {
+                self.trainingActive = active
+                if !active {
+                    self.trainingExercises = []
+                    self.trainingCurrentIdx = 0
+                    self.trainingCurrentSet = 0
+                    self.trainingStartedAt = nil
+                }
+            }
+        }
+        if let t = dict["trainingType"] as? String { self.trainingType = t }
+        if let t = dict["trainingTitle"] as? String { self.trainingTitle = t }
+        if let exs = dict["trainingExercises"] as? [[String: Any]] {
+            self.trainingExercises = exs.compactMap(WatchTrainingExercise.init(from:))
+        }
+        if let idx = dict["trainingCurrentIdx"] as? Int { self.trainingCurrentIdx = idx }
+        if let s = dict["trainingCurrentSet"] as? Int { self.trainingCurrentSet = s }
         if let active = dict["raceDayActive"] as? Bool {
             // Only mutate raceDayActive when an explicit value arrives; preserve
             // local laps if the iPhone is just refreshing other state.
@@ -518,6 +547,37 @@ struct WatchLoggedWorkout: Identifiable, Equatable {
             source: "watch"
         )
     ]
+}
+
+/// One exercise in a phone-pushed training session — surface for the
+/// watch's training view so the rider can read what to do without
+/// pulling out their phone.
+struct WatchTrainingExercise: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let setsTotal: Int
+    let repsLabel: String?
+    let durationLabel: String?
+    let notes: String?
+
+    init(id: String, name: String, setsTotal: Int = 1, repsLabel: String? = nil, durationLabel: String? = nil, notes: String? = nil) {
+        self.id = id
+        self.name = name
+        self.setsTotal = setsTotal
+        self.repsLabel = repsLabel
+        self.durationLabel = durationLabel
+        self.notes = notes
+    }
+
+    init?(from dict: [String: Any]) {
+        guard let name = dict["name"] as? String else { return nil }
+        self.id = (dict["id"] as? String) ?? UUID().uuidString
+        self.name = name
+        self.setsTotal = (dict["setsTotal"] as? Int) ?? 1
+        self.repsLabel = dict["repsLabel"] as? String
+        self.durationLabel = dict["durationLabel"] as? String
+        self.notes = dict["notes"] as? String
+    }
 }
 
 struct WatchLap: Identifiable, Equatable, Codable {

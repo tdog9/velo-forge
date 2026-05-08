@@ -152,64 +152,131 @@ struct WatchTrainingView: View {
 
     // MARK: - Active session screen ──────────────────────────────────────
     private var activeView: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 4) {
-                Text("LAP \(state.trainingLaps.count + 1)")
-                    .font(.system(size: 10, weight: .heavy))
-                    .tracking(0.6)
-                    .foregroundStyle(Theme.primary)
-                Spacer(minLength: 0)
-                Text(elapsedString)
-                    .font(.system(size: 12, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Theme.fg)
-                    .monospacedDigit()
-            }
+        ScrollView {
+            VStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Text(state.trainingTitle.uppercased())
+                        .font(.system(size: 10, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.primary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Text(elapsedString)
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Theme.fg)
+                        .monospacedDigit()
+                }
 
-            // Big HR readout — primary metric for training.
-            VStack(spacing: 0) {
-                Text(hrString)
-                    .font(.system(size: batterySaver ? 32 : 40, weight: .heavy, design: .rounded))
-                    .foregroundStyle(zoneColor)
-                    .monospacedDigit()
-                Text("BPM · \(zoneLabel)")
-                    .font(.system(size: 9, weight: .heavy))
-                    .tracking(0.4)
-                    .foregroundStyle(Theme.mutedFg)
-            }
-            .frame(maxWidth: .infinity)
+                // Current exercise card — present whenever the phone
+                // has pushed a workout exercise list. Falls back to the
+                // generic HR readout for ride/strength/etc. sessions.
+                if !state.trainingExercises.isEmpty,
+                   state.trainingCurrentIdx < state.trainingExercises.count {
+                    currentExerciseCard
+                }
 
-            // 5-zone HR strip — current zone highlights, others muted.
-            // Only render in non-battery-saver mode (saves redraw cost).
-            if !batterySaver {
-                hrZoneStrip
-            }
+                // Big HR readout — primary metric for training.
+                VStack(spacing: 0) {
+                    Text(hrString)
+                        .font(.system(size: batterySaver ? 26 : 34, weight: .heavy, design: .rounded))
+                        .foregroundStyle(zoneColor)
+                        .monospacedDigit()
+                    Text("BPM · \(zoneLabel)")
+                        .font(.system(size: 9, weight: .heavy))
+                        .tracking(0.4)
+                        .foregroundStyle(Theme.mutedFg)
+                }
+                .frame(maxWidth: .infinity)
 
-            // Tap-anywhere-here lap zone.
-            Button(action: recordLap) {
-                Text("TAP TO LAP")
-                    .font(.system(size: 10, weight: .heavy))
-                    .tracking(0.6)
-                    .foregroundStyle(Theme.mutedFg)
-                    .frame(maxWidth: .infinity, minHeight: 30)
-                    .background(Theme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-            .buttonStyle(.plain)
+                // 5-zone HR strip — current zone highlights, others muted.
+                if !batterySaver {
+                    hrZoneStrip
+                }
 
-            Button(action: finishSession) {
-                Text("FINISH")
-                    .font(.system(size: 12, weight: .heavy))
-                    .tracking(0.4)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, minHeight: 30)
-                    .background(Color(red: 0.93, green: 0.27, blue: 0.27).opacity(0.9))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                Button(action: recordLap) {
+                    Text("TAP TO LAP")
+                        .font(.system(size: 10, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.mutedFg)
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                        .background(Theme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button(action: finishSession) {
+                    Text("FINISH")
+                        .font(.system(size: 12, weight: .heavy))
+                        .tracking(0.4)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                        .background(Color(red: 0.93, green: 0.27, blue: 0.27).opacity(0.9))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 8)
+            .padding(.top, 4)
+            .padding(.bottom, 4)
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 4)
-        .padding(.bottom, 4)
+    }
+
+    // MARK: - Current-exercise card ─────────────────────────────────────
+    /// Displays the exercise the rider should be doing right now: name,
+    /// set/total, reps or duration target, and a one-line coach hint.
+    /// Phone-side timer drives the index/set; we just render whatever
+    /// the latest snapshot says.
+    private var currentExerciseCard: some View {
+        let total = state.trainingExercises.count
+        let idx = max(0, min(state.trainingCurrentIdx, total - 1))
+        let ex = state.trainingExercises[idx]
+        let nextEx: WatchTrainingExercise? = (idx + 1 < total) ? state.trainingExercises[idx + 1] : nil
+        let setLabel = ex.setsTotal > 1
+            ? "Set \(state.trainingCurrentSet + 1)/\(ex.setsTotal)"
+            : ""
+        let metaParts: [String] = [
+            setLabel,
+            ex.repsLabel.map { "\($0) reps" } ?? "",
+            ex.durationLabel ?? "",
+        ].filter { !$0.isEmpty }
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("EXERCISE \(idx + 1)/\(total)")
+                .font(.system(size: 9, weight: .heavy))
+                .tracking(0.5)
+                .foregroundStyle(Theme.mutedFg)
+            Text(ex.name)
+                .font(.system(size: 16, weight: .heavy))
+                .foregroundStyle(Theme.fg)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+            if !metaParts.isEmpty {
+                Text(metaParts.joined(separator: " · "))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.primary)
+            }
+            if let n = ex.notes, !n.isEmpty {
+                Text(n)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.mutedFg)
+                    .lineLimit(2)
+                    .padding(.top, 2)
+            }
+            if let next = nextEx {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 8, weight: .heavy))
+                    Text("Next: \(next.name)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Theme.mutedFg)
+                .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     // MARK: - HR zone strip ─────────────────────────────────────────────

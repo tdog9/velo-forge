@@ -342,13 +342,30 @@ function startSet(ex) {
     ? (' · set ' + (timerCurrentSet + 1) + '/' + totalSets)
     : '';
   const coach = ex.notes || ex.description || '';
-  // Voice cue at the start of each exercise — name + reps target so
-  // the rider doesn't have to look at the wrist/phone.
   const cueParts = [];
   if (totalSets > 1) cueParts.push(`Set ${timerCurrentSet + 1} of ${totalSets},`);
   cueParts.push(ex.name);
   if (ex.reps) cueParts.push(`${ex.reps} reps`);
   speakCue(cueParts.join(' '));
+  // Forward step + set progression to the Watch + Live Activity so
+  // the rider sees the current exercise from the wrist / lock screen
+  // / Dynamic Island. Best-effort — silently no-ops without bridge.
+  try {
+    if (typeof window !== 'undefined') {
+      window._tpTrainingCurrentIdx = timerCurrentStep || 0;
+      window._tpTrainingCurrentSet = timerCurrentSet || 0;
+    }
+    if (typeof A.pushWatchState === 'function') A.pushWatchState();
+    if (window.webkit?.messageHandlers?.tpNative) {
+      window.webkit.messageHandlers.tpNative.postMessage({
+        type: 'live-activity-update',
+        lapCount: timerCurrentStep + 1,
+        pitCount: 0,
+        lastLapMs: null,
+        bestLapMs: null,
+      });
+    }
+  } catch(_) {}
   if (ex.reps) {
     enterRepsMode(parseInt(ex.reps) || 0, ex.name + setLabel, coach);
     return;
@@ -365,6 +382,13 @@ function finishWorkout() {
   paintCoach('Nice. Tap Close when you\'re done.');
   playBeep(880, 0.25, 3);
   A.haptic?.('heavy');
+  // Tear down the watch handoff + Live Activity so the lock screen
+  // and Dynamic Island don't keep the workout pinned after the user
+  // finished. Phone stays in the timer overlay until the user taps
+  // Close — the LA disappears immediately.
+  try {
+    if (typeof A.endTrainingSession === 'function') A.endTrainingSession();
+  } catch(_) {}
 }
 
 function parseExerciseDuration(ex) {

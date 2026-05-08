@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import WatchConnectivity
 @preconcurrency import WebKit
 
 /// Hosts the deployed TurboPrep web app inside a WKWebView. The web bundle
@@ -381,6 +382,7 @@ struct WebViewContainer: UIViewRepresentable {
             // a beat behind it via DispatchQueue.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 self?.runHealthSync(force: true)
+                self?.pushWatchPairedFlag()
             }
             // Foreground hook — UIApplication.didBecomeActiveNotification
             // fires every time the user re-foregrounds the app.
@@ -389,12 +391,29 @@ struct WebViewContainer: UIViewRepresentable {
                 object: nil, queue: .main
             ) { [weak self] _ in
                 self?.runHealthSync(force: false)
+                self?.pushWatchPairedFlag()
             }
             // Foreground heartbeat — every 10 min while in foreground.
             healthSyncTimer?.invalidate()
             healthSyncTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
                 self?.runHealthSync(force: false)
             }
+        }
+
+        /// Tell the web side whether the user has an Apple Watch paired
+        /// with this iPhone (and the TurboPrep watch app installed) so
+        /// the workout-detail modal can adjust copy ('Watch tracks HR'
+        /// vs 'Phone-only — voice cues drive the session').
+        private func pushWatchPairedFlag() {
+            guard let webView = healthWebView else { return }
+            let session = WCSession.default
+            let isPaired = WCSession.isSupported() && session.isPaired
+            let watchInstalled = isPaired && session.isWatchAppInstalled
+            let isReachable = isPaired && session.isReachable
+            let js = "window._tpWatchPaired = \(isPaired ? "true" : "false");"
+                   + "window._tpWatchInstalled = \(watchInstalled ? "true" : "false");"
+                   + "window._tpWatchReachable = \(isReachable ? "true" : "false");"
+            webView.evaluateJavaScript(js, completionHandler: nil)
         }
 
         private func runHealthSync(force: Bool) {
