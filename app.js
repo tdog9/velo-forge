@@ -742,8 +742,158 @@ if (typeof window !== 'undefined') {
       if (typeof showToast === 'function') {
         showToast(`Stint saved — ${lapCount} laps logged.`, 'success');
       }
+      // Post-stint capture — pop a sheet for the rider to log pit
+      // count, RPE, and any notes. Auto-publishes a chat message
+      // when they save. Only on real (non-demo) sessions with a team.
+      if (lapCount > 0 && userProfile?.teamId && !demoMode) {
+        const stintSummary = {
+          lapCount,
+          bestLapMs: Math.min(...laps.map(l => l.duration || 0)),
+          stintStartedAt: payload.stintStartedAt || null,
+          stintEndedAt: payload.stintEndedAt || null,
+        };
+        setTimeout(() => openPostStintSheet(stintSummary), 600);
+      }
     } catch(e) {}
   };
+}
+
+/// First-workout celebration — fires once after the user's first
+/// saved workout. Cheerful confetti-style modal with one CTA: share
+/// to team chat (defaults on). Drives day-1 retention.
+function openFirstWorkoutCelebration(workout) {
+  document.getElementById('first-wo-overlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'first-wo-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = `
+    <div style="background:var(--bg);max-width:420px;width:100%;border-radius:18px;border:1px solid rgba(var(--primary-rgb),.4);padding:28px 24px;text-align:center;position:relative;overflow:hidden">
+      <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 0%, rgba(var(--primary-rgb),.18), transparent 70%);pointer-events:none"></div>
+      <div style="position:relative">
+        <div style="font-size:48px;margin-bottom:6px">🎉</div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.01em;margin-bottom:6px">First workout in the books</div>
+        <div style="font-size:13px;color:var(--muted-fg);line-height:1.5;margin-bottom:18px">${escHtml((workout?.name || 'Workout').slice(0, 40))} · ${workout?.duration || 0} min. Welcome to the streak.</div>
+        <label style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 13px;text-align:left;margin-bottom:14px;cursor:pointer">
+          <input type="checkbox" id="fw-share" checked style="accent-color:var(--primary);width:18px;height:18px">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">Share with my team</div>
+            <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Posts to your team chat as a welcome message.</div>
+          </div>
+        </label>
+        <button id="fw-done" class="btn btn-primary" style="width:100%;padding:13px;font-weight:700">Let's keep going</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  ov.querySelector('#fw-done').addEventListener('click', async () => {
+    const share = ov.querySelector('#fw-share').checked;
+    if (share && userProfile?.teamId && db && currentUser) {
+      try {
+        const safeName = ((userProfile?.displayName || currentUser.email || 'Member').toString().trim()) || 'Member';
+        await addDoc(collection(db, 'teams', userProfile.teamId, 'chat'), {
+          uid: currentUser.uid,
+          displayName: safeName,
+          text: `just logged my first workout — ${workout?.name || 'session'}!`,
+          kind: 'system',
+          subteamId: '',
+          createdAt: serverTimestamp(),
+        });
+      } catch(_) {}
+    }
+    ov.remove();
+  });
+}
+
+/// Post-stint capture sheet — appears after the Watch finishes a
+/// stint on a race day. Lets the rider record pit-stop count, RPE,
+/// finishing position, and a note. Saving auto-publishes a kind:'pr'
+/// chat message to teammates so the team feed reflects race-day
+/// activity in real time. Skippable.
+function openPostStintSheet(summary) {
+  document.getElementById('post-stint-overlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'post-stint-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:240;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center';
+  const bestSec = summary.bestLapMs ? (summary.bestLapMs / 1000).toFixed(2) : '—';
+  ov.innerHTML = `
+    <div style="background:var(--bg);width:100%;max-width:520px;border-radius:18px 18px 0 0;border-top:1px solid var(--border);padding:20px 18px calc(28px + env(safe-area-inset-bottom,0px))">
+      <div style="width:40px;height:4px;border-radius:99px;background:var(--border);margin:-6px auto 14px"></div>
+      <div style="text-align:center;font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--primary);text-transform:uppercase;margin-bottom:4px">Stint complete</div>
+      <div style="text-align:center;font-size:22px;font-weight:800;margin-bottom:8px">${summary.lapCount} laps · best ${bestSec}s</div>
+      <div style="text-align:center;font-size:12.5px;color:var(--muted-fg);margin-bottom:18px">Drop in a few details so your coach + teammates can see how it went.</div>
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <div style="flex:1">
+          <label class="label">Pit stops</label>
+          <input class="input" id="ps-pit" type="number" min="0" max="50" placeholder="0" inputmode="numeric">
+        </div>
+        <div style="flex:1">
+          <label class="label">Position</label>
+          <input class="input" id="ps-pos" type="number" min="1" max="60" placeholder="—" inputmode="numeric">
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label class="label" style="display:flex;justify-content:space-between"><span>Effort (RPE)</span><span id="ps-rpe-val" style="color:var(--primary);font-weight:700">7</span></label>
+        <input class="input" id="ps-rpe" type="range" min="1" max="10" step="1" value="7" style="width:100%">
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted-fg);margin-top:4px"><span>Easy</span><span>Maximal</span></div>
+      </div>
+      <div style="margin-bottom:18px">
+        <label class="label">Notes (optional)</label>
+        <textarea class="input" id="ps-notes" rows="2" placeholder="Smooth start, traffic on lap 4..." maxlength="240" style="resize:vertical"></textarea>
+      </div>
+      <button id="ps-save" class="btn btn-primary" style="width:100%;padding:14px;font-weight:700">Post to team</button>
+      <button id="ps-skip" class="btn" style="width:100%;background:transparent;color:var(--muted-fg);font-size:12px;padding:10px;margin-top:6px">Skip</button>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  ov.querySelector('#ps-rpe').addEventListener('input', (e) => {
+    ov.querySelector('#ps-rpe-val').textContent = e.target.value;
+  });
+  const close = () => ov.remove();
+  ov.querySelector('#ps-skip').addEventListener('click', close);
+  ov.querySelector('#ps-save').addEventListener('click', async () => {
+    const pit = parseInt(ov.querySelector('#ps-pit').value) || 0;
+    const pos = parseInt(ov.querySelector('#ps-pos').value) || null;
+    const rpe = parseInt(ov.querySelector('#ps-rpe').value) || null;
+    const notes = (ov.querySelector('#ps-notes').value || '').trim();
+    close();
+    showLoading('Saving stint…');
+    try {
+      const today = new Date();
+      const dk = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+      // Patch the stint doc with the user-entered metadata.
+      try {
+        await setDoc(doc(db, 'race_day', dk, 'stints', currentUser.uid), {
+          pitStops: pit,
+          finishPosition: pos,
+          rpe,
+          notes,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      } catch(e) { console.warn('post-stint patch:', e); }
+      // Auto-publish to whole-team chat as a kind:'pr' card.
+      try {
+        const safeName = ((userProfile?.displayName || currentUser?.displayName || currentUser?.email || 'Member').toString().trim()) || 'Member';
+        const lapTxt = `${summary.lapCount} laps · best ${(summary.bestLapMs/1000).toFixed(2)}s`;
+        const posTxt = pos ? ` · P${pos}` : '';
+        const pitTxt = pit > 0 ? ` · ${pit} pit${pit === 1 ? '' : 's'}` : '';
+        const noteTxt = notes ? `\n"${notes}"` : '';
+        await addDoc(collection(db, 'teams', userProfile.teamId, 'chat'), {
+          uid: currentUser.uid,
+          displayName: safeName,
+          text: `finished a stint — ${lapTxt}${posTxt}${pitTxt}${noteTxt}`,
+          kind: 'pr',
+          subteamId: '',
+          createdAt: serverTimestamp(),
+        });
+      } catch(e) { console.warn('post-stint chat publish:', e); }
+      hideLoading();
+      showToast('Stint published to team.', 'success');
+    } catch(e) {
+      hideLoading();
+      console.error('Post-stint save failed:', e);
+      showToast('Save failed — try again.', 'error');
+    }
+  });
 }
 // ─── AI Coach widgets ─────────────────────────────────────────────────────
 // Persisted in localStorage. Each widget = { id, kind, title, body,
@@ -3492,55 +3642,169 @@ function renderBodyDiagram(activeMuscles = [], opts = {}) {
   // Ordered list for label rendering below the SVG.
   const activeLabels = (activeMuscles || []).map(m => MUSCLE_LABELS[m] || m);
 
-  // Two figures share the same silhouette base; muscles differ by
-  // front/back. Each figure is 110 wide, 260 tall, centred at x=55.
+  // Anatomical figures — V-taper torso, smooth bezier silhouette,
+  // separate paths for muscle layering. Inspired by the Shred-style
+  // reference but with our own proportions. Each figure is 110 wide,
+  // 250 tall, centred at x=55. Body proportions:
+  //   head 0-28, neck 28-34, shoulder 34-44 (broad: width 60),
+  //   chest 44-72, waist 72-92 (narrow: width 32),
+  //   hips 92-112 (flare: width 44),
+  //   thigh 112-170, knee 170-178, calf 178-228, foot 228-240.
   const silhouette = `
-    <ellipse class="body-base" cx="55" cy="20" rx="11" ry="12"/>
-    <path class="body-base" d="M48 30 Q55 34 62 30 L66 38 L44 38 Z"/>
-    <path class="body-base" d="M30 38 Q24 50 28 75 L34 110 Q38 122 36 132 L74 132 Q72 122 76 110 L82 75 Q86 50 80 38 Q70 36 55 36 Q40 36 30 38 Z"/>
-    <path class="body-base" d="M30 38 L20 60 L14 95 L13 130 L20 138 L27 132 L29 100 L33 70 Z"/>
-    <path class="body-base" d="M80 38 L90 60 L96 95 L97 130 L90 138 L83 132 L81 100 L77 70 Z"/>
-    <path class="body-base" d="M36 130 L34 168 L42 175 L52 170 L55 132 Z"/>
-    <path class="body-base" d="M74 130 L76 168 L68 175 L58 170 L55 132 Z"/>
-    <path class="body-base" d="M36 168 L34 220 L37 245 L48 245 L50 220 L52 175 Z"/>
-    <path class="body-base" d="M74 168 L76 220 L73 245 L62 245 L60 220 L58 175 Z"/>
+    <path class="body-base" d="
+      M55 7
+      C50 7 45 11 45 18
+      C45 24 49 28 55 28
+      C61 28 65 24 65 18
+      C65 11 60 7 55 7 Z"/>
+    <path class="body-base" d="
+      M50 28 L60 28 L62 33
+      C68 35 76 38 80 44
+      C82 56 80 70 78 80
+      C77 90 75 96 73 100
+      L73 110
+      C75 116 76 122 76 130
+      L77 170
+      C76 178 75 184 75 192
+      L75 220
+      C75 226 74 232 73 238
+      L73 244 L65 244
+      L63 232
+      C61 218 60 200 60 184
+      L60 168 L58 154 L57 134 L57 120
+      L53 120 L53 134 L52 154 L50 168
+      L50 184
+      C50 200 49 218 47 232
+      L45 244 L37 244 L37 238
+      C36 232 35 226 35 220
+      L35 192
+      C35 184 34 178 33 170
+      L34 130
+      C34 122 35 116 37 110
+      L37 100
+      C35 96 33 90 32 80
+      C30 70 28 56 30 44
+      C34 38 42 35 48 33 L50 28 Z"/>
+    <path class="body-base" d="
+      M30 44
+      C24 48 19 56 17 66
+      L13 92
+      C12 102 12 112 14 122
+      L17 138
+      C18 142 21 144 24 142
+      L26 138 L28 122 L30 100
+      C32 88 33 76 33 66 Z"/>
+    <path class="body-base" d="
+      M80 44
+      C86 48 91 56 93 66
+      L97 92
+      C98 102 98 112 96 122
+      L93 138
+      C92 142 89 144 86 142
+      L84 138 L82 122 L80 100
+      C78 88 77 76 77 66 Z"/>
   `;
 
+  // Front muscles — proportionally placed on the new silhouette.
   const frontMuscles = `
-    <path class="${cls('chest')}" data-muscle="chest" d="M40 42 Q34 53 41 62 Q49 64 53 52 L54 42 Z"/>
-    <path class="${cls('chest')}" data-muscle="chest" d="M70 42 Q76 53 69 62 Q61 64 57 52 L56 42 Z"/>
-    <path class="${cls('shoulders')}" data-muscle="shoulders" d="M30 40 Q23 50 27 60 Q33 60 36 52 L36 42 Z"/>
-    <path class="${cls('shoulders')}" data-muscle="shoulders" d="M80 40 Q87 50 83 60 Q77 60 74 52 L74 42 Z"/>
-    <path class="${cls('biceps')}" data-muscle="biceps" d="M22 64 Q17 76 21 90 Q27 88 28 78 L28 64 Z"/>
-    <path class="${cls('biceps')}" data-muscle="biceps" d="M88 64 Q93 76 89 90 Q83 88 82 78 L82 64 Z"/>
-    <path class="${cls('forearms')}" data-muscle="forearms" d="M19 94 Q15 110 18 128 Q24 126 26 114 L26 96 Z"/>
-    <path class="${cls('forearms')}" data-muscle="forearms" d="M91 94 Q95 110 92 128 Q86 126 84 114 L84 96 Z"/>
-    <path class="${cls('abs')}" data-muscle="abs" d="M48 64 L62 64 L62 105 L48 105 Z"/>
-    <path class="${cls('obliques')}" data-muscle="obliques" d="M38 70 Q35 90 47 105 L47 80 Z"/>
-    <path class="${cls('obliques')}" data-muscle="obliques" d="M72 70 Q75 90 63 105 L63 80 Z"/>
-    <path class="${cls('quads')}" data-muscle="quads" d="M38 138 Q34 165 41 195 Q48 192 51 162 L51 138 Z"/>
-    <path class="${cls('quads')}" data-muscle="quads" d="M72 138 Q76 165 69 195 Q62 192 59 162 L59 138 Z"/>
-    <path class="${cls('calves')}" data-muscle="calves" d="M40 200 Q37 222 42 240 Q47 238 48 222 L48 202 Z"/>
-    <path class="${cls('calves')}" data-muscle="calves" d="M70 200 Q73 222 68 240 Q63 238 62 222 L62 202 Z"/>
+    <path class="${cls('shoulders')}" data-muscle="shoulders" d="
+      M33 38 C28 40 24 46 25 54
+      C26 60 30 62 35 60 C38 56 38 50 38 44 Z"/>
+    <path class="${cls('shoulders')}" data-muscle="shoulders" d="
+      M77 38 C82 40 86 46 85 54
+      C84 60 80 62 75 60 C72 56 72 50 72 44 Z"/>
+    <path class="${cls('chest')}" data-muscle="chest" d="
+      M40 42 C36 50 36 60 41 66
+      C46 68 51 66 53 60 L54 50 L54 42 Z"/>
+    <path class="${cls('chest')}" data-muscle="chest" d="
+      M70 42 C74 50 74 60 69 66
+      C64 68 59 66 57 60 L56 50 L56 42 Z"/>
+    <path class="${cls('biceps')}" data-muscle="biceps" d="
+      M22 60 C18 66 17 76 19 86
+      C22 90 27 88 29 82 L30 70 L30 60 Z"/>
+    <path class="${cls('biceps')}" data-muscle="biceps" d="
+      M88 60 C92 66 93 76 91 86
+      C88 90 83 88 81 82 L80 70 L80 60 Z"/>
+    <path class="${cls('forearms')}" data-muscle="forearms" d="
+      M18 92 C15 100 14 112 16 124
+      C19 128 23 126 25 120 L26 108 L26 94 Z"/>
+    <path class="${cls('forearms')}" data-muscle="forearms" d="
+      M92 92 C95 100 96 112 94 124
+      C91 128 87 126 85 120 L84 108 L84 94 Z"/>
+    <path class="${cls('abs')}" data-muscle="abs" d="
+      M48 50 L62 50
+      C62 60 62 70 62 80
+      C62 90 62 98 62 104 L48 104
+      C48 98 48 90 48 80 C48 70 48 60 48 50 Z"/>
+    <path class="${cls('obliques')}" data-muscle="obliques" d="
+      M38 60 C36 76 38 90 46 102 L46 70 Z"/>
+    <path class="${cls('obliques')}" data-muscle="obliques" d="
+      M72 60 C74 76 72 90 64 102 L64 70 Z"/>
+    <path class="${cls('quads')}" data-muscle="quads" d="
+      M37 116 C33 132 32 152 34 168
+      C38 172 44 170 46 162 L48 134 L48 116 Z"/>
+    <path class="${cls('quads')}" data-muscle="quads" d="
+      M73 116 C77 132 78 152 76 168
+      C72 172 66 170 64 162 L62 134 L62 116 Z"/>
+    <path class="${cls('calves')}" data-muscle="calves" d="
+      M37 184 C34 198 34 214 37 228
+      C40 230 44 228 45 222 L47 200 L47 184 Z"/>
+    <path class="${cls('calves')}" data-muscle="calves" d="
+      M73 184 C76 198 76 214 73 228
+      C70 230 66 228 65 222 L63 200 L63 184 Z"/>
   `;
 
+  // Back muscles — same silhouette, different layer.
   const backMuscles = `
-    <path class="${cls('traps')}" data-muscle="traps" d="M48 36 L62 36 Q70 44 68 56 L55 64 L42 56 Q40 44 48 36 Z"/>
-    <path class="${cls('shoulders')}" data-muscle="shoulders" d="M30 40 Q23 50 27 60 Q33 60 36 52 L36 42 Z"/>
-    <path class="${cls('shoulders')}" data-muscle="shoulders" d="M80 40 Q87 50 83 60 Q77 60 74 52 L74 42 Z"/>
-    <path class="${cls('back')}" data-muscle="back" d="M42 60 L68 60 L66 90 L44 90 Z"/>
-    <path class="${cls('lats')}" data-muscle="lats" d="M38 60 L40 92 Q44 102 53 100 L53 64 Z"/>
-    <path class="${cls('lats')}" data-muscle="lats" d="M72 60 L70 92 Q66 102 57 100 L57 64 Z"/>
-    <path class="${cls('triceps')}" data-muscle="triceps" d="M22 64 Q17 76 21 90 Q27 88 28 78 L28 64 Z"/>
-    <path class="${cls('triceps')}" data-muscle="triceps" d="M88 64 Q93 76 89 90 Q83 88 82 78 L82 64 Z"/>
-    <path class="${cls('forearms')}" data-muscle="forearms" d="M19 94 Q15 110 18 128 Q24 126 26 114 L26 96 Z"/>
-    <path class="${cls('forearms')}" data-muscle="forearms" d="M91 94 Q95 110 92 128 Q86 126 84 114 L84 96 Z"/>
-    <path class="${cls('glutes')}" data-muscle="glutes" d="M37 108 Q32 128 49 134 L54 110 Z"/>
-    <path class="${cls('glutes')}" data-muscle="glutes" d="M73 108 Q78 128 61 134 L56 110 Z"/>
-    <path class="${cls('hamstrings')}" data-muscle="hamstrings" d="M38 140 Q34 165 41 195 Q48 192 51 162 L51 140 Z"/>
-    <path class="${cls('hamstrings')}" data-muscle="hamstrings" d="M72 140 Q76 165 69 195 Q62 192 59 162 L59 140 Z"/>
-    <path class="${cls('calves')}" data-muscle="calves" d="M40 200 Q37 222 42 240 Q47 238 48 222 L48 202 Z"/>
-    <path class="${cls('calves')}" data-muscle="calves" d="M70 200 Q73 222 68 240 Q63 238 62 222 L62 202 Z"/>
+    <path class="${cls('traps')}" data-muscle="traps" d="
+      M48 32 L62 32
+      C68 38 70 46 68 56
+      L55 66 L42 56
+      C40 46 42 38 48 32 Z"/>
+    <path class="${cls('shoulders')}" data-muscle="shoulders" d="
+      M33 38 C28 40 24 46 25 54
+      C26 60 30 62 35 60 C38 56 38 50 38 44 Z"/>
+    <path class="${cls('shoulders')}" data-muscle="shoulders" d="
+      M77 38 C82 40 86 46 85 54
+      C84 60 80 62 75 60 C72 56 72 50 72 44 Z"/>
+    <path class="${cls('back')}" data-muscle="back" d="
+      M42 56 L68 56 L66 90 L44 90 Z"/>
+    <path class="${cls('lats')}" data-muscle="lats" d="
+      M40 58 L40 88
+      C42 96 46 100 53 100 L53 60 Z"/>
+    <path class="${cls('lats')}" data-muscle="lats" d="
+      M70 58 L70 88
+      C68 96 64 100 57 100 L57 60 Z"/>
+    <path class="${cls('triceps')}" data-muscle="triceps" d="
+      M22 60 C18 66 17 76 19 86
+      C22 90 27 88 29 82 L30 70 L30 60 Z"/>
+    <path class="${cls('triceps')}" data-muscle="triceps" d="
+      M88 60 C92 66 93 76 91 86
+      C88 90 83 88 81 82 L80 70 L80 60 Z"/>
+    <path class="${cls('forearms')}" data-muscle="forearms" d="
+      M18 92 C15 100 14 112 16 124
+      C19 128 23 126 25 120 L26 108 L26 94 Z"/>
+    <path class="${cls('forearms')}" data-muscle="forearms" d="
+      M92 92 C95 100 96 112 94 124
+      C91 128 87 126 85 120 L84 108 L84 94 Z"/>
+    <path class="${cls('glutes')}" data-muscle="glutes" d="
+      M37 100 C32 110 31 122 39 130
+      C45 132 50 128 53 120 L53 100 Z"/>
+    <path class="${cls('glutes')}" data-muscle="glutes" d="
+      M73 100 C78 110 79 122 71 130
+      C65 132 60 128 57 120 L57 100 Z"/>
+    <path class="${cls('hamstrings')}" data-muscle="hamstrings" d="
+      M37 134 C33 152 33 168 37 168
+      C42 170 46 168 47 162 L48 140 L48 134 Z"/>
+    <path class="${cls('hamstrings')}" data-muscle="hamstrings" d="
+      M73 134 C77 152 77 168 73 168
+      C68 170 64 168 63 162 L62 140 L62 134 Z"/>
+    <path class="${cls('calves')}" data-muscle="calves" d="
+      M37 184 C34 198 34 214 37 228
+      C40 230 44 228 45 222 L47 200 L47 184 Z"/>
+    <path class="${cls('calves')}" data-muscle="calves" d="
+      M73 184 C76 198 76 214 73 228
+      C70 230 66 228 65 222 L63 200 L63 184 Z"/>
   `;
 
   const labelHtml = activeLabels.length
@@ -3557,16 +3821,16 @@ function renderBodyDiagram(activeMuscles = [], opts = {}) {
   return `
     <div class="body-diagram-wrap">
       ${legendHtml}
-      <svg viewBox="0 0 240 260" class="body-diagram" xmlns="http://www.w3.org/2000/svg" aria-label="Muscle map" role="img">
+      <svg viewBox="0 0 230 252" class="body-diagram" xmlns="http://www.w3.org/2000/svg" aria-label="Muscle map" role="img">
         <g class="bd-figure">
           ${silhouette}
           ${frontMuscles}
-          <text x="55" y="256" class="bd-caption">Front</text>
+          <text x="55" y="251" class="bd-caption">Front</text>
         </g>
-        <g class="bd-figure" transform="translate(125,0)">
+        <g class="bd-figure" transform="translate(120,0)">
           ${silhouette}
           ${backMuscles}
-          <text x="55" y="256" class="bd-caption">Back</text>
+          <text x="55" y="251" class="bd-caption">Back</text>
         </g>
       </svg>
       ${labelHtml}
@@ -7045,6 +7309,16 @@ async function saveWorkout(rpe, photoData, workoutType) {
     hideLoading();
     const oldXp = calcXp();
     showToast('Workout logged!', 'success');
+    // First-workout celebration — fires once per account, the first
+    // time a workout is saved successfully. Pure local flag so it
+    // can't double-fire across sessions.
+    try {
+      const firstKey = 'tp_first_workout_done_' + currentUser.uid;
+      if (!localStorage.getItem(firstKey) && (userWorkouts || []).length <= 1) {
+        localStorage.setItem(firstKey, '1');
+        setTimeout(() => openFirstWorkoutCelebration({ name, type, duration }), 500);
+      }
+    } catch(_) {}
     // PR auto-detection (#8) — scan the user's history for this
     // workout type and check whether this session set any of: longest
     // duration, longest distance, or fastest avg pace (distance/min).
@@ -9304,6 +9578,55 @@ async function renderProfile() {
   if (currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
     html += renderGodAdminPanel();
   }
+  // Voice coach toggle — speaks exercise transitions + 3-2-1
+  // countdowns through Web Speech API during the workout timer.
+  const voiceCoachOn = (() => { try { return localStorage.getItem('tp_voice_coach') === '1'; } catch(_) { return false; } })();
+  html += `<div class="profile-section" style="margin-top:14px">
+    <div class="profile-section-title">During workouts</div>
+    <label data-feat="tp_voice_coach" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700">Voice coach</div>
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Speaks exercise + countdowns through your phone speaker</div>
+      </div>
+      <div class="theme-toggle${voiceCoachOn ? ' on' : ''}" data-toggle="tp_voice_coach" role="switch" aria-checked="${voiceCoachOn}"><div class="theme-toggle-knob"></div></div>
+    </label>
+  </div>`;
+
+  // Privacy / Terms / Data export / Account deletion — App Store
+  // requires every released app to provide these self-serve.
+  html += `<div class="profile-section" style="margin-top:14px">
+    <div class="profile-section-title">Privacy &amp; data</div>
+    <button id="profile-privacy-btn" class="btn" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--fg);padding:11px;font-size:13px;font-weight:600;border-radius:10px;text-align:left;display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--muted-fg);flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span style="flex:1">Privacy policy</span>
+      <span style="color:var(--muted-fg)">›</span>
+    </button>
+    <button id="profile-terms-btn" class="btn" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--fg);padding:11px;font-size:13px;font-weight:600;border-radius:10px;text-align:left;display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--muted-fg);flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span style="flex:1">Terms of service</span>
+      <span style="color:var(--muted-fg)">›</span>
+    </button>
+    <button id="profile-data-export-btn" class="btn" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--fg);padding:11px;font-size:13px;font-weight:600;border-radius:10px;text-align:left;display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--muted-fg);flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span style="flex:1">Download my data (JSON)</span>
+      <span style="color:var(--muted-fg)">›</span>
+    </button>
+    <button id="profile-ios-settings-btn" class="btn" style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--fg);padding:11px;font-size:13px;font-weight:600;border-radius:10px;text-align:left;display:flex;align-items:center;gap:10px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--muted-fg);flex-shrink:0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span style="flex:1">iOS Settings (notifications, health)</span>
+      <span style="color:var(--muted-fg)">›</span>
+    </button>
+  </div>`;
+
+  html += `<div class="profile-section" style="margin-top:14px">
+    <div class="profile-section-title" style="color:var(--destructive)">Danger zone</div>
+    <button id="profile-delete-account-btn" class="btn" style="width:100%;background:transparent;border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);padding:11px;font-size:13px;font-weight:700;border-radius:10px;display:flex;align-items:center;gap:10px;justify-content:center">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      Delete my account
+    </button>
+    <div style="font-size:11px;color:var(--muted-fg);text-align:center;margin-top:6px;line-height:1.4">Permanently removes your profile, workouts, and chat history. Cannot be undone.</div>
+  </div>`;
+
   // Sign Out — was previously only on the avatar dropdown above the
   // overlay. Users opening "Profile & Settings" had to back out and
   // tap the avatar to log out, which most never noticed. Surface it
@@ -9626,6 +9949,30 @@ async function renderProfile() {
   // Fetch clubs button (if clubs not yet loaded)
 
   $('profile-export-btn')?.addEventListener('click', exportTrainingReport);
+  // Voice coach toggle.
+  el.querySelectorAll('[data-toggle="tp_voice_coach"]').forEach(tog => {
+    tog.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const wasOn = tog.classList.contains('on');
+      const next = !wasOn;
+      tog.classList.toggle('on', next);
+      tog.setAttribute('aria-checked', String(next));
+      try { localStorage.setItem('tp_voice_coach', next ? '1' : '0'); } catch(_) {}
+      if (next) {
+        // Test cue so the user knows it works.
+        try {
+          const u = new SpeechSynthesisUtterance('Voice coach on');
+          u.rate = 1.05;
+          window.speechSynthesis?.speak(u);
+        } catch(_) {}
+      }
+    });
+  });
+  $('profile-privacy-btn')?.addEventListener('click', () => openPrivacyTermsOverlay('privacy'));
+  $('profile-terms-btn')?.addEventListener('click', () => openPrivacyTermsOverlay('terms'));
+  $('profile-data-export-btn')?.addEventListener('click', exportMyDataJson);
+  $('profile-ios-settings-btn')?.addEventListener('click', openiOSSettings);
+  $('profile-delete-account-btn')?.addEventListener('click', confirmDeleteAccount);
   // Sign Out — fire the same logout handler used by the avatar dropdown.
   $('profile-signout-btn')?.addEventListener('click', () => {
     if (!confirm('Sign out of TurboPrep?')) return;
@@ -11984,6 +12331,211 @@ async function ensureDefaultTeamMembership() {
     userProfile.teamName = td.name;
   } catch(e) {
     console.warn('[auto-join] default team failed:', e);
+  }
+}
+
+/// Open Apple's Settings app to TurboPrep's section. Lets the user
+/// re-grant push or HealthKit permissions if they were revoked. Goes
+/// through the native bridge — Capacitor's WKWebView can't open
+/// app-settings: URLs from JS, so the iOS shell handles it.
+function openiOSSettings() {
+  try {
+    if (window.webkit?.messageHandlers?.openAppSettings) {
+      window.webkit.messageHandlers.openAppSettings.postMessage({});
+      return;
+    }
+    // Fallback for browser / capacitor without the handler — try the
+    // app-settings URL scheme (works in some contexts, no-ops in others).
+    window.location.href = 'app-settings:';
+  } catch(_) {
+    showToast('Open the iOS Settings app and find TurboPrep in the list.', 'info');
+  }
+}
+
+/// Privacy / Terms reader overlay. Inline content so it works offline
+/// and ships in the bundle. Plain HTML, scrollable, dismissable.
+function openPrivacyTermsOverlay(which) {
+  document.getElementById('legal-overlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'legal-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top, 0px)';
+  const title = which === 'privacy' ? 'Privacy Policy' : 'Terms of Service';
+  ov.innerHTML = `
+    <header style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <button id="legal-close" type="button" aria-label="Close" style="background:transparent;border:0;color:var(--muted-fg);font-size:22px;cursor:pointer;padding:0 4px">‹</button>
+      <div style="flex:1;font-size:16px;font-weight:800">${escHtml(title)}</div>
+    </header>
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 22px 80px;font-size:13.5px;line-height:1.6;color:var(--fg)">
+      ${which === 'privacy' ? privacyPolicyHtml() : termsHtml()}
+    </div>
+  `;
+  document.body.appendChild(ov);
+  ov.querySelector('#legal-close').addEventListener('click', () => ov.remove());
+}
+
+function privacyPolicyHtml() {
+  return `
+    <p style="color:var(--muted-fg);margin:0 0 12px">Last updated: 2026-05-08</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">What we collect</h2>
+    <p>Account info (email, display name, year level, fitness tier), workouts you log, race results, chat messages, optional health metrics from Apple Health (heart rate, steps, sleep), and device push tokens.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Why we collect it</h2>
+    <p>To run the app — show you your workout history, sync with your team, send race-day reminders, and let coaches track athlete compliance.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Who can see your data</h2>
+    <p>Coaches and members of teams you join can see your workouts, chat messages, and aggregate stats. Other users cannot see your data unless they're on a team with you.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Storage</h2>
+    <p>Your data is stored on Google Cloud (Firebase Firestore) in <code>asia-southeast1</code>. Health data from Apple Health stays on your device and is only synced if you opt in.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Your rights</h2>
+    <p>You can download all your data anytime from <strong>Profile → Privacy &amp; data → Download my data</strong>. You can permanently delete your account from <strong>Profile → Danger zone → Delete my account</strong>. We respond to written privacy requests within 14 days.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Children</h2>
+    <p>TurboPrep is built for school HPR teams; children typically join via their school. Schools are responsible for obtaining parental consent before issuing accounts.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Contact</h2>
+    <p>Privacy questions: <a href="mailto:hello@turboprep.app" style="color:var(--primary)">hello@turboprep.app</a></p>
+  `;
+}
+
+function termsHtml() {
+  return `
+    <p style="color:var(--muted-fg);margin:0 0 12px">Last updated: 2026-05-08</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Use of TurboPrep</h2>
+    <p>TurboPrep is a training app for high-school HPR teams. By using it you agree to use it for that purpose, follow your team's rules, and not misuse it (no harassment, no impersonation, no scraping or reverse-engineering).</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Your account</h2>
+    <p>You're responsible for what happens under your account. Pick a strong password and don't share it. If a coach issues you an account, they're responsible for anything they do on it.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Coach moderation</h2>
+    <p>Coaches can remove members, delete chat messages, and edit team settings. If you disagree with a coach action, talk to your school first. We can step in if a coach behaves abusively.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Health metrics</h2>
+    <p>HR / steps / sleep are estimates. TurboPrep is not a medical device. Don't use it to diagnose conditions. If you feel unwell, stop training and see a doctor.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Liability</h2>
+    <p>We try to make TurboPrep reliable, but we don't promise zero downtime. Don't rely on it for time-critical decisions. We're not liable for indirect losses.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Changes</h2>
+    <p>If we change these terms, we'll post a notice in the app and update the "Last updated" date. Continued use means you accept the change.</p>
+    <h2 style="font-size:15px;margin:18px 0 6px">Contact</h2>
+    <p>Support: <a href="mailto:hello@turboprep.app" style="color:var(--primary)">hello@turboprep.app</a></p>
+  `;
+}
+
+/// Self-serve data export — bundles up the user's profile, workouts,
+/// race logs, and chat into a JSON file and triggers a download.
+async function exportMyDataJson() {
+  if (!currentUser || !db) {
+    showToast('Sign in to export.', 'info');
+    return;
+  }
+  showLoading('Bundling your data…');
+  try {
+    const out = {
+      exportedAt: new Date().toISOString(),
+      user: {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        ...userProfile,
+      },
+      workouts: [],
+      raceLogs: [],
+      raceArchive: [],
+      checklist: [],
+      training_sessions: [],
+    };
+    const userRef = doc(db, 'users', currentUser.uid);
+    const cols = [
+      ['workouts',     `users/${currentUser.uid}/workouts`],
+      ['raceLogs',     `users/${currentUser.uid}/raceLogs`],
+      ['checklist',    `users/${currentUser.uid}/checklist`],
+      ['training_sessions', `users/${currentUser.uid}/training_sessions`],
+    ];
+    for (const [key, path] of cols) {
+      try {
+        const snap = await getDocs(collection(db, ...path.split('/')));
+        out[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch(_) {}
+    }
+    if (userProfile?.teamId) {
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'teams', userProfile.teamId, 'raceArchive'),
+          where('uid', '==', currentUser.uid)
+        ));
+        out.raceArchive = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch(_) {}
+    }
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `turboprep-data-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    hideLoading();
+    showToast('Data downloaded.', 'success');
+  } catch(e) {
+    hideLoading();
+    console.error('Data export failed:', e);
+    showToast('Export failed — try again.', 'error');
+  }
+}
+
+/// Account deletion — App Store gate. Confirms with the user, then
+/// deletes their auth user + Firestore profile + workouts. Best-effort
+/// purge; some collections (chat messages they wrote in other teams)
+/// are intentionally left to avoid orphaning team conversations.
+async function confirmDeleteAccount() {
+  if (!currentUser) return;
+  const typed = window.prompt('This will permanently delete your account, all your workouts, and your TurboPrep data. Type DELETE to confirm.');
+  if ((typed || '').trim().toUpperCase() !== 'DELETE') {
+    showToast('Account deletion cancelled.', 'info');
+    return;
+  }
+  showLoading('Deleting your account…');
+  try {
+    const uid = currentUser.uid;
+    if (db) {
+      // Drop subcollections we own. Each pass is best-effort — if
+      // rules block one path, the rest still proceed.
+      const subPaths = ['workouts', 'workout_routes', 'raceLogs', 'checklist',
+        'customPlans', 'planOverrides', 'raceResults', 'devices', 'training_sessions'];
+      for (const sub of subPaths) {
+        try {
+          const snap = await getDocs(collection(db, 'users', uid, sub));
+          for (const d of snap.docs) {
+            try { await deleteDoc(d.ref); } catch(_) {}
+          }
+        } catch(_) {}
+      }
+      // Remove from team membership if joined.
+      if (userProfile?.teamId) {
+        try {
+          await updateDoc(doc(db, 'teams', userProfile.teamId), {
+            members: arrayRemove(uid)
+          });
+        } catch(_) {}
+      }
+      // Delete profile doc.
+      try { await deleteDoc(doc(db, 'users', uid)); } catch(_) {}
+    }
+    // Delete auth user. May fail if recent sign-in is required — Firebase
+    // throws auth/requires-recent-login. Caller is prompted to sign in
+    // again and retry.
+    try {
+      await currentUser.delete();
+    } catch(authErr) {
+      hideLoading();
+      if (authErr?.code === 'auth/requires-recent-login') {
+        showToast('Sign out, sign back in, then try again — Apple requires a fresh login for account deletion.', 'warn');
+        return;
+      }
+      throw authErr;
+    }
+    // Wipe local caches.
+    try { localStorage.clear(); } catch(_) {}
+    try { await signOut(auth); } catch(_) {}
+    hideLoading();
+    showToast('Account deleted.', 'success');
+    setTimeout(() => window.location.reload(), 800);
+  } catch(e) {
+    hideLoading();
+    console.error('Account deletion failed:', e);
+    showToast('Account deletion failed. Email hello@turboprep.app for help.', 'error');
   }
 }
 

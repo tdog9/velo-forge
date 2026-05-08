@@ -26,6 +26,12 @@ struct WebViewContainer: UIViewRepresentable {
 
         // Native bridge: web can post messages via window.webkit.messageHandlers.tpNative.postMessage(...)
         config.userContentController.add(context.coordinator, name: "tpNative")
+        // Dedicated handler the web's openiOSSettings() hits to bounce
+        // the user into Settings → TurboPrep when they need to re-grant
+        // push or HealthKit permissions. Couldn't be folded into
+        // tpNative because the web side calls postMessage with no body
+        // and we want the handler name to telegraph intent.
+        config.userContentController.add(context.coordinator, name: "openAppSettings")
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
@@ -79,6 +85,17 @@ struct WebViewContainer: UIViewRepresentable {
 
         // Web → native: handle posted messages from the web app.
         func userContentController(_ uc: WKUserContentController, didReceive msg: WKScriptMessage) {
+            // Dedicated openAppSettings handler. Posts an empty body so
+            // we just take the trigger and bounce out to Settings.
+            if msg.name == "openAppSettings" {
+                Task { @MainActor in
+                    if let url = URL(string: UIApplication.openSettingsURLString),
+                       UIApplication.shared.canOpenURL(url) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                return
+            }
             guard let body = msg.body as? [String: Any],
                   let type = body["type"] as? String else { return }
             switch type {

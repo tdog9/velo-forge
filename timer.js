@@ -72,6 +72,48 @@ export function initTimer(ctx) {
   });
 }
 
+// ── Voice coach (Web Speech API) ─────────────────────────────────────────
+// Speaks short cues during the timer — exercise name on transition,
+// 3-2-1 countdown at end of set, "set N done" on transition. Off by
+// default; user toggles via tp_voice_coach in localStorage. Respects
+// system audio volume; uses Apple's Premium voice when available.
+let _voiceVoice = null;
+function _voiceCoachEnabled() {
+  try { return localStorage.getItem('tp_voice_coach') === '1'; } catch(_) { return false; }
+}
+function _pickVoice() {
+  if (_voiceVoice) return _voiceVoice;
+  if (!('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+  // Prefer enhanced English voices; fall back to first English voice.
+  _voiceVoice = voices.find(v => /en[-_]/i.test(v.lang) && /Premium|Enhanced|Samantha|Daniel|Karen/i.test(v.name))
+    || voices.find(v => /en[-_]/i.test(v.lang))
+    || voices[0];
+  return _voiceVoice;
+}
+function speakCue(text) {
+  if (!text || !_voiceCoachEnabled()) return;
+  if (!('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = _pickVoice();
+    if (v) u.voice = v;
+    u.rate = 1.05;
+    u.pitch = 1.0;
+    u.volume = 0.95;
+    window.speechSynthesis.speak(u);
+  } catch(_) {}
+}
+// Pre-warm the voice list — first call to getVoices() is empty until
+// the browser has loaded them. Voices are populated asynchronously.
+if ('speechSynthesis' in window) {
+  try {
+    window.speechSynthesis.onvoiceschanged = () => { _voiceVoice = null; _pickVoice(); };
+  } catch(_) {}
+}
+
 // ── Audio + display helpers ──────────────────────────────────────────────
 
 function playBeep(freq, dur, count) {
@@ -147,11 +189,11 @@ function timerTick() {
     playBeep(880, 0.2, 3);
     A.haptic?.('medium');
     A.$('timer-label').textContent = 'Done!';
-    // Time mode: a set finished. Roll into the post-set flow (break +
-    // next set / exercise). Break mode just advances directly.
     if (timerMode === 'time') {
+      speakCue('Set complete');
       setTimeout(() => finishCurrentSet(), 800);
     } else if (timerMode === 'break') {
+      speakCue('Go');
       setTimeout(() => afterBreakAdvance(), 600);
     }
     return;
@@ -160,6 +202,7 @@ function timerTick() {
   updateTimerDisplay();
   if (timerSeconds <= 3 && timerSeconds > 0) {
     playBeep(660, 0.1, 1);
+    speakCue(String(timerSeconds));
   }
 }
 
@@ -299,6 +342,13 @@ function startSet(ex) {
     ? (' · set ' + (timerCurrentSet + 1) + '/' + totalSets)
     : '';
   const coach = ex.notes || ex.description || '';
+  // Voice cue at the start of each exercise — name + reps target so
+  // the rider doesn't have to look at the wrist/phone.
+  const cueParts = [];
+  if (totalSets > 1) cueParts.push(`Set ${timerCurrentSet + 1} of ${totalSets},`);
+  cueParts.push(ex.name);
+  if (ex.reps) cueParts.push(`${ex.reps} reps`);
+  speakCue(cueParts.join(' '));
   if (ex.reps) {
     enterRepsMode(parseInt(ex.reps) || 0, ex.name + setLabel, coach);
     return;
