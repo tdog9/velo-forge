@@ -241,6 +241,18 @@ async function saveStint(record) {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   })();
+  // Resolve the race-id stamp so stints become discoverable by race
+  // identity, not just by calendar date. Round 2 Casey 2026 ≠ Round 2
+  // Casey 2027 — both can be queried separately or together.
+  let raceId = rdd.raceId || null;
+  let raceYear = null;
+  try {
+    if (!raceId && Array.isArray(ctx.getActiveRaces?.())) {
+      const matched = ctx.getActiveRaces().find(r => r.date === dk);
+      if (matched) raceId = matched.id;
+    }
+    raceYear = parseInt((dk || '').slice(0, 4)) || null;
+  } catch(_) {}
   try {
     // Merge with any existing stint doc so we don't clobber laps that
     // came in from the Watch path (app.js writes via merge:true into
@@ -252,8 +264,6 @@ async function saveStint(record) {
     try { const snap = await ctx.getDoc(ref); existing = snap.exists() ? snap.data() : null; } catch(e) {}
     const existingLaps = Array.isArray(existing?.laps) ? existing.laps : [];
     const incomingLaps = Array.isArray(record?.laps) ? record.laps : [];
-    // Dedup by (number, recordedAt) — Watch can retransmit on
-    // connectivity recovery so the same lap can arrive twice.
     const lapKey = (l) => (l?.number ?? '') + '|' + (l?.recordedAt ?? l?.duration ?? '');
     const seen = new Set();
     const mergedLaps = [];
@@ -264,7 +274,23 @@ async function saveStint(record) {
       mergedLaps.push(l);
     });
     const merged = { ...existing, ...record, laps: mergedLaps };
+    if (raceId) merged.raceId = raceId;
+    if (raceYear) merged.raceYear = raceYear;
     await ctx.setDoc(ref, merged, { merge: true });
+    // Mirror into a top-level race-archive collection keyed by race
+    // identity so a future "Casey Fields, all years" view can query
+    // across calendar dates without scanning every race_day doc.
+    if (raceId && raceYear) {
+      try {
+        const archiveRef = ctx.doc(
+          ctx.db,
+          'race_archive', raceId,
+          'years', String(raceYear),
+          'stints', ctx.currentUser.uid
+        );
+        await ctx.setDoc(archiveRef, { ...merged, dateKey: dk }, { merge: true });
+      } catch(e) { /* archive mirror is best-effort */ }
+    }
   } catch(e) {
     console.warn('saveStint failed:', e);
     try { ctx.showToast?.('Couldn\'t sync stint — your laps are saved locally.', 'warn'); } catch(e2) {}
@@ -464,6 +490,7 @@ function buildOverlayHTML() {
   <button id="rd-excel-btn" aria-label="Export race day as Excel" title="Export race day as Excel" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--success, #22c55e);font-weight:700;cursor:pointer;margin-left:4px">Excel</button>
   <button id="rd-share-btn" aria-label="Share spectator link" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-weight:700;cursor:pointer;margin-left:4px">Share</button>
   <button id="rd-watch-dismiss" aria-label="Hide race mode on my Watch" title="Hide race mode on my Watch" style="font-size:11px;padding:5px 10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--muted-fg);font-weight:700;cursor:pointer;margin-left:4px">Hide on Watch</button>
+  ${isCoach ? `<button id="rd-clear-history" title="Clear today's race day (keeps archive)" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(var(--warning-rgb),.10);border:1px solid rgba(var(--warning-rgb),.30);color:var(--warning, #f97316);font-weight:700;cursor:pointer;margin-left:4px">Clear</button>` : ''}
   ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
 </header>
 
@@ -530,6 +557,37 @@ function bindOverlay(ov) {
   // Share spectator link — anyone can open this URL to follow the race
   // without signing in. Build with the team id so it's filtered to this
   // team's drivers.
+  // Coach-only "Clear today's race history" button — wipes the
+  // active race_day/{date} subcollections (stints, live, setup,
+  // roster). Useful for clearing a test/demo run before a real race
+  // begins. Stints already mirrored into race_archive are preserved
+  // by design (those are the season log).
+  {
+    const isCoachUser = ctx.userProfile?.isCoach || ctx.currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
+    if (isCoachUser) ov.querySelector('#rd-clear-history')?.addEventListener('click', async () => {
+      if (!confirm('Clear today\'s race day data?\n\nThis wipes today\'s stints, live state, roster, and setup so the day can start fresh.\n\nArchived race history (race_archive/) is NOT touched — only TODAY\'S working state.')) return;
+      if (!ctx.db || !rdd.date) return;
+      try {
+        ctx.showLoading?.('Clearing today\'s race day…');
+        for (const sub of ['stints', 'live', 'setup', 'roster']) {
+          try {
+            const snap = await ctx.getDocs(ctx.collection(ctx.db, 'race_day', rdd.date, sub));
+            for (const d of snap.docs) {
+              try { await ctx.deleteDoc(d.ref); } catch(_) {}
+            }
+          } catch(_) {}
+        }
+        ctx.hideLoading?.();
+        ctx.showToast?.('Today\'s race day cleared.', 'success');
+        try { await loadTodayStints(); } catch(_) {}
+        try { showRdTab(ov.querySelector('#rd-inner') || ov, 'roster'); } catch(_) {}
+      } catch(e) {
+        ctx.hideLoading?.();
+        console.warn('Clear race history failed:', e);
+        ctx.showToast?.('Couldn\'t clear — check Firestore rules.', 'error');
+      }
+    });
+  }
   ov.querySelector('#rd-excel-btn')?.addEventListener('click', () => {
     if (typeof window.exportRaceDayExcel === 'function') {
       window.exportRaceDayExcel({ dateKey: rdd.date });

@@ -453,6 +453,20 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
     }
 
+    match /race_archive/{raceId}/years/{year}/stints/{userId} {
+      // Multi-year race archive — race-day stints get mirrored here
+      // (in addition to race_day/{date}/stints/{uid}) so coaches can
+      // query all stints for a given race across years without
+      // scanning every calendar day. Doc ID = userId; collection-
+      // level reads include the whole field. Read is broad (any
+      // signed-in user — leaderboards across years) but writes are
+      // gated to the doc owner so a teammate can't tamper with
+      // someone else's archived stint.
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
     match /race_day/{date} {
       // Race day coordination doc — admin starts/ends the day. Everyone
       // signed in can read the active state.

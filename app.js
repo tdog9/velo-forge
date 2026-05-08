@@ -693,6 +693,15 @@ if (typeof window !== 'undefined') {
           const newLaps = laps.map(l => ({
             duration: l.duration, number: l.number, recordedAt: l.recordedAt, source: 'watch',
           }));
+          // Resolve raceId from the active races catalog so this stint
+          // is discoverable by race identity (not just calendar date).
+          let raceId = null;
+          let raceYear = parseInt(dk.slice(0, 4)) || null;
+          try {
+            const races = (typeof getActiveRaces === 'function') ? (getActiveRaces() || []) : [];
+            const match = races.find(r => r.date === dk);
+            if (match) raceId = match.id;
+          } catch(_) {}
           await setDoc(stintRef, {
             displayName: userProfile?.displayName || currentUser.email || '',
             uid: currentUser.uid,
@@ -702,7 +711,23 @@ if (typeof window !== 'undefined') {
             // floor so a partial sync doesn't lose taps.
             pitStops: Math.max(prior.pitStops || 0, payload.pitCount || 0),
             lastWatchStintAt: Date.now(),
+            ...(raceId ? { raceId } : {}),
+            ...(raceYear ? { raceYear } : {}),
           }, { merge: true });
+          // Mirror to race_archive/{raceId}/years/{year}/stints/{uid}
+          // so coaches can query past races by race identity later.
+          if (raceId && raceYear) {
+            try {
+              await setDoc(doc(db, 'race_archive', raceId, 'years', String(raceYear), 'stints', currentUser.uid), {
+                displayName: userProfile?.displayName || currentUser.email || '',
+                uid: currentUser.uid,
+                laps: priorLaps.concat(newLaps),
+                pitStops: Math.max(prior.pitStops || 0, payload.pitCount || 0),
+                dateKey: dk,
+                lastWatchStintAt: Date.now(),
+              }, { merge: true });
+            } catch(_) {}
+          }
           // 2. Clear the live state — stint is over
           try {
             await setDoc(doc(db, 'race_day', dk, 'live', currentUser.uid), {
@@ -2006,7 +2031,7 @@ function showWelcomeSetup() {
     try { const v = localStorage.getItem(k); if (v === '1') return true; if (v === '0') return false; } catch(_) {}
     return dflt;
   };
-  const aiFabOn   = featOn('tp_ai_fab_enabled', false);
+  const aiFabOn   = featOn('tp_ai_fab_enabled', true);
   const recoveryOn = featOn('tp_widget_recovery', true);
   const healthCardOn = featOn('tp_widget_health', true);
   const aiInsightsOn = featOn('tp_widget_ai_insights', false);
@@ -3086,11 +3111,16 @@ function switchPage(page) {
   const pageEl = $('page-' + page);
   if (pageEl) pageEl.classList.add('active');
   renderCurrentPage();
-  // AI Coach fab is now opt-in to reduce visual chrome. Default OFF.
-  // User flips `tp_ai_fab_enabled = '1'` from Profile → AI Coach toggle.
+  // AI Coach pill — default ON in v0.13.2 (was opt-in in v3.5.x).
+  // Reactivated as a small unobtrusive pill instead of the heavy
+  // 44px gradient orb. User can still hide it from
+  // Profile → AI Coach toggle (writes tp_ai_fab_enabled='0').
   const aiFabPages = ['today','fitness','races'];
-  let aiFabOn = false;
-  try { aiFabOn = localStorage.getItem('tp_ai_fab_enabled') === '1'; } catch(_) {}
+  let aiFabOn = true;
+  try {
+    const raw = localStorage.getItem('tp_ai_fab_enabled');
+    if (raw === '0') aiFabOn = false;
+  } catch(_) {}
   (aiFabOn && aiFabPages.includes(page)) ? show('ai-fab') : hide('ai-fab');
   // Feature 3: Restore scroll position
   const savedScroll = scrollPositions[page] || 0;
@@ -4125,11 +4155,9 @@ function openCustomWorkoutDetail(id) {
 /// "My custom workouts" row that runs through the same timer flow.
 function openCustomWorkoutBuilder() {
   document.getElementById('cwb-overlay')?.remove();
-  const ov = document.createElement('div');
-  ov.id = 'cwb-overlay';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:210;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top, 0px)';
-  // Build a flat exercise palette by extracting unique exercises from
-  // every library workout. Filtered by name to dedupe variants.
+  // Build the deduplicated exercise palette and tag each one with the
+  // muscle groups its source workouts targeted. Used both for the
+  // muscle-grouped view + per-muscle filter chips.
   const palette = [];
   const seen = new Set();
   WORKOUT_LIBRARY.forEach(w => {
@@ -4144,79 +4172,197 @@ function openCustomWorkoutBuilder() {
     });
   });
   palette.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  // Group palette by primary muscle for navigability — flat A-Z list of
+  // 200+ exercises was the main complaint. Each exercise lands in its
+  // first muscle bucket; "Other" catches anything unmapped.
+  const MUSCLE_GROUPS = [
+    { id: 'chest',     label: 'Chest',     muscles: ['chest'] },
+    { id: 'back',      label: 'Back & Lats', muscles: ['back', 'lats'] },
+    { id: 'shoulders', label: 'Shoulders', muscles: ['shoulders', 'traps'] },
+    { id: 'arms',      label: 'Arms',      muscles: ['biceps', 'triceps', 'forearms'] },
+    { id: 'core',      label: 'Core',      muscles: ['abs', 'obliques'] },
+    { id: 'legs',      label: 'Legs',      muscles: ['quads', 'hamstrings', 'glutes', 'calves'] },
+    { id: 'other',     label: 'Other',     muscles: [] },
+  ];
+  const bucketFor = (p) => {
+    const m = (p.sourceMuscles || []);
+    for (const g of MUSCLE_GROUPS) {
+      if (g.id === 'other') continue;
+      if (m.some(x => g.muscles.includes(x))) return g.id;
+    }
+    return 'other';
+  };
+  const grouped = {};
+  MUSCLE_GROUPS.forEach(g => grouped[g.id] = []);
+  palette.forEach(p => grouped[bucketFor(p)].push(p));
+
+  const ov = document.createElement('div');
+  ov.id = 'cwb-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:210;background:var(--bg);display:flex;flex-direction:column';
   ov.innerHTML = `
-    <header style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0">
-      <button id="cwb-close" type="button" aria-label="Close" style="background:transparent;border:0;color:var(--muted-fg);font-size:22px;cursor:pointer;padding:0 4px">‹</button>
-      <div style="flex:1">
-        <div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--primary)">CUSTOM WORKOUT</div>
-        <div style="font-size:14px;font-weight:700;color:var(--fg);margin-top:-1px">Build your own</div>
+    <header style="display:flex;align-items:center;gap:8px;padding:env(safe-area-inset-top, 0px) 14px 0;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding:14px 4px">
+        <button id="cwb-close" type="button" aria-label="Close" style="background:transparent;border:0;color:var(--muted-fg);font-size:22px;cursor:pointer;padding:0 8px;min-height:44px">‹</button>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--primary)">CUSTOM WORKOUT</div>
+          <div style="font-size:14px;font-weight:700;color:var(--fg);margin-top:-1px">Build your own</div>
+        </div>
       </div>
-      <button id="cwb-save" type="button" style="font-size:12px;font-weight:700;padding:7px 14px;border-radius:99px;background:var(--primary);color:var(--primary-fg);border:0;cursor:pointer">Save</button>
     </header>
-    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px 90px">
-      <input id="cwb-name" class="input" type="text" placeholder="Workout name (e.g. My pre-race circuit)" maxlength="60" style="margin-bottom:10px">
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <select id="cwb-intensity" class="input" style="flex:1">
-          <option value="easy">Easy</option>
-          <option value="moderate" selected>Moderate</option>
-          <option value="hard">Hard</option>
-        </select>
-        <input id="cwb-duration" class="input" type="number" min="5" max="180" placeholder="Duration (min)" style="flex:1" inputmode="numeric">
+    <!-- Tab bar — Browse / Selected. Sticky just under the header so
+         users always see how many they've added. -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0">
+      <button id="cwb-tab-browse" data-cwb-tab="browse" class="cwb-tab cwb-tab-active" style="flex:1;padding:12px;background:transparent;border:0;color:var(--primary);font-size:13px;font-weight:800;letter-spacing:.04em;cursor:pointer;border-bottom:2px solid var(--primary);min-height:44px">BROWSE</button>
+      <button id="cwb-tab-selected" data-cwb-tab="selected" class="cwb-tab" style="flex:1;padding:12px;background:transparent;border:0;color:var(--muted-fg);font-size:13px;font-weight:800;letter-spacing:.04em;cursor:pointer;border-bottom:2px solid transparent;min-height:44px">SELECTED <span id="cwb-sel-count" style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;padding:0 6px;border-radius:99px;background:var(--surface);color:var(--muted-fg);font-size:11px;margin-left:2px">0</span></button>
+    </div>
+    <!-- Browse panel -->
+    <div id="cwb-browse" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 100px">
+      <div class="demo-search-wrap" style="margin-bottom:10px">
+        <svg class="demo-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="demo-search" type="text" id="cwb-search" placeholder="Search ${palette.length} exercises...">
       </div>
-      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:8px 2px 6px">Selected (<span id="cwb-sel-count">0</span>)</div>
-      <div id="cwb-selected" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;min-height:48px;padding:8px;background:rgba(255,255,255,.02);border-radius:10px;border:1px dashed var(--border)">
-        <div id="cwb-empty-hint" style="font-size:12px;color:var(--muted-fg);text-align:center;padding:6px">Tap exercises below to add them.</div>
+      <div id="cwb-muscle-chips" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px"></div>
+      <div id="cwb-palette" style="display:flex;flex-direction:column;gap:14px"></div>
+    </div>
+    <!-- Selected panel (hidden until tab toggled) -->
+    <div id="cwb-selected-panel" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 100px;display:none">
+      <div style="margin-bottom:14px">
+        <label class="label" style="margin-bottom:4px">Workout name</label>
+        <input id="cwb-name" class="input" type="text" placeholder="My pre-race circuit" maxlength="60">
       </div>
-      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:8px 2px 6px">Add from library (${palette.length})</div>
-      <input id="cwb-search" class="input" type="text" placeholder="Filter exercises..." style="margin-bottom:8px">
-      <div id="cwb-palette" style="display:flex;flex-direction:column;gap:5px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:18px">
+        <div style="flex:1">
+          <label class="label" style="margin-bottom:4px">Intensity</label>
+          <select id="cwb-intensity" class="input">
+            <option value="easy">Easy</option>
+            <option value="moderate" selected>Moderate</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label class="label" style="margin-bottom:4px">Total min</label>
+          <input id="cwb-duration" class="input" type="number" min="5" max="180" placeholder="30" inputmode="numeric">
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:0 2px 8px">Exercises in this workout</div>
+      <div id="cwb-selected" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div id="cwb-selected-empty" style="text-align:center;padding:32px 12px;color:var(--muted-fg);font-size:13px">
+        <div style="font-size:32px;margin-bottom:6px;opacity:.6">📋</div>
+        <div style="margin-bottom:4px">No exercises yet.</div>
+        <div style="font-size:11px">Switch to <strong style="color:var(--fg)">Browse</strong> and tap exercises to add them.</div>
+      </div>
+    </div>
+    <!-- Sticky footer — Save button always reachable without scrolling. -->
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:10px 14px calc(14px + env(safe-area-inset-bottom, 0px));background:linear-gradient(to top, var(--bg) 60%, rgba(0,0,0,0));border-top:1px solid var(--border);display:flex;gap:8px">
+      <button id="cwb-save" type="button" class="btn btn-primary" style="flex:1;padding:14px;font-size:14px;font-weight:800;border-radius:12px">Save workout</button>
     </div>
   `;
   document.body.appendChild(ov);
   const selected = []; // [{ name, sets, reps, duration }]
-  const renderPalette = (filter) => {
-    const f = (filter || '').toLowerCase().trim();
-    const list = !f ? palette : palette.filter(p => (p.name || '').toLowerCase().includes(f));
-    const target = ov.querySelector('#cwb-palette');
-    target.innerHTML = list.map(p => {
-      const meta = [p.sets > 1 ? p.sets + 'x' + (p.reps || '') : (p.reps ? p.reps + ' reps' : ''), p.duration || ''].filter(Boolean).join(' · ');
-      return `<button type="button" data-cwb-add="${escHtml(p.name)}" style="display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;cursor:pointer;text-align:left">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(p.name)}</div>
-          ${meta ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:1px">${escHtml(meta)}</div>` : ''}
-        </div>
-        <span style="color:var(--primary);font-weight:800">+</span>
-      </button>`;
-    }).join('');
-    target.querySelectorAll('button[data-cwb-add]').forEach(b => {
+  let activeMuscle = 'all';
+
+  // Build muscle chip row (All + each group with a count).
+  const renderChips = () => {
+    const target = ov.querySelector('#cwb-muscle-chips');
+    const totalCount = palette.length;
+    let html = `<button class="cwb-chip" data-cwb-mg="all" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:99px;border:1px solid ${activeMuscle === 'all' ? 'var(--primary)' : 'var(--border)'};background:${activeMuscle === 'all' ? 'var(--primary)' : 'transparent'};color:${activeMuscle === 'all' ? 'var(--primary-fg)' : 'var(--muted-fg)'};cursor:pointer;min-height:30px">All (${totalCount})</button>`;
+    MUSCLE_GROUPS.forEach(g => {
+      const n = grouped[g.id].length;
+      if (n === 0) return;
+      const active = activeMuscle === g.id;
+      html += `<button class="cwb-chip" data-cwb-mg="${g.id}" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:99px;border:1px solid ${active ? 'var(--primary)' : 'var(--border)'};background:${active ? 'var(--primary)' : 'transparent'};color:${active ? 'var(--primary-fg)' : 'var(--muted-fg)'};cursor:pointer;min-height:30px">${escHtml(g.label)} (${n})</button>`;
+    });
+    target.innerHTML = html;
+    target.querySelectorAll('[data-cwb-mg]').forEach(b => {
       b.addEventListener('click', () => {
-        const name = b.dataset.cwbAdd;
-        const pal = palette.find(x => x.name === name);
-        selected.push({ name, sets: pal?.sets || 1, reps: pal?.reps || null, duration: pal?.duration || null });
-        renderSelected();
+        activeMuscle = b.dataset.cwbMg;
+        renderChips();
+        renderPalette(ov.querySelector('#cwb-search').value || '');
       });
     });
   };
+
+  const renderPalette = (filter) => {
+    const f = (filter || '').toLowerCase().trim();
+    const target = ov.querySelector('#cwb-palette');
+    let html = '';
+    const groupsToShow = activeMuscle === 'all' ? MUSCLE_GROUPS : MUSCLE_GROUPS.filter(g => g.id === activeMuscle);
+    let total = 0;
+    groupsToShow.forEach(g => {
+      const items = grouped[g.id].filter(p => !f || (p.name || '').toLowerCase().includes(f));
+      if (items.length === 0) return;
+      total += items.length;
+      html += `<div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin:4px 2px 6px">${escHtml(g.label)} (${items.length})</div>
+        <div style="display:flex;flex-direction:column;gap:5px">`;
+      items.forEach(p => {
+        const meta = [p.sets > 1 ? p.sets + 'x' + (p.reps || '') : (p.reps ? p.reps + ' reps' : ''), p.duration || ''].filter(Boolean).join(' · ');
+        const inSelected = selected.some(s => s.name === p.name);
+        html += `<button type="button" data-cwb-add="${escHtml(p.name)}" style="display:flex;gap:10px;align-items:center;background:${inSelected ? 'rgba(var(--primary-rgb),.10)' : 'var(--card)'};border:1px solid ${inSelected ? 'rgba(var(--primary-rgb),.4)' : 'var(--border)'};border-radius:10px;padding:11px 12px;cursor:pointer;text-align:left;min-height:48px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;font-weight:700;color:var(--fg)">${escHtml(p.name)}</div>
+            ${meta ? `<div style="font-size:11.5px;color:var(--muted-fg);margin-top:2px">${escHtml(meta)}</div>` : ''}
+          </div>
+          <span style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:99px;background:${inSelected ? 'var(--primary)' : 'rgba(var(--primary-rgb),.12)'};color:${inSelected ? 'var(--primary-fg)' : 'var(--primary)'};font-size:18px;font-weight:800">${inSelected ? '✓' : '+'}</span>
+        </button>`;
+      });
+      html += '</div></div>';
+    });
+    if (total === 0) {
+      html = '<div style="text-align:center;padding:32px 12px;color:var(--muted-fg);font-size:13px">No exercises match your search.</div>';
+    }
+    target.innerHTML = html;
+    target.querySelectorAll('button[data-cwb-add]').forEach(b => {
+      b.addEventListener('click', () => {
+        const name = b.dataset.cwbAdd;
+        const idx = selected.findIndex(s => s.name === name);
+        if (idx >= 0) {
+          selected.splice(idx, 1);
+        } else {
+          const pal = palette.find(x => x.name === name);
+          selected.push({ name, sets: pal?.sets || 1, reps: pal?.reps || null, duration: pal?.duration || null });
+          haptic?.('light');
+        }
+        updateSelectedCount();
+        renderPalette(ov.querySelector('#cwb-search').value || '');
+      });
+    });
+  };
+
+  const updateSelectedCount = () => {
+    const countEl = ov.querySelector('#cwb-sel-count');
+    if (countEl) {
+      countEl.textContent = String(selected.length);
+      countEl.style.background = selected.length > 0 ? 'var(--primary)' : 'var(--surface)';
+      countEl.style.color = selected.length > 0 ? 'var(--primary-fg)' : 'var(--muted-fg)';
+    }
+  };
+
   const renderSelected = () => {
     const target = ov.querySelector('#cwb-selected');
-    const countEl = ov.querySelector('#cwb-sel-count');
-    if (countEl) countEl.textContent = String(selected.length);
+    const empty = ov.querySelector('#cwb-selected-empty');
     if (selected.length === 0) {
-      target.innerHTML = '<div id="cwb-empty-hint" style="font-size:12px;color:var(--muted-fg);text-align:center;padding:6px">Tap exercises below to add them.</div>';
+      target.innerHTML = '';
+      empty.style.display = '';
       return;
     }
+    empty.style.display = 'none';
     target.innerHTML = selected.map((ex, i) => {
-      return `<div style="display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
-        <div style="font-size:11px;font-weight:800;color:var(--primary);width:18px">${i+1}</div>
+      return `<div style="display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+        <div style="display:flex;flex-direction:column;gap:2px;align-items:center;width:28px">
+          <button data-cwb-up="${i}" type="button" aria-label="Move up" style="background:transparent;border:0;color:${i === 0 ? 'rgba(255,255,255,.15)' : 'var(--muted-fg)'};font-size:14px;cursor:${i === 0 ? 'default' : 'pointer'};padding:0;line-height:1" ${i === 0 ? 'disabled' : ''}>▲</button>
+          <div style="font-size:11px;font-weight:800;color:var(--primary);width:20px;text-align:center">${i+1}</div>
+          <button data-cwb-down="${i}" type="button" aria-label="Move down" style="background:transparent;border:0;color:${i === selected.length-1 ? 'rgba(255,255,255,.15)' : 'var(--muted-fg)'};font-size:14px;cursor:${i === selected.length-1 ? 'default' : 'pointer'};padding:0;line-height:1" ${i === selected.length-1 ? 'disabled' : ''}>▼</button>
+        </div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(ex.name)}</div>
-          <div style="display:flex;gap:6px;margin-top:4px;align-items:center">
-            <input data-cwb-sets="${i}" type="number" min="1" max="20" value="${ex.sets || 1}" placeholder="sets" inputmode="numeric" style="width:54px;padding:4px 6px;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg)">
-            <input data-cwb-reps="${i}" type="text" value="${ex.reps || ''}" placeholder="reps" inputmode="numeric" style="width:54px;padding:4px 6px;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg)">
-            <input data-cwb-dur="${i}" type="text" value="${ex.duration || ''}" placeholder="30 sec" style="width:70px;padding:4px 6px;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg)">
+          <div style="font-size:14px;font-weight:700;color:var(--fg);margin-bottom:6px">${escHtml(ex.name)}</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <label style="font-size:10.5px;color:var(--muted-fg);font-weight:700">Sets <input data-cwb-sets="${i}" type="number" min="1" max="20" value="${ex.sets || 1}" inputmode="numeric" style="width:50px;padding:5px 7px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg);margin-left:3px"></label>
+            <label style="font-size:10.5px;color:var(--muted-fg);font-weight:700">Reps <input data-cwb-reps="${i}" type="text" value="${ex.reps || ''}" placeholder="—" inputmode="numeric" style="width:50px;padding:5px 7px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg);margin-left:3px"></label>
+            <label style="font-size:10.5px;color:var(--muted-fg);font-weight:700">Time <input data-cwb-dur="${i}" type="text" value="${ex.duration || ''}" placeholder="30 sec" style="width:70px;padding:5px 7px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg);margin-left:3px"></label>
           </div>
         </div>
-        <button data-cwb-rm="${i}" type="button" aria-label="Remove" style="background:transparent;border:0;color:var(--destructive);font-size:18px;cursor:pointer;padding:4px 6px">×</button>
+        <button data-cwb-rm="${i}" type="button" aria-label="Remove" style="background:rgba(var(--destructive-rgb),.10);border:1px solid rgba(var(--destructive-rgb),.30);color:var(--destructive);width:32px;height:32px;border-radius:8px;font-size:14px;cursor:pointer;flex-shrink:0">×</button>
       </div>`;
     }).join('');
     target.querySelectorAll('input[data-cwb-sets]').forEach(inp => {
@@ -4231,19 +4377,61 @@ function openCustomWorkoutBuilder() {
     target.querySelectorAll('button[data-cwb-rm]').forEach(b => {
       b.addEventListener('click', () => {
         selected.splice(+b.dataset.cwbRm, 1);
+        updateSelectedCount();
         renderSelected();
       });
     });
+    target.querySelectorAll('button[data-cwb-up]:not([disabled])').forEach(b => {
+      b.addEventListener('click', () => {
+        const i = +b.dataset.cwbUp;
+        if (i > 0) { [selected[i-1], selected[i]] = [selected[i], selected[i-1]]; renderSelected(); }
+      });
+    });
+    target.querySelectorAll('button[data-cwb-down]:not([disabled])').forEach(b => {
+      b.addEventListener('click', () => {
+        const i = +b.dataset.cwbDown;
+        if (i < selected.length - 1) { [selected[i+1], selected[i]] = [selected[i], selected[i+1]]; renderSelected(); }
+      });
+    });
   };
+
+  // Tab switching — Browse vs Selected.
+  const setTab = (tab) => {
+    const browseBtn = ov.querySelector('#cwb-tab-browse');
+    const selBtn = ov.querySelector('#cwb-tab-selected');
+    const browseEl = ov.querySelector('#cwb-browse');
+    const selEl = ov.querySelector('#cwb-selected-panel');
+    const isBrowse = tab === 'browse';
+    browseBtn.style.color = isBrowse ? 'var(--primary)' : 'var(--muted-fg)';
+    browseBtn.style.borderBottomColor = isBrowse ? 'var(--primary)' : 'transparent';
+    selBtn.style.color = !isBrowse ? 'var(--primary)' : 'var(--muted-fg)';
+    selBtn.style.borderBottomColor = !isBrowse ? 'var(--primary)' : 'transparent';
+    browseEl.style.display = isBrowse ? '' : 'none';
+    selEl.style.display = !isBrowse ? '' : 'none';
+    if (!isBrowse) renderSelected();
+  };
+  ov.querySelector('#cwb-tab-browse').addEventListener('click', () => setTab('browse'));
+  ov.querySelector('#cwb-tab-selected').addEventListener('click', () => setTab('selected'));
+
+  renderChips();
   renderPalette('');
   ov.querySelector('#cwb-search').addEventListener('input', debounce((e) => renderPalette(e.target.value), 150));
   ov.querySelector('#cwb-close').addEventListener('click', () => ov.remove());
   ov.querySelector('#cwb-save').addEventListener('click', () => {
-    const name = (ov.querySelector('#cwb-name').value || '').trim();
-    const intensity = ov.querySelector('#cwb-intensity').value;
-    const duration = parseInt(ov.querySelector('#cwb-duration').value) || 0;
-    if (!name) { showToast('Give it a name.', 'warn'); return; }
-    if (selected.length === 0) { showToast('Add at least one exercise.', 'warn'); return; }
+    const name = (ov.querySelector('#cwb-name')?.value || '').trim();
+    const intensity = ov.querySelector('#cwb-intensity')?.value || 'moderate';
+    const duration = parseInt(ov.querySelector('#cwb-duration')?.value) || 0;
+    if (selected.length === 0) {
+      showToast('Add at least one exercise from Browse.', 'warn');
+      setTab('browse');
+      return;
+    }
+    if (!name) {
+      showToast('Give it a name in the Selected tab.', 'warn');
+      setTab('selected');
+      setTimeout(() => ov.querySelector('#cwb-name')?.focus(), 80);
+      return;
+    }
     const list = loadCustomWorkouts();
     list.unshift({
       id: 'custom-' + Date.now(),
@@ -14033,13 +14221,46 @@ function renderCoachPage() {
   });
 
   const sub = $('coach-sub-content');
+  // Each sub-renderer is wrapped so an exception in one tab can't
+  // blank the whole Coach page or leave the user staring at a
+  // half-painted UI. async renderers are caught via .catch on the
+  // returned Promise as well — sync try/catch only swallows sync
+  // throws. Was a major source of "random coach crashes" — Coach →
+  // Students could throw (e.g. teamMembers undefined mid-load) and
+  // the wider safeRender wrapper had already returned.
+  const safeCoachSub = (name, fn) => {
+    try {
+      const ret = fn(sub);
+      if (ret && typeof ret.then === 'function') {
+        ret.catch(e => paintCoachSubError(sub, name, e));
+      }
+    } catch(e) {
+      paintCoachSubError(sub, name, e);
+    }
+  };
   switch(coachPageTab) {
-    case 'students': renderCoachStudents(sub); break;
-    case 'training': renderCoachTraining(sub); break;
-    case 'team': renderCoachTeam(sub); break;
-    case 'manage': renderCoachManage(sub); break;
-    case 'raceday': renderCoachRaceDay(sub); break;
+    case 'students': safeCoachSub('students', renderCoachStudents); break;
+    case 'training': safeCoachSub('training', renderCoachTraining); break;
+    case 'team':     safeCoachSub('team',     renderCoachTeam); break;
+    case 'manage':   safeCoachSub('manage',   renderCoachManage); break;
+    case 'raceday':  safeCoachSub('raceday',  renderCoachRaceDay); break;
   }
+}
+
+/// Inline error card so a thrown Coach sub-tab doesn't blank the
+/// whole page. Includes a Retry button + a copyable error message
+/// so the user can screenshot it for support.
+function paintCoachSubError(sub, name, err) {
+  if (!sub) return;
+  const msg = (err && (err.message || String(err))) || 'unknown error';
+  console.warn('[coach] sub crash:', name, err);
+  try { logError?.('coach-' + name, err, {}); } catch(_) {}
+  sub.innerHTML = `<div class="empty-state" style="padding:32px 16px">
+    <div class="empty-state-title">Coach · ${escHtml(name)} couldn't load</div>
+    <div class="empty-state-desc" style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--destructive);word-break:break-word">${escHtml(msg)}</div>
+    <button id="coach-retry-${escHtml(name)}" class="btn btn-primary" style="margin-top:14px;font-size:12px;padding:8px 18px">Retry</button>
+  </div>`;
+  document.getElementById('coach-retry-' + name)?.addEventListener('click', () => renderCoachPage());
 }
 
 /// Standalone team-management panel — replaces the broken Manage Team

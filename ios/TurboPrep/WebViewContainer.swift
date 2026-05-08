@@ -56,6 +56,17 @@ struct WebViewContainer: UIViewRepresentable {
         refresh.addTarget(context.coordinator, action: #selector(Coordinator.pullToRefresh(_:)), for: .valueChanged)
         webView.scrollView.refreshControl = refresh
         context.coordinator.refresh = refresh
+
+        // iPhone-side HealthKit foreground sync. Was relying solely on
+        // the Watch's pushHealthSummary (in WatchTodayView.task) — which
+        // only fires when the user opens the Watch app's Today tab. If
+        // the rider wears the watch all week but never taps the Today
+        // tab, no health summary lands on the iPhone — the web's
+        // 'last sync was days ago' bug. Foreground hook on the iPhone
+        // reads HealthKit directly and pushes via the same JS bridge
+        // the Watch uses, so the web's onHealthSummary handler fires
+        // every time the user opens the iPhone app.
+        context.coordinator.hookForegroundHealthSync(webView: webView)
         return webView
     }
 
@@ -346,6 +357,66 @@ struct WebViewContainer: UIViewRepresentable {
                     .flatMap { $0.windows }
                     .first?.rootViewController
             root?.present(alert, animated: true)
+        }
+
+        // MARK: - iPhone-side HealthKit foreground sync ─────────────────
+        /// Service holder + foreground-sync timer. The Watch only pushes
+        /// health summaries when the user opens its Today tab; if they
+        /// just wear the watch and never tap, the iPhone never sees the
+        /// fresh data. We pull HealthKit directly from the iPhone (which
+        /// gets Watch metrics via Apple's automatic device sync) on:
+        ///   1. App launch (after the WebView loads)
+        ///   2. Foreground transitions (didBecomeActive)
+        ///   3. A 10-min interval while the app is in the foreground
+        private var healthSyncService: HealthKitService?
+        private var healthSyncTimer: Timer?
+        private var lastHealthSyncAt: Date = .distantPast
+        private weak var healthWebView: WKWebView?
+
+        func hookForegroundHealthSync(webView: WKWebView) {
+            self.healthWebView = webView
+            if healthSyncService == nil { healthSyncService = HealthKitService() }
+            // Run an initial pass once the web has loaded; the
+            // didFinish navigation hook above runs first, but we hop
+            // a beat behind it via DispatchQueue.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                self?.runHealthSync(force: true)
+            }
+            // Foreground hook — UIApplication.didBecomeActiveNotification
+            // fires every time the user re-foregrounds the app.
+            NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
+                object: nil, queue: .main
+            ) { [weak self] _ in
+                self?.runHealthSync(force: false)
+            }
+            // Foreground heartbeat — every 10 min while in foreground.
+            healthSyncTimer?.invalidate()
+            healthSyncTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
+                self?.runHealthSync(force: false)
+            }
+        }
+
+        private func runHealthSync(force: Bool) {
+            guard let svc = healthSyncService, let webView = healthWebView else { return }
+            // Throttle: at most once per 5 min unless force=true.
+            if !force && Date().timeIntervalSince(lastHealthSyncAt) < 300 { return }
+            Task { @MainActor in
+                if svc.authorization == .notRequested {
+                    // Don't block here — iPhone HealthKit auth is
+                    // typically requested via the web's settings flow.
+                    // If unauth'd, the fetch returns empty.
+                    _ = await svc.requestAuthorization()
+                }
+                guard svc.authorization == .granted else { return }
+                let summary = await svc.fetchTodaySummary()
+                guard !summary.isEmpty else { return }
+                self.lastHealthSyncAt = Date()
+                guard let json = try? JSONSerialization.data(withJSONObject: summary),
+                      let str = String(data: json, encoding: .utf8) else { return }
+                let js = "if (window.tpNative && typeof window.tpNative.onHealthSummary === 'function') { window.tpNative.onHealthSummary(\(str)); }"
+                webView.evaluateJavaScript(js, completionHandler: nil)
+            }
         }
     }
 }
