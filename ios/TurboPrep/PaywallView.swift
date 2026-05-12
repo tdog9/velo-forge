@@ -52,7 +52,7 @@ struct PaywallView: View {
             bullet("AI Coach v2 — proactive race-week + recovery briefs")
             bullet("Live race-day Watch leaderboard for your team")
             bullet("Heart-rate zones + load curve trends")
-            bullet("Plan ↔ race linking with auto-taper")
+            bullet("Plan ↔ race linking with auto race-week sharpening")
             bullet("Coach dashboard for monitoring all athletes")
         }
     }

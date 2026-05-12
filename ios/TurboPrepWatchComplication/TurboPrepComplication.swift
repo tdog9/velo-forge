@@ -14,7 +14,7 @@ private let appGroup = "group.com.403productions.turboprep"
 // MARK: – Snapshot model written by the Watch app
 
 struct ComplicationSnapshot {
-    let phaseLabel: String      // BASE | BUILD | PEAK | TAPER | RACE WEEK
+    let phaseLabel: String      // BASE | BUILD | PEAK | RACE WEEK
     let phaseAccent: String     // hex string for the phase colour
     let daysOut: Int            // days until next race
     let raceShortName: String   // "R1 Calder" etc

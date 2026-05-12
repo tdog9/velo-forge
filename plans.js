@@ -231,28 +231,28 @@ const FLOOR_SESSIONS = {
   core_advanced: {
     name: 'Core Hard',
     duration: 30, intensity: 'hard',
-    description: 'Race-strength core. The brace needed for a 25-min stint at race pace where every watt counts. Push to true muscular fatigue.',
+    description: 'Race-strength core. The brace needed for a 25-min stint at race pace where every watt counts. Y7-8: do 2 sets instead of 3, longer rests. Stop with 1-2 reps in the tank — not at form breakdown.',
     videoUrl: VID_DEFAULT,
     exercises: [
-      { name: 'Hollow body hold', duration: '30 sec', sets: 4, breakSec: 30, intensity: 'hard', notes: 'Lower back glued to the floor. Arms + legs hover. The hardest core exercise on this list — feel it everywhere.' },
-      { name: 'Plank with shoulder taps', reps: 20, sets: 3, breakSec: 45, intensity: 'hard', notes: '20 total. Don\'t let the hips rotate when you tap.' },
-      { name: 'V-up', reps: 12, sets: 3, breakSec: 30, intensity: 'hard', notes: 'Reach toes. Slow control. No swinging.' },
-      { name: 'Side plank reach-through', reps: 10, sets: 2, breakSec: 30, intensity: 'hard', notes: '10 per side. Thread arm under, then up.' },
-      { name: 'Plank hold finisher', duration: '60 sec', sets: 1, intensity: 'hard', notes: 'Last one. Hold on form, not pride.' }
+      { name: 'Hollow body hold', duration: '20-30 sec', sets: 4, breakSec: 30, intensity: 'hard', notes: 'Lower back glued to the floor. Arms + legs hover. Start at 20s if shaking; build to 30s by week 4.' },
+      { name: 'Plank with shoulder taps', reps: '16-20', sets: 3, breakSec: 45, intensity: 'hard', notes: '16-20 total taps. Don\'t let the hips rotate. Y7-8: drop to "12-16" if knees buckle.' },
+      { name: 'V-up', reps: '10-15', sets: 3, breakSec: 30, intensity: 'hard', notes: 'Reach toes. Slow control. No swinging. Aim upper range when fresh; lower if form slips.' },
+      { name: 'Side plank reach-through', reps: '8-10', sets: 2, breakSec: 30, intensity: 'hard', notes: '8-10 per side. Thread arm under, then up. Quality > rep count.' },
+      { name: 'Plank hold finisher', duration: '45-60 sec', sets: 1, intensity: 'hard', notes: 'Last effort. Hold on form, not pride. Stop the second hips drop.' }
     ]
   },
 
   legs_strength: {
     name: 'Leg Strength Circuit',
     duration: 35, intensity: 'hard',
-    description: 'The watts you produce in the vehicle come from glutes, quads, hamstrings. Three rounds of compound bodyweight strength. Focus on quality reps.',
+    description: 'The watts you produce in the vehicle come from glutes, quads, hamstrings. Quality reps over heroic numbers. Y7-8: drop to 2 sets, aim lower end of each range. Stop a set early if your knees cave or your back rounds.',
     videoUrl: VID_DEFAULT,
     exercises: [
-      { name: 'Bodyweight squat', reps: 15, sets: 3, breakSec: 60, intensity: 'moderate', notes: 'Feet shoulder width. Sit back, knees track over toes. Drive through heels.' },
-      { name: 'Reverse lunge', reps: 10, sets: 3, breakSec: 60, intensity: 'moderate', notes: '10 each leg. Step back, drop knee, drive through front heel. Slow control.' },
-      { name: 'Glute bridge · single leg', reps: 10, sets: 3, breakSec: 45, intensity: 'hard', notes: '10 per leg. Drive through heel of working leg. Squeeze hard at the top.' },
-      { name: 'Wall sit', duration: '45 sec', sets: 3, breakSec: 60, intensity: 'hard', notes: 'Thighs parallel. Back flat against wall. Just survive.' },
-      { name: 'Calf raise', reps: 20, sets: 2, breakSec: 30, intensity: 'moderate', notes: 'Slow up, slow down. Pause at the top.' }
+      { name: 'Bodyweight squat', reps: '12-15', sets: 3, breakSec: 60, intensity: 'moderate', notes: 'Feet shoulder width. 3 sec down, 1 sec up. Knees track over toes — not inward.' },
+      { name: 'Reverse lunge', reps: '8-10', sets: 3, breakSec: 60, intensity: 'moderate', notes: '8-10 each leg. Step back, drop knee, drive through front heel. Slow control beats fast reps.' },
+      { name: 'Glute bridge · single leg', reps: '8-10', sets: 3, breakSec: 45, intensity: 'hard', notes: '8-10 per leg. Drive through heel of working leg. 2 sec hold at the top — count it out.' },
+      { name: 'Wall sit', duration: '30-45 sec', sets: 3, breakSec: 60, intensity: 'hard', notes: 'Thighs parallel. Back flat against wall. Start at 30s; build to 45s over 3 weeks.' },
+      { name: 'Calf raise', reps: '15-20', sets: 2, breakSec: 30, intensity: 'moderate', notes: 'Slow up (2s), pause at top (1s), slow down (2s). Tempo is the work.' }
     ]
   },
 
@@ -272,43 +272,43 @@ const FLOOR_SESSIONS = {
   plyo: {
     name: 'Plyometric Power',
     duration: 30, intensity: 'hard',
-    description: 'Explosive jumps train the fast-twitch power you need for pit-out accelerations and overtaking surges. Quality > quantity. Land softly.',
+    description: 'Explosive jumps train the fast-twitch power you need for pit-out accelerations and overtaking surges. Quality > quantity. Land softly — soft knees, quiet feet. Y7-8: do 3 sets not 4. Skip if your knees hurt.',
     videoUrl: VID_DEFAULT,
     exercises: [
-      { name: 'Warm-up · arm circles + leg swings', duration: '5 min', notes: 'Get the joints warm. 10 forward + 10 back arm circles. 10 leg swings each side.' },
-      { name: 'Squat jump', reps: 8, sets: 4, breakSec: 60, intensity: 'hard', notes: 'Maximum effort each rep. Land soft, sink into next squat. Quality over speed — rest if form drops.' },
-      { name: 'Lunge jump · alternating', reps: 10, sets: 3, breakSec: 60, intensity: 'hard', notes: '10 total. Switch legs in the air. Drop the back knee on the landing.' },
-      { name: 'Broad jump', reps: 6, sets: 3, breakSec: 60, intensity: 'hard', notes: 'Maximum distance. Land balanced, walk back, repeat. Big arm swing.' },
-      { name: 'Cool-down stretch', duration: '5 min', notes: 'Quads, hamstrings, calves. Ease the legs out.' }
+      { name: 'Warm-up · arm circles + leg swings', duration: '5 min', notes: 'Get the joints warm. 10 forward + 10 back arm circles. 10 leg swings each side. Don\'t skip this.' },
+      { name: 'Squat jump', reps: '6-8', sets: 4, breakSec: 60, intensity: 'hard', notes: 'Maximum effort each rep. Land soft, sink into next squat. If the 7th rep looks like the 1st, you\'re doing it right. Drop a rep if not.' },
+      { name: 'Lunge jump · alternating', reps: '8-10', sets: 3, breakSec: 60, intensity: 'hard', notes: '8-10 total. Switch legs in the air. Drop the back knee on the landing — softly.' },
+      { name: 'Broad jump', reps: '4-6', sets: 3, breakSec: 60, intensity: 'hard', notes: 'Maximum distance. Land balanced, walk back (don\'t bounce). Big arm swing — they\'re half the jump.' },
+      { name: 'Cool-down stretch', duration: '5 min', notes: 'Quads, hamstrings, calves. Ease the legs out — don\'t bounce in the stretch.' }
     ]
   },
 
   glute_focus: {
     name: 'Glute Focus',
     duration: 30, intensity: 'moderate',
-    description: 'Glutes are the prime mover in the recumbent pedalling position. Most riders are quad-dominant — today fixes that. Activation, then strength, then endurance.',
+    description: 'Glutes are the prime mover in the recumbent pedalling position. Most riders are quad-dominant — today fixes that. Activation → strength → endurance. If you feel it in the quads instead, slow down and reset your form.',
     videoUrl: VID_DEFAULT,
     exercises: [
-      { name: 'Glute activation · clamshell', reps: 15, sets: 3, breakSec: 30, intensity: 'easy', notes: '15 per side. Slow, feel the burn in the side glute.' },
-      { name: 'Banded lateral walk', reps: 10, sets: 3, breakSec: 30, intensity: 'moderate', notes: '10 each direction. Use a band if you have one — towel works as a substitute. Stay low.' },
-      { name: 'Single-leg glute bridge', reps: 10, sets: 3, breakSec: 45, intensity: 'hard', notes: '10 per side. Drive HARD through the working heel. Squeeze the glute at the top.' },
-      { name: 'Bulgarian split squat', reps: 8, sets: 3, breakSec: 60, intensity: 'hard', notes: '8 per leg. Back foot on a chair / low surface. Drop the back knee.' },
-      { name: 'Donkey kick', reps: 12, sets: 2, breakSec: 30, intensity: 'moderate', notes: '12 per side. Tabletop position, drive heel toward ceiling. Squeeze at the top.' }
+      { name: 'Glute activation · clamshell', reps: '12-15', sets: 3, breakSec: 30, intensity: 'easy', notes: '12-15 per side. Slow. You should feel a burn in the side glute by rep 10 — if not, you\'re moving the knee, not the hip.' },
+      { name: 'Banded lateral walk', reps: '8-10', sets: 3, breakSec: 30, intensity: 'moderate', notes: '8-10 steps each direction. Use a resistance band — a long sock or towel loop works in a pinch. Stay low in a half-squat.' },
+      { name: 'Single-leg glute bridge', reps: '8-10', sets: 3, breakSec: 45, intensity: 'hard', notes: '8-10 per side. Drive HARD through the working heel. Squeeze + 2 sec hold at the top. Hips stay level.' },
+      { name: 'Bulgarian split squat', reps: '6-8', sets: 3, breakSec: 60, intensity: 'hard', notes: '6-8 per leg. Back foot on a chair / low surface (sofa works). Drop the back knee straight down — don\'t lean forward.' },
+      { name: 'Donkey kick', reps: '10-12', sets: 2, breakSec: 30, intensity: 'moderate', notes: '10-12 per side. Tabletop position, drive heel toward ceiling. Squeeze + 1 sec hold. No arching the back.' }
     ]
   },
 
   full_body: {
     name: 'Full Body Circuit',
     duration: 30, intensity: 'moderate',
-    description: 'A balanced session covering legs, core, posterior chain in one go. Three rounds, AMRAP feel — push but keep form clean.',
+    description: 'A balanced session covering legs, core, posterior chain in one go. Three rounds — push the pace but keep form clean. Y7-8: 2 rounds. Stop a set if your form looks worse than the first rep.',
     videoUrl: VID_DEFAULT,
     exercises: [
-      { name: 'Bodyweight squat', reps: 12, sets: 3, breakSec: 30, intensity: 'moderate', notes: 'Quality reps. Sit back into the heels.' },
-      { name: 'Push-up', reps: 10, sets: 3, breakSec: 30, intensity: 'moderate', notes: 'Knees if needed. Body straight line. Chest to floor.' },
-      { name: 'Plank', duration: '30 sec', sets: 3, breakSec: 30, intensity: 'moderate', notes: 'Tight brace.' },
-      { name: 'Reverse lunge', reps: 8, sets: 3, breakSec: 30, intensity: 'moderate', notes: '8 each leg. Drive through front heel.' },
-      { name: 'Superman hold', duration: '20 sec', sets: 3, breakSec: 30, intensity: 'moderate', notes: 'Lift arms + legs. Squeeze the lower back.' },
-      { name: 'Mountain climber', duration: '30 sec', sets: 2, breakSec: 30, intensity: 'moderate', notes: 'Steady tempo, not panicked.' }
+      { name: 'Bodyweight squat', reps: '10-12', sets: 3, breakSec: 30, intensity: 'moderate', notes: 'Quality reps. Sit back into the heels. 2 sec down, 1 sec up.' },
+      { name: 'Push-up', reps: '8-12', sets: 3, breakSec: 30, intensity: 'moderate', notes: 'Knees if needed (no shame). Body straight line. Chest to floor.' },
+      { name: 'Plank', duration: '25-40 sec', sets: 3, breakSec: 30, intensity: 'moderate', notes: 'Tight brace. Start at 25s, build to 40s by week 4.' },
+      { name: 'Reverse lunge', reps: '6-8', sets: 3, breakSec: 30, intensity: 'moderate', notes: '6-8 each leg. Drive through front heel.' },
+      { name: 'Superman hold', duration: '15-20 sec', sets: 3, breakSec: 30, intensity: 'moderate', notes: 'Lift arms + legs. Squeeze the lower back. Stop the second you feel a pinch — different from a burn.' },
+      { name: 'Mountain climber', duration: '20-30 sec', sets: 2, breakSec: 30, intensity: 'moderate', notes: 'Steady tempo, not panicked. Hips don\'t lift on each leg drive.' }
     ]
   },
 

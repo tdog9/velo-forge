@@ -214,6 +214,15 @@ async function renderAdminRaceDay() {
           </div>`;
         }).join('')}
       <button class="btn btn-secondary" id="adm-rd-refresh" style="width:100%;margin-top:12px">↻ Refresh</button>
+    </div>
+
+    <div class="card" style="padding:14px;margin-top:14px;border:1px solid rgba(var(--destructive-rgb),.30);background:rgba(var(--destructive-rgb),.04)">
+      <div style="font-size:12px;font-weight:700;color:var(--destructive);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Danger zone</div>
+      <div style="font-size:12px;color:var(--muted-fg);line-height:1.45;margin-bottom:10px">Wipe test race-day data once you're done validating. Clears today's race_day doc, every stint logged today, and (if you tick the box) the multi-year race archive.</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg);margin-bottom:10px;cursor:pointer">
+        <input type="checkbox" id="adm-rd-clear-archive" style="margin:0"> Also clear race_archive entries
+      </label>
+      <button class="btn btn-secondary" id="adm-rd-clear" style="width:100%;background:rgba(var(--destructive-rgb),.15);color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.35)">🗑 Clear race day test data</button>
     </div>`;
   el.querySelector('#adm-rd-activate')?.addEventListener('click', async () => {
     if (!confirm('Start race day for the whole team? This switches every signed-in user to Race Day Mode.')) return;
@@ -242,6 +251,55 @@ async function renderAdminRaceDay() {
     } catch(e) { A.showToast('Failed: '+e.message,'error'); }
   });
   el.querySelector('#adm-rd-refresh')?.addEventListener('click', () => renderAdminRaceDay());
+  el.querySelector('#adm-rd-clear')?.addEventListener('click', async () => {
+    const clearArchive = !!el.querySelector('#adm-rd-clear-archive')?.checked;
+    if (!confirm(`Wipe today's race-day data${clearArchive ? ' AND race archive entries' : ''}? This cannot be undone.`)) return;
+    const btn = el.querySelector('#adm-rd-clear');
+    if (btn) { btn.disabled = true; btn.textContent = 'Clearing…'; }
+    let deleted = 0;
+    try {
+      // Delete each stint doc under race_day/{today}/stints
+      try {
+        const ss = await A.getDocs(A.collection(A.db, 'race_day', todayKey, 'stints'));
+        await Promise.all(ss.docs.map(d => A.deleteDoc(d.ref).then(() => deleted++).catch(() => {})));
+      } catch(_) {}
+      // Delete live cursors
+      try {
+        const live = await A.getDocs(A.collection(A.db, 'race_day', todayKey, 'live'));
+        await Promise.all(live.docs.map(d => A.deleteDoc(d.ref).catch(() => {})));
+      } catch(_) {}
+      // Delete the race_day doc itself
+      try { await A.deleteDoc(A.doc(A.db, 'race_day', todayKey)); deleted++; } catch(_) {}
+      // Optional: clear race_archive entries
+      if (clearArchive) {
+        try {
+          const archiveSnap = await A.getDocs(A.collection(A.db, 'race_archive'));
+          for (const raceDoc of archiveSnap.docs) {
+            const yearsSnap = await A.getDocs(A.collection(A.db, 'race_archive', raceDoc.id, 'years'));
+            for (const yearDoc of yearsSnap.docs) {
+              // Stints (per-user)
+              try {
+                const st = await A.getDocs(A.collection(A.db, 'race_archive', raceDoc.id, 'years', yearDoc.id, 'stints'));
+                await Promise.all(st.docs.map(d => A.deleteDoc(d.ref).then(() => deleted++).catch(() => {})));
+              } catch(_) {}
+              // Per-team race-report uploads
+              try {
+                const tm = await A.getDocs(A.collection(A.db, 'race_archive', raceDoc.id, 'years', yearDoc.id, 'teams'));
+                await Promise.all(tm.docs.map(d => A.deleteDoc(d.ref).then(() => deleted++).catch(() => {})));
+              } catch(_) {}
+              try { await A.deleteDoc(yearDoc.ref); deleted++; } catch(_) {}
+            }
+            try { await A.deleteDoc(raceDoc.ref); deleted++; } catch(_) {}
+          }
+        } catch (e) { console.warn('archive sweep failed:', e); }
+      }
+      A.showToast(`Cleared ${deleted} doc${deleted === 1 ? '' : 's'}.`, 'success');
+      renderAdminRaceDay();
+    } catch (e) {
+      A.showToast('Clear failed: ' + (e?.message || 'check rules'), 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '🗑 Clear race day test data'; }
+    }
+  });
 }
 
 // ── Maintenance tab ──────────────────────────────────────────────────────────

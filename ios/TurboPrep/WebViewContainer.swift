@@ -2,6 +2,7 @@ import SwiftUI
 import UserNotifications
 import WatchConnectivity
 @preconcurrency import WebKit
+import WidgetKit
 
 /// Hosts the deployed TurboPrep web app inside a WKWebView. The web bundle
 /// handles sign-in, today/fitness/plans/leaderboard rendering, and Firestore
@@ -21,9 +22,30 @@ struct WebViewContainer: UIViewRepresentable {
         config.websiteDataStore = .default()  // persist cookies + localStorage so auth survives launches
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
+        // Defeat iOS's accessibility / "Larger Text" font auto-scaling
+        // and any system-level page-zoom inheritance. Was the root cause
+        // of the "everything is zoomed and won't fit" bug: WKWebView
+        // honored the device's Display-Zoom / Dynamic-Type settings and
+        // upscaled the entire viewport. We override here at the chassis
+        // level so the page renders at exactly the size the CSS says.
+        config.preferences.minimumFontSize = 0
         let prefs = WKWebpagePreferences()
         prefs.allowsContentJavaScript = true
         config.defaultWebpagePreferences = prefs
+        // Inject a hard-locked viewport override at document-start of
+        // every page load. Belt-and-braces against any caching layer
+        // that might serve a stale <meta name="viewport"> tag.
+        let viewportJS = """
+        (function(){
+          var m=document.querySelector('meta[name="viewport"]');
+          if(!m){ m=document.createElement('meta'); m.name='viewport'; document.head.appendChild(m); }
+          m.setAttribute('content','width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover');
+          document.documentElement.style.setProperty('-webkit-text-size-adjust','100%');
+          document.documentElement.style.setProperty('text-size-adjust','100%');
+        })();
+        """
+        let viewportScript = WKUserScript(source: viewportJS, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        config.userContentController.addUserScript(viewportScript)
 
         // Native bridge: web can post messages via window.webkit.messageHandlers.tpNative.postMessage(...)
         config.userContentController.add(context.coordinator, name: "tpNative")
@@ -46,6 +68,16 @@ struct WebViewContainer: UIViewRepresentable {
         webView.scrollView.bouncesZoom = false
         webView.scrollView.minimumZoomScale = 1.0
         webView.scrollView.maximumZoomScale = 1.0
+        // Force pageZoom back to 1.0 — iOS sometimes inherits a higher
+        // zoom from the user's Safari per-site settings or accessibility
+        // text-scale preferences. This is the property that actually
+        // controls "how big does the page render" at the WKWebView level.
+        if #available(iOS 14.0, *) {
+            webView.pageZoom = 1.0
+        }
+        // Hard reset the scrollView's zoom factor on every load so a
+        // stale gesture or system event can't leave it at 1.5×.
+        webView.scrollView.setZoomScale(1.0, animated: false)
         webView.isOpaque = false
         webView.backgroundColor = UIColor(red: 10/255, green: 11/255, blue: 15/255, alpha: 1)  // matches web --bg
         webView.scrollView.backgroundColor = webView.backgroundColor
@@ -143,6 +175,58 @@ struct WebViewContainer: UIViewRepresentable {
                         LiveActivityManager.shared.endStint()
                     }
                 }
+            case "home-widget-state":
+                // Web pushes a flat snapshot for the home-screen widget.
+                // Stash it in the shared App Group so TurboPrepHomeWidget
+                // can read it on its next timeline refresh, then nudge
+                // WidgetKit to reload now.
+                if let d = UserDefaults(suiteName: "group.com.403productions.turboprep") {
+                    if let s = body["phaseLabel"] as? String { d.set(s, forKey: "tp_home_phaseLabel") }
+                    if let s = body["phaseAccent"] as? String { d.set(s, forKey: "tp_home_phaseAccent") }
+                    if let n = body["daysOut"] as? Int { d.set(n, forKey: "tp_home_daysOut") }
+                    if let s = body["raceShortName"] as? String { d.set(s, forKey: "tp_home_raceShortName") }
+                    if let n = body["todayDoneCount"] as? Int { d.set(n, forKey: "tp_home_todayDoneCount") }
+                    if let n = body["todayTotalCount"] as? Int { d.set(n, forKey: "tp_home_todayTotalCount") }
+                    if let s = body["todayTitle"] as? String { d.set(s, forKey: "tp_home_todayTitle") }
+                }
+                if #available(iOS 14.0, *) {
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+            case "request-health-sync":
+                // Web tapped "Sync now" on the Health tab. Run a forced
+                // refresh that bypasses the 5-min throttle so the user
+                // sees an immediate update instead of staring at a
+                // pending state. Result lands via onHealthSummary.
+                Task { @MainActor in
+                    self.runHealthSync(force: true)
+                }
+            case "haptic":
+                // Tiny tactile feedback. UIImpactFeedbackGenerator is the
+                // right tool for `light/medium/heavy`; for `success` we
+                // use UINotificationFeedbackGenerator.
+                let kind = (body["kind"] as? String) ?? "light"
+                Task { @MainActor in
+                    switch kind {
+                    case "success":
+                        let gen = UINotificationFeedbackGenerator()
+                        gen.prepare(); gen.notificationOccurred(.success)
+                    case "warning":
+                        let gen = UINotificationFeedbackGenerator()
+                        gen.prepare(); gen.notificationOccurred(.warning)
+                    case "error":
+                        let gen = UINotificationFeedbackGenerator()
+                        gen.prepare(); gen.notificationOccurred(.error)
+                    case "heavy":
+                        let gen = UIImpactFeedbackGenerator(style: .heavy)
+                        gen.prepare(); gen.impactOccurred()
+                    case "medium":
+                        let gen = UIImpactFeedbackGenerator(style: .medium)
+                        gen.prepare(); gen.impactOccurred()
+                    default:
+                        let gen = UIImpactFeedbackGenerator(style: .light)
+                        gen.prepare(); gen.impactOccurred()
+                    }
+                }
             case "watch-state":
                 // Web has gathered a state snapshot for the Watch. Forward it
                 // via WCSession so the Watch's WatchAppState updates.
@@ -213,6 +297,11 @@ struct WebViewContainer: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             self.webView = webView
             refresh?.endRefreshing()
+            // Re-clamp page zoom on every navigation finish. A cold
+            // boot, a pull-to-refresh, or a navigation into a deep
+            // link can all reset the scrollView to a non-1.0 scale.
+            if #available(iOS 14.0, *) { webView.pageZoom = 1.0 }
+            webView.scrollView.setZoomScale(1.0, animated: false)
             if !didFireLoaded {
                 didFireLoaded = true
                 onWebLoaded?()

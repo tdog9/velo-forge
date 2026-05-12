@@ -14,7 +14,7 @@
 <meta property="og:url" content="https://turboprep.app">
 <title>TurboPrep — HPR Training</title>
 <script>
-(function(){var VER='0.13.3-r112',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
+(function(){var VER='1.0.0-r121',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
 </script>
 <script>
 (function(){
@@ -43,6 +43,11 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="design-system.css">
 <link rel="stylesheet" href="layout-fix.css">
+<!-- polish.css + cgs-edition.css disabled. They added layout that
+     pushed content wider than the viewport on iPhone. App is back
+     to the pre-polish stylesheets — same as the build that worked. -->
+<!-- <link rel="stylesheet" href="polish.css?v=1.0.0-r121"> -->
+<!-- <link rel="stylesheet" href="cgs-edition.css?v=1.0.0-r121"> -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <link rel="preconnect" href="https://firestore.googleapis.com">
@@ -202,7 +207,7 @@
   <header class="header">
     <div class="header-left">
       <div class="header-logo" aria-hidden="true">T</div>
-      <div class="header-wordmark">
+      <div class="header-wordmark" data-cgs-mark>
         <span class="hw-turbo">TURBO</span><span class="hw-prep">PREP</span>
       </div>
     </div>
@@ -447,6 +452,11 @@ if(window.location.search.includes('nuke=true')){
   Promise.all(p).then(function(){setTimeout(function(){window.location.href=window.location.pathname;},1500)}).catch(function(){setTimeout(function(){window.location.href=window.location.pathname;},1500)});
 }
 </script>
-<script type="module" src="app.js?v=0.13.3-r112"></script>
+<!-- polish.js disabled — it was injecting layout side effects
+     (centre-bar height var, ripple, transitions) that compounded
+     into the horizontal-overflow regression. -->
+<!-- <script src="polish.js?v=1.0.0-r121" defer></script> -->
+<script src="raceReport.js?v=1.0.0-r121" defer></script>
+<script type="module" src="app.js?v=1.0.0-r121"></script>
 </body>
 </html>

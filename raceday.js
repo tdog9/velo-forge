@@ -86,6 +86,7 @@ export async function activateRaceDay(raceId) {
     rdd={...rdd,...data};
     try { ctx.pushWatchState?.(); } catch(e) {}
     try { updateRaceDayTabBar(true); } catch(e) {}
+    try { window.CentreBar?.refresh?.(); } catch(_) {}
     return true;
   } catch(e) { console.warn('activateRaceDay:',e); return false; }
 }
@@ -180,6 +181,7 @@ export async function deactivateRaceDay() {
     await ctx.updateDoc(ctx.doc(ctx.db,'race_day',todayKey()),{active:false});
     rdd.active=false;
     try { ctx.pushWatchState?.(); } catch(e) {}
+    try { window.CentreBar?.refresh?.(); } catch(_) {}
     return true;
   } catch(e) { return false; }
 }
@@ -1232,6 +1234,14 @@ async function startStint(c) {
       });
     }
   } catch(_) {}
+  // Mirror to window flags so the persistent CentreBar (Spotify-style
+  // "now training" strip) can pick up the active stint and re-render.
+  try {
+    window._tpRaceDayStintActive = true;
+    window._tpRaceDayStintStartedAt = stintStartTime;
+    window._tpRaceDayStintLabel = (rdd.raceName || ctx.teamData?.name || 'Race stint').toString().slice(0, 60);
+    window.CentreBar?.refresh?.();
+  } catch(_) {}
   stintMap=null; stintPolyline=null; stintMarker=null;
   stintGpsState='connecting';
   renderActiveStint(c);
@@ -1547,6 +1557,12 @@ async function endStint(c) {
   // Tear down the iOS Live Activity. Best-effort.
   try {
     window.webkit?.messageHandlers?.tpNative?.postMessage({ type: 'live-activity-end' });
+  } catch(_) {}
+  try {
+    window._tpRaceDayStintActive = false;
+    window._tpRaceDayStintStartedAt = 0;
+    window._tpRaceDayStintLabel = null;
+    window.CentreBar?.refresh?.();
   } catch(_) {}
   // Hydrate stintStartTime from localStorage if it's null (cold-boot
   // mid-stint case), then clamp duration to the 25-hour max so a

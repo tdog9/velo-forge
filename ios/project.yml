@@ -18,8 +18,8 @@ settings:
     SWIFT_VERSION: "5.9"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: "7HM78HZ5D4"
-    MARKETING_VERSION: "0.13.3"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "20260512003"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
 
 targets:
@@ -58,6 +58,9 @@ targets:
         embed: true
         codeSign: true
       - target: TurboPrepLiveActivity
+        embed: true
+        codeSign: true
+      - target: TurboPrepHomeWidget
         embed: true
         codeSign: true
 
@@ -115,6 +118,23 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: TurboPrepLiveActivity/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: TurboPrep
+
+  TurboPrepHomeWidget:
+    # iOS home-screen WidgetKit extension. Reads cached race-phase +
+    # today's plan from the shared App Group container that the main
+    # app writes (via WebViewContainer's home-widget-state handler).
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: TurboPrepHomeWidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.403productions.turboprep.homewidget
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: TurboPrepHomeWidget/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: TurboPrep
+        CODE_SIGN_ENTITLEMENTS: TurboPrepHomeWidget/TurboPrepHomeWidget.entitlements
 
   TurboPrepWatchComplication:
     # WidgetKit extension — provides the watch face complication for

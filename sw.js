@@ -1,5 +1,5 @@
 // TurboPrep Service Worker v2
-const CACHE_NAME = 'turboprep-20260504-r73';
+const CACHE_NAME = 'turboprep-91ae134';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   '/design-system.css',
   '/layout-fix.css',
   '/app.js',
+  '/raceReport.js',
   '/plans.js',
   '/state.js',
   '/tracker.js',

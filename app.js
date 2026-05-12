@@ -1,4 +1,54 @@
 // TurboPrep HPR Training App
+
+// ── Viewport size detector ──────────────────────────────────────────
+// Sets data attributes + CSS vars on <html> so the stylesheet can
+// adapt to the ACTUAL rendered viewport, not the theoretical one.
+// Handles iOS Display Zoom + accessibility text scaling cases that
+// pure media queries miss.
+function _detectViewport() {
+  try {
+    const w = Math.round(window.innerWidth || document.documentElement.clientWidth || 0);
+    const h = Math.round(window.innerHeight || document.documentElement.clientHeight || 0);
+    document.documentElement.style.setProperty('--tp-vw', w + 'px');
+    document.documentElement.style.setProperty('--tp-vh', h + 'px');
+    let size = 'lg';
+    if (w <= 340) size = 'xxs';
+    else if (w <= 380) size = 'xs';
+    else if (w <= 410) size = 'sm';        // iPhone 16 sits here at 393pt
+    else if (w <= 460) size = 'md';
+    document.documentElement.setAttribute('data-vp', size);
+    // Tighten body font size proportionally for narrow viewports so
+    // every rem/em-based element shrinks together. Conservative: 95%
+    // on xs, 90% on xxs. Doesn't touch px-fixed values.
+    const fontScale = size === 'xxs' ? 0.90 : size === 'xs' ? 0.94 : 1.0;
+    document.documentElement.style.setProperty('font-size', (16 * fontScale) + 'px');
+  } catch (_) {}
+}
+_detectViewport();
+window.addEventListener('resize', _detectViewport, { passive: true });
+window.addEventListener('orientationchange', _detectViewport, { passive: true });
+
+// ── Production log gate ─────────────────────────────────────────────
+// Silence console.log + console.debug in shipped builds so the JS
+// console isn't a firehose for testers (and so log calls don't burn
+// main-thread time stringifying objects nobody reads). Keep warn +
+// error untouched — Crashlytics + manual debugging still need them.
+// Enable via ?debug=1 or by setting localStorage.tp_debug=1 from devtools.
+try {
+  const _isLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(location.hostname);
+  const _debugFlag = new URLSearchParams(location.search).get('debug') === '1'
+    || (() => { try { return localStorage.getItem('tp_debug') === '1'; } catch(_) { return false; } })();
+  if (!_isLocal && !_debugFlag) {
+    const _noop = () => {};
+    // Cache the originals so dev can flip them back from devtools:
+    //   localStorage.tp_debug='1'; location.reload()
+    window.__tpRealLog = console.log;
+    window.__tpRealDebug = console.debug;
+    console.log = _noop;
+    console.debug = _noop;
+  }
+} catch(_) {}
+
 import { initTracker, openActivityTracker, closeActivityTracker, openActivityDetail } from './tracker.js';
 import { initRaceDay, loadRaceDayState, getRaceDayActive, getTodayStints, updateRaceDayTabBar, openRaceDayOverlay, activateRaceDay, deactivateRaceDay, checkRaceDaySchedule } from './raceday.js';
 import * as _state from './state.js';
@@ -368,7 +418,31 @@ function _trainingExerciseForWatch(ex, idx) {
   };
 }
 
+// Renders fire pushWatchState in bursts (5-10 calls in a render frame
+// while plan + race + watch panels all re-paint). The bridge post is
+// cheap on its own, but each one triggers a WCSession.updateApplicationContext
+// on iOS + a WidgetCenter.reloadAllTimelines for the home widget —
+// both of which the OS will rate-limit anyway. Coalesce to one fire
+// per 800ms and one trailing fire so we always end on the latest state.
+let _pushWatchState_timer = null;
+let _pushWatchState_lastFire = 0;
+const _PUSH_WATCH_STATE_MIN_GAP_MS = 800;
 function pushWatchState() {
+  const now = Date.now();
+  const since = now - _pushWatchState_lastFire;
+  if (since >= _PUSH_WATCH_STATE_MIN_GAP_MS) {
+    _pushWatchState_lastFire = now;
+    _pushWatchStateImpl();
+    return;
+  }
+  if (_pushWatchState_timer) return;
+  _pushWatchState_timer = setTimeout(() => {
+    _pushWatchState_timer = null;
+    _pushWatchState_lastFire = Date.now();
+    _pushWatchStateImpl();
+  }, _PUSH_WATCH_STATE_MIN_GAP_MS - since);
+}
+function _pushWatchStateImpl() {
   if (!_hasNativeBridge()) return;
   try {
     const phase = computeRacePhase();
@@ -477,6 +551,26 @@ function pushWatchState() {
         trainingExercises, trainingCurrentIdx, trainingCurrentSet,
       },
     });
+    // Mirror a flat snapshot to the iOS home-screen widget. Bundle-side
+    // handler writes the App Group container + reloads timelines.
+    try {
+      const doneCount = todayWorkouts.filter(w => w.completed).length;
+      const firstUnfinished = todayWorkouts.find(w => !w.completed) || todayWorkouts[0];
+      const phaseAccentMap = {
+        base: '#3b82f6', build: '#a855f7', peak: '#ef4444',
+        taper: '#eab308', race: '#f97316', off: '#7a7d88',
+      };
+      const phaseKey = (phase?.phase || '').toLowerCase();
+      postNative('home-widget-state', {
+        phaseLabel: racePhase?.label || 'OFF',
+        phaseAccent: phaseAccentMap[phaseKey] || '#7a7d88',
+        daysOut: racePhase?.daysOut ?? 0,
+        raceShortName: racePhase?.raceShortName || '—',
+        todayDoneCount: doneCount,
+        todayTotalCount: todayWorkouts.length,
+        todayTitle: firstUnfinished?.name || (todayWorkouts.length ? 'All done' : 'Rest day'),
+      });
+    } catch(_) {}
   } catch(e) {}
 }
 
@@ -508,6 +602,7 @@ function startTrainingSession({ type = 'ride', title = 'Training', exercises = n
       startedAtMs: window._tpTrainingStartedAt,
     });
   } catch(_) {}
+  try { CentreBar.refresh(); } catch(_) {}
   // The phone training overlay was a generic ride/run scaffold. For
   // a workout (which has a richer in-app timer overlay with the full
   // exercise list), opening this overlay on top covered the timer
@@ -534,8 +629,152 @@ function endTrainingSession() {
   try {
     window.webkit?.messageHandlers?.tpNative?.postMessage({ type: 'live-activity-end' });
   } catch(_) {}
+  try { CentreBar.refresh(); } catch(_) {}
   document.getElementById('training-overlay')?.remove();
 }
+
+/// Persistent "now training" centre bar — Spotify-style strip pinned
+/// above the tab-bar. Hidden by default; shown whenever a training
+/// session or race-day stint is in flight. Ticks once per second and
+/// wires its tap area to reopen the running surface.
+const CentreBar = (() => {
+  let _tick = null;
+  let _startedAt = 0;
+  function fmt(sec) {
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return h > 0
+      ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+      : `${m}:${String(s).padStart(2,'0')}`;
+  }
+  function el() { return document.getElementById('centre-bar'); }
+  function paint() {
+    const e = el();
+    if (!e) return;
+    const t = e.querySelector('#centre-bar-time');
+    if (t) t.textContent = fmt(Math.max(0, Math.floor((Date.now() - _startedAt) / 1000)));
+  }
+  function show({ kicker, title, startedAt, onTap, onEnd }) {
+    const e = el();
+    if (!e) return;
+    _startedAt = Number(startedAt) || Date.now();
+    const k = e.querySelector('#centre-bar-kicker');
+    const ti = e.querySelector('#centre-bar-title');
+    const endBtn = e.querySelector('#centre-bar-end');
+    if (k) k.textContent = String(kicker || 'NOW PLAYING').toUpperCase();
+    if (ti) ti.textContent = title || 'Session';
+    e.style.display = 'flex';
+    // Inform the content padding rule so the strip never covers the
+    // last item in the scroll area.
+    try { document.documentElement.style.setProperty('--tp-centre-bar-h', '60px'); } catch(_) {}
+    paint();
+    if (_tick) clearInterval(_tick);
+    _tick = setInterval(paint, 1000);
+    e.onclick = (ev) => {
+      // End icon delegates to its own handler.
+      if (endBtn && endBtn.contains(ev.target)) return;
+      if (typeof onTap === 'function') { try { onTap(); } catch(_) {} }
+    };
+    if (endBtn) {
+      endBtn.onclick = (ev) => {
+        ev.stopPropagation();
+        if (typeof onEnd === 'function') { try { onEnd(); } catch(_) {} }
+      };
+    }
+  }
+  function hide() {
+    const e = el();
+    if (!e) return;
+    e.style.display = 'none';
+    try { document.documentElement.style.setProperty('--tp-centre-bar-h', '0px'); } catch(_) {}
+    if (_tick) { clearInterval(_tick); _tick = null; }
+  }
+  function refresh() {
+    // Called from start/end paths to (re)sync visibility with current state.
+    try {
+      const trainingActive = !!window._tpTrainingActive;
+      const raceDayActive = (typeof getRaceDayActive === 'function') ? !!getRaceDayActive() : false;
+      const stintActive = !!window._tpRaceDayStintActive;
+      if (trainingActive) {
+        show({
+          kicker: 'TRAINING',
+          title: window._tpTrainingTitle || 'Training',
+          startedAt: window._tpTrainingStartedAt || Date.now(),
+          onTap: () => {
+            try {
+              if (typeof openWorkoutTimer === 'function' && window._tpTrainingWorkoutRef) {
+                openWorkoutTimer(window._tpTrainingWorkoutRef);
+              } else if (typeof openTrainingOverlay === 'function') {
+                openTrainingOverlay();
+              }
+            } catch(_) {}
+          },
+          onEnd: () => {
+            if (!confirm('End the training session?')) return;
+            try { endTrainingSession(); } catch(_) {}
+          },
+        });
+      } else if (stintActive) {
+        show({
+          kicker: 'RACE STINT',
+          title: window._tpRaceDayStintLabel || 'Race day stint',
+          startedAt: window._tpRaceDayStintStartedAt || Date.now(),
+          onTap: () => {
+            try {
+              if (typeof openRaceDayOverlay === 'function') openRaceDayOverlay();
+              else if (typeof switchPage === 'function') switchPage('races');
+            } catch(_) {}
+          },
+          onEnd: () => {
+            try {
+              if (typeof endRaceDayStint === 'function') endRaceDayStint();
+            } catch(_) {}
+          },
+        });
+      } else if (raceDayActive) {
+        // Race day is on but no personal stint running yet — pulse to "tap to start".
+        show({
+          kicker: 'RACE DAY',
+          title: 'Tap to start your stint',
+          startedAt: Date.now(),
+          onTap: () => {
+            try {
+              if (typeof switchPage === 'function') switchPage('races');
+            } catch(_) {}
+          },
+          onEnd: null,
+        });
+      } else {
+        hide();
+      }
+    } catch(_) { hide(); }
+  }
+  // Cold-boot rehydration. If a stint was in flight when the WebView
+  // last unloaded (cache miss, foreground from background, force-quit),
+  // raceday.js persists tp_stint_start to localStorage. Restore the
+  // centre-bar-visible flags from it so the strip appears immediately,
+  // before raceday.js's init has had a chance to flip stintActive=true.
+  function _rehydrateFromStorage() {
+    try {
+      const persisted = parseInt(localStorage.getItem('tp_stint_start') || '0', 10);
+      if (persisted && persisted > Date.now() - (25 * 60 * 60 * 1000)) {
+        window._tpRaceDayStintActive = true;
+        window._tpRaceDayStintStartedAt = persisted;
+        window._tpRaceDayStintLabel = window._tpRaceDayStintLabel || 'Race stint';
+      }
+    } catch(_) {}
+  }
+  // First sync once DOM is ready.
+  if (typeof document !== 'undefined') {
+    const _go = () => { _rehydrateFromStorage(); refresh(); };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _go, { once: true });
+    } else {
+      setTimeout(_go, 50);
+    }
+  }
+  return { show, hide, refresh };
+})();
+window.CentreBar = CentreBar;
 
 /// Persist a finished training session. Called when the Watch sends
 /// 'training-session-end' over WCSession.
@@ -2073,7 +2312,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '7c46d47';
+const APP_VERSION = '91ae134';
 function showWelcomeSetup() {
   const name = userProfile?.displayName || 'there';
   const overlay = document.createElement('div');
@@ -2315,8 +2554,36 @@ let plansYear = 'Y7';
 let plansTier = 'basic';
 let plansSearch = '';
 let customPlans = []; // user-created AI plans [{id, ...planData, createdBy, createdByName, shared}]
+/// CGS edition is DISABLED for v1.0.0. The premium gold-on-white
+/// theme broke horizontal layout on iPhone (content overflowed the
+/// viewport, status bar showed cut-off text, bottom nav was clipped).
+/// Until that's properly redesigned, every signin clears any cached
+/// edition flag and the body class so the app stays on the dark
+/// default theme regardless of what's in Firestore.
+function applyEditionTheme(team) {
+  try {
+    document.body.classList.remove('cgs-edition');
+    try { localStorage.removeItem('tp_edition'); } catch(_) {}
+    const badge = document.getElementById('cgs-edition-badge');
+    if (badge) badge.remove();
+    try {
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) themeMeta.setAttribute('content', '#0a0b0f');
+    } catch(_) {}
+  } catch(_) {}
+}
+// Strip any leftover edition state at boot — defensive sweep for
+// devices that still carry the cached "tp_edition=cgs" flag from
+// the broken release.
+try {
+  if (typeof document !== 'undefined') {
+    document.body?.classList?.remove('cgs-edition');
+    try { localStorage.removeItem('tp_edition'); } catch(_) {}
+  }
+} catch(_) {}
+
 // Team state
-let teamData = null; // {id, name, code, members:[], coaches, createdBy, subteams, features}
+let teamData = null; // {id, name, code, edition, members:[], coaches, createdBy, subteams, features}
 let teamMembers = []; // [{uid, displayName, yearLevel, fitnessLevel, activePlanId, totalWorkouts, streak, checklistPct}]
 let teamUnsubscribe = null;  // onSnapshot disposer for live team updates
 let isAdmin = false;
@@ -2658,6 +2925,8 @@ $('signup-btn')?.addEventListener('click', async () => {
   hide('signup-error');
   const btn = $('signup-btn');
   btn.disabled = true;
+  const originalLabel = btn.textContent;
+  btn.textContent = 'Creating…';
   showLoading('Creating account...');
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -2675,7 +2944,10 @@ $('signup-btn')?.addEventListener('click', async () => {
     };
     if (role === 'parent') userData.linkedChildEmail = childEmail;
     if (role === 'coach') userData.isCoach = true;
-    // Auto-join selected team
+    // Auto-join selected team — surface failure to the user instead of
+    // silently leaving them without a team (was the source of the
+    // post-signup "you can't see anything" complaint).
+    let teamJoinNote = '';
     if (selectedTeamId && db) {
       try {
         const teamSnap = await getDoc(doc(db, 'teams', selectedTeamId));
@@ -2684,14 +2956,29 @@ $('signup-btn')?.addEventListener('click', async () => {
           await updateDoc(doc(db, 'teams', selectedTeamId), { members: arrayUnion(cred.user.uid) });
           userData.teamId = selectedTeamId;
           userData.teamName = td.name;
+          teamJoinNote = ` Joined ${td.name}.`;
+        } else {
+          teamJoinNote = ' (Team not found — you can join one in-app.)';
         }
-      } catch(e) { console.warn('Auto-join team failed:', e); }
+      } catch(e) {
+        console.warn('Auto-join team failed:', e);
+        teamJoinNote = ' (Could not auto-join team — add yours from the Team tab.)';
+      }
     }
     await setDoc(doc(db, 'users', cred.user.uid), userData);
-    if (role === 'coach') await submitTeamRequest(cred.user, name, email);
+    if (role === 'coach') {
+      await submitTeamRequest(cred.user, name, email);
+      try { showToast?.('Account created. Coach approval request sent — you\'ll get an email when it\'s reviewed.', 'success'); } catch(_) {}
+    } else if (role === 'parent') {
+      try { showToast?.('Account created. Linked to ' + childEmail + '.', 'success'); } catch(_) {}
+    } else {
+      try { showToast?.('Welcome to TurboPrep!' + teamJoinNote, 'success'); } catch(_) {}
+    }
+    // onAuthStateChanged takes it from here — boots the main app.
   } catch(e) {
     hideLoading();
     btn.disabled = false;
+    btn.textContent = originalLabel;
     $('signup-error').textContent = friendlyError(e.code);
     show('signup-error');
   }
@@ -2716,6 +3003,16 @@ $('logout-btn')?.addEventListener('click', async () => {
     if (_trainingReminderInterval) { try { clearInterval(_trainingReminderInterval); } catch(e) {} _trainingReminderInterval = null; }
     if (_announcementsUnsub) { try { _announcementsUnsub(); } catch(e) {} _announcementsUnsub = null; }
     if (_globalSettingsUnsub) { try { _globalSettingsUnsub(); } catch(e) {} _globalSettingsUnsub = null; }
+    if (_teamTrainingCueUnsub) { try { _teamTrainingCueUnsub(); } catch(_) {} _teamTrainingCueUnsub = null; }
+    // Tear down the persistent centre bar's 1Hz tick + clear any active
+    // session flags so a sign-out doesn't leave a stale strip ticking.
+    try {
+      window._tpTrainingActive = false;
+      window._tpRaceDayStintActive = false;
+      window.CentreBar?.hide?.();
+    } catch(_) {}
+    // Clear any cached edition flag so the next sign-in starts neutral.
+    try { applyEditionTheme(null); } catch(_) {}
     // Clear coach-tab cross-account caches so signing in as a
     // different coach doesn't see the previous account's compliance
     // grid leak through.
@@ -5063,6 +5360,22 @@ function renderToday() {
     </div>
   </div>`;
   html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
+  // ── Prominent Start Training CTA ──────────────────────────────────
+  // Always visible at the top of Today (between progress bar + weather).
+  // Hidden when a training session is already in flight — the
+  // CentreBar / training overlay covers that case.
+  if (!window._tpTrainingActive) {
+    html += `<button id="today-start-training" type="button" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;margin:0 0 12px;border-radius:14px;border:none;background:linear-gradient(135deg, var(--primary), #ea6a0a);color:#fff;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 18px rgba(var(--primary-rgb),.30), inset 0 1px 0 rgba(255,255,255,.20);text-align:left">
+      <span style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </span>
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-size:15px;font-weight:800;line-height:1.1">Start training</span>
+        <span style="display:block;font-size:11.5px;font-weight:600;opacity:.85;margin-top:2px">Tap to begin · Watch syncs automatically</span>
+      </span>
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>`;
+  }
   // Engagement chips removed — they restated information already
   // present in the XP / streak header (XP value + level + progress bar
   // already convey "log today for more XP", and freezes show on the
@@ -5350,12 +5663,70 @@ function renderToday() {
     const todayDay = now.getDay();
     const todayDateKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
     const overrides = (userPlanOverrides[activePlanId]?.entries) || [];
+    // ── Race-week auto-sharpening ───────────────────────────────────
+    // When the next race is ≤7 days away, override the stored plan
+    // with a sharpening protocol: 2 short sessions + 4 rest + 1 race.
+    // Doesn't mutate the plan; just decides what to surface today.
+    let raceWeekOverride = null;
+    try {
+      const phaseNow = computeRacePhase(now);
+      if (phaseNow && phaseNow.phase === 'race-week') {
+        const daysOut = phaseNow.daysOut;
+        // Day 7, 4 → sharpener; day 0 → race; rest = rest
+        const isSharpenerDay = daysOut === 7 || daysOut === 4;
+        const isRaceDay = daysOut === 0;
+        const restMsg = daysOut === 1
+          ? `Tomorrow is race day. Light spin only if you must — sleep, hydrate, prep your gear.`
+          : `Race day in ${daysOut}d. Rest is the work today. Move easy, sleep early.`;
+        raceWeekOverride = {
+          daysOut, isSharpenerDay, isRaceDay, restMsg,
+          raceName: phaseNow.race?.name || 'race',
+        };
+      }
+    } catch(_) {}
     // Effective today = natural matches not shifted away + any shifted-in for today.
-    const todayWorkouts = activePlan.workouts.filter(w => {
+    let todayWorkouts = activePlan.workouts.filter(w => {
       const shifted = overrides.find(o => o.week === w.week && o.day === w.day);
       if (shifted) return shifted.shiftedTo === todayDateKey;
       return dayMap[w.day] === todayDay;
     });
+    if (raceWeekOverride) {
+      // Big "RACE WEEK" banner above the day's content.
+      const rw = raceWeekOverride;
+      const bannerColor = rw.isRaceDay ? '#ef4444' : (rw.isSharpenerDay ? '#f97316' : '#8b5cf6');
+      html += `<div style="margin-bottom:12px;padding:14px;border-radius:14px;background:linear-gradient(135deg, rgba(239,68,68,.12), rgba(249,115,22,.06));border:1px solid rgba(239,68,68,.30);position:relative;overflow:hidden">
+        <div style="font-size:10px;font-weight:900;letter-spacing:.18em;color:${bannerColor};text-transform:uppercase;margin-bottom:4px">${rw.isRaceDay ? 'RACE DAY' : 'RACE WEEK · D-' + rw.daysOut}</div>
+        <div style="font-size:18px;font-weight:900;color:var(--fg);line-height:1.2">${escHtml(rw.raceName)}</div>
+        <div style="font-size:12.5px;color:var(--muted-fg);line-height:1.45;margin-top:6px">${rw.isRaceDay
+          ? 'It\'s today. Get warm, hydrate, check your gear, trust your prep.'
+          : rw.isSharpenerDay
+            ? 'Quick sharpener day — short and snappy, then full recovery.'
+            : escHtml(rw.restMsg)}</div>
+      </div>`;
+      if (rw.isRaceDay) {
+        // Replace today's sessions with a single "Race day" tile.
+        todayWorkouts = [{
+          name: 'Race day — execute',
+          duration: 0,
+          intensity: 'race',
+          description: 'No training. Race-day stints will auto-log via the Watch.',
+          week: 0, day: 'Race', _synthetic: true, _raceDay: true,
+        }];
+      } else if (!rw.isSharpenerDay) {
+        // Force rest — surface a clean "today is rest" message.
+        todayWorkouts = [];
+      } else {
+        // Sharpener day — keep the day's session but cap duration at 30 min
+        // and tag as sharpener. Mutate a shallow copy, not the plan.
+        todayWorkouts = todayWorkouts.slice(0, 1).map(w => ({
+          ...w,
+          name: 'Race-week sharpener — ' + (w.name || 'short session'),
+          duration: Math.min(30, w.duration || 30),
+          intensity: 'moderate',
+          _sharpener: true,
+        }));
+      }
+    }
     if (todayWorkouts.length > 0) {
       // RPE-driven coach hint (#3) — show a small banner above today's
       // sessions if the last logged workout's RPE was extreme. Pure
@@ -5861,6 +6232,16 @@ function renderToday() {
     const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay() + 1); ws.setHours(0,0,0,0);
     localStorage.setItem('tp_summary_week', localDateKey(ws));
     $('dismiss-weekly')?.closest('.last-week-card')?.remove();
+  });
+  // Big Start Training CTA — top of Today page.
+  $('today-start-training')?.addEventListener('click', () => {
+    haptic('medium');
+    try {
+      startTrainingSession({ type: 'ride', title: 'Training' });
+    } catch (e) {
+      console.warn('Start training failed:', e);
+      showToast?.('Could not start training. Try again.', 'warn');
+    }
   });
   // Widget customization
   $('today-customize')?.addEventListener('click', () => {
@@ -7449,9 +7830,82 @@ function renderWorkouts() {
   const c = $('workouts-content');
   const volDays = window._tpVolDays || 7;
   let html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:0 2px"><div class="page-title" style="margin:0">Activities</div><button id="manual-log-btn" style="flex-shrink:0;font-size:12px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--fg);cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Log manually</span></button></div>';
-  // Volume chart — top of activities list. Muscle aggregate over the
-  // selected window (default 7d). Hidden when the user has zero workouts.
+  // ── Fitness readiness hero ────────────────────────────────────────
+  // Surfaces three signals at the top of the Activities tab:
+  //   • Weekly load (minutes this week) + delta vs prior week
+  //   • Average RPE of last 5 sessions + trend arrow
+  //   • Readiness score (0-100, simple heuristic — high if RPE has
+  //     been moderate + recent rest + consistency)
+  // Renders only when there's at least one workout to anchor data.
   if ((userWorkouts || []).length > 0) {
+    try {
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setHours(0,0,0,0);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      const startOfPrev = new Date(startOfWeek);
+      startOfPrev.setDate(startOfWeek.getDate() - 7);
+      let weekMins = 0, prevMins = 0;
+      const lastRpes = [];
+      (userWorkouts || []).forEach(w => {
+        const d = w.date?.toDate ? w.date.toDate() : (w.date ? new Date(w.date) : null);
+        if (!d) return;
+        const mins = Number(w.duration || 0);
+        if (d >= startOfWeek) weekMins += mins;
+        else if (d >= startOfPrev) prevMins += mins;
+        if (typeof w.rpe === 'number' && lastRpes.length < 5) lastRpes.push(w.rpe);
+      });
+      const delta = weekMins - prevMins;
+      const deltaPct = prevMins > 0 ? Math.round((delta / prevMins) * 100) : (weekMins > 0 ? 100 : 0);
+      const avgRpe = lastRpes.length ? (lastRpes.reduce((s, r) => s + r, 0) / lastRpes.length) : null;
+      // Readiness — penalise high RPE (recent fatigue), reward consistency.
+      // Daily-tap streak signal lives on userWorkouts; reuse if available.
+      let readiness = 70;
+      if (avgRpe != null) {
+        if (avgRpe >= 8.5) readiness -= 28;
+        else if (avgRpe >= 7.5) readiness -= 12;
+        else if (avgRpe <= 4.5) readiness += 10;
+      }
+      // Bonus for at least 3 sessions in the last 7 days.
+      const sessionsThisWeek = (userWorkouts || []).filter(w => {
+        const d = w.date?.toDate ? w.date.toDate() : (w.date ? new Date(w.date) : null);
+        return d && d >= startOfWeek;
+      }).length;
+      readiness += Math.min(20, sessionsThisWeek * 5);
+      readiness = Math.max(0, Math.min(100, readiness));
+      const readinessLabel =
+        readiness >= 80 ? 'PRIMED' :
+        readiness >= 60 ? 'READY' :
+        readiness >= 40 ? 'WATCH' :
+        'RECOVER';
+      const readinessColor =
+        readiness >= 80 ? 'var(--success)' :
+        readiness >= 60 ? '#22c55e' :
+        readiness >= 40 ? 'var(--warning)' :
+        'var(--destructive)';
+      const trendIcon = delta >= 0
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>';
+      const trendColor = delta >= 0 ? 'var(--success)' : 'var(--warning)';
+      html += `<div class="hub-card hero" style="display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px;padding:14px;margin-bottom:14px;border-radius:14px;background:linear-gradient(135deg, rgba(var(--primary-rgb),.08), rgba(var(--primary-rgb),.02));border:1px solid rgba(var(--primary-rgb),.18)">
+        <div style="grid-column:1 / -1;display:flex;justify-content:space-between;align-items:baseline">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--primary);text-transform:uppercase">This week</div>
+          <div style="font-size:9px;color:var(--muted-fg);letter-spacing:.06em;text-transform:uppercase">${escHtml(now.toLocaleDateString('en-AU',{day:'numeric',month:'short'}))}</div>
+        </div>
+        <div>
+          <div style="display:flex;align-items:baseline;gap:4px"><span style="font-size:28px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--fg);line-height:1">${weekMins}</span><span style="font-size:13px;color:var(--muted-fg);font-weight:700">min</span></div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:4px;font-size:10.5px;color:${trendColor};font-weight:700">${trendIcon}<span>${delta >= 0 ? '+' : ''}${deltaPct}% vs last week</span></div>
+        </div>
+        <div>
+          <div style="display:flex;align-items:baseline;gap:4px"><span style="font-size:28px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--fg);line-height:1">${avgRpe ? avgRpe.toFixed(1) : '—'}</span></div>
+          <div style="font-size:10.5px;color:var(--muted-fg);font-weight:700;margin-top:4px;letter-spacing:.04em;text-transform:uppercase">Avg RPE · last 5</div>
+        </div>
+        <div>
+          <div style="display:flex;align-items:baseline;gap:4px"><span style="font-size:28px;font-weight:900;font-variant-numeric:tabular-nums;color:${readinessColor};line-height:1">${readiness}</span></div>
+          <div style="font-size:10.5px;color:${readinessColor};font-weight:800;margin-top:4px;letter-spacing:.10em;text-transform:uppercase">${readinessLabel}</div>
+        </div>
+      </div>`;
+    } catch(_) {}
     html += renderVolumeChartHtml(volDays);
   }
   // Load stored routes for mini maps — tracker.js and strava.js both write to vf_routes
@@ -7553,7 +8007,7 @@ function renderWorkouts() {
               </div>
               <div style="font-size:11px;color:var(--muted-fg);margin-top:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                 <span>${dateStr} · ${timeStr}</span>
-                ${w.stravaId ? `<a href="https://www.strava.com/activities/${escHtml(String(w.stravaId))}" target="_blank" rel="noopener" data-stop-card="1" style="color:#fc4c02;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:3px"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width:9px;height:9px"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>View on Strava</a>` : ''}
+                ${w.stravaId ? `<a href="https://www.strava.com/activities/${escHtml(String(w.stravaId))}" data-strava-open="${escHtml(String(w.stravaId))}" rel="noopener" data-stop-card="1" style="color:#fc4c02;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:3px"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width:9px;height:9px"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>View in Strava</a>` : ''}
               </div>
             </div>
             <button class="wo-delete" data-id="${w._id}" aria-label="Delete">
@@ -9682,13 +10136,49 @@ function renderTeamTab(c, opts) {
   // Bind copy. Use optional chaining everywhere — a single missing
   // element used to throw and abort the rest of the bind block,
   // making every button below this line silently dead.
-  $('copy-code-btn')?.addEventListener('click', () => {
-    if (!teamData?.code) return;
-    navigator.clipboard.writeText(teamData.code).catch(() => {});
+  $('copy-code-btn')?.addEventListener('click', async () => {
+    if (!teamData?.code) {
+      showToast('No team code yet. Create a team first.', 'warn');
+      return;
+    }
+    // Best-effort share + copy. WKWebView's Web Share API is finicky
+    // about the `url:` field (must be valid same-origin OR omitted),
+    // so we pass text only. Each step is independently caught so a
+    // single failure can never silently brick the rest of the flow.
+    const code = teamData.code;
+    const teamName = teamData?.name || 'my team';
+    const inviteLink = `https://turboprep.app/join/${code}`;
+    const shareText = `Join ${teamName} on TurboPrep. Open the app → Team tab → "Join by code" → ${code}\n(or tap: ${inviteLink})`;
+    let shared = false;
+    try {
+      // canShare() is the safer feature-detect on WKWebView — `navigator.share`
+      // exists but throws on iOS web app contexts where Apple has gated it.
+      const canShare = typeof navigator.canShare === 'function'
+        ? navigator.canShare({ text: shareText, title: teamName })
+        : !!navigator.share;
+      if (canShare) {
+        await navigator.share({ title: `Join ${teamName} on TurboPrep`, text: shareText });
+        shared = true;
+        showToast('Invite shared!', 'success');
+      }
+    } catch (e) {
+      if (e?.name === 'AbortError') return;          // user cancelled — silent
+      console.warn('navigator.share failed, falling back to clipboard:', e?.message || e);
+    }
+    if (!shared) {
+      // Clipboard fallback. If even this fails (rare — usually permissions
+      // or insecure context), give the user a visible code to long-press.
+      try {
+        await navigator.clipboard.writeText(shareText);
+        showToast('Invite copied — paste into your class chat.', 'success');
+      } catch (e) {
+        console.warn('clipboard.writeText failed:', e?.message || e);
+        showToast(`Code: ${code} · long-press to copy.`, 'info');
+      }
+    }
     const btn = $('copy-code-btn');
     if (!btn) return;
     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-    showToast('Team code copied — share with teammates', 'success');
     setTimeout(() => {
       const btn2 = $('copy-code-btn');
       if (btn2) btn2.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
@@ -11207,6 +11697,11 @@ function openMemberSheet(uid) {
       </div>
 
       <div class="member-sheet-cat">
+        <div class="member-sheet-cat-title">Race notes</div>
+        <div id="member-sheet-race-notes"><div class="member-sheet-empty">Loading…</div></div>
+      </div>
+
+      <div class="member-sheet-cat">
         <div class="member-sheet-cat-title">Gallery uploads</div>
         ${photoCells}
       </div>
@@ -11223,6 +11718,36 @@ function openMemberSheet(uid) {
   document.addEventListener('keydown', function esc(e) {
     if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
   });
+  // Async-fill the race-notes block — these are per-rider notes left
+  // by the coach during a race-report upload.
+  (async () => {
+    const rnEl = ov.querySelector('#member-sheet-race-notes');
+    if (!rnEl || !db) return;
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'users', uid, 'race_notes'),
+        orderBy('createdAt', 'desc'),
+        limit(8)
+      ));
+      if (snap.empty) {
+        rnEl.innerHTML = '<div class="member-sheet-empty">No coach race notes yet.</div>';
+        return;
+      }
+      rnEl.innerHTML = snap.docs.map(d => {
+        const n = d.data();
+        const yearLabel = n.raceYear ? ` · ${n.raceYear}` : '';
+        const lapsLabel = (typeof n.laps === 'number' && n.laps > 0) ? ` · ${n.laps} laps` : '';
+        const conditions = n.conditions ? `<div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${escHtml(n.conditions)}${n.delays ? ' · ' + escHtml(n.delays) : ''}</div>` : '';
+        return `<div class="member-sheet-stat" style="grid-column:1 / -1;padding:10px 12px;background:rgba(var(--primary-rgb),.04);border:1px solid rgba(var(--primary-rgb),.14);border-radius:10px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div class="member-sheet-stat-lbl">${escHtml(n.raceName || 'Race')}${yearLabel}${lapsLabel}</div></div>
+          <div style="font-size:13px;color:var(--fg);margin-top:6px;line-height:1.45">${escHtml(n.notes || '—')}</div>
+          ${conditions}
+        </div>`;
+      }).join('');
+    } catch (e) {
+      rnEl.innerHTML = '<div class="member-sheet-empty">Couldn\'t load race notes.</div>';
+    }
+  })();
 }
 
 /// Open a sheet showing a single athlete's detail — what plan they're on,
@@ -12452,6 +12977,65 @@ async function leaveTeam() {
     }
   });
 }
+/// Flag the only existing team as the CGS premium edition. Because
+/// there's just one club at launch, "the club" IS the CGS one — we
+/// don't create new teams, we just tag what's there. Idempotent:
+/// re-runs every admin signin but only writes when needed.
+///
+///   • 0 teams in Firestore → no-op (admin should create their team
+///     manually via the Coach > Manage flow first).
+///   • Exactly 1 team       → patch edition='cgs' if not already set.
+///   • Multiple teams       → no-op (we'd be guessing which is CGS).
+///                            Admin can set the flag manually from the
+///                            Firestore console if a multi-team future
+///                            ever arrives.
+async function ensureCgsTeam() {
+  if (!db || !currentUser) return;
+  try {
+    const snap = await getDocs(collection(db, 'teams'));
+    if (snap.empty) {
+      console.log('[cgs] no teams yet — skipping seed');
+      return;
+    }
+    if (snap.size > 1) {
+      console.log(`[cgs] ${snap.size} teams found — skipping auto-flag (ambiguous)`);
+      return;
+    }
+    const doc0 = snap.docs[0];
+    const data = doc0.data();
+    if (data.edition === 'cgs') {
+      console.log('[cgs] only team already flagged as cgs:', doc0.id);
+      return doc0.id;
+    }
+    try {
+      await updateDoc(doc0.ref, { edition: 'cgs' });
+      console.log('[cgs] flagged only team as cgs:', doc0.id, 'name:', data.name);
+      showToast?.(`${data.name || 'Team'} upgraded to CGS premium edition`, 'success');
+    } catch (e) {
+      console.warn('[cgs] flag write failed (rules?):', e?.message || e);
+    }
+    return doc0.id;
+  } catch (e) {
+    console.warn('[cgs] ensureCgsTeam failed:', e?.message || e);
+  }
+}
+
+/// One-shot rollback helper — strips edition='cgs' off whatever team
+/// holds it. Runs every admin signin while the broken theme is in
+/// the field. Safe to remove once we re-ship the premium theme.
+async function clearCgsEdition() {
+  if (!db || !currentUser) return;
+  try {
+    const snap = await getDocs(query(collection(db, 'teams'), where('edition', '==', 'cgs')));
+    for (const d of snap.docs) {
+      try { await updateDoc(d.ref, { edition: null }); console.log('[cgs] cleared edition on', d.id); }
+      catch (e) { console.warn('[cgs] clear edition failed:', d.id, e?.message); }
+    }
+  } catch (e) {
+    console.warn('[cgs] query for edition=cgs failed:', e?.message || e);
+  }
+}
+
 async function loadTeamData(forceRefresh=false) {
   if (!currentUser || !userProfile?.teamId) {
     teamData = null; teamMembers = []; return;
@@ -12488,12 +13072,17 @@ async function loadTeamData(forceRefresh=false) {
       id: teamSnap.id,
       name: td.name,
       code: td.code,
+      edition: td.edition || null,        // 'cgs' unlocks the gold-on-white theme
       members: td.members || [],
       coaches: td.coaches || [],
       createdBy: td.createdBy || null,
       subteams: td.subteams || [],
       features: td.features || {},
+      weeklyIntent: td.weeklyIntent || null,
+      weeklyIntentSetAt: td.weeklyIntentSetAt || null,
     };
+    // Flip the edition theme + brand the second teamData lands.
+    applyEditionTheme(teamData);
     // Load each member's data — parallelised. Was 3 sequential reads
     // per member; with 20 athletes that's 60 round-trips serially. Now
     // 3 batches of N parallel reads ≈ 3 round-trips total.
@@ -12795,6 +13384,51 @@ function getEmbedUrl(url) {
   return url;
 }
 // Firebase Listeners
+// Team-training cue listener — fires when the coach hits "Start team
+// training now" in Coach > Race Day. Each athlete gets a toast + the
+// Start Training button highlighted. Mute one cue per device by
+// stashing its ID in localStorage.
+let _teamTrainingCueUnsub = null;
+function listenTeamTrainingCue() {
+  try { _teamTrainingCueUnsub?.(); } catch(_) {}
+  _teamTrainingCueUnsub = null;
+  if (!db || !userProfile?.teamId) return;
+  try {
+    _teamTrainingCueUnsub = onSnapshot(
+      doc(db, 'teams', userProfile.teamId, 'cues', 'training'),
+      (snap) => {
+        if (!snap.exists()) return;
+        const d = snap.data();
+        if (!d.active) return;
+        const cueAt = d.startedAt?.toMillis?.() || 0;
+        if (Date.now() - cueAt > 30 * 60 * 1000) return;     // ignore stale (>30min)
+        const ackKey = 'tp_team_train_ack_' + (cueAt || 'now');
+        try { if (localStorage.getItem(ackKey)) return; } catch(_) {}
+        try { localStorage.setItem(ackKey, '1'); } catch(_) {}
+        if (d.startedBy === currentUser?.uid) return;        // don't notify the coach who started it
+        showToast?.(`${d.startedByName || 'Coach'} started team training`, 'info');
+        // Flash the Start Training button + nudge the user to today.
+        try {
+          if (currentPage !== 'today') {
+            const btn = document.querySelector('[data-page="today"]');
+            btn?.click();
+          }
+          setTimeout(() => {
+            const cta = document.getElementById('today-start-training');
+            if (cta) {
+              cta.style.outline = '3px solid var(--primary)';
+              cta.style.outlineOffset = '3px';
+              cta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              setTimeout(() => { cta.style.outline = ''; cta.style.outlineOffset = ''; }, 4000);
+            }
+          }, 250);
+        } catch(_) {}
+      },
+      (err) => console.warn('team-train cue listener:', err?.message || err)
+    );
+  } catch (e) { console.warn('listenTeamTrainingCue:', e?.message || e); }
+}
+
 function setupListeners(uid) {
   // Listen to workouts. Debounce the re-render so a burst — e.g. a
   // Strava sync writing 30 workouts in <1s — coalesces into a single
@@ -13260,7 +13894,7 @@ function privacyPolicyHtml() {
     <h2 style="font-size:15px;margin:18px 0 6px">Children</h2>
     <p>TurboPrep is built for school HPR teams; children typically join via their school. Schools are responsible for obtaining parental consent before issuing accounts.</p>
     <h2 style="font-size:15px;margin:18px 0 6px">Contact</h2>
-    <p>Privacy questions: <a href="mailto:hello@turboprep.app" style="color:var(--primary)">hello@turboprep.app</a></p>
+    <p>Privacy questions: <a href="mailto:hearn.tenny@icloud.com" style="color:var(--primary)">hearn.tenny@icloud.com</a></p>
   `;
 }
 
@@ -13280,7 +13914,7 @@ function termsHtml() {
     <h2 style="font-size:15px;margin:18px 0 6px">Changes</h2>
     <p>If we change these terms, we'll post a notice in the app and update the "Last updated" date. Continued use means you accept the change.</p>
     <h2 style="font-size:15px;margin:18px 0 6px">Contact</h2>
-    <p>Support: <a href="mailto:hello@turboprep.app" style="color:var(--primary)">hello@turboprep.app</a></p>
+    <p>Support: <a href="mailto:hearn.tenny@icloud.com" style="color:var(--primary)">hearn.tenny@icloud.com</a></p>
   `;
 }
 
@@ -13406,7 +14040,7 @@ async function confirmDeleteAccount() {
   } catch(e) {
     hideLoading();
     console.error('Account deletion failed:', e);
-    showToast('Account deletion failed. Email hello@turboprep.app for help.', 'error');
+    showToast('Account deletion failed. Email hearn.tenny@icloud.com for help.', 'error');
   }
 }
 
@@ -13531,10 +14165,29 @@ async function openInvitePicker() {
   sheetEl.querySelector('#invite-share-link-btn')?.addEventListener('click', async () => {
     const code = teamData.code;
     const msg = `Join my TurboPrep team "${teamData.name}". Open the app, go to the Team tab and tap "Join Team by Code". Code: ${code}`;
+    let shared = false;
     try {
-      if (navigator.share) await navigator.share({ title: 'Join my team on TurboPrep', text: msg });
-      else { await navigator.clipboard.writeText(msg); showToast('Invite copied', 'success'); }
-    } catch(_) {}
+      const canShare = typeof navigator.canShare === 'function'
+        ? navigator.canShare({ text: msg })
+        : !!navigator.share;
+      if (canShare) {
+        await navigator.share({ title: 'Join my team on TurboPrep', text: msg });
+        shared = true;
+        showToast('Invite shared', 'success');
+      }
+    } catch (e) {
+      if (e?.name === 'AbortError') return;
+      console.warn('Invite share failed:', e?.message || e);
+    }
+    if (!shared) {
+      try {
+        await navigator.clipboard.writeText(msg);
+        showToast('Invite copied', 'success');
+      } catch (e) {
+        console.warn('Invite clipboard failed:', e?.message || e);
+        showToast(`Code: ${code} · long-press to copy.`, 'info');
+      }
+    }
   });
 }
 
@@ -13960,7 +14613,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '7c46d47';
+  const APP_VERSION = '91ae134';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
@@ -14058,6 +14711,15 @@ function startApp() {
       // Ensure master account has isCoach flag
       if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && !userProfile?.isCoach && db) {
         try { await updateDoc(doc(db,'users',user.uid),{isCoach:true}); if(userProfile) userProfile.isCoach=true; } catch(e){ logError('set-master-coach', e, { uid: user.uid }); }
+      }
+      // CGS auto-seed disabled in v1.0.0 — the premium theme has a
+      // horizontal-overflow regression on iPhone. The seed function
+      // still exists for when the redesign lands; we just don't call
+      // it on signin anymore. The team's existing edition flag (if
+      // any) is also reverted below so old admins don't keep the
+      // broken theme cached.
+      if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && db) {
+        try { await clearCgsEdition(); } catch(e) { console.warn('clearCgsEdition:', e?.message || e); }
       }
       // Auto-place teamless athletes into the default team. Runs every
       // sign-in so testers who got their teamId stripped (or never had
@@ -14168,6 +14830,16 @@ function startApp() {
       const refresh = () => { try { (currentPageNeeds[currentPage] || (() => {}))(); } catch(e) {} };
       loadAnnouncements().then(refresh).catch(() => {});
       loadTeamData().then(() => {
+        // Force an immediate watch-state + home-widget-state push as
+        // soon as team data is available, so the iOS home-screen widget
+        // gets real data instead of staying on the placeholder until
+        // the next render cycle. Bypasses the 800ms throttle.
+        try { if (typeof _pushWatchStateImpl === 'function') _pushWatchStateImpl(); } catch(_) {}
+        // Attach the team-training cue listener so athletes get a
+        // toast + the Start Training CTA highlighted when the coach
+        // hits "Start team training now".
+        try { listenTeamTrainingCue(); } catch(_) {}
+      }).then(() => {
         // Attach the team live listener exactly once after the initial load,
         // not from inside loadTeamData (which used to cause an attach→load→
         // re-attach loop, racing the renderTeam call).
@@ -14260,11 +14932,142 @@ let coachPageTab = (() => {
   try { return localStorage.getItem('tp_coachPageTab') || 'students'; }
   catch (e) { return 'students'; }
 })();
+/// Three-step coach onboarding modal. Fires once per device on first
+/// open of the Coach tab. Drives the highest-leverage day-1 actions:
+/// (1) create subteams, (2) copy invite link, (3) set this week's intent.
+function openCoachOnboarding(onDone) {
+  document.getElementById('coach-onboarding-bd')?.remove();
+  let step = 0;
+  const totalSteps = 3;
+  const teamCode = teamData?.code || '— set up your team first —';
+  const inviteLink = teamData?.code ? `https://turboprep.app/join/${teamData.code}` : '';
+  const steps = [
+    {
+      kicker: '1 of 3',
+      title: 'Welcome, coach.',
+      body: 'A quick 60-second tour so you can run your team without thinking about the app.',
+      bullets: [
+        ['Roster + adherence', 'See who logged what at a glance.'],
+        ['Direct messaging', 'Nudge any athlete in one tap.'],
+        ['Race-day mode', 'Locks the watch, pins the leaderboard, archives every stint.'],
+      ],
+      cta: 'Show me how',
+    },
+    {
+      kicker: '2 of 3',
+      title: 'Share your team invite link.',
+      body: 'Athletes scan or tap this and land straight in your team. No code typing.',
+      custom: `
+        <div style="margin:14px 0;padding:14px;border-radius:12px;background:rgba(var(--primary-rgb),.08);border:1px solid rgba(var(--primary-rgb),.25);text-align:center">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--primary);margin-bottom:6px">Team code</div>
+          <div style="font-family:var(--font-mono,monospace);font-size:24px;font-weight:900;letter-spacing:.10em;color:var(--fg)">${escHtml(teamCode)}</div>
+          ${inviteLink ? `<button id="cb-copy-link" type="button" data-haptic="success" style="margin-top:10px;padding:8px 16px;border-radius:10px;background:var(--primary);color:var(--primary-fg,#fff);border:none;font-weight:700;font-size:12px;cursor:pointer">Copy invite link</button>` : '<div style="margin-top:8px;font-size:11px;color:var(--muted-fg)">Create your team in <b>Manage</b> first.</div>'}
+        </div>
+        <div style="font-size:12px;color:var(--muted-fg);line-height:1.5">Paste this into a class group chat, school email, or print the QR onto a slide for day one.</div>
+      `,
+      cta: 'Got it',
+    },
+    {
+      kicker: '3 of 3',
+      title: 'Set this week\'s intent.',
+      body: 'A single sentence the whole team sees when they open the app. Resets every Monday.',
+      custom: `
+        <textarea id="cb-intent" maxlength="140" rows="3" placeholder="e.g. Base aerobic week — don't push the thresholds, log RPE." style="width:100%;margin-top:12px;padding:12px;border-radius:10px;background:var(--card,rgba(255,255,255,.04));border:1px solid var(--border);color:var(--fg);font-size:13px;font-family:var(--font-sans);resize:vertical;box-sizing:border-box"></textarea>
+        <div style="font-size:11px;color:var(--muted-fg);margin-top:6px">You can change this any time from Coach → My Team.</div>
+      `,
+      cta: 'Finish setup',
+    },
+  ];
+  const bd = document.createElement('div');
+  bd.id = 'coach-onboarding-bd';
+  bd.style.cssText = 'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;padding:20px';
+  document.body.appendChild(bd);
+  function render() {
+    const s = steps[step];
+    bd.innerHTML = `
+      <div role="dialog" aria-label="Coach onboarding" style="background:var(--bg);border-radius:24px;width:100%;max-width:420px;padding:22px 22px 18px;box-shadow:0 -16px 60px rgba(0,0,0,.4);animation:tp-sheet-rise .35s cubic-bezier(.25,1.6,.45,1) both">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <span style="font-size:10px;font-weight:800;letter-spacing:.16em;color:var(--primary);text-transform:uppercase">${s.kicker}</span>
+          <button type="button" id="cb-skip" style="background:none;border:none;color:var(--muted-fg);font-size:13px;font-weight:600;cursor:pointer;padding:4px 8px">Skip</button>
+        </div>
+        <div style="font-size:22px;font-weight:900;color:var(--fg);line-height:1.2;margin-bottom:6px">${escHtml(s.title)}</div>
+        <div style="font-size:13.5px;color:var(--muted-fg);line-height:1.45;margin-bottom:8px">${escHtml(s.body)}</div>
+        ${s.bullets ? `<div style="display:flex;flex-direction:column;gap:8px;margin:14px 0">${s.bullets.map(([h, b]) => `
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;height:22px;border-radius:50%;background:rgba(var(--primary-rgb),.15);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(h)}</div>
+              <div style="font-size:12px;color:var(--muted-fg);line-height:1.4;margin-top:2px">${escHtml(b)}</div>
+            </div>
+          </div>
+        `).join('')}</div>` : ''}
+        ${s.custom || ''}
+        <div style="display:flex;gap:8px;margin-top:18px">
+          ${step > 0 ? `<button type="button" id="cb-back" class="btn-secondary" style="flex:1;padding:12px;border-radius:12px;background:rgba(var(--fg-rgb,20,22,28),.06);border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">Back</button>` : ''}
+          <button type="button" id="cb-next" data-haptic="medium" style="flex:2;padding:12px;border-radius:12px;background:var(--primary);color:var(--primary-fg,#fff);border:none;font-weight:800;font-size:14px;cursor:pointer">${escHtml(s.cta)}</button>
+        </div>
+        <div style="display:flex;justify-content:center;gap:6px;margin-top:14px">
+          ${Array.from({length: totalSteps}).map((_, i) => `<div style="width:${i === step ? 18 : 6}px;height:6px;border-radius:99px;background:${i === step ? 'var(--primary)' : 'var(--border)'};transition:width .3s ease"></div>`).join('')}
+        </div>
+      </div>
+    `;
+    document.getElementById('cb-skip')?.addEventListener('click', finish);
+    document.getElementById('cb-back')?.addEventListener('click', () => { step = Math.max(0, step - 1); render(); });
+    document.getElementById('cb-next')?.addEventListener('click', async () => {
+      if (step === totalSteps - 1) {
+        // Save the weekly intent if entered. Stored on team doc.
+        const intent = document.getElementById('cb-intent')?.value?.trim();
+        if (intent && teamData?.id && db) {
+          try {
+            await updateDoc(doc(db, 'teams', teamData.id), {
+              weeklyIntent: intent,
+              weeklyIntentSetAt: serverTimestamp(),
+              weeklyIntentSetBy: currentUser?.uid || null,
+            });
+            showToast?.('Weekly intent saved.', 'success');
+          } catch (_) {
+            showToast?.('Saved locally — push it from My Team later.', 'warn');
+          }
+        }
+        finish();
+      } else {
+        step++; render();
+      }
+    });
+    document.getElementById('cb-copy-link')?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(inviteLink);
+        showToast?.('Invite link copied!', 'success');
+      } catch (_) {
+        showToast?.('Couldn\'t copy — long-press to copy manually.', 'warn');
+      }
+    });
+  }
+  function finish() {
+    bd.remove();
+    if (typeof onDone === 'function') onDone();
+  }
+  bd.addEventListener('click', (e) => { if (e.target === bd) finish(); });
+  render();
+}
+
 function renderCoachPage() {
   const c = $('coach-content');
   if (!c) return;
   const isMasterUser = currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
   if (!userProfile?.isCoach && !isMasterUser) { c.innerHTML = '<div class="empty-state"><div class="empty-state-title">Coach Access Only</div><div class="empty-state-desc">This tab is for coach accounts. If you are a coach, contact TurboPrep to enable coach access.</div></div>'; return; }
+  // First-time coach onboarding — 3-step walkthrough. Shown once,
+  // gated by localStorage so it never re-fires after dismissal.
+  try {
+    const key = 'tp_coach_onboarded_v1';
+    if (!localStorage.getItem(key)) {
+      setTimeout(() => openCoachOnboarding(() => {
+        try { localStorage.setItem(key, '1'); } catch(_) {}
+      }), 250);
+    }
+  } catch(_) {}
 
   const tabs = [
     { id: 'students', label: 'Students' },
@@ -14880,13 +15683,24 @@ async function renderCoachStudents(el) {
       const pct = comp?.pct;
       const pctText = pct == null ? '—' : pct + '%';
       const pctColor = pct == null ? 'var(--muted-fg)' : pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--destructive)';
+      // At-risk badge — drives the coach's eye to athletes who need
+      // intervention. Threshold of <40% over last 7 days = "at risk".
+      // Coloured pill renders inline next to the athlete name.
+      const atRisk = pct != null && pct < 40;
+      const onFire = pct != null && pct >= 90;
+      const tagHtml = atRisk
+        ? `<span class="cs-tag cs-tag-risk" style="display:inline-block;font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:99px;background:rgba(239,68,68,.15);color:#ef4444;margin-left:6px">AT RISK</span>`
+        : onFire
+        ? `<span class="cs-tag cs-tag-fire" style="display:inline-block;font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:99px;background:rgba(249,115,22,.15);color:#f97316;margin-left:6px">🔥 ON FIRE</span>`
+        : '';
       const lastActive = m.lastActive ? new Date(m.lastActive) : null;
       const lastActiveStr = lastActive ? formatRelativeShort(lastActive) : '—';
-      html += `<div data-cs-uid="${escHtml(m.uid)}" style="display:grid;grid-template-columns:1fr repeat(7,18px) 60px;gap:4px;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer">
+      const rowBg = atRisk ? 'rgba(239,68,68,.04)' : '';
+      html += `<div data-cs-uid="${escHtml(m.uid)}" style="display:grid;grid-template-columns:1fr repeat(7,18px) 60px;gap:4px;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;background:${rowBg}">
         <div style="display:flex;align-items:center;gap:8px;min-width:0">
           <div style="width:28px;height:28px;border-radius:50%;background:rgba(var(--primary-rgb),.12);color:var(--primary);font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${escHtml(initials)}</div>
           <div style="min-width:0">
-            <div style="font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.displayName || '(no name)')}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center">${escHtml(m.displayName || '(no name)')}${tagHtml}</div>
             <div style="font-size:10.5px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.yearLevel ? escHtml(m.yearLevel) + ' · ' : ''}${m.totalWorkouts || 0} sessions${m.streak ? ' · ' + m.streak + 'd streak' : ''} · ${escHtml(lastActiveStr)}</div>
           </div>
         </div>
@@ -14894,6 +15708,53 @@ async function renderCoachStudents(el) {
         <div style="text-align:right;font-size:13px;font-weight:800;color:${pctColor};font-variant-numeric:tabular-nums">${pctText}</div>
       </div>`;
     });
+    // Surface a single banner at the top summarising at-risk athletes so
+    // the coach can act in one tap rather than scanning the whole grid.
+    const atRiskCount = sorted.filter(m => {
+      const p = compliance[m.uid]?.pct;
+      return p != null && p < 40;
+    }).length;
+    if (atRiskCount > 0) {
+      const banner = `<div id="cs-at-risk-banner" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:10px;border-radius:10px;background:linear-gradient(180deg,rgba(239,68,68,.10),rgba(239,68,68,.04));border:1px solid rgba(239,68,68,.30)">
+        <div style="width:30px;height:30px;border-radius:50%;background:rgba(239,68,68,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:800;color:var(--fg)">${atRiskCount} athlete${atRiskCount > 1 ? 's' : ''} at risk</div>
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:1px">Adherence under 40% — tap a row to message them.</div>
+        </div>
+        <button id="cs-nudge-all-risk" type="button" data-haptic="medium" style="padding:6px 12px;border-radius:8px;background:#ef4444;color:#fff;border:none;font-weight:700;font-size:11px;cursor:pointer;flex-shrink:0">Nudge all</button>
+      </div>`;
+      // Inject just above the header row.
+      const headerRow = el.querySelector('div[style*="grid-template-columns:1fr repeat(7"]');
+      if (headerRow) headerRow.insertAdjacentHTML('beforebegin', banner);
+      else el.insertAdjacentHTML('afterbegin', banner);
+      // Wire the Nudge all button. Sends a single broadcast scoped to
+      // at-risk uids via the existing sendCoachBroadcast helper if
+      // available; falls back to a chat-mention prompt.
+      document.getElementById('cs-nudge-all-risk')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const targets = sorted
+          .filter(m => (compliance[m.uid]?.pct ?? 100) < 40)
+          .map(m => m.uid);
+        if (!targets.length) return;
+        const msg = prompt(
+          'Quick nudge to ' + targets.length + ' athlete' + (targets.length > 1 ? 's' : '') + ':',
+          "Hey — noticed you've been quiet this week. Drop in any session, even a short one. I'm here if you need help."
+        );
+        if (!msg) return;
+        try {
+          if (typeof sendCoachBroadcast === 'function') {
+            await sendCoachBroadcast({ message: msg, scope: 'uids', uids: targets });
+            showToast?.('Nudged ' + targets.length + ' athletes.', 'success');
+          } else {
+            showToast?.('Open team chat to send.', 'warn');
+          }
+        } catch (err) {
+          showToast?.('Could not send. Try again.', 'warn');
+        }
+      });
+    }
     el.innerHTML = html;
     el.querySelector('#cs-search')?.addEventListener('input', debounce(e => {
       window._tpStudentSearch = e.target.value;
@@ -15064,6 +15925,348 @@ function showPlanRevealModal() {
   });
 }
 
+/// Race-report preview sheet. After a coach uploads an xlsx, this shows
+/// the parsed stints + lap chart + AI brief and lets them confirm the
+/// push. Push routes to: race_archive/{raceId}/years/{year}/teams/{teamId}
+/// plus per-rider users/{uid}/race_notes/{raceId}.
+function openRaceReportPreview(parsed, fileName) {
+  document.getElementById('rr-preview-bd')?.remove();
+  const raceIdGuess = (parsed.title || 'race').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 48) || 'race';
+  const yearGuess = new Date().getFullYear();
+  const bd = document.createElement('div');
+  bd.id = 'rr-preview-bd';
+  bd.style.cssText = 'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;padding:20px';
+  document.body.appendChild(bd);
+  const sortedRiders = (parsed.riderData || []).slice().sort((a, b) => (b.lapsTotal || 0) - (a.lapsTotal || 0));
+  bd.innerHTML = `
+    <div role="dialog" aria-label="Race report preview" style="background:var(--bg);border-radius:24px;width:100%;max-width:520px;max-height:90vh;padding:20px 20px 16px;overflow-y:auto;box-shadow:0 -16px 60px rgba(0,0,0,.4)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--primary);text-transform:uppercase">Race report</div>
+          <div style="font-size:20px;font-weight:900;color:var(--fg);line-height:1.2;margin-top:4px">${escHtml(parsed.title || 'Race')}</div>
+          <div style="font-size:12px;color:var(--muted-fg);margin-top:2px">${escHtml(parsed.sub || '')}  ·  ${parsed.stints.length} stints  ·  ${parsed.totalLaps} laps</div>
+        </div>
+        <button id="rr-cancel" type="button" aria-label="Close" style="background:none;border:none;color:var(--muted-fg);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      </div>
+      <div style="margin-bottom:12px;padding:10px 12px;border-radius:10px;background:rgba(var(--primary-rgb),.05);border:1px solid rgba(var(--primary-rgb),.18);font-size:11px;color:var(--muted-fg)">
+        Source: <span style="color:var(--fg);font-weight:600">${escHtml(fileName || 'uploaded file')}</span>
+      </div>
+      <div style="font-size:10px;font-weight:800;letter-spacing:.10em;color:var(--muted-fg);text-transform:uppercase;margin:14px 0 8px">Laps per rider</div>
+      <div id="rr-chart"></div>
+      <div style="font-size:10px;font-weight:800;letter-spacing:.10em;color:var(--muted-fg);text-transform:uppercase;margin:16px 0 6px">Stints</div>
+      <div style="font-size:12px;color:var(--fg);line-height:1.5">
+        ${parsed.stints.map(s => `<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)"><span style="font-weight:800;color:var(--primary);min-width:18px">#${s.stintNumber}</span><span style="color:var(--muted-fg);min-width:96px">${escHtml(s.timeWindow)}</span><span style="font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(s.rider)}</span><span style="color:var(--muted-fg);font-size:11px">${s.durationMin}m</span></div>`).join('')}
+      </div>
+      <div style="font-size:10px;font-weight:800;letter-spacing:.10em;color:var(--muted-fg);text-transform:uppercase;margin:16px 0 6px">AI brief</div>
+      <div id="rr-ai-brief" style="font-size:12.5px;color:var(--fg);line-height:1.55;padding:10px 12px;border-radius:10px;background:rgba(var(--primary-rgb),.04);border:1px solid rgba(var(--primary-rgb),.15);min-height:50px">
+        <span style="color:var(--muted-fg);font-style:italic">Generating…</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-direction:column;margin-top:18px">
+        <label style="font-size:11px;color:var(--muted-fg);display:flex;flex-direction:column;gap:4px">
+          Race ID
+          <input id="rr-race-id" value="${escAttr(raceIdGuess)}" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card,transparent);color:var(--fg);font-family:var(--font-mono,monospace);font-size:12px">
+        </label>
+        <label style="font-size:11px;color:var(--muted-fg);display:flex;flex-direction:column;gap:4px">
+          Year
+          <input id="rr-race-year" type="number" min="2020" max="2099" value="${yearGuess}" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card,transparent);color:var(--fg);font-size:13px">
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button id="rr-cancel-2" type="button" style="flex:1;padding:12px;border-radius:12px;background:rgba(var(--fg-rgb,20,22,28),.06);border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">Cancel</button>
+        <button id="rr-push" type="button" data-haptic="success" style="flex:2;padding:12px;border-radius:12px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:800;font-size:14px;cursor:pointer">Push to archive</button>
+      </div>
+    </div>
+  `;
+  bd.querySelector('#rr-cancel').addEventListener('click', () => bd.remove());
+  bd.querySelector('#rr-cancel-2').addEventListener('click', () => bd.remove());
+  bd.addEventListener('click', (e) => { if (e.target === bd) bd.remove(); });
+  // Paint chart
+  window.RaceReport.renderChart({ ...parsed, riderData: sortedRiders }, bd.querySelector('#rr-chart'));
+  // AI brief — fire async, fill when it lands
+  window.RaceReport.requestAiBrief(parsed).then(text => {
+    const el = bd.querySelector('#rr-ai-brief');
+    if (!el) return;
+    if (text) el.textContent = text;
+    else el.innerHTML = '<span style="color:var(--muted-fg);font-style:italic">AI brief unavailable — push without it or check your connection.</span>';
+  });
+  // Push
+  bd.querySelector('#rr-push').addEventListener('click', async () => {
+    const raceId = (bd.querySelector('#rr-race-id').value || raceIdGuess).trim();
+    const raceYear = parseInt(bd.querySelector('#rr-race-year').value, 10) || yearGuess;
+    if (!teamData?.id) { showToast?.('Join a team first.', 'warn'); return; }
+    try {
+      const result = await window.RaceReport.pushRaceReport({
+        parsed, raceId, raceYear,
+        teamId: teamData.id,
+        teamMembers,
+        fb: { db, doc, collection, setDoc, serverTimestamp },
+      });
+      bd.remove();
+      const tag = result.unmatched.length
+        ? `Race saved · ${result.notesWritten}/${result.totalRiders} matched · unmatched: ${result.unmatched.join(', ')}`
+        : `Race saved · ${result.notesWritten}/${result.totalRiders} riders auto-linked to profiles`;
+      showToast?.(tag, 'success');
+    } catch (err) {
+      console.warn('Push race report failed:', err);
+      showToast?.('Push failed: ' + (err?.message || 'check rules'), 'error');
+    }
+  });
+}
+
+/// Archive browser — lists every race report this team has uploaded.
+/// Walks race_archive/{raceId}/years/{year}/teams/{teamId}, which is
+/// where pushRaceReport writes. Tapping an entry re-opens the preview
+/// modal so the coach can re-view the chart + stints + AI brief.
+async function openRaceReportArchive() {
+  if (!teamData?.id) { showToast?.('Join a team first.', 'warn'); return; }
+  document.getElementById('rr-arch-bd')?.remove();
+  const bd = document.createElement('div');
+  bd.id = 'rr-arch-bd';
+  bd.style.cssText = 'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;padding:20px';
+  bd.innerHTML = `
+    <div role="dialog" aria-label="Past race reports" style="background:var(--bg);border-radius:24px;width:100%;max-width:520px;max-height:90vh;padding:20px;overflow-y:auto;box-shadow:0 -16px 60px rgba(0,0,0,.4)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+        <div><div style="font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--primary);text-transform:uppercase">Race archive</div>
+        <div style="font-size:20px;font-weight:900;color:var(--fg);line-height:1.2;margin-top:4px">Past race reports</div>
+        <div style="font-size:11.5px;color:var(--muted-fg);margin-top:4px">${escHtml(teamData.name || 'Team')}</div></div>
+        <button id="rra-cancel" type="button" aria-label="Close" style="background:none;border:none;color:var(--muted-fg);font-size:22px;cursor:pointer;padding:0 4px">×</button>
+      </div>
+      <div id="rra-list"><div style="padding:30px 0;text-align:center;color:var(--muted-fg);font-size:13px"><div class="spinner" style="margin:0 auto 10px"></div>Loading…</div></div>
+    </div>
+  `;
+  document.body.appendChild(bd);
+  bd.addEventListener('click', (e) => { if (e.target === bd) bd.remove(); });
+  bd.querySelector('#rra-cancel').addEventListener('click', () => bd.remove());
+  // Walk race_archive collection-group style — Firestore doesn't allow
+  // truly "all teams across all years" in one query without an index,
+  // so we read year by year (last 3 years) and filter for THIS team.
+  try {
+    if (!db) { bd.querySelector('#rra-list').innerHTML = '<div style="color:var(--muted-fg);text-align:center;padding:30px">Database offline.</div>'; return; }
+    const thisYear = new Date().getFullYear();
+    const years = [thisYear, thisYear - 1, thisYear - 2];
+    const entries = [];
+    // List all race documents under race_archive
+    const raceSnap = await getDocs(collection(db, 'race_archive'));
+    await Promise.all(raceSnap.docs.map(async (raceDoc) => {
+      for (const y of years) {
+        try {
+          const teamDoc = await getDoc(doc(db, 'race_archive', raceDoc.id, 'years', String(y), 'teams', teamData.id));
+          if (teamDoc.exists()) {
+            entries.push({ raceId: raceDoc.id, year: y, ...teamDoc.data() });
+          }
+        } catch(_) {}
+      }
+    }));
+    entries.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    const listEl = bd.querySelector('#rra-list');
+    if (!entries.length) {
+      listEl.innerHTML = `<div style="padding:30px 14px;text-align:center;color:var(--muted-fg);font-size:13px;line-height:1.5">
+        No race reports uploaded yet.<br>
+        <span style="font-size:11px">Upload one from this tab and it lands here automatically.</span>
+      </div>`;
+      return;
+    }
+    listEl.innerHTML = entries.map((e, i) => `
+      <button data-rra-idx="${i}" type="button" style="display:block;width:100%;padding:12px 14px;margin-bottom:8px;background:var(--card,rgba(var(--fg-rgb,20,22,28),.04));border:1px solid var(--border);border-radius:12px;cursor:pointer;text-align:left">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+          <div style="font-size:14px;font-weight:800;color:var(--fg);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(e.raceName || e.raceId)}</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted-fg);letter-spacing:.06em">${e.year}</div>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted-fg);margin-top:4px">${e.stintCount || 0} stints · ${e.totalLaps || 0} laps · ${(e.drivers || []).length} riders</div>
+        ${e.summary ? `<div style="font-size:11.5px;color:var(--fg);margin-top:6px;line-height:1.4">${escHtml(e.summary)}</div>` : ''}
+      </button>
+    `).join('');
+    listEl.querySelectorAll('[data-rra-idx]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const e = entries[parseInt(btn.dataset.rraIdx, 10)];
+        if (!e) return;
+        bd.remove();
+        // Reconstruct the parsed shape the preview modal expects.
+        const parsed = {
+          title: e.raceName || e.raceId,
+          sub: e.schedule || '',
+          stints: e.stints || [],
+          riderData: (e.drivers || []).map((d, i) => ({
+            riderNumber: i + 1,
+            name: d.name,
+            foamMm: d.foamMm,
+            headRest: d.headRest,
+            posIn: d.posIn,
+            posOut: d.posOut,
+            lapTally: d.laps != null ? String(d.laps) : null,
+            lapsPrimary: d.laps,
+            lapsBonus: 0,
+            lapsTotal: d.laps,
+            conditions: d.conditions,
+            delays: d.delays,
+            notes: d.notes,
+          })),
+          totalLaps: e.totalLaps || 0,
+        };
+        openRaceReportPreview(parsed, `${e.raceId} (archived ${e.year})`);
+      });
+    });
+  } catch (err) {
+    bd.querySelector('#rra-list').innerHTML = `<div style="padding:30px 14px;text-align:center;color:var(--destructive);font-size:13px">Couldn't load: ${escHtml(err?.message || 'unknown')}</div>`;
+  }
+}
+
+/// Blank template builder. Picks a subteam (or whole team), lets the
+/// coach drag-reorder riders so stint #1 = the rider they want first,
+/// then writes the xlsx to the device.
+function openRaceReportTemplateBuilder() {
+  if (!teamData?.id) { showToast?.('Join a team first.', 'warn'); return; }
+  document.getElementById('rr-tmpl-bd')?.remove();
+  const subs = Array.isArray(teamData.subteams) ? teamData.subteams : [];
+  let chosenScope = subs.length ? subs[0].id : 'all';
+  let raceName = '';
+  let stintCount = 8;
+  let stintMin = 45;
+  let startTime = '10:00 AM';
+  let order = [];                  // uids in user-chosen order
+
+  function membersForScope() {
+    if (chosenScope === 'all') return (teamMembers || []).slice();
+    const sub = subs.find(s => s.id === chosenScope);
+    if (!sub) return [];
+    const set = new Set(sub.members || []);
+    return (teamMembers || []).filter(m => set.has(m.uid));
+  }
+  function syncOrderToScope() {
+    const m = membersForScope();
+    const inScope = new Set(m.map(x => x.uid));
+    order = order.filter(uid => inScope.has(uid));
+    m.forEach(x => { if (!order.includes(x.uid)) order.push(x.uid); });
+  }
+  syncOrderToScope();
+
+  const bd = document.createElement('div');
+  bd.id = 'rr-tmpl-bd';
+  bd.style.cssText = 'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;padding:20px';
+  document.body.appendChild(bd);
+
+  function render() {
+    const m = membersForScope();
+    const byUid = Object.fromEntries(m.map(x => [x.uid, x]));
+    bd.innerHTML = `
+      <div role="dialog" aria-label="Generate blank race report" style="background:var(--bg);border-radius:24px;width:100%;max-width:520px;max-height:90vh;padding:20px;overflow-y:auto;box-shadow:0 -16px 60px rgba(0,0,0,.4)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px">
+          <div><div style="font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--primary);text-transform:uppercase">Race template</div>
+          <div style="font-size:20px;font-weight:900;color:var(--fg);line-height:1.2;margin-top:4px">Blank race report</div></div>
+          <button id="rrt-cancel" type="button" aria-label="Close" style="background:none;border:none;color:var(--muted-fg);font-size:22px;cursor:pointer;padding:0 4px">×</button>
+        </div>
+
+        <label style="font-size:11px;color:var(--muted-fg);display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+          Race name
+          <input id="rrt-name" value="${escAttr(raceName)}" placeholder="e.g. Casey Fields — Race #2" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card,transparent);color:var(--fg);font-size:13px">
+        </label>
+
+        ${subs.length ? `<label style="font-size:11px;color:var(--muted-fg);display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+          Subteam
+          <select id="rrt-scope" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card,transparent);color:var(--fg);font-size:13px">
+            ${subs.map(s => `<option value="${escAttr(s.id)}"${s.id === chosenScope ? ' selected' : ''}>${escHtml(s.name)} (${(s.members || []).length})</option>`).join('')}
+            <option value="all"${chosenScope === 'all' ? ' selected' : ''}>Whole team (${(teamMembers || []).length})</option>
+          </select>
+        </label>` : ''}
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+          <label style="font-size:11px;color:var(--muted-fg);display:flex;flex-direction:column;gap:4px">
+            Stints
+            <input id="rrt-count" type="number" min="1" max="20" value="${stintCount}" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card,transparent);color:var(--fg);font-size:13px">
+          </label>
+          <label style="font-size:11px;color:var(--muted-fg);display:flex;flex-direction:column;gap:4px">
+            Min each
+            <input id="rrt-min" type="number" min="10" max="180" value="${stintMin}" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card,transparent);color:var(--fg);font-size:13px">
+          </label>
+          <label style="font-size:11px;color:var(--muted-fg);display:flex;flex-direction:column;gap:4px">
+            Start
+            <input id="rrt-start" type="text" value="${escAttr(startTime)}" style="padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card,transparent);color:var(--fg);font-size:13px">
+          </label>
+        </div>
+
+        <div style="font-size:10px;font-weight:800;letter-spacing:.10em;color:var(--muted-fg);text-transform:uppercase;margin:14px 0 6px">Stint order — drag to reorder</div>
+        <div id="rrt-list" style="display:flex;flex-direction:column;gap:4px;max-height:36vh;overflow-y:auto;padding:4px;border:1px solid var(--border);border-radius:10px">
+          ${order.map((uid, i) => {
+            const m = byUid[uid];
+            if (!m) return '';
+            return `
+              <div data-uid="${escAttr(uid)}" draggable="true" style="display:flex;align-items:center;gap:8px;padding:9px 10px;background:var(--card,rgba(var(--fg-rgb,20,22,28),.04));border:1px solid var(--border);border-radius:8px;cursor:grab">
+                <span style="font-size:11px;font-weight:800;color:var(--primary);min-width:24px">#${i + 1}</span>
+                <span style="flex:1;min-width:0;font-weight:700;font-size:13px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.displayName || '?')}</span>
+                <span style="font-size:10.5px;color:var(--muted-fg)">${escHtml(m.yearLevel || '')}</span>
+                <button type="button" data-move-up="${escAttr(uid)}" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:2px 6px;font-size:14px" aria-label="Move up">↑</button>
+                <button type="button" data-move-dn="${escAttr(uid)}" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:2px 6px;font-size:14px" aria-label="Move down">↓</button>
+              </div>`;
+          }).join('')}
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button id="rrt-cancel-2" type="button" style="flex:1;padding:12px;border-radius:12px;background:rgba(var(--fg-rgb,20,22,28),.06);border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">Cancel</button>
+          <button id="rrt-download" type="button" data-haptic="success" style="flex:2;padding:12px;border-radius:12px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:800;font-size:14px;cursor:pointer">Download .xlsx</button>
+        </div>
+      </div>
+    `;
+    // Wire input changes
+    bd.querySelector('#rrt-name').addEventListener('input', e => raceName = e.target.value);
+    bd.querySelector('#rrt-scope')?.addEventListener('change', e => { chosenScope = e.target.value; syncOrderToScope(); render(); });
+    bd.querySelector('#rrt-count').addEventListener('input', e => { stintCount = Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 8)); });
+    bd.querySelector('#rrt-min').addEventListener('input', e => { stintMin = Math.max(10, Math.min(180, parseInt(e.target.value, 10) || 45)); });
+    bd.querySelector('#rrt-start').addEventListener('input', e => startTime = e.target.value);
+    // Move buttons
+    bd.querySelectorAll('[data-move-up]').forEach(b => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const uid = b.dataset.moveUp;
+      const i = order.indexOf(uid);
+      if (i > 0) { const tmp = order[i - 1]; order[i - 1] = order[i]; order[i] = tmp; render(); }
+    }));
+    bd.querySelectorAll('[data-move-dn]').forEach(b => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const uid = b.dataset.moveDn;
+      const i = order.indexOf(uid);
+      if (i >= 0 && i < order.length - 1) { const tmp = order[i + 1]; order[i + 1] = order[i]; order[i] = tmp; render(); }
+    }));
+    // HTML5 drag-and-drop reorder
+    let dragUid = null;
+    bd.querySelectorAll('[data-uid]').forEach(row => {
+      row.addEventListener('dragstart', (e) => { dragUid = row.dataset.uid; row.style.opacity = '0.4'; });
+      row.addEventListener('dragend',   () => { row.style.opacity = '1'; dragUid = null; });
+      row.addEventListener('dragover',  (e) => { e.preventDefault(); });
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (!dragUid || dragUid === row.dataset.uid) return;
+        const fromIdx = order.indexOf(dragUid);
+        const toIdx = order.indexOf(row.dataset.uid);
+        if (fromIdx < 0 || toIdx < 0) return;
+        order.splice(toIdx, 0, ...order.splice(fromIdx, 1));
+        render();
+      });
+    });
+    // Buttons
+    bd.querySelector('#rrt-cancel').addEventListener('click', () => bd.remove());
+    bd.querySelector('#rrt-cancel-2').addEventListener('click', () => bd.remove());
+    bd.querySelector('#rrt-download').addEventListener('click', async () => {
+      try {
+        const members = membersForScope();
+        const fname = await window.RaceReport.generateBlankTemplate({
+          raceName: raceName || (teamData?.name || 'Race') + ' — race report',
+          teamLabel: teamData?.id || '',
+          members,
+          order,
+          stintCount, stintMin, startTime,
+        });
+        bd.remove();
+        showToast?.('Downloaded ' + fname, 'success');
+      } catch (err) {
+        console.warn('Template generate failed:', err);
+        showToast?.('Could not generate: ' + (err?.message || 'unknown'), 'error');
+      }
+    });
+  }
+  bd.addEventListener('click', (e) => { if (e.target === bd) bd.remove(); });
+  render();
+}
+
 function renderCoachRaceDay(el) {
   if (!el) return;
   const isActive = getRaceDayActive();
@@ -15078,6 +16281,26 @@ function renderCoachRaceDay(el) {
            <button id="coach-rd-open" style="width:100%;padding:12px;border-radius:12px;background:var(--primary);color:var(--primary-fg);font-weight:700;font-size:14px;cursor:pointer;margin-top:8px">Open Race Day Interface</button>`
         : `<button id="coach-rd-start" style="width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,var(--success),#16a34a);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 15px rgba(var(--success-rgb),.3)">Activate Race Day Mode</button>`
       }
+    </div>
+
+    <div style="margin-top:8px;padding:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:2px">Team training</div>
+      <div style="font-size:12.5px;color:var(--muted-fg);line-height:1.45">Broadcast a training session to every athlete on the team. They get a push notification + the Start Training button is highlighted on their Today page.</div>
+      <button id="coach-team-train-start" data-haptic="medium" style="padding:11px;border-radius:10px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Start team training now</button>
+    </div>
+
+    <div style="margin-top:8px;padding:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg);margin-bottom:2px">Race reports</div>
+      <div style="font-size:12.5px;color:var(--muted-fg);line-height:1.45">Upload a completed Excel race report — the app extracts every stint, attaches per-rider notes to their public profile, and pushes a copy to the race archive. Or generate a blank template pre-filled with your subteam.</div>
+      <input id="rr-file-input" type="file" accept=".xlsx,.xls,.csv" style="display:none">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="rr-upload-btn" data-haptic="medium" style="flex:1;min-width:140px;padding:11px;border-radius:10px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Upload race report</button>
+        <button id="rr-template-btn" style="flex:1;min-width:140px;padding:11px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">Blank template</button>
+      </div>
+      <button id="rr-list-btn" style="margin-top:6px;padding:9px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--fg);font-weight:600;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+        View past race reports
+      </button>
     </div>
 
     <div style="margin-top:8px;padding:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
@@ -15109,6 +16332,49 @@ function renderCoachRaceDay(el) {
     await stopDemoRace();
     renderCoachPage();
   });
+  // ── Team-wide training broadcast ─────────────────────────────────
+  el.querySelector('#coach-team-train-start')?.addEventListener('click', async () => {
+    if (!teamData?.id || !db) { showToast?.('Join a team first.', 'warn'); return; }
+    if (!confirm('Start training for the whole team? Everyone gets a push + the Start button highlighted.')) return;
+    try {
+      // Write a team-wide training cue. Every athlete listens for this
+      // doc (via onSnapshot in setupListeners) and surfaces the prompt.
+      await setDoc(doc(db, 'teams', teamData.id, 'cues', 'training'), {
+        active: true,
+        startedAt: serverTimestamp(),
+        startedBy: currentUser?.uid || null,
+        startedByName: userProfile?.displayName || 'Coach',
+        title: 'Team training',
+        type: 'ride',
+      });
+      showToast?.('Team training started — everyone notified.', 'success');
+      try { startTrainingSession({ type: 'ride', title: 'Team training' }); } catch(_) {}
+    } catch (e) {
+      console.warn('Team training broadcast failed:', e);
+      showToast?.('Could not start: ' + (e?.message || 'check rules'), 'error');
+    }
+  });
+
+  // ── Race report wiring ───────────────────────────────────────────
+  const fileInput = el.querySelector('#rr-file-input');
+  el.querySelector('#rr-upload-btn')?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    showToast?.('Parsing ' + f.name + '…', 'info');
+    try {
+      const parsed = await window.RaceReport.parseRaceReport(f);
+      openRaceReportPreview(parsed, f.name);
+    } catch (err) {
+      console.warn('Race report parse failed:', err);
+      showToast?.('Could not parse: ' + (err?.message || 'bad format'), 'error');
+    } finally {
+      fileInput.value = '';
+    }
+  });
+  el.querySelector('#rr-template-btn')?.addEventListener('click', () => openRaceReportTemplateBuilder());
+  el.querySelector('#rr-list-btn')?.addEventListener('click', () => openRaceReportArchive());
+
   el.querySelector('#coach-demo-link')?.addEventListener('click', async () => {
     // Pass the local-AEST date so the netlify spectator function looks up
     // the right race_day/{date} doc — it defaults to the server's UTC
@@ -15399,10 +16665,15 @@ function renderHealthTab() {
   const now = new Date();
   let html = '';
 
-  // Current stats row
-  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div class="page-title" style="margin:0">Health</div>';
-  if (h.lastSync) html += '<span style="font-size:11px;color:var(--muted-fg)">Synced ' + timeAgo(new Date(h.lastSync)) + '</span>';
-  html += '</div>';
+  // Current stats row + manual sync button
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px"><div class="page-title" style="margin:0">Health</div>';
+  const lastSyncMs = h.lastSync ? new Date(h.lastSync).getTime() : 0;
+  const ageMin = lastSyncMs ? Math.round((Date.now() - lastSyncMs) / 60000) : null;
+  const stale = !lastSyncMs || ageMin > 30;
+  html += `<div style="display:flex;align-items:center;gap:8px">
+    ${lastSyncMs ? `<span style="font-size:11px;color:${stale ? 'var(--warning)' : 'var(--muted-fg)'}">Synced ${escHtml(timeAgo(new Date(h.lastSync)))}</span>` : '<span style="font-size:11px;color:var(--warning)">Not synced yet</span>'}
+    <button id="health-resync-btn" data-haptic="medium" type="button" style="padding:5px 10px;border-radius:8px;background:${stale ? 'var(--primary)' : 'rgba(var(--primary-rgb),.10)'};color:${stale ? 'var(--primary-fg)' : 'var(--primary)'};border:1px solid ${stale ? 'var(--primary)' : 'rgba(var(--primary-rgb),.30)'};font-weight:700;font-size:11px;cursor:pointer">Sync now</button>
+  </div></div>`;
 
   // Stat cards
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">';
@@ -15587,6 +16858,32 @@ function renderHealthTab() {
 
   // Bind
   $('health-go-profile')?.addEventListener('click', () => { openProfile(); });
+  // Manual sync — re-poke the native bridge to run a fresh HealthKit
+  // foreground query (which lands back via tpNative.onHealthSummary)
+  // and also poke the watch so it pushes its own latest snapshot.
+  $('health-resync-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Syncing…';
+    try {
+      // Bump the native side — it has a UIApplication.didBecomeActive
+      // hook that triggers a fresh sync. We piggyback by sending a no-op
+      // ping which the bridge handler treats as a hint to refresh.
+      window.webkit?.messageHandlers?.tpNative?.postMessage({ type: 'request-health-sync' });
+      // Also ask the watch to re-push (if paired). The watch fires
+      // ConnectivityService.shared.onSnapshotRequested when this lands.
+      try { pushWatchState(); } catch(_) {}
+      // Give the bridge a beat to round-trip — the actual update lands
+      // via onHealthSummary which re-renders this tab.
+      setTimeout(() => {
+        btn.textContent = '✓ Synced';
+        setTimeout(() => { renderHealthTab(); }, 600);
+      }, 1200);
+    } catch (err) {
+      btn.textContent = orig;
+      btn.disabled = false;
+      showToast?.('Could not sync — make sure Health is enabled in Settings.', 'warn');
+    }
+  });
 }
 
 // --- Health Dashboard ---
@@ -15846,6 +17143,45 @@ function setupAnnouncementListener() {
   }
 }
 // Request notification permission after first user interaction
+// "View in Strava" link interceptor — try the native Strava app first
+// via the `strava://activities/{id}` URL scheme. If the app isn't
+// installed, the scheme silently fails and a short fallback timer
+// opens the public web URL instead. Wire-level capture so every
+// link with data-strava-open routes through here regardless of where
+// it lives in the DOM (activity card, Strava import sheet, future).
+document.addEventListener('click', (e) => {
+  const link = e.target.closest?.('a[data-strava-open]');
+  if (!link) return;
+  const id = link.getAttribute('data-strava-open');
+  if (!id) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const appUrl = `strava://activities/${id}`;
+  const webUrl = `https://www.strava.com/activities/${id}`;
+  // Attempt to open the Strava app. iOS will silently fail if the
+  // app isn't installed — we follow up with the web URL after a beat.
+  let fellBack = false;
+  const fallback = () => {
+    if (fellBack) return;
+    fellBack = true;
+    window.open(webUrl, '_blank', 'noopener');
+  };
+  // If the page becomes hidden it means iOS handed off to Strava —
+  // cancel the fallback in that case.
+  const onHide = () => {
+    if (document.visibilityState === 'hidden') {
+      fellBack = true;
+      document.removeEventListener('visibilitychange', onHide);
+    }
+  };
+  document.addEventListener('visibilitychange', onHide);
+  try { window.location.href = appUrl; } catch(_) {}
+  setTimeout(() => {
+    document.removeEventListener('visibilitychange', onHide);
+    fallback();
+  }, 800);
+}, true);   // capture-phase so it runs before any parent's click handlers
+
 document.addEventListener('click', function reqNotifOnce() {
   requestNotificationPermission();
   document.removeEventListener('click', reqNotifOnce);

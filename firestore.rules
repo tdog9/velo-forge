@@ -88,6 +88,38 @@ service cloud.firestore {
         // Health-sync webhook writes via firebase-admin, which bypasses rules.
       }
 
+      match /race_notes/{raceId} {
+        // Per-rider race notes from coach-uploaded race reports. The
+        // rider OWNS their notes (reads) and any signed-in user can
+        // read them too (they're meant for the public profile view).
+        // Writes are coach-only: head coach or co-coach of the rider's
+        // current team.
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn() && (
+          isAdmin() ||
+          isOwner(userId) ||
+          (
+            resource == null
+            && get(/databases/$(database)/documents/users/$(userId)).data.teamId is string
+            && (
+              get(/databases/$(database)/documents/teams/$(get(/databases/$(database)/documents/users/$(userId)).data.teamId)).data.createdBy == request.auth.uid
+              ||
+              request.auth.uid in get(/databases/$(database)/documents/teams/$(get(/databases/$(database)/documents/users/$(userId)).data.teamId)).data.coaches
+            )
+          ) ||
+          (
+            resource != null
+            && get(/databases/$(database)/documents/users/$(userId)).data.teamId is string
+            && (
+              get(/databases/$(database)/documents/teams/$(get(/databases/$(database)/documents/users/$(userId)).data.teamId)).data.createdBy == request.auth.uid
+              ||
+              request.auth.uid in get(/databases/$(database)/documents/teams/$(get(/databases/$(database)/documents/users/$(userId)).data.teamId)).data.coaches
+            )
+          )
+        );
+        allow delete: if isAdmin() || isOwner(userId);
+      }
+
       match /workout_routes/{workoutId} {
         // Imported route polylines (Garmin GPX/TCX, future Fitbit, etc.).
         // Owner reads + writes; teammates can read so the team feed can
@@ -168,7 +200,9 @@ service cloud.firestore {
           && request.resource.data.members.size() > 0
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'name', 'description', 'inviteBlurb', 'features',
-            'subteams', 'coaches', 'members'
+            'subteams', 'coaches', 'members',
+            'weeklyIntent', 'weeklyIntentSetAt', 'weeklyIntentSetBy',
+            'edition'
           ])
         )
         || (
@@ -218,6 +252,22 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow write: if isSignedIn()
           && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
+      }
+
+      // Coach broadcast cues — short-lived signals like "start team
+      // training now". Every team member reads them; only head coach
+      // / co-coaches / admin can write.
+      match /cues/{cueId} {
+        allow read: if isSignedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members;
+        allow write: if isAdmin()
+          || (
+            isSignedIn()
+            && (
+              get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy == request.auth.uid
+              || request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.coaches
+            )
+          );
       }
 
       // Team chat / activity feed.
@@ -465,6 +515,20 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn() && request.auth.uid == userId;
       allow delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /race_archive/{raceId}/years/{year}/teams/{teamId} {
+      // Coach-uploaded race report mirror. Any signed-in user can read
+      // (so it surfaces in leaderboards + member sheets), but only
+      // coaches of the team OR admin can write the doc.
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/teams/$(teamId))
+          && (get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy == request.auth.uid
+              || request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.coaches))
+      );
+      allow delete: if isAdmin();
     }
 
     match /race_day/{date} {

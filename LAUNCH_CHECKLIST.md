@@ -123,7 +123,7 @@ Add Firebase Crashlytics to the iOS app target (Xcode → File → Packages → 
 Re-read `privacy.html` — does it accurately describe: HealthKit data, push notifications, photo storage, FCM tokens, BigQuery analytics? If you added features Apple's reviewers will scrutinise the policy.
 
 ### 5. Support flow
-Decide where users email when something breaks. `support@turboprep.app`? `matt@403productions.com.au`? Wire a `mailto:` link from `support.html` and from a "Contact support" entry in Profile.
+Support inbox is `hearn.tenny@icloud.com` — wired in `support.html`, in-app "Contact support" links in app.js, and the privacy policy. Do not re-route to any affiliated domain.
 
 ### 6. Onboarding the first school
 Pick the school. Get the head coach to test for a week. Their feedback drives v1.1.

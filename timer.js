@@ -341,11 +341,23 @@ function startSet(ex) {
   const setLabel = totalSets > 1
     ? (' · set ' + (timerCurrentSet + 1) + '/' + totalSets)
     : '';
-  const coach = ex.notes || ex.description || '';
+  // Practical coach cue. Augments the exercise's own notes with a
+  // generic "quality > quantity" reminder for hard sessions and an
+  // RIR (reps in reserve) target so athletes don't grind to failure.
+  // Y7/Y8 scaling lives on the session, not the exercise.
+  const baseCue = ex.notes || ex.description || '';
+  const intensity = String(ex.intensity || '').toLowerCase();
+  let practicalCue = '';
+  if (intensity === 'hard' || intensity === 'max') {
+    practicalCue = ' · Aim 1–2 reps in reserve. Stop if form breaks.';
+  } else if (intensity === 'moderate') {
+    practicalCue = ' · Controlled tempo. 3 sec down, 1 sec up.';
+  }
+  const coach = baseCue + practicalCue;
   const cueParts = [];
   if (totalSets > 1) cueParts.push(`Set ${timerCurrentSet + 1} of ${totalSets},`);
   cueParts.push(ex.name);
-  if (ex.reps) cueParts.push(`${ex.reps} reps`);
+  if (ex.reps) cueParts.push(`${formatReps(ex.reps)} reps`);
   speakCue(cueParts.join(' '));
   // Forward step + set progression to the Watch + Live Activity so
   // the rider sees the current exercise from the wrist / lock screen
@@ -367,12 +379,36 @@ function startSet(ex) {
     }
   } catch(_) {}
   if (ex.reps) {
-    enterRepsMode(parseInt(ex.reps) || 0, ex.name + setLabel, coach);
+    // Rep counts can be numbers ("12") OR ranges ("8-12") — in the
+    // range case the timer tracks the upper bound but the displayed
+    // label keeps the range so the athlete knows the practical target.
+    const repsUpper = parseRepsUpper(ex.reps);
+    const repsLabel = formatReps(ex.reps);
+    enterRepsMode(repsUpper, ex.name + ' · ' + repsLabel + ' reps' + setLabel, coach);
     return;
   }
   const dur = parseExerciseDuration(ex);
   enterTimeMode(dur, ex.name + setLabel, coach);
   startTimer();
+}
+
+/// Parse a reps value into the upper bound for the rep counter. Accepts
+/// numbers (12), numeric strings ("12"), or ranges ("8-12" / "8 to 12").
+function parseRepsUpper(reps) {
+  if (typeof reps === 'number') return reps | 0;
+  const s = String(reps || '').trim();
+  const rangeMatch = s.match(/(\d+)\s*[-–to]+\s*(\d+)/);
+  if (rangeMatch) return parseInt(rangeMatch[2], 10);
+  const num = parseInt(s, 10);
+  return isNaN(num) ? 0 : num;
+}
+
+/// Format a reps value for display. Numbers and clean strings pass
+/// through unchanged; ranges normalise to "8–12" with an en-dash.
+function formatReps(reps) {
+  if (typeof reps === 'number') return String(reps);
+  const s = String(reps || '').trim();
+  return s.replace(/(\d+)\s*[-–]\s*(\d+)/, '$1–$2');
 }
 
 function finishWorkout() {
