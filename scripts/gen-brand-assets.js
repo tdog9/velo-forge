@@ -91,7 +91,7 @@ function ogCardSvg() {
     <text x="320" y="310"
           font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif"
           font-size="30" font-weight="600"
-          fill="${MUTED}">Race-day platform for Victorian HPR teams</text>
+          fill="${MUTED}">HPR race-day platform · built in Melbourne</text>
 
     <!-- Feature row -->
     <g font-family="-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif"

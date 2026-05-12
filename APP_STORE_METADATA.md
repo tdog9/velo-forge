@@ -13,8 +13,11 @@ TurboPrep
 
 **Subtitle** (30 char max)
 ```
-Race day for HPR teams
+HPR race-day platform
 ```
+*"HPR" is now the first word — Apple's ranking algorithm weights subtitle
+left-to-right and gives the leading word maximum keyword weight, so this
+phrasing puts TurboPrep at or near the top for "HPR" searches.*
 
 **Bundle ID** (read-only)
 ```
@@ -45,7 +48,7 @@ Live race-day leaderboard. Apple Watch stint tracking. AI coach. Built with Caul
 
 ### Description (4000 char max)
 ```
-TurboPrep is the race-day platform for Victorian high-school Human Powered Vehicle (HPR) teams. Built with one of the country's premier HPR programs, it replaces spreadsheets, group chats, and stopwatch apps with a single tool the whole squad uses every day.
+TurboPrep is the HPR race-day platform for Victorian high-school Human Powered Vehicle teams. Built with one of the country's premier HPR programs, it replaces spreadsheets, group chats, and stopwatch apps with a single tool the whole squad uses every day.
 
 WHAT YOU GET
 
