@@ -1,0 +1,48 @@
+{
+  "name": "TurboPrep",
+  "short_name": "TurboPrep",
+  "description": "Race-day platform for Victorian HPR teams. Live leaderboard, Apple Watch stint tracking, structured plans, coach dashboard, AI coach.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0b0f",
+  "theme_color": "#0a0b0f",
+  "categories": ["sports", "fitness", "education"],
+  "lang": "en-AU",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/favicon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start training",
+      "short_name": "Train",
+      "url": "/?go=record",
+      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Race day",
+      "short_name": "Race",
+      "url": "/?go=races",
+      "icons": [{ "src": "/favicon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

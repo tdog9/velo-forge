@@ -8,34 +8,82 @@
 <meta name="apple-mobile-web-app-title" content="TurboPrep">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0b0f">
-<meta name="description" content="TurboPrep — HPR race training for schools. Track sessions, structured plans, team leaderboards, and race day tools.">
-<meta property="og:title" content="TurboPrep — HPR Race Training">
-<meta property="og:description" content="The training platform built for school HPR programs.">
-<meta property="og:url" content="https://turboprep.app">
-<title>TurboPrep — HPR Training</title>
+<meta name="color-scheme" content="dark light">
+
+<!-- Title + description (search results) -->
+<title>TurboPrep — Race-day platform for HPR teams</title>
+<meta name="description" content="TurboPrep is the race-day app for Victorian HPR teams. Live leaderboard, Apple Watch stint tracking, structured plans, coach dashboard, AI coach. Built with Caulfield Grammar HPR.">
+<meta name="keywords" content="TurboPrep, HPR, human powered vehicle, race, training, cycling, school sport, coach, team, leaderboard, Energy Breakthrough, Victorian schools">
+<meta name="author" content="Tenny Hearn · TDOG Industries">
+<link rel="canonical" href="https://turboprep.app/">
+
+<!-- Open Graph (iMessage, WhatsApp, Slack, Discord, Facebook, LinkedIn) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TurboPrep">
+<meta property="og:title" content="TurboPrep — Race-day platform for HPR teams">
+<meta property="og:description" content="Live leaderboard. Apple Watch stints. AI coach. The training app Victorian HPR teams have been waiting for.">
+<meta property="og:url" content="https://turboprep.app/">
+<meta property="og:image" content="https://turboprep.app/og-image.png">
+<meta property="og:image:secure_url" content="https://turboprep.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="TurboPrep — race-day platform for Victorian HPR teams">
+<meta property="og:locale" content="en_AU">
+
+<!-- Twitter / X card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TurboPrep — Race-day platform for HPR teams">
+<meta name="twitter:description" content="Live leaderboard. Apple Watch stints. AI coach. The training app Victorian HPR teams have been waiting for.">
+<meta name="twitter:image" content="https://turboprep.app/og-image.png">
+<meta name="twitter:image:alt" content="TurboPrep — race-day platform for Victorian HPR teams">
+
+<!-- Apple iOS web-clip + Safari Reader -->
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="mask-icon" href="/favicon.svg" color="#f97316">
+
+<!-- Favicons (multi-size + scalable SVG for modern browsers) -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+<link rel="manifest" href="/site.webmanifest">
+
+<!-- Structured data — gives Google a richer search result card -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "TurboPrep",
+  "operatingSystem": "iOS",
+  "applicationCategory": "SportsApplication",
+  "description": "Race-day platform for Victorian HPR teams. Live leaderboard, Apple Watch stint tracking, structured plans, coach dashboard, AI coach.",
+  "image": "https://turboprep.app/og-image.png",
+  "url": "https://turboprep.app/",
+  "publisher": {
+    "@type": "Organization",
+    "name": "TDOG Industries",
+    "url": "https://turboprep.app/"
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "AUD"
+  },
+  "audience": {
+    "@type": "EducationalAudience",
+    "educationalRole": "student"
+  }
+}
+</script>
 <script>
 (function(){var VER='1.0.0-r121',last=localStorage.getItem('vf_app_ver');if(last!==VER){localStorage.setItem('vf_app_ver',VER);var done=false;function go(){if(done)return;done=true;if(last){window.location.reload();}}if('caches' in window)caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c)}))}).then(go).catch(go);if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(w){w.unregister()})});setTimeout(go,2000);if(last)return;}})();
 </script>
-<script>
-(function(){
-  function icon(size){
-    var c=document.createElement('canvas');c.width=size;c.height=size;
-    var x=c.getContext('2d'),r=size*0.22;
-    x.beginPath();x.moveTo(r,0);x.lineTo(size-r,0);x.quadraticCurveTo(size,0,size,r);x.lineTo(size,size-r);x.quadraticCurveTo(size,size,size-r,size);x.lineTo(r,size);x.quadraticCurveTo(0,size,0,size-r);x.lineTo(0,r);x.quadraticCurveTo(0,0,r,0);x.closePath();
-    x.fillStyle='#0a0b0f';x.fill();
-    var p=size*0.1,ri=size*0.15;
-    x.beginPath();x.moveTo(p+ri,p);x.lineTo(size-p-ri,p);x.quadraticCurveTo(size-p,p,size-p,p+ri);x.lineTo(size-p,size-p-ri);x.quadraticCurveTo(size-p,size-p,size-p-ri,size-p);x.lineTo(p+ri,size-p);x.quadraticCurveTo(p,size-p,p,size-p-ri);x.lineTo(p,p+ri);x.quadraticCurveTo(p,p,p+ri,p);x.closePath();
-    x.fillStyle='#f97316';x.fill();
-    x.fillStyle='#fff';x.font='800 '+(size*0.42)+'px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('T',size/2,size/2+size*0.02);
-    return c.toDataURL('image/png');
-  }
-  var i180=icon(180),i32=icon(32),i512=icon(512);
-  var l=document.createElement('link');l.rel='apple-touch-icon';l.href=i180;document.head.appendChild(l);
-  var f=document.createElement('link');f.rel='icon';f.type='image/png';f.href=i32;document.head.appendChild(f);
-  var m={name:'TurboPrep',short_name:'TurboPrep',start_url:'.',display:'standalone',orientation:'portrait',background_color:'#0a0b0f',theme_color:'#0a0b0f',icons:[{src:i512,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
-  var ml=document.createElement('link');ml.rel='manifest';ml.href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/json'}));document.head.appendChild(ml);
-})();
-</script>
+<!-- Icons + manifest are now static files served from /
+     (see /favicon.svg, /favicon.png, /apple-touch-icon.png,
+      /icon-512.png, /og-image.png, /site.webmanifest). The
+     JS-canvas fallback that used to live here was invisible to
+     search-engine + social-link crawlers, which is why earlier
+     iMessage / WhatsApp / Google previews rendered blank. -->
+
 <link rel="apple-touch-startup-image" media="(device-width:430px) and (device-height:932px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1290 2796'%3E%3Crect fill='%230a0b0f' width='1290' height='2796'/%3E%3Crect x='545' y='1248' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='645' y='1365' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-startup-image" media="(device-width:393px) and (device-height:852px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1179 2556'%3E%3Crect fill='%230a0b0f' width='1179' height='2556'/%3E%3Crect x='490' y='1178' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='590' y='1295' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-startup-image" media="(device-width:390px) and (device-height:844px) and (-webkit-device-pixel-ratio:3)" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1170 2532'%3E%3Crect fill='%230a0b0f' width='1170' height='2532'/%3E%3Crect x='485' y='1166' width='200' height='200' rx='44' fill='%23f97316'/%3E%3Ctext x='585' y='1283' text-anchor='middle' dominant-baseline='central' font-size='110' font-weight='800' font-family='system-ui' fill='%23fff'%3ET%3C/text%3E%3C/svg%3E">
