@@ -117,6 +117,26 @@ div, section, article, aside, header, footer, main, nav, ul, ol, li {
   overflow-x: clip;
   box-sizing: border-box;
 }
+/* Respect horizontal safe area on iPhone (Dynamic Island, curved
+   corners). viewport-fit=cover puts the WebView edge-to-edge, but
+   without these insets content slides under the curve — that's the
+   "~5mm cut off the long sides" symptom. We add the insets as
+   margins on #main-app so the entire app is INSET from the curve,
+   then re-apply 100vw widths inside (which still resolve to the
+   physical viewport because the parent body is 100vw). */
+#main-app {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+#main-app > .header,
+#main-app > .tab-bar {
+  width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) !important;
+  max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) !important;
+}
+#main-app > #content {
+  width: 100% !important;
+  max-width: 100% !important;
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    Small / Display-Zoom iPhone responsive shrink
