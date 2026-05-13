@@ -29,7 +29,7 @@ struct HomeView: View {
                     case .denied:
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Health access denied")
-                            Text("Enable in Settings → Privacy → Health → VeloForge")
+                            Text("Enable in Settings → Privacy → Health → TurboPrep")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }

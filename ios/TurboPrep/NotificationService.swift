@@ -30,9 +30,10 @@ final class TurboPrepNotificationDelegate: NSObject, UNUserNotificationCenterDel
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         // Tapping the notification clears the badge — opening the app means
-        // they've "seen" their alerts.
-        Task { @MainActor in
-            UIApplication.shared.applicationIconBadgeNumber = 0
+        // they've "seen" their alerts. Use the modern UNUserNotificationCenter
+        // API (applicationIconBadgeNumber was deprecated in iOS 17).
+        Task {
+            try? await UNUserNotificationCenter.current().setBadgeCount(0)
         }
         completionHandler()
     }
@@ -72,9 +73,13 @@ enum NotificationService {
     }
 
     /// Clear the app icon badge — call when the user opens the in-app
-    /// announcements list / inbox so the count resets.
+    /// announcements list / inbox so the count resets. Uses the modern
+    /// UNUserNotificationCenter API (applicationIconBadgeNumber was
+    /// deprecated in iOS 17).
     static func clearBadge() {
-        UIApplication.shared.applicationIconBadgeNumber = 0
+        Task {
+            try? await UNUserNotificationCenter.current().setBadgeCount(0)
+        }
     }
 
     /// Called from AppDelegate didRegisterForRemoteNotificationsWithDeviceToken.
@@ -121,11 +126,26 @@ enum NotificationService {
     }
 
     /// Replay any cached APNs/FCM tokens after the user signs in.
+    /// Validates the cached hex is well-formed (APNs tokens are
+    /// 64 hex chars / 32 bytes) before calling handleRegistration.
+    /// Without this guard a corrupted cached value produced an empty
+    /// Data() and then `String(hex.suffix(16))` on an empty string
+    /// would silently use "" as the doc id, clobbering Firestore.
     static func flushPendingToken() async {
         guard Auth.auth().currentUser != nil else { return }
         let cached = UserDefaults.standard.string(forKey: "tp_pending_apns_token") ?? ""
         guard !cached.isEmpty else { return }
-        await handleRegistration(token: Data(hexString: cached) ?? Data())
+        // APNs hex tokens are typically 64 chars (32 bytes). Accept any
+        // even-length all-hex string with at least 32 chars to be
+        // tolerant of future longer tokens, but reject obvious garbage.
+        let isHex = !cached.isEmpty && cached.count % 2 == 0 && cached.count >= 32
+            && cached.allSatisfy { c in c.isHexDigit }
+        guard isHex, let data = Data(hexString: cached), !data.isEmpty else {
+            print("⚠️ flushPendingToken: cached token malformed (\(cached.count) chars) — clearing")
+            UserDefaults.standard.removeObject(forKey: "tp_pending_apns_token")
+            return
+        }
+        await handleRegistration(token: data)
     }
 }
 

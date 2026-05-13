@@ -270,6 +270,25 @@ final class WatchAppState: ObservableObject {
            let laps = try? JSONDecoder().decode([WatchLap].self, from: data) {
             raceDayLaps = laps
         }
+        // Self-heal: if persisted state says race-day-active but startedAt
+        // is missing (crashed mid-write, schema migration, etc.), the
+        // race-day UI would lock the rider in a screen with no exit
+        // and no way to start their stint. Reset to inactive so the
+        // user can recover.
+        if raceDayActive && raceDayStartedAt == nil {
+            print("⚠️ [WatchAppState] inconsistent race-day state (active without startedAt) — auto-resetting")
+            raceDayActive = false
+            d.set(false, forKey: Self.kRaceDayActive)
+        }
+        // Also self-heal: race-day flagged true but >25h old (max stint
+        // window) — must be a stale flag from a crashed shutdown.
+        if raceDayActive, let started = raceDayStartedAt, Date().timeIntervalSince(started) > 25 * 60 * 60 {
+            print("⚠️ [WatchAppState] race-day older than 25h — auto-resetting stale flag")
+            raceDayActive = false
+            raceDayStartedAt = nil
+            d.set(false, forKey: Self.kRaceDayActive)
+            d.removeObject(forKey: Self.kRaceDayStarted)
+        }
     }
 
     private func savePastStints() {

@@ -25,7 +25,22 @@ final class HealthKitService: ObservableObject {
 
     private let store = HKHealthStore()
     private var heartRateQuery: HKQuery?
-    private var heartRateAnchor: HKQueryAnchor?
+    /// Persisted across launches so we don't re-fetch every historical
+    /// HR sample on every app start. Without this, a Watch with two
+    /// years of HR data replays ALL of it on each cold boot, costing
+    /// the user battery + flooding the iPhone with stale samples.
+    private static let kHRAnchor = "tp_hk_hr_anchor"
+    private var heartRateAnchor: HKQueryAnchor? {
+        didSet {
+            guard let anchor = heartRateAnchor else { return }
+            do {
+                let data = try NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
+                UserDefaults.standard.set(data, forKey: Self.kHRAnchor)
+            } catch {
+                print("⚠️ [HK] could not persist HR anchor:", error.localizedDescription)
+            }
+        }
+    }
 
     private var readTypes: Set<HKObjectType> {
         var s: Set<HKObjectType> = []
@@ -45,6 +60,18 @@ final class HealthKitService: ObservableObject {
     init() {
         if !HKHealthStore.isHealthDataAvailable() {
             authorization = .unavailable
+        }
+        // Restore the persisted HR anchor (if any) so the first
+        // HKAnchoredObjectQuery on this launch only pulls samples
+        // newer than the last one we processed.
+        if let data = UserDefaults.standard.data(forKey: Self.kHRAnchor) {
+            do {
+                if let anchor = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data) {
+                    heartRateAnchor = anchor
+                }
+            } catch {
+                print("⚠️ [HK] could not restore HR anchor:", error.localizedDescription)
+            }
         }
     }
 

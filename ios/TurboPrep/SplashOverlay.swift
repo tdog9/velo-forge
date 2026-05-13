@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// Native splash overlay shown while the WebView loads turboprep.app.
 /// Fades out once the bridge fires `WebLoaded`.
@@ -94,7 +95,11 @@ struct SplashOverlay: View {
 private struct LoadingDots: View {
     let tint: Color
     @State private var phase: Double = 0
-    private let timer = Timer.publish(every: 0.18, on: .main, in: .common).autoconnect()
+    // The publisher (not auto-connected) lets onAppear/onDisappear
+    // explicitly start + stop the upstream subscription. The previous
+    // .autoconnect() pattern leaked the timer forever — it kept firing
+    // 5x/second after the splash dismissed.
+    @State private var timerCancellable: Cancellable?
 
     var body: some View {
         HStack(spacing: 6) {
@@ -107,6 +112,14 @@ private struct LoadingDots: View {
                     .animation(.easeInOut(duration: 0.15), value: phase)
             }
         }
-        .onReceive(timer) { _ in phase += 1 }
+        .onAppear {
+            timerCancellable = Timer.publish(every: 0.18, on: .main, in: .common)
+                .autoconnect()
+                .sink { _ in phase += 1 }
+        }
+        .onDisappear {
+            timerCancellable?.cancel()
+            timerCancellable = nil
+        }
     }
 }

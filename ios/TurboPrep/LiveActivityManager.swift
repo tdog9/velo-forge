@@ -44,7 +44,9 @@ final class LiveActivityManager {
     }
 
     /// Update the in-flight activity with new lap / pit counts +
-    /// best-lap. Silently no-ops if nothing is live.
+    /// best-lap. Silently no-ops if nothing is live. Preserves the
+    /// original `stintStartedAt` so SwiftUI's Text(timerInterval:)
+    /// keeps ticking from the actual start time, not from each update.
     func updateStint(lapCount: Int, pitCount: Int, lastLapMs: Int?, bestLapMs: Int?) {
         guard let act = current else { return }
         let next = StintActivityAttributes.State(
@@ -52,9 +54,7 @@ final class LiveActivityManager {
             pitCount: pitCount,
             lastLapMs: lastLapMs,
             bestLapMs: bestLapMs,
-            stintStartedAt: act.attributes.raceName.isEmpty
-                ? Date()
-                : (act.content.state.stintStartedAt)
+            stintStartedAt: act.content.state.stintStartedAt
         )
         Task {
             await act.update(.init(state: next, staleDate: nil))

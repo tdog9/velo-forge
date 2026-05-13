@@ -485,19 +485,44 @@ struct WebViewContainer: UIViewRepresentable {
                 self?.pushWatchPairedFlag()
             }
             // Foreground hook — UIApplication.didBecomeActiveNotification
-            // fires every time the user re-foregrounds the app.
-            NotificationCenter.default.addObserver(
-                forName: UIApplication.didBecomeActiveNotification,
-                object: nil, queue: .main
-            ) { [weak self] _ in
-                self?.runHealthSync(force: false)
-                self?.pushWatchPairedFlag()
+            // fires every time the user re-foregrounds the app. Capture
+            // the observer token so we can remove it on Coordinator
+            // teardown (was leaking before — a recreated WebView would
+            // accumulate observers, each firing duplicate syncs).
+            if foregroundObserver == nil {
+                foregroundObserver = NotificationCenter.default.addObserver(
+                    forName: UIApplication.didBecomeActiveNotification,
+                    object: nil, queue: .main
+                ) { [weak self] _ in
+                    self?.runHealthSync(force: false)
+                    self?.pushWatchPairedFlag()
+                }
             }
             // Foreground heartbeat — every 10 min while in foreground.
             healthSyncTimer?.invalidate()
             healthSyncTimer = Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in
                 self?.runHealthSync(force: false)
             }
+        }
+
+        /// Token for the didBecomeActiveNotification observer so deinit
+        /// can remove it. Was leaking across WebView recreations.
+        private var foregroundObserver: NSObjectProtocol?
+
+        deinit {
+            // Cancel the foreground heartbeat timer + remove the
+            // didBecomeActiveNotification observer. Was leaking across
+            // WebView recreations before (a Coordinator dies but its
+            // timer + observer kept firing forever).
+            healthSyncTimer?.invalidate()
+            if let obs = foregroundObserver {
+                NotificationCenter.default.removeObserver(obs)
+            }
+            // The ConnectivityService relays and WatchWorkoutReceiver
+            // statics are re-installed by the next Coordinator's
+            // didFinish, so leaving the old closures in place is
+            // harmless — they capture [weak webView] and no-op when
+            // the webview is gone.
         }
 
         /// Tell the web side whether the user has an Apple Watch paired
