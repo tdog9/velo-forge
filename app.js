@@ -10608,6 +10608,23 @@ async function renderProfile() {
     </div>
   </div>`;
   html += '</div>';
+
+  // Advanced — cache clear. Fixes the "I installed the new build but it
+  // still looks the same" problem in one tap: clears the WKWebView's
+  // localStorage + caches API + unregisters service workers, then
+  // hard-reloads. Identical to what the bootstrap version-check script
+  // does on version mismatch, but the user can fire it on demand
+  // without waiting for a deploy to bump the VER string.
+  html += `
+    <div class="profile-section">
+      <div class="profile-section-title">Advanced</div>
+      <div class="profile-row" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div style="font-size:12px;color:var(--muted-fg);line-height:1.4">If the app looks weird or shows old content, clear the local cache. You'll stay signed in.</div>
+        <button id="profile-clear-cache" type="button" style="margin-top:4px;padding:11px;border-radius:10px;background:rgba(var(--primary-rgb),.10);border:1px solid rgba(var(--primary-rgb),.30);color:var(--primary);font-weight:700;font-size:13px;cursor:pointer">
+          Clear cache &amp; reload
+        </button>
+      </div>
+    </div>`;
   // Coach Personality
   const persona = localStorage.getItem('tp_coach_persona') || 'supportive';
   html += '<div class="profile-section"><div class="profile-section-title">Coach Personality</div>';
@@ -10907,6 +10924,56 @@ async function renderProfile() {
   // Bindings
   document.querySelectorAll('.theme-pick').forEach(btn => {
     btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+  });
+  // Clear cache & reload — sweeps localStorage (preserving auth),
+  // wipes Cache API caches, unregisters service workers, then
+  // hard-reloads. Solves "I installed the new build but it still
+  // looks old" without waiting for a version bump.
+  $('profile-clear-cache')?.addEventListener('click', async () => {
+    const btn = document.getElementById('profile-clear-cache');
+    if (!btn) return;
+    if (!confirm('Clear local cache and reload?\n\nYou\'ll stay signed in. App will refetch the latest version.')) return;
+    btn.disabled = true;
+    btn.textContent = 'Clearing…';
+    try {
+      // Preserve a tiny allow-list of keys that should survive the wipe:
+      // auth state (Firebase handles its own), theme preference, and
+      // any in-flight stint marker so a mid-race cache clear doesn't
+      // lose the active stint's start time.
+      const keep = {};
+      const keepKeys = ['tp_theme', 'tp_stint_start', 'tp_pending_apns_token', 'tp_pending_fcm_token'];
+      for (const k of keepKeys) {
+        try { const v = localStorage.getItem(k); if (v != null) keep[k] = v; } catch(_) {}
+      }
+      try { localStorage.clear(); } catch(_) {}
+      for (const k of Object.keys(keep)) {
+        try { localStorage.setItem(k, keep[k]); } catch(_) {}
+      }
+      // Wipe Cache API caches (service-worker caches).
+      if (typeof caches !== 'undefined') {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+        } catch(_) {}
+      }
+      // Unregister service workers so the next load fetches fresh.
+      if ('serviceWorker' in navigator) {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+        } catch(_) {}
+      }
+      // Force a hard reload — bypasses HTTP cache for the HTML.
+      // Tiny delay so the user sees the "Clearing…" state.
+      setTimeout(() => {
+        try { location.replace(location.pathname + '?cleared=' + Date.now()); }
+        catch(_) { location.reload(); }
+      }, 250);
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Clear cache & reload';
+      showToast?.('Couldn\'t clear: ' + (e?.message || 'try again'), 'warn');
+    }
   });
   // Wearable / sync connect buttons
   $('prof-strava-connect')?.addEventListener('click', () => stravaStartAuth());
