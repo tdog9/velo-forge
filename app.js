@@ -855,6 +855,86 @@ if (typeof window !== 'undefined') {
   window.tpNative.requestWatchSnapshot = function() {
     try { pushWatchState(); } catch (e) { console.warn('requestWatchSnapshot:', e); }
   };
+  // Watch → web: a Watch-logged workout payload arrived via the
+  // WatchConnectivity bridge. The native side cannot write because
+  // Firebase Auth runs in this web context, not in the Swift target.
+  // So the web takes the payload, normalises it to the same shape
+  // `userWorkouts` uses, and writes via the web's signed-in Firestore
+  // SDK (which gets offline persistence + auto-retry for free).
+  window.tpNative.onWatchWorkout = async function(payload) {
+    try {
+      if (!payload || typeof payload !== 'object') return;
+      if (!db || !currentUser?.uid) {
+        console.warn('onWatchWorkout received but not signed in — queueing locally for next sync.');
+        // Local queue so a watch sync that lands before auth doesn't get lost.
+        try {
+          const queue = JSON.parse(localStorage.getItem('tp_watch_workout_queue') || '[]');
+          queue.push({ payload, at: Date.now() });
+          // Cap to 50 to prevent unbounded growth.
+          localStorage.setItem('tp_watch_workout_queue', JSON.stringify(queue.slice(-50)));
+        } catch(_) {}
+        return;
+      }
+      // Map payload → Firestore workout doc. WorkoutPayload.toDictionary
+      // on the Swift side produces these keys; we accept either snake or
+      // camel just in case.
+      const startedAt = payload.startedAt || payload.startedAtMs || payload.start_time;
+      const endedAt = payload.endedAt || payload.endedAtMs || payload.end_time;
+      const durationSec = payload.durationSeconds || payload.duration_seconds || payload.duration || 0;
+      const date = startedAt
+        ? new Date(typeof startedAt === 'number' ? startedAt : (typeof startedAt === 'string' ? Date.parse(startedAt) : Date.now()))
+        : new Date();
+      const workout = {
+        name: payload.name || 'HPR ride',
+        type: (payload.activityType || payload.activity_type || 'ride').toLowerCase(),
+        date: Timestamp.fromDate(isNaN(date) ? new Date() : date),
+        duration: Math.max(1, Math.round((durationSec || 0) / 60)),     // minutes
+        durationSeconds: Number(durationSec) || 0,
+        heartRate: payload.heartRateAvg || payload.heart_rate_avg || null,
+        heartRateMax: payload.heartRateMax || payload.heart_rate_max || null,
+        energyKcal: payload.energyKcal || payload.energy_kcal || null,
+        source: payload.source || 'watch',
+        createdAt: serverTimestamp(),
+      };
+      // Use deterministic doc id so a Watch retry doesn't write duplicates.
+      // Falls back to autoId only if startedAt is missing.
+      const docId = startedAt
+        ? 'watch-' + (typeof startedAt === 'number' ? startedAt : Date.parse(startedAt))
+        : doc(collection(db, 'users', currentUser.uid, 'workouts')).id;
+      await setDoc(doc(db, 'users', currentUser.uid, 'workouts', docId), workout, { merge: true });
+      console.log('[onWatchWorkout] saved', docId);
+      showToast?.('Watch workout synced', 'success');
+    } catch (e) {
+      console.warn('onWatchWorkout:', e?.message || e);
+      // On Firestore error, queue locally + retry on next online.
+      try {
+        const queue = JSON.parse(localStorage.getItem('tp_watch_workout_queue') || '[]');
+        queue.push({ payload, at: Date.now(), err: e?.message });
+        localStorage.setItem('tp_watch_workout_queue', JSON.stringify(queue.slice(-50)));
+      } catch(_) {}
+    }
+  };
+  // Flush any queued watch workouts when the web is signed in + online.
+  // Fires on signin (onAuthStateChanged path) and on online events.
+  async function flushWatchWorkoutQueue() {
+    if (!db || !currentUser?.uid) return;
+    let queue = [];
+    try { queue = JSON.parse(localStorage.getItem('tp_watch_workout_queue') || '[]'); } catch(_) {}
+    if (!queue.length) return;
+    const remaining = [];
+    for (const item of queue) {
+      try {
+        await window.tpNative.onWatchWorkout(item.payload);
+      } catch (_) {
+        remaining.push(item);
+      }
+    }
+    try { localStorage.setItem('tp_watch_workout_queue', JSON.stringify(remaining)); } catch(_) {}
+  }
+  window.addEventListener('online', flushWatchWorkoutQueue);
+  // Also expose for manual flush from devtools / dev page.
+  window._tpFlushWatchQueue = flushWatchWorkoutQueue;
+
   // Watch → web: training session finished. Save to Firestore + clear
   // local training state. Mirrors the race-day-laps relay path.
   window.tpNative.onTrainingSessionEnd = async function(payload) {
@@ -14872,6 +14952,11 @@ function startApp() {
         // toast + the Start Training CTA highlighted when the coach
         // hits "Start team training now".
         try { listenTeamTrainingCue(); } catch(_) {}
+        // Flush any Watch workouts that arrived before this signin
+        // (e.g. watch logged offline while phone was on the login
+        // screen). Now that we have an authenticated Firestore SDK,
+        // the queued entries can write.
+        try { if (typeof window._tpFlushWatchQueue === 'function') window._tpFlushWatchQueue(); } catch(_) {}
       }).then(() => {
         // Attach the team live listener exactly once after the initial load,
         // not from inside loadTeamData (which used to cause an attach→load→
