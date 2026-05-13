@@ -12,6 +12,7 @@ final class WorkoutSessionService: NSObject, ObservableObject {
     @Published private(set) var heartRate: Int?
     @Published private(set) var heartRateMax: Int?
     @Published private(set) var energyKcal: Double = 0
+    @Published private(set) var distanceMeters: Double = 0
     @Published var lastError: String?
 
     private let store = HKHealthStore()
@@ -58,11 +59,12 @@ final class WorkoutSessionService: NSObject, ObservableObject {
 
             let avg = runningHRSamples > 0 ? runningHRTotal / runningHRSamples : nil
             let payload = WorkoutPayload(
-                name: "HPV ride",
+                name: "HPR ride",
                 durationSeconds: endedAt.timeIntervalSince(startedAt),
                 heartRateAvg: avg,
                 heartRateMax: heartRateMax,
                 energyKcal: energyKcal > 0 ? energyKcal : nil,
+                distanceMeters: distanceMeters > 0 ? distanceMeters : nil,
                 startedAt: startedAt,
                 endedAt: endedAt,
                 activityType: "cycling",
@@ -118,6 +120,7 @@ extension WorkoutSessionService: HKLiveWorkoutBuilderDelegate {
                                     didCollectDataOf collectedTypes: Set<HKSampleType>) {
         let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)
         let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)
+        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceCycling)
         for type in collectedTypes {
             guard let qType = type as? HKQuantityType,
                   let stats = workoutBuilder.statistics(for: qType) else { continue }
@@ -137,6 +140,15 @@ extension WorkoutSessionService: HKLiveWorkoutBuilderDelegate {
                 if let kcal = stats.sumQuantity()?.doubleValue(for: .kilocalorie()) {
                     Task { @MainActor [weak self] in
                         self?.energyKcal = kcal
+                    }
+                }
+            } else if qType == distanceType {
+                // Cumulative distance for the whole session in metres.
+                // HealthKit's distanceCycling is derived from GPS +
+                // motion sensors automatically when locationType=.outdoor.
+                if let meters = stats.sumQuantity()?.doubleValue(for: .meter()) {
+                    Task { @MainActor [weak self] in
+                        self?.distanceMeters = meters
                     }
                 }
             }

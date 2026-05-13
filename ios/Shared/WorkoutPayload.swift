@@ -9,6 +9,7 @@ struct WorkoutPayload: Sendable {
     let heartRateAvg: Int?
     let heartRateMax: Int?
     let energyKcal: Double?
+    let distanceMeters: Double?
     let startedAt: Date
     let endedAt: Date
     let activityType: String
@@ -26,6 +27,7 @@ struct WorkoutPayload: Sendable {
         if let heartRateAvg { d["heartRateAvg"] = heartRateAvg }
         if let heartRateMax { d["heartRateMax"] = heartRateMax }
         if let energyKcal { d["energyKcal"] = energyKcal }
+        if let distanceMeters { d["distanceMeters"] = distanceMeters }
         return d
     }
 
@@ -42,18 +44,20 @@ struct WorkoutPayload: Sendable {
         self.heartRateAvg = dict["heartRateAvg"] as? Int
         self.heartRateMax = dict["heartRateMax"] as? Int
         self.energyKcal = dict["energyKcal"] as? Double
+        self.distanceMeters = dict["distanceMeters"] as? Double
         self.startedAt = Date(timeIntervalSince1970: startedAt)
         self.endedAt = Date(timeIntervalSince1970: endedAt)
         self.activityType = activityType
         self.source = source
     }
 
-    init(name: String, durationSeconds: TimeInterval, heartRateAvg: Int?, heartRateMax: Int?, energyKcal: Double?, startedAt: Date, endedAt: Date, activityType: String, source: String = "watch") {
+    init(name: String, durationSeconds: TimeInterval, heartRateAvg: Int?, heartRateMax: Int?, energyKcal: Double?, distanceMeters: Double? = nil, startedAt: Date, endedAt: Date, activityType: String, source: String = "watch") {
         self.name = name
         self.durationSeconds = durationSeconds
         self.heartRateAvg = heartRateAvg
         self.heartRateMax = heartRateMax
         self.energyKcal = energyKcal
+        self.distanceMeters = distanceMeters
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.activityType = activityType
@@ -69,6 +73,7 @@ struct WorkoutPayload: Sendable {
         w.heartRateAvg = heartRateAvg
         w.heartRateMax = heartRateMax
         w.energyKcal = energyKcal
+        if let meters = distanceMeters { w.distanceKm = meters / 1000 }
         w.source = Workout.Source(rawValue: source) ?? .watch
         w.activityType = Workout.ActivityType(rawValue: activityType) ?? .cycling
         return w

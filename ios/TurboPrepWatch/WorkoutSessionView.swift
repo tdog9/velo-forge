@@ -40,17 +40,45 @@ struct WorkoutSessionView: View {
 
     private var activeView: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Big elapsed timer — matches web's prominent "you've banked X min" rhythm.
+            // Big elapsed timer — paired with live distance below for
+            // an at-a-glance read of "how long, how far".
             ThemeCard {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("ELAPSED")
-                        .font(.system(size: 9, weight: .heavy))
-                        .tracking(0.6)
-                        .foregroundStyle(Theme.mutedFg)
-                    Text(formattedElapsed(session.elapsed))
-                        .font(.system(size: 34, weight: .black, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(Theme.fg)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("ELAPSED")
+                                .font(.system(size: 9, weight: .heavy))
+                                .tracking(0.6)
+                                .foregroundStyle(Theme.mutedFg)
+                            Text(formattedElapsed(session.elapsed))
+                                .font(.system(size: 28, weight: .black, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.fg)
+                        }
+                        Spacer(minLength: 0)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("DISTANCE")
+                                .font(.system(size: 9, weight: .heavy))
+                                .tracking(0.6)
+                                .foregroundStyle(Theme.mutedFg)
+                            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                                Text(formattedDistance(session.distanceMeters))
+                                    .font(.system(size: 22, weight: .black, design: .rounded))
+                                    .monospacedDigit()
+                                    .foregroundStyle(Theme.primary)
+                                Text(distanceUnit(session.distanceMeters))
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(Theme.mutedFg)
+                            }
+                        }
+                    }
+                    // Live pace (avg km/h since start). Only render once
+                    // we have at least 60s of data + meaningful distance.
+                    if session.elapsed > 60 && session.distanceMeters > 100 {
+                        Text(String(format: "Avg %.1f km/h", (session.distanceMeters / 1000) / (session.elapsed / 3600)))
+                            .font(.system(.caption2))
+                            .foregroundStyle(Theme.mutedFg)
+                    }
                 }
             }
 
@@ -177,6 +205,21 @@ struct WorkoutSessionView: View {
                 statTile(label: "AVG HR", value: p.heartRateAvg.map { "\($0)" } ?? "—", suffix: "bpm", color: Theme.heartRateColor)
                 statTile(label: "MAX HR", value: p.heartRateMax.map { "\($0)" } ?? "—", suffix: "bpm", color: Theme.phasePeak)
             }
+            if let meters = p.distanceMeters, meters > 0 {
+                ThemeCard {
+                    HStack {
+                        Text("DISTANCE")
+                            .font(.system(size: 9, weight: .heavy))
+                            .tracking(0.6)
+                            .foregroundStyle(Theme.mutedFg)
+                        Spacer()
+                        Text("\(formattedDistance(meters)) \(distanceUnit(meters))")
+                            .font(.system(.body, design: .rounded, weight: .bold))
+                            .foregroundStyle(Theme.primary)
+                            .monospacedDigit()
+                    }
+                }
+            }
             if let kcal = p.energyKcal, kcal > 0 {
                 ThemeCard {
                     HStack {
@@ -272,5 +315,16 @@ struct WorkoutSessionView: View {
         return h > 0
             ? String(format: "%d:%02d:%02d", h, m, s)
             : String(format: "%d:%02d", m, s)
+    }
+
+    /// Format meters for the watch face. Under 1 km → integer metres
+    /// (e.g. 230). Over 1 km → 1-decimal km (e.g. 4.2). Keeps the
+    /// digits readable at the watch's display size.
+    private func formattedDistance(_ meters: Double) -> String {
+        if meters < 1000 { return String(Int(meters.rounded())) }
+        return String(format: "%.1f", meters / 1000)
+    }
+    private func distanceUnit(_ meters: Double) -> String {
+        return meters < 1000 ? "m" : "km"
     }
 }

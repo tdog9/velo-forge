@@ -884,12 +884,20 @@ if (typeof window !== 'undefined') {
       const date = startedAt
         ? new Date(typeof startedAt === 'number' ? startedAt : (typeof startedAt === 'string' ? Date.parse(startedAt) : Date.now()))
         : new Date();
+      // Distance arrives in metres from the Watch (HealthKit distanceCycling).
+      // Convert to the existing schema's distanceKm so the rest of the
+      // app (Activities tab, weekly volume chart) renders it correctly.
+      const distanceMeters = payload.distanceMeters || payload.distance_meters || payload.distanceM || null;
+      const distanceKm = (typeof distanceMeters === 'number' && distanceMeters > 0)
+        ? Math.round((distanceMeters / 1000) * 100) / 100
+        : null;
       const workout = {
         name: payload.name || 'HPR ride',
         type: (payload.activityType || payload.activity_type || 'ride').toLowerCase(),
         date: Timestamp.fromDate(isNaN(date) ? new Date() : date),
         duration: Math.max(1, Math.round((durationSec || 0) / 60)),     // minutes
         durationSeconds: Number(durationSec) || 0,
+        distanceKm: distanceKm,
         heartRate: payload.heartRateAvg || payload.heart_rate_avg || null,
         heartRateMax: payload.heartRateMax || payload.heart_rate_max || null,
         energyKcal: payload.energyKcal || payload.energy_kcal || null,
