@@ -33,13 +33,18 @@ struct WebViewContainer: UIViewRepresentable {
         prefs.allowsContentJavaScript = true
         config.defaultWebpagePreferences = prefs
         // Inject a hard-locked viewport override at document-start of
-        // every page load. Belt-and-braces against any caching layer
-        // that might serve a stale <meta name="viewport"> tag.
+        // every page load. Use screen.width (the device's actual CSS-pixel
+        // width) instead of `device-width` — on this device the WKWebView
+        // was reporting `device-width` as 460 while the real screen was
+        // only 393, so content rendered ~17% wider than visible. Forcing
+        // the layout viewport to screen.width makes innerWidth match the
+        // physical screen and content fits.
         let viewportJS = """
         (function(){
           var m=document.querySelector('meta[name="viewport"]');
           if(!m){ m=document.createElement('meta'); m.name='viewport'; document.head.appendChild(m); }
-          m.setAttribute('content','width=device-width, initial-scale=1, viewport-fit=cover');
+          var w = (window.screen && window.screen.width) ? window.screen.width : 'device-width';
+          m.setAttribute('content','width=' + w + ', initial-scale=1, viewport-fit=cover');
           document.documentElement.style.setProperty('-webkit-text-size-adjust','100%');
           document.documentElement.style.setProperty('text-size-adjust','100%');
         })();
