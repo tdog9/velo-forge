@@ -545,34 +545,39 @@ body{
   outline:none !important;
 }
 .auth-card .btn-primary{
-  background:linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
+  background:var(--primary) !important;
   border:none !important;
-  border-radius:10px !important;
+  border-radius:12px !important;
   padding:14px !important;
   font-size:15px !important;
   font-weight:700 !important;
   letter-spacing:.01em;
+  /* Refined: subtle dark drop shadow + inset highlight instead of
+     the tacky orange-tinted glow that bled out the bottom. */
   box-shadow:
-    0 8px 20px rgba(var(--primary-rgb),.3),
-    0 1px 0 rgba(255,255,255,.15) inset !important;
-  transition:transform .12s ease, box-shadow .2s ease !important;
+    0 2px 8px rgba(0,0,0,.30),
+    0 1px 0 rgba(255,255,255,.12) inset !important;
+  transition:transform .12s ease, background .15s ease !important;
 }
 .auth-card .btn-primary:hover{
-  transform:translateY(-1px);
-  box-shadow:
-    0 12px 28px rgba(var(--primary-rgb),.4),
-    0 1px 0 rgba(255,255,255,.15) inset !important;
+  background:var(--primary-hover) !important;
 }
-.auth-card .btn-primary:active{ transform:translateY(0); }
+.auth-card .btn-primary:active{ transform:scale(.98); }
 .auth-switch{
-  margin-top:20px !important;
+  margin-top:14px !important;
+  font-size:13px;
 }
-.auth-switch a{
+/* No more dashed-underline links — the auth nav is now <button> tags
+   styled via .auth-link-btn in styles.css. Keep an <a> fallback for
+   any path we haven't migrated, but without the dashed border. */
+.auth-switch a, .auth-switch .auth-link-btn{
   color:var(--primary) !important;
   font-weight:700;
   cursor:pointer;
-  border-bottom:1px dashed rgba(var(--primary-rgb),.4);
+  border-bottom:none !important;
+  text-decoration:none !important;
 }
+.auth-switch a:active, .auth-switch .auth-link-btn:active{ opacity:.7; }
 .auth-error{
   border-radius:10px !important;
   padding:12px 14px !important;
