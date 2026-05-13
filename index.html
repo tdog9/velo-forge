@@ -44,24 +44,36 @@
 // CSS `zoom` so the page width always matches the WebView's visible
 // width. Cheap, runs continuously via rAF + resize.
 (function(){
+  // One-shot: if the WebView's innerWidth exceeds the actual screen
+  // width, the layout viewport is too big and content gets rendered
+  // wider than the visible area. Force the viewport meta to use the
+  // real screen width so layout matches the visible pixels. The
+  // browser will then fit-scale on top.
+  function fixViewport(){
+    try {
+      var sw = window.screen.width;
+      var iw = window.innerWidth;
+      if (sw && iw > sw + 1) {
+        var m = document.querySelector('meta[name=viewport]');
+        if (m) {
+          m.setAttribute('content', 'width=' + sw + ', initial-scale=1, viewport-fit=cover');
+        }
+      }
+    } catch(e){}
+  }
+  fixViewport();
+
   function fit(){
     var html = document.documentElement;
     if (!document.body) return;
+    fixViewport();
     html.style.zoom = '';
     var have = Math.max(document.body.scrollWidth, html.scrollWidth);
     var want = window.innerWidth;
     var screenW = window.screen.width;
-    // Two-pronged fit:
-    //  (a) Content wider than viewport → shrink to fit (overflow case)
-    //  (b) Viewport thinks it's wider than screen → shrink to screen
-    //      (this handles iOS Display Zoom where window.innerWidth
-    //      reports the upscaled logical width)
     var ratio = 1;
     if (have > want + 1) ratio = want / have;
     if (want > screenW + 1) ratio = Math.min(ratio, screenW / want);
-    // Apply zoom (last-resort fallback). Keeping it active but conservative
-    // — html.style.zoom on WebKit can break position:fixed. The real fix is
-    // to find the overflow culprit (logged below in the HUD).
     if (ratio < 1) {
       if (ratio < 0.6) ratio = 0.6;
       html.style.zoom = ratio;
