@@ -10,6 +10,33 @@
 <meta name="theme-color" content="#0a0b0f" id="tp-theme-color-meta">
 <meta name="color-scheme" content="dark light">
 <script>
+// ── iOS shell: nuke Service Worker + Cache Storage ───────────────────
+// In the iOS native shell every page load already comes through the
+// WKWebView's HTTP cache layer, so the PWA Service Worker is pure
+// downside — it intercepts asset requests with stale-while-revalidate
+// and made every code change take TWO cold launches to land. Kills SW
+// + all CacheStorage entries synchronously at the top of <head> so the
+// rest of the page boots against the network.
+(function(){
+  try {
+    var isIOSShell = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tpNative);
+    if (!isIOSShell) return;
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){ r.unregister(); });
+      }).catch(function(){});
+    }
+    if (window.caches && caches.keys) {
+      caches.keys().then(function(keys){
+        keys.forEach(function(k){ caches.delete(k); });
+      }).catch(function(){});
+    }
+    // Mark so app.js / other scripts know not to re-register SW.
+    window.__TP_NO_SW__ = true;
+  } catch(e) {}
+})();
+</script>
+<script>
 // ── WebView fit-to-screen guard ─────────────────────────────────────
 // Some iPhones (system Display Zoom on, or older devices) render the
 // page wider than the actual visible viewport, clipping content on

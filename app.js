@@ -17594,8 +17594,11 @@ window.addEventListener('offline', _checkConnectivity);
 _checkConnectivity();
 // Start
 startApp();
-// Register service worker for offline support — force update check
-if ('serviceWorker' in navigator) {
+// Register service worker for offline support — force update check.
+// In the iOS native shell we skip registration entirely (the WKWebView
+// has its own HTTP cache and the SW just makes code changes take an
+// extra cold launch to land — see index.html kill-switch).
+if ('serviceWorker' in navigator && !window.__TP_NO_SW__) {
   navigator.serviceWorker.register('/sw.js').then(reg => {
     // Check for updates every page load
     reg.update().catch(() => {});
