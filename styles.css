@@ -760,39 +760,26 @@ select.input{
 .strava-import-btn:active{background:#FC4C02;color:#fff}
 .strava-import-btn.imported{background:var(--muted);color:var(--muted-fg);border-color:var(--border);cursor:default}
 
-/* ===== AI Coach — minimal v0.13.2 ─────────────────────────────────
-   Was a heavy 44px purple-gradient orb floating bottom-left. Toned
-   down to a small unobtrusive pill that's still tappable but doesn't
-   compete with content. Still 44pt minimum hit area. */
+/* ===== AI Coach ===== */
 .ai-fab{
   position:fixed;
   left:16px;
-  bottom:calc(var(--tab-h, 70px) + 14px + env(safe-area-inset-bottom, 0px));
-  height:34px;
-  min-width:34px;
-  padding:0 11px;
-  border-radius:99px;
-  background:rgba(139,92,246,.14);
-  color:#a855f7;
-  border:1px solid rgba(139,92,246,.35);
+  bottom:calc(var(--tab-h, 70px) + 12px + env(safe-area-inset-bottom, 0px));
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#8b5cf6,#a855f7);
+  color:#fff;
+  border:none;
   cursor:pointer;
-  box-shadow:0 2px 8px rgba(0,0,0,.25);
+  box-shadow:0 4px 12px rgba(139,92,246,.4);
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:6px;
-  font-size:11.5px;
-  font-weight:700;
-  letter-spacing:.04em;
-  text-transform:uppercase;
   z-index:35;
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
-  transition:transform .12s, background .12s;
 }
-.ai-fab svg{width:14px;height:14px;stroke:currentColor}
-.ai-fab:hover{background:rgba(139,92,246,.22)}
-.ai-fab:active{transform:scale(.94)}
+.ai-fab svg{width:20px;height:20px}
+.ai-fab:active{transform:scale(.92)}
 /* Use 100dvh so iOS Safari shrinks the overlay when the on-screen
    keyboard is up, instead of leaving the input bar floating below the
    keyboard. inset:0 alone falls back to the larger SVH which causes
