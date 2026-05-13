@@ -121,6 +121,21 @@ struct WebViewContainer: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
+        // Re-enforce zoom locks every layout pass — a system event
+        // (orientation, accessibility text scale, split view) can
+        // sneak the scrollView's zoom or pageZoom past 1.0.
+        if #available(iOS 14.0, *) { webView.pageZoom = 1.0 }
+        webView.scrollView.setZoomScale(1.0, animated: false)
+        // Re-assert the layout viewport against the WebView's CURRENT
+        // bounds width on every SwiftUI layout pass. Cheap, idempotent,
+        // and the only way to keep CSS pixels honest when iOS resizes
+        // the WebView underneath us.
+        let nativeWidth = webView.bounds.width
+        if nativeWidth > 0, webView.url != nil {
+            let widthStr = String(format: "%.0f", nativeWidth)
+            let js = "(function(){try{var m=document.querySelector('meta[name=viewport]');if(m){m.setAttribute('content','width=\(widthStr), initial-scale=1, viewport-fit=cover');}window.__TP_NATIVE_W__=\(widthStr);}catch(e){}})();"
+            webView.evaluateJavaScript(js, completionHandler: nil)
+        }
         // Re-navigate when the SwiftUI binding for `url` changes — used by
         // Universal Links to route a tapped https://turboprep.app/* URL into
         // the existing WebView instead of spawning a new one.
@@ -323,6 +338,33 @@ struct WebViewContainer: UIViewRepresentable {
             // link can all reset the scrollView to a non-1.0 scale.
             if #available(iOS 14.0, *) { webView.pageZoom = 1.0 }
             webView.scrollView.setZoomScale(1.0, animated: false)
+            // ── COMPREHENSIVE VIEWPORT LOCK ────────────────────────
+            // Force the layout viewport to match the WKWebView's
+            // *actual* native frame width (UIScreen.main was reporting
+            // one value, JS innerWidth was reporting another — 460 vs
+            // 393 on the affected device). The WebView's own bounds is
+            // the authoritative number; lock the meta tag to it so CSS
+            // pixels = rendered points.
+            let nativeWidth = webView.bounds.width > 0 ? webView.bounds.width : UIScreen.main.bounds.width
+            let widthStr = String(format: "%.0f", nativeWidth)
+            let lockJS = """
+            (function(){
+              try {
+                var w = \(widthStr);
+                var m = document.querySelector('meta[name="viewport"]');
+                if (!m) { m = document.createElement('meta'); m.name = 'viewport'; document.head.appendChild(m); }
+                m.setAttribute('content', 'width=' + w + ', initial-scale=1, viewport-fit=cover');
+                document.documentElement.style.setProperty('-webkit-text-size-adjust', '100%');
+                document.documentElement.style.setProperty('text-size-adjust', '100%');
+                // Force layout recompute by toggling a no-op style.
+                document.documentElement.style.zoom = '';
+                var d = document.documentElement.offsetWidth;
+                window.__TP_NATIVE_W__ = w;
+                window.dispatchEvent(new Event('resize'));
+              } catch(e){}
+            })();
+            """
+            webView.evaluateJavaScript(lockJS, completionHandler: nil)
             if !didFireLoaded {
                 didFireLoaded = true
                 onWebLoaded?()

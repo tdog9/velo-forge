@@ -14,20 +14,31 @@ struct RootView: View {
     @State private var loadURL: URL = turboPrepURL
 
     var body: some View {
-        ZStack {
-            WebViewContainer(url: loadURL) {
-                // didFinish callback — fade the splash with a slight delay so
-                // the first paint of the web app is visible underneath.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    splashVisible = false
+        GeometryReader { geo in
+            ZStack {
+                WebViewContainer(url: loadURL) {
+                    // didFinish callback — fade the splash with a slight delay so
+                    // the first paint of the web app is visible underneath.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        splashVisible = false
+                    }
                 }
+                // HARD frame lock: prevents the WebView from being
+                // laid out wider than the actual SwiftUI-granted size,
+                // which on the affected device was 460pt vs a 393pt
+                // physical screen. GeometryReader returns the
+                // safe-area-aware size; we paint into the safe areas
+                // separately via .ignoresSafeArea so the WebView's CSS
+                // viewport matches the visible screen exactly.
+                .frame(width: geo.size.width, height: geo.size.height)
+                // Edge-to-edge: web bundle handles status-bar + home-indicator
+                // padding via env(safe-area-inset-*).
+                .background(Color(red: 10/255, green: 11/255, blue: 15/255))
+                SplashOverlay(visible: $splashVisible)
             }
-            // Edge-to-edge: web bundle handles status-bar + home-indicator
-            // padding via env(safe-area-inset-*).
-            .ignoresSafeArea()
-            .background(Color(red: 10/255, green: 11/255, blue: 15/255))
-            SplashOverlay(visible: $splashVisible)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
+        .ignoresSafeArea()
         .onAppear {
             // Safety net — if the WebView never reports didFinish (DNS issue,
             // load timeout, server down), fade the splash anyway after 12s
