@@ -4,6 +4,24 @@
    To roll back: empty this file. Base styles.css untouched.
    ============================================================ */
 
+/* ---------- Fit-to-viewport guard (2026-05-13) ----------
+   Content was overflowing both sides of the screen on iPhone.
+   Hard-lock every master container to viewport width and
+   clip any rogue child that tries to exceed it. */
+html, body{
+  width:100% !important;
+  max-width:100vw !important;
+  overflow-x:hidden !important;
+}
+#main-app,
+#main-app > .header,
+#main-app > #content,
+#main-app > .tab-bar,
+.page{
+  max-width:100vw !important;
+  box-sizing:border-box !important;
+}
+
 /* ---------- Type color tokens ---------- */
 :root{
   --type-hpv:#f97316;
