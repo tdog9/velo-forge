@@ -1220,6 +1220,9 @@ async function startStint(c) {
   // Date.now() (≈55 years in ms) and bypass the 25-hour cap entirely.
   try { localStorage.setItem('tp_stint_start', String(stintStartTime)); } catch(e) {}
   stintPositions=[]; stintLaps=[]; stintPitStops=[]; moveContinuousStart=null; lastLapTime=null;
+  // Reset detector + voice state for the new stint.
+  _crashHrSamples = []; _crashAlertedThisStint = false;
+  _lastPitSuggestionAt = 0; _bestLapSpoken = Infinity;
   // Kick off the iOS Live Activity (lock-screen + Dynamic Island).
   // Best-effort — silently no-ops on non-iOS or when the user has
   // disabled live activities in Settings.
@@ -1323,6 +1326,11 @@ async function publishLiveStint() {
     await ctx.setDoc(ctx.doc(ctx.db,'race_day',rdd.date,'live',ctx.currentUser.uid), {
       uid: ctx.currentUser.uid,
       displayName: ctx.userProfile?.displayName || 'Driver',
+      // Team scoping — lets the spectator view + future multi-team
+      // race-day mode group drivers by team. Was missing, so multi-team
+      // race days saw all drivers in one flat list.
+      teamId: ctx.userProfile?.teamId || null,
+      teamName: ctx.teamData?.name || ctx.userProfile?.teamName || 'Team',
       live: true,
       startTime: stintStartTime,
       elapsed: Date.now() - stintStartTime,
@@ -1419,8 +1427,214 @@ function recordManualLap(durMs, opts = {}) {
   stintLaps.push({ time: now, duration: dur, lat: opts.lat, lng: opts.lng, source: opts.source || (opts.lat ? 'gps' : 'manual') });
   lastLapTime = now;
   ctx.showToast('Lap ' + stintLaps.length + ' · ' + fmtMs(dur), 'success');
+  speakRaceCue('lap-' + stintLaps.length, dur);
   updateActive();
+  // Pit predictor + crash detector check on every new lap.
+  try { checkPitPredictor(); } catch(_) {}
+  try { checkCrashDetector(); } catch(_) {}
 }
+
+// ── Crash detector ────────────────────────────────────────────────
+// Two trigger conditions, each tuned to be conservative:
+//   1. NO lap recorded for >5 min AFTER the rider has completed at
+//      least 2 laps (normal lap is 3-5 min; 5+ min silence is a real
+//      anomaly — almost certainly stopped or off-course)
+//   2. Sudden HR collapse: ≥30 bpm drop within 10s while otherwise
+//      mid-stint. Reads from window._tpLatestHR which the watch
+//      sync pipeline already feeds.
+// On trigger:
+//   • Vibrate + show in-app "Are you OK?" prompt with 15-sec timeout
+//   • If no response in 15s → write to team /alerts as a coach SOS
+//   • Speak "Crash detected, are you OK?" via TTS
+let _crashHrSamples = [];       // sliding 20s HR samples
+let _crashAlertedThisStint = false;
+function checkCrashDetector() {
+  if (!stintActive || _crashAlertedThisStint) return;
+  // ── Stale-lap check ──
+  if (stintLaps.length >= 2) {
+    const now = Date.now();
+    const last = stintLaps[stintLaps.length - 1].time;
+    const silentMs = now - last;
+    if (silentMs > 5 * 60 * 1000) {
+      triggerCrashPrompt('No lap detected in 5 min — are you OK?');
+      return;
+    }
+  }
+}
+function _crashHrTick(bpm) {
+  if (!stintActive || !Number.isFinite(bpm) || bpm <= 0) return;
+  const now = Date.now();
+  _crashHrSamples.push({ t: now, bpm });
+  // Keep last 20s only.
+  _crashHrSamples = _crashHrSamples.filter(s => now - s.t < 20000);
+  if (_crashHrSamples.length < 4) return;
+  const oldest = _crashHrSamples[0].bpm;
+  const newest = _crashHrSamples[_crashHrSamples.length - 1].bpm;
+  if (oldest - newest >= 30) {
+    triggerCrashPrompt('HR dropped sharply — are you OK?');
+  }
+}
+function triggerCrashPrompt(reason) {
+  if (_crashAlertedThisStint) return;
+  _crashAlertedThisStint = true;
+  try { ctx.haptic?.('heavy'); } catch(_) {}
+  speakRaceCue('crash', null, reason);
+  // Build a confirm modal that auto-escalates after 15s.
+  document.getElementById('rd-crash-prompt')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'rd-crash-prompt';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9300;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)';
+  ov.innerHTML = `
+    <div style="background:#1a0a0a;border:2px solid #ef4444;border-radius:18px;padding:22px;max-width:340px;text-align:center;animation:pulse 1s ease-in-out infinite alternate">
+      <div style="font-size:42px;margin-bottom:8px">⚠️</div>
+      <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:8px">Are you OK?</div>
+      <div style="font-size:13px;color:#ffcccc;margin-bottom:18px;line-height:1.45">${reason}<br><br>If you don't respond in <span id="rd-crash-countdown" style="font-weight:900;color:#fff">15</span>s, your coach will be alerted.</div>
+      <div style="display:flex;gap:8px">
+        <button id="rd-crash-ok" type="button" style="flex:1;padding:14px;border-radius:12px;background:#22c55e;color:#fff;border:none;font-weight:800;font-size:15px;cursor:pointer">I'm OK</button>
+        <button id="rd-crash-help" type="button" style="flex:1;padding:14px;border-radius:12px;background:#ef4444;color:#fff;border:none;font-weight:800;font-size:15px;cursor:pointer">Get Help</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  let remaining = 15;
+  const countdown = setInterval(() => {
+    remaining--;
+    const c = document.getElementById('rd-crash-countdown');
+    if (c) c.textContent = String(remaining);
+    if (remaining <= 0) {
+      clearInterval(countdown);
+      escalateCrashAlert(reason);
+      ov.remove();
+    }
+  }, 1000);
+  ov.querySelector('#rd-crash-ok').addEventListener('click', () => {
+    clearInterval(countdown);
+    ov.remove();
+    ctx.showToast?.('Glad you\'re OK. Stint continues.', 'success');
+  });
+  ov.querySelector('#rd-crash-help').addEventListener('click', () => {
+    clearInterval(countdown);
+    escalateCrashAlert(reason);
+    ov.remove();
+  });
+}
+async function escalateCrashAlert(reason) {
+  try { ctx.haptic?.('heavy'); } catch(_) {}
+  ctx.showToast?.('Coach alerted.', 'warn');
+  if (!ctx?.db || !ctx.userProfile?.teamId) return;
+  try {
+    const aRef = ctx.doc(ctx.collection(ctx.db, 'teams', ctx.userProfile.teamId, 'alerts'));
+    await ctx.setDoc(aRef, {
+      kind: 'crash-prompt-unanswered',
+      reason,
+      driver: ctx.userProfile?.displayName || 'Driver',
+      driverUid: ctx.currentUser?.uid || null,
+      stintStartTime,
+      lapCount: stintLaps.length,
+      createdAt: ctx.serverTimestamp(),
+    });
+  } catch (e) { console.warn('crash alert write failed:', e?.message || e); }
+}
+
+// ── Pit predictor ─────────────────────────────────────────────────
+// Two trigger conditions:
+//   1. Time-based: stint elapsed >25 min since start or last pit
+//   2. Performance-based: latest lap is >7% slower than fastest of
+//      the last 5, indicating fatigue
+// Either condition shows a non-blocking "Time to pit?" suggestion
+// that the rider can accept or dismiss. Re-triggers no more than
+// once every 90 sec.
+let _lastPitSuggestionAt = 0;
+function checkPitPredictor() {
+  if (!stintActive) return;
+  const now = Date.now();
+  if (now - _lastPitSuggestionAt < 90 * 1000) return;
+  const sinceLastPit = stintPitStops.length
+    ? now - stintPitStops[stintPitStops.length - 1].ts
+    : now - stintStartTime;
+  // Trigger 1: 25-min window
+  if (sinceLastPit > 25 * 60 * 1000) {
+    showPitSuggestion('You\'ve been out 25+ min — consider pitting.');
+    return;
+  }
+  // Trigger 2: degradation
+  if (stintLaps.length >= 5) {
+    const recent = stintLaps.slice(-5);
+    const fastest = Math.min(...recent.map(l => l.duration));
+    const latest = recent[recent.length - 1].duration;
+    if (latest > fastest * 1.07) {
+      showPitSuggestion('Last lap was 7% off best — fatigue showing.');
+    }
+  }
+}
+function showPitSuggestion(message) {
+  _lastPitSuggestionAt = Date.now();
+  speakRaceCue('pit-suggest');
+  try { ctx.haptic?.('medium'); } catch(_) {}
+  // Banner — non-blocking, auto-hides in 12 sec.
+  document.getElementById('rd-pit-banner')?.remove();
+  const b = document.createElement('div');
+  b.id = 'rd-pit-banner';
+  b.style.cssText = 'position:fixed;left:12px;right:12px;top:env(safe-area-inset-top,12px);z-index:9200;padding:12px 14px;background:linear-gradient(135deg, #fbbf24, #f59e0b);color:#000;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.3);display:flex;align-items:center;gap:10px;font-weight:700;animation:tp-pit-slide-down .3s ease-out both';
+  b.innerHTML = `
+    <span style="font-size:22px">⛽</span>
+    <span style="flex:1;font-size:13px;line-height:1.3">${message}</span>
+    <button id="rd-pit-dismiss" type="button" style="background:rgba(0,0,0,.18);border:none;color:#000;padding:6px 10px;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">OK</button>
+  `;
+  document.body.appendChild(b);
+  document.getElementById('rd-pit-dismiss').addEventListener('click', () => b.remove());
+  setTimeout(() => b.remove(), 12000);
+}
+
+// ── Voice race-day callouts ───────────────────────────────────────
+// Uses the existing Web Speech API the workout timer already uses.
+// Off by default — opt-in via tp_race_voice in localStorage. Speaks
+// short cues for lap completion, best-lap improvement, pit prompt,
+// crash check, and stint end.
+let _bestLapSpoken = Infinity;
+function speakRaceCue(kind, value = null, message = null) {
+  try {
+    if (localStorage.getItem('tp_race_voice') !== '1') return;
+    if (!('speechSynthesis' in window)) return;
+    let text = null;
+    if (kind.startsWith('lap-')) {
+      const n = stintLaps.length;
+      const dur = value || (stintLaps[n - 1]?.duration);
+      if (!dur) return;
+      const isBest = dur < _bestLapSpoken;
+      if (isBest && n > 1) {
+        _bestLapSpoken = dur;
+        text = `New best lap, ${Math.floor(dur / 60000)} minutes ${Math.floor((dur % 60000) / 1000)} seconds`;
+      } else if (n === 1) {
+        _bestLapSpoken = dur;
+        text = `Lap one`;
+      } else {
+        // Speak every 5th lap to avoid annoyance.
+        if (n % 5 === 0) text = `Lap ${n}`;
+      }
+    } else if (kind === 'pit-suggest') {
+      text = 'Time to pit';
+    } else if (kind === 'crash') {
+      text = message || 'Are you OK?';
+    } else if (kind === 'stint-end') {
+      text = `Great stint, ${stintLaps.length} laps`;
+    }
+    if (!text) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05;
+    u.volume = 0.95;
+    window.speechSynthesis.speak(u);
+  } catch(_) {}
+}
+window.tpRaceVoice = {
+  enable: () => { localStorage.setItem('tp_race_voice', '1'); },
+  disable: () => { localStorage.removeItem('tp_race_voice'); },
+  isEnabled: () => localStorage.getItem('tp_race_voice') === '1',
+};
+// HR sample hook — called by app.js when a new HR reading arrives
+// from the watch. Plumbed via window._tpFeedCrashHR(bpm).
+window._tpFeedCrashHR = _crashHrTick;
 
 function addStartMarker(lat,lng) {
   try {
@@ -1517,6 +1731,10 @@ function renderActiveStint(c) {
 
 function updateActive() {
   const elapsed=Date.now()-stintStartTime;
+  // Run crash + pit detectors on each 1Hz tick so stale-lap timeouts
+  // fire even when no new lap event triggers checkPitPredictor.
+  try { checkCrashDetector(); } catch(_) {}
+  try { checkPitPredictor(); } catch(_) {}
   const t=document.getElementById('rd-timer'); if(t) t.textContent=fmtTime(elapsed);
   const sl=document.getElementById('rd-sublabel');
   if (sl) {
@@ -1553,6 +1771,9 @@ function updateActive() {
 }
 
 async function endStint(c) {
+  // Voice end-of-stint summary while we still have stintActive=true
+  // (speakRaceCue gates on it being true to avoid spamming idle UI).
+  try { speakRaceCue('stint-end'); } catch(_) {}
   stintActive=false;
   // Tear down the iOS Live Activity. Best-effort.
   try {
@@ -1590,6 +1811,10 @@ async function endStint(c) {
   const cappedDuration = Math.min(rdd.maxDurationMs || (25 * 60 * 60 * 1000), Math.max(0, rawDuration));
   const record={
     uid:ctx.currentUser?.uid, displayName:ctx.userProfile?.displayName||'Unknown',
+    // Team stamping — lets the spectator + multi-team race archive
+    // group stints by team without joining against the users table.
+    teamId: ctx.userProfile?.teamId || null,
+    teamName: ctx.teamData?.name || ctx.userProfile?.teamName || 'Team',
     startTime:stintStartTime, endTime:Date.now(), duration:cappedDuration,
     // Was slice(0,500) which kept the FIRST 500 points — for a
     // 24-hour Maryborough stint at 1Hz that's the first 8.3 minutes
@@ -1613,6 +1838,7 @@ async function endStint(c) {
 function renderStintSummary(c,stint) {
   const best=stint.laps.length>0?fmtMs(Math.min(...stint.laps.map(l=>l.duration))):'--:--';
   const avg=stint.laps.length>0?fmtMs(stint.laps.reduce((s,l)=>s+l.duration,0)/stint.laps.length):'--:--';
+  const myBestMs = stint.laps.length>0?Math.min(...stint.laps.map(l=>l.duration)):null;
   c.innerHTML=`
     <div style="text-align:center;padding:16px 0 20px">
       <div style="font-size:11px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Stint Complete</div>
@@ -1626,6 +1852,7 @@ function renderStintSummary(c,stint) {
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
         <div style="font-size:20px;font-weight:800;color:var(--success)">${best}</div>
         <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-top:2px">Best</div>
+        <div id="rd-ghost-best" style="font-size:9px;margin-top:2px;font-weight:700">&nbsp;</div>
       </div>
       <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
         <div style="font-size:20px;font-weight:800;color:var(--fg)">${avg}</div>
@@ -1637,9 +1864,10 @@ function renderStintSummary(c,stint) {
       </div>
     </div>
     ${stint.laps.map((lap,i)=>`
-      <div style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
+      <div data-ghost-lap="${lap.duration}" style="display:flex;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
         <span style="color:var(--muted-fg);width:54px">Lap ${i+1}</span>
         <span style="flex:1;font-weight:700;font-family:var(--font-mono)">${fmtMs(lap.duration)}</span>
+        <span class="rd-ghost-delta" style="font-size:10.5px;font-weight:700;color:var(--muted-fg);min-width:60px;text-align:right">&nbsp;</span>
       </div>`).join('')}
     <div style="display:flex;gap:8px;margin-top:16px">
       <button id="rd-share-rep" class="btn btn-primary" style="flex:1">Share Report</button>
@@ -1647,6 +1875,53 @@ function renderStintSummary(c,stint) {
     </div>`;
   c.querySelector('#rd-share-rep')?.addEventListener('click', () => openShareReportSheet(stint));
   c.querySelector('#rd-done')?.addEventListener('click', () => renderStintTab(c));
+  // Ghost-line: fetch this rider's previous-best lap at this race
+  // (across all prior years) and annotate each lap with the delta.
+  // Best is also tagged "🟢 -1.2s" or "🔴 +0.8s" vs personal record.
+  (async () => {
+    try {
+      if (!ctx?.db || !ctx.currentUser || !rdd.raceId || myBestMs == null) return;
+      const yearsSnap = await ctx.getDocs(ctx.collection(ctx.db, 'race_archive', rdd.raceId, 'years'));
+      let pbLapMs = Infinity;
+      for (const yd of yearsSnap.docs) {
+        const myStintRef = ctx.doc(ctx.db, 'race_archive', rdd.raceId, 'years', yd.id, 'stints', ctx.currentUser.uid);
+        const myStint = await ctx.getDoc(myStintRef).catch(() => null);
+        if (!myStint?.exists?.()) continue;
+        const data = myStint.data() || {};
+        const laps = Array.isArray(data.laps) ? data.laps : [];
+        for (const lap of laps) {
+          const d = lap?.duration;
+          if (typeof d === 'number' && d > 3000 && d < pbLapMs) pbLapMs = d;
+        }
+      }
+      if (!Number.isFinite(pbLapMs)) return;
+      // Update "best" chip with delta-to-PB
+      const fmtDelta = (ms) => {
+        const abs = Math.abs(ms);
+        const sec = Math.floor(abs / 1000), tenths = Math.floor((abs % 1000) / 100);
+        return (ms >= 0 ? '+' : '-') + sec + '.' + tenths + 's';
+      };
+      const bestEl = c.querySelector('#rd-ghost-best');
+      if (bestEl) {
+        const d = myBestMs - pbLapMs;
+        const colour = d < 0 ? '#22c55e' : d > 0 ? '#ef4444' : 'var(--muted-fg)';
+        bestEl.style.color = colour;
+        bestEl.textContent = d === 0 ? '= PB' : `${fmtDelta(d)} vs PB`;
+      }
+      // Annotate each lap with delta-to-PB
+      c.querySelectorAll('[data-ghost-lap]').forEach(row => {
+        const ms = parseInt(row.dataset.ghostLap, 10);
+        if (!Number.isFinite(ms)) return;
+        const d = ms - pbLapMs;
+        const colour = d < 0 ? '#22c55e' : d > 0 ? '#ef4444' : 'var(--muted-fg)';
+        const span = row.querySelector('.rd-ghost-delta');
+        if (span) {
+          span.style.color = colour;
+          span.textContent = d === 0 ? '= PB' : fmtDelta(d);
+        }
+      });
+    } catch (e) { console.warn('ghost-line fetch failed:', e?.message || e); }
+  })();
 }
 
 // Two distinct report formats (just-this-stint, full team) used to be

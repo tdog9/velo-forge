@@ -1028,6 +1028,14 @@ if (typeof window !== 'undefined') {
       // Local update first so the UI reflects immediately.
       userProfile = { ...(userProfile || {}), health: { ...(userProfile?.health || {}), ...healthPatch } };
       if (currentPage === 'today') renderToday();
+      // Feed the race-day crash detector with the fresh HR sample so a
+      // sudden HR collapse mid-stint can trigger the "Are you OK?"
+      // prompt + coach SOS escalation. No-op outside a stint.
+      try {
+        if (typeof window._tpFeedCrashHR === 'function' && typeof summary.latestHr === 'number') {
+          window._tpFeedCrashHR(summary.latestHr);
+        }
+      } catch(_) {}
       // Best-effort Firestore write.
       if (db && currentUser) {
         await setDoc(doc(db, 'users', currentUser.uid), { health: healthPatch }, { merge: true }).catch(() => {});
