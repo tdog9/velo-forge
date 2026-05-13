@@ -82,7 +82,19 @@ struct WebViewContainer: UIViewRepresentable {
         webView.backgroundColor = UIColor(red: 10/255, green: 11/255, blue: 15/255, alpha: 1)  // matches web --bg
         webView.scrollView.backgroundColor = webView.backgroundColor
 
-        webView.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
+        // Cache-bypass on the HTML shell so a fresh IPA install always
+        // pulls the latest index.html (which has the latest VER string
+        // for the bootstrap version-check to invalidate stale SW caches).
+        // The previous .useProtocolCachePolicy created a catch-22:
+        //   1. New IPA inherits old WKWebView HTTP cache
+        //   2. Old cached index.html has old VER string
+        //   3. Bootstrap sees no mismatch → never invalidates
+        //   4. User stares at "fixed" app showing old behavior
+        // .reloadIgnoringLocalCacheData re-fetches the HTML over the
+        // network on every cold launch (a few KB, negligible). Static
+        // assets (JS/CSS) still use their cache-control headers and
+        // the service worker — so we don't refetch the world.
+        webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30))
         // Pull-to-refresh: standard iOS gesture; reloads the web bundle.
         let refresh = UIRefreshControl()
         refresh.tintColor = UIColor(red: 0xf9/255, green: 0x73/255, blue: 0x16/255, alpha: 1)

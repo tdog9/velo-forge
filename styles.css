@@ -150,6 +150,32 @@ div, section, article, aside, header, footer, main, nav, ul, ol, li {
   #main-app > .tab-bar .tab-btn-label { font-size: 7.5px; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   320pt mode (iPhone Display Zoom "Larger Text" view + iPhone SE)
+   ───────────────────────────────────────────────────────────────────
+   At ~320pt 7 tab labels can't all read cleanly + the header
+   wordmark crowds the avatar. Hide labels, shrink wordmark to a
+   single bold "T", drop content padding to 10px each side. This
+   is the smallest layout we promise to fit.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 360px) {
+  #main-app > .header { padding: env(safe-area-inset-top, 0px) 10px 4px; }
+  #main-app > #content {
+    padding: 10px 10px calc(10px + var(--tab-h, 70px) + env(safe-area-inset-bottom, 0px));
+  }
+  .header-logo { width: 26px; height: 26px; font-size: 12px; border-radius: 7px; }
+  .header-left { gap: 6px; }
+  /* Wordmark collapses to "T" — keeps brand presence without crowding. */
+  .hw-turbo { font-size: 14px; }
+  .hw-prep { display: none; }
+  .user-avatar { width: 26px !important; height: 26px !important; }
+  /* Tab labels go off — icons only. Maintains 44pt touch targets. */
+  #main-app > .tab-bar .tab-btn-label { display: none; }
+  #main-app > .tab-bar .tab-btn svg { width: 20px; height: 20px; }
+  /* Today's "Start training" CTA: hide the subtitle line, keep CTA crisp. */
+  #today-start-training span[style*="font-size:11.5px"] { display: none !important; }
+}
+
 /* iPhone 16 (393pt) + iPhone 16 Pro Max (430pt) — the sweet spot.
    Make sure nothing in this band is too tight either. Slightly
    smaller header padding so the wordmark + avatar always breathe. */
