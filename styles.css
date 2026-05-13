@@ -87,13 +87,7 @@
 }
 
 /* ===== MASTER LAYOUT — rebuilt clean 2026-04-22 ===== */
-html, body {
-  margin:0; padding:0;
-  background:var(--bg); color:var(--fg);
-  font-family:var(--font-body);
-  height:100%;
-  overflow:hidden;
-}
+html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--font-body); height:100%; overflow:hidden; }
 body { -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; }
 
 #main-app {
@@ -1121,7 +1115,7 @@ select.input{
 .roster-chip-sub{font-size:10px;color:var(--muted-fg);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ===== Auth ===== */
-.auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:max(60px, env(safe-area-inset-top, 0px));padding-left:24px;padding-right:24px;padding-bottom:24px;min-height:var(--app-h);background:var(--bg);gap:24px}
+.auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--app-h);padding:24px;background:var(--bg)}
 .auth-logo{margin-bottom:24px;display:flex;flex-direction:column;align-items:center;gap:8px}
 .auth-logo-mark{width:64px;height:64px;border-radius:18px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#fff;font-family:var(--font-sans);box-shadow:var(--glow-primary)}
 .auth-logo-word{display:flex;gap:1px;font-size:22px;font-weight:900;letter-spacing:.1em;font-family:var(--font-sans)}
@@ -1134,22 +1128,6 @@ select.input{
 .role-btn{padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s}
 .auth-switch{text-align:center;font-size:13px;color:var(--muted-fg);margin-top:16px}
 .auth-switch button{color:var(--primary);font-weight:600;background:none;border:none;cursor:pointer}
-/* Auth-link buttons — replace dashed-underline <a> tags that iOS
-   WKWebView renders with a "fake-link" dashed underline (because
-   they had no href). Real <button> = no dashed underline + still
-   tappable. */
-.auth-link-btn {
-  background: none;
-  border: none;
-  color: var(--primary);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 4px 0;
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.auth-link-btn:active { opacity: 0.6; }
 
 /* ===== Admin specific ===== */
 .admin-item{display:flex;flex-direction:column;gap:4px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px}
@@ -1315,92 +1293,6 @@ select.input{
   
 }
 
-/* Centre bar — Spotify-style persistent "now training" strip. Lives
-   inside #main-app so it's pinned above the tab-bar; only visible when
-   #centre-bar.show is set. */
-.centre-bar{
-  position:relative;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  width:calc(100% - 20px);
-  margin:0 10px 6px;
-  padding:8px 10px 8px 12px;
-  background:linear-gradient(180deg, rgba(var(--primary-rgb,249,115,22),.18), rgba(var(--primary-rgb,249,115,22),.10));
-  border:1px solid rgba(var(--primary-rgb,249,115,22),.40);
-  border-radius:12px;
-  color:var(--fg);
-  font-family:var(--font-sans);
-  text-align:left;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  box-shadow:0 4px 16px rgba(0,0,0,.18);
-  backdrop-filter:saturate(180%) blur(8px);
-  -webkit-backdrop-filter:saturate(180%) blur(8px);
-  z-index:39;
-  flex-shrink:0;
-  transition:transform .18s ease, opacity .18s ease;
-  transform:translateY(0);
-  opacity:1;
-}
-.centre-bar[style*="display:none"]{ transform:translateY(8px); opacity:0; }
-.centre-bar:active{ transform:scale(.985); }
-.centre-bar-dot{
-  width:8px; height:8px;
-  border-radius:50%;
-  background:var(--primary, #f97316);
-  box-shadow:0 0 0 0 rgba(var(--primary-rgb,249,115,22),.55);
-  animation:centre-bar-pulse 1.6s ease-out infinite;
-  flex-shrink:0;
-}
-@keyframes centre-bar-pulse{
-  0%   { box-shadow:0 0 0 0   rgba(var(--primary-rgb,249,115,22),.55); }
-  70%  { box-shadow:0 0 0 8px rgba(var(--primary-rgb,249,115,22),0);   }
-  100% { box-shadow:0 0 0 0   rgba(var(--primary-rgb,249,115,22),0);   }
-}
-.centre-bar-body{
-  display:flex;
-  flex-direction:column;
-  gap:1px;
-  flex:1 1 auto;
-  min-width:0;
-}
-.centre-bar-kicker{
-  font-size:9px;
-  font-weight:800;
-  letter-spacing:.10em;
-  text-transform:uppercase;
-  color:var(--primary, #f97316);
-  line-height:1;
-}
-.centre-bar-title{
-  font-size:13px;
-  font-weight:700;
-  color:var(--fg);
-  line-height:1.15;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.centre-bar-time{
-  font-size:14px;
-  font-weight:800;
-  font-variant-numeric:tabular-nums;
-  color:var(--fg);
-  flex-shrink:0;
-  padding:0 4px;
-}
-.centre-bar-end{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  width:28px; height:28px;
-  border-radius:50%;
-  background:rgba(255,255,255,.10);
-  color:var(--fg);
-  flex-shrink:0;
-}
-
 /* Reduced motion */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
@@ -1408,7 +1300,7 @@ select.input{
 
 /* Print */
 @media print{
-  .tab-bar,.header,.ai-fab,.sheet-overlay,.record-tab-circle,.centre-bar{display:none !important}
+  .tab-bar,.header,.ai-fab,.sheet-overlay,.record-tab-circle{display:none !important}
   
   body{position:static;overflow:visible;background:#fff;color:#000}
   
@@ -1436,19 +1328,7 @@ select.input{
 .page{display:none;flex:1;overflow:hidden;flex-direction:column}
 
 /* Auth extras */
-/* Auth card — distinctive container so the form reads as a "card on
-   a screen" not a flat full-bleed form. Border + slight lift + a
-   subtle inner glow at the top so the card pops on pure-black bg. */
-.auth-card {
-  width: 100%;
-  max-width: 380px;
-  background: var(--card);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 18px;
-  padding: 22px 20px;
-  box-shadow: 0 8px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
-  box-sizing: border-box;
-}
+.auth-card{width:100%;max-width:360px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-lg)}
 .auth-error{background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.2);color:#ef4444;font-size:13px;padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:12px}
 .auth-success{background:rgba(var(--success-rgb),.1);border:1px solid rgba(var(--success-rgb),.25);color:#22c55e;font-size:13px;line-height:1.45;padding:12px 14px;border-radius:var(--radius-sm);margin-bottom:12px}
 .auth-success strong{color:#16a34a;font-weight:700}
