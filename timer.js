@@ -23,53 +23,77 @@ let timerCoachText = '';
 // Default break between sets / exercises if the plan doesn't specify one.
 const DEFAULT_BREAK_SEC = 30;
 
+// Listeners installed flag — initTimer is called twice during boot
+// (once with a stub ctx, once with the real ctx). Without a guard,
+// each call stacked another listener on every button, so a single
+// tap on "Tap to count" fired N times — the "random rep jumps" bug.
+// Now we always refresh `A` but only bind listeners once.
+let _timerBindingsInstalled = false;
 export function initTimer(ctx) {
   A = ctx;
-  A.$('timer-close')?.addEventListener('click', closeWorkoutTimer);
-  A.$('timer-play')?.addEventListener('click', () => {
+  if (_timerBindingsInstalled) return;
+  _timerBindingsInstalled = true;
+  // Use .onclick = ... (idempotent replace) instead of addEventListener
+  // so even if a future caller side-steps the guard, the listener
+  // stays a single handler per button. Belt-and-braces.
+  const close = A.$('timer-close'); if (close) close.onclick = closeWorkoutTimer;
+  const play = A.$('timer-play'); if (play) play.onclick = () => {
     A.haptic?.('light');
     if (timerRunning) pauseTimer();
     else startTimer();
-  });
-  A.$('timer-reset')?.addEventListener('click', () => {
+  };
+  const reset = A.$('timer-reset'); if (reset) reset.onclick = () => {
     A.haptic?.('light');
     resetTimer();
-  });
-  A.$('timer-skip')?.addEventListener('click', () => {
+  };
+  const skip = A.$('timer-skip'); if (skip) skip.onclick = () => {
     A.haptic?.('light');
     advanceFromCurrent();
-  });
+  };
   document.querySelectorAll('.timer-rest-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.onclick = () => {
       A.haptic?.('light');
       const sec = parseInt(btn.dataset.rest);
       enterTimeMode(sec, 'Rest', 'Catch your breath, then keep going.');
       startTimer();
-    });
+    };
   });
-  // Reps counter buttons.
-  A.$('timer-reps-tap')?.addEventListener('click', () => {
-    if (timerMode !== 'reps') return;
-    timerRepsCount++;
-    A.haptic?.('light');
-    paintRepsCount();
-    if (timerRepsTarget > 0 && timerRepsCount >= timerRepsTarget) {
-      // Auto-complete set when target hit.
-      playBeep(880, 0.18, 2);
-      A.haptic?.('medium');
-      finishCurrentSet();
-    }
-  });
-  A.$('timer-reps-undo')?.addEventListener('click', () => {
+  // Reps counter buttons. Each tap = 1 rep. Hold-to-undo or tap
+  // Undo. The tap target has touch-action:manipulation so iOS
+  // doesn't fire both touchend + a synthesised click (which would
+  // double-count even on a single physical tap).
+  const tap = A.$('timer-reps-tap');
+  if (tap) {
+    tap.style.touchAction = 'manipulation';
+    let lastTapAt = 0;
+    tap.onclick = () => {
+      if (timerMode !== 'reps') return;
+      // Debounce ghost-clicks from iOS's touch→click synthesis (under 50ms).
+      const now = Date.now();
+      if (now - lastTapAt < 50) return;
+      lastTapAt = now;
+      timerRepsCount++;
+      A.haptic?.('light');
+      paintRepsCount();
+      if (timerRepsTarget > 0 && timerRepsCount >= timerRepsTarget) {
+        playBeep(880, 0.18, 2);
+        A.haptic?.('medium');
+        finishCurrentSet();
+      }
+    };
+  }
+  const undo = A.$('timer-reps-undo');
+  if (undo) undo.onclick = () => {
     if (timerMode !== 'reps' || timerRepsCount <= 0) return;
     timerRepsCount--;
     paintRepsCount();
-  });
-  A.$('timer-reps-done')?.addEventListener('click', () => {
+  };
+  const done = A.$('timer-reps-done');
+  if (done) done.onclick = () => {
     if (timerMode !== 'reps') return;
     A.haptic?.('medium');
     finishCurrentSet();
-  });
+  };
 }
 
 // ── Voice coach (Web Speech API) ─────────────────────────────────────────
