@@ -59,12 +59,31 @@
     var ratio = 1;
     if (have > want + 1) ratio = want / have;
     if (want > screenW + 1) ratio = Math.min(ratio, screenW / want);
+    // Apply zoom (last-resort fallback). Keeping it active but conservative
+    // — html.style.zoom on WebKit can break position:fixed. The real fix is
+    // to find the overflow culprit (logged below in the HUD).
     if (ratio < 1) {
       if (ratio < 0.6) ratio = 0.6;
       html.style.zoom = ratio;
     }
     var hud = document.getElementById('tp-vp-hud');
-    if (hud) hud.textContent = 'iw='+want+' sw='+screenW+' bw='+have+' dpr='+window.devicePixelRatio+' z='+(ratio.toFixed(3));
+    if (hud) {
+      // Find which descendant is the widest — that's the overflow culprit.
+      var widest = null, widestW = 0;
+      try {
+        var all = document.body.querySelectorAll('*');
+        for (var i=0;i<all.length;i++){
+          var el = all[i];
+          var w = el.scrollWidth || el.offsetWidth || 0;
+          if (w > widestW && w > want){
+            widestW = w;
+            widest = el;
+          }
+        }
+      } catch(e){}
+      var tag = widest ? (widest.tagName+'.'+(widest.className||'').toString().split(' ')[0]+'#'+(widest.id||'')) : '-';
+      hud.innerHTML = 'iw='+want+' sw='+screenW+' bw='+have+'<br>dpr='+window.devicePixelRatio+' z='+(ratio.toFixed(3))+'<br>wide='+widestW+' '+tag.slice(0,40);
+    }
   }
   var pending = false;
   function schedule(){
@@ -82,7 +101,7 @@
     try {
       var hud = document.createElement('div');
       hud.id = 'tp-vp-hud';
-      hud.style.cssText = 'position:fixed;top:env(safe-area-inset-top,2px);left:2px;z-index:99999;background:rgba(0,0,0,.75);color:#0f0;font:9px/1.2 ui-monospace,monospace;padding:2px 4px;border-radius:3px;pointer-events:auto;border:1px solid #0f0;max-width:200px';
+      hud.style.cssText = 'position:fixed;top:env(safe-area-inset-top,2px);left:2px;right:2px;z-index:99999;background:rgba(0,0,0,.85);color:#0f0;font:10px/1.25 ui-monospace,monospace;padding:3px 5px;border-radius:3px;pointer-events:auto;border:1px solid #0f0;word-break:break-all;white-space:normal';
       hud.textContent = 'init';
       hud.onclick = function(){ hud.remove(); };
       document.body.appendChild(hud);
