@@ -73,7 +73,12 @@ struct WorkoutPayload: Sendable {
         w.heartRateAvg = heartRateAvg
         w.heartRateMax = heartRateMax
         w.energyKcal = energyKcal
-        if let meters = distanceMeters { w.distanceKm = meters / 1000 }
+        // Guard against negative or NaN distance (corrupted Watch
+        // payload would silently produce a negative distanceKm in
+        // Firestore otherwise, throwing off the volume chart).
+        if let meters = distanceMeters, meters.isFinite, meters > 0 {
+            w.distanceKm = meters / 1000
+        }
         w.source = Workout.Source(rawValue: source) ?? .watch
         w.activityType = Workout.ActivityType(rawValue: activityType) ?? .cycling
         return w

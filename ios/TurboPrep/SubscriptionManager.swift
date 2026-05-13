@@ -133,7 +133,10 @@ final class SubscriptionManager: ObservableObject {
                 .collection("users").document(uid)
                 .setData(payload, merge: true)
         } catch {
-            // Non-fatal: web can re-derive on next StoreKit query.
+            // Non-fatal — web can re-derive on next StoreKit query.
+            // But log the error so persistent network/rules failures
+            // are visible in Crashlytics / Console.
+            print("⚠️ syncEntitlementToFirestore failed: \(error.localizedDescription)")
         }
     }
 }

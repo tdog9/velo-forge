@@ -107,7 +107,11 @@ struct WebViewContainer: UIViewRepresentable {
         // Re-navigate when the SwiftUI binding for `url` changes — used by
         // Universal Links to route a tapped https://turboprep.app/* URL into
         // the existing WebView instead of spawning a new one.
-        if webView.url?.absoluteString != url.absoluteString {
+        // Compare host + path only — fragment / query differences shouldn't
+        // trigger a full page reload (the existing page can handle hash
+        // changes itself via popstate).
+        guard let current = webView.url else { webView.load(URLRequest(url: url)); return }
+        if current.host != url.host || current.path != url.path {
             webView.load(URLRequest(url: url))
         }
     }

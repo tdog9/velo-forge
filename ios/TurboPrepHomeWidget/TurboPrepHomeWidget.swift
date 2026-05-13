@@ -64,7 +64,15 @@ struct HomeProvider: TimelineProvider {
         // pushes a fresh snapshot. Fallback reload at midnight so the
         // days-out countdown ticks over.
         let entry = HomeEntry(date: Date(), snapshot: HomeWidgetSnapshot.loadFromAppGroup())
-        let nextMidnight = Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 0, minute: 1), matchingPolicy: .strict) ?? Date().addingTimeInterval(3600)
+        // Reload at the user's local midnight (+1 min margin) so the
+        // "days to next race" countdown ticks over at the right wall
+        // clock. .nextTime matching policy is more forgiving than
+        // .strict around DST transitions.
+        let nextMidnight = Calendar.current.nextDate(
+            after: Date(),
+            matching: DateComponents(hour: 0, minute: 1),
+            matchingPolicy: .nextTime
+        ) ?? Date().addingTimeInterval(60 * 60)
         completion(Timeline(entries: [entry], policy: .after(nextMidnight)))
     }
 }
