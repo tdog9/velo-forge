@@ -10,6 +10,48 @@
 <meta name="theme-color" content="#0a0b0f" id="tp-theme-color-meta">
 <meta name="color-scheme" content="dark light">
 <script>
+// ── WebView fit-to-screen guard ─────────────────────────────────────
+// Some iPhones (system Display Zoom on, or older devices) render the
+// page wider than the actual visible viewport, clipping content on
+// both edges. We measure on every layout pass and counter-scale via
+// CSS `zoom` so the page width always matches the WebView's visible
+// width. Cheap, runs continuously via rAF + resize.
+(function(){
+  function fit(){
+    var html = document.documentElement;
+    if (!document.body) return;
+    // Reset first so we measure the natural width, not a previously
+    // scaled width.
+    html.style.zoom = '';
+    var have = Math.max(document.body.scrollWidth, html.scrollWidth);
+    var want = window.innerWidth;
+    if (have > want + 1) {
+      var f = want / have;
+      // Clamp so we never shrink absurdly — anything past 0.7 means
+      // the layout is fundamentally broken and zooming further won't
+      // help.
+      if (f < 0.7) f = 0.7;
+      html.style.zoom = f;
+    }
+  }
+  var pending = false;
+  function schedule(){
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(function(){ pending = false; fit(); });
+  }
+  window.addEventListener('load', schedule);
+  window.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', schedule);
+  // Re-fit after the initial render and after any dynamic content swap
+  // (DOM mutations).
+  document.addEventListener('DOMContentLoaded', function(){
+    schedule();
+    new MutationObserver(schedule).observe(document.body, { childList:true, subtree:true });
+  });
+})();
+</script>
+<script>
 // ── Theme bootstrap — runs synchronously BEFORE CSS / paint ──────────
 // Reads the saved theme from localStorage; falls back to the OS
 // preference (prefers-color-scheme); applies the matching class to
