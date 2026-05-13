@@ -47,19 +47,24 @@
   function fit(){
     var html = document.documentElement;
     if (!document.body) return;
-    // Reset first so we measure the natural width, not a previously
-    // scaled width.
     html.style.zoom = '';
     var have = Math.max(document.body.scrollWidth, html.scrollWidth);
     var want = window.innerWidth;
-    if (have > want + 1) {
-      var f = want / have;
-      // Clamp so we never shrink absurdly — anything past 0.7 means
-      // the layout is fundamentally broken and zooming further won't
-      // help.
-      if (f < 0.7) f = 0.7;
-      html.style.zoom = f;
+    var screenW = window.screen.width;
+    // Two-pronged fit:
+    //  (a) Content wider than viewport → shrink to fit (overflow case)
+    //  (b) Viewport thinks it's wider than screen → shrink to screen
+    //      (this handles iOS Display Zoom where window.innerWidth
+    //      reports the upscaled logical width)
+    var ratio = 1;
+    if (have > want + 1) ratio = want / have;
+    if (want > screenW + 1) ratio = Math.min(ratio, screenW / want);
+    if (ratio < 1) {
+      if (ratio < 0.6) ratio = 0.6;
+      html.style.zoom = ratio;
     }
+    var hud = document.getElementById('tp-vp-hud');
+    if (hud) hud.textContent = 'iw='+want+' sw='+screenW+' bw='+have+' dpr='+window.devicePixelRatio+' z='+(ratio.toFixed(3));
   }
   var pending = false;
   function schedule(){
@@ -73,6 +78,15 @@
   // Re-fit after the initial render and after any dynamic content swap
   // (DOM mutations).
   document.addEventListener('DOMContentLoaded', function(){
+    // Inject diagnostic HUD — tap to dismiss.
+    try {
+      var hud = document.createElement('div');
+      hud.id = 'tp-vp-hud';
+      hud.style.cssText = 'position:fixed;top:env(safe-area-inset-top,2px);left:2px;z-index:99999;background:rgba(0,0,0,.75);color:#0f0;font:9px/1.2 ui-monospace,monospace;padding:2px 4px;border-radius:3px;pointer-events:auto;border:1px solid #0f0;max-width:200px';
+      hud.textContent = 'init';
+      hud.onclick = function(){ hud.remove(); };
+      document.body.appendChild(hud);
+    } catch(e){}
     schedule();
     new MutationObserver(schedule).observe(document.body, { childList:true, subtree:true });
   });
