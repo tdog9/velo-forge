@@ -1121,7 +1121,7 @@ select.input{
 .roster-chip-sub{font-size:10px;color:var(--muted-fg);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ===== Auth ===== */
-.auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--app-h);padding:24px;background:var(--bg)}
+.auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:max(60px, env(safe-area-inset-top, 0px));padding-left:24px;padding-right:24px;padding-bottom:24px;min-height:var(--app-h);background:var(--bg);gap:24px}
 .auth-logo{margin-bottom:24px;display:flex;flex-direction:column;align-items:center;gap:8px}
 .auth-logo-mark{width:64px;height:64px;border-radius:18px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#fff;font-family:var(--font-sans);box-shadow:var(--glow-primary)}
 .auth-logo-word{display:flex;gap:1px;font-size:22px;font-weight:900;letter-spacing:.1em;font-family:var(--font-sans)}
@@ -1134,6 +1134,22 @@ select.input{
 .role-btn{padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s}
 .auth-switch{text-align:center;font-size:13px;color:var(--muted-fg);margin-top:16px}
 .auth-switch button{color:var(--primary);font-weight:600;background:none;border:none;cursor:pointer}
+/* Auth-link buttons — replace dashed-underline <a> tags that iOS
+   WKWebView renders with a "fake-link" dashed underline (because
+   they had no href). Real <button> = no dashed underline + still
+   tappable. */
+.auth-link-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.auth-link-btn:active { opacity: 0.6; }
 
 /* ===== Admin specific ===== */
 .admin-item{display:flex;flex-direction:column;gap:4px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px}
@@ -1420,7 +1436,19 @@ select.input{
 .page{display:none;flex:1;overflow:hidden;flex-direction:column}
 
 /* Auth extras */
-.auth-card{width:100%;max-width:360px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-lg)}
+/* Auth card — distinctive container so the form reads as a "card on
+   a screen" not a flat full-bleed form. Border + slight lift + a
+   subtle inner glow at the top so the card pops on pure-black bg. */
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--card);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 18px;
+  padding: 22px 20px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+  box-sizing: border-box;
+}
 .auth-error{background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.2);color:#ef4444;font-size:13px;padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:12px}
 .auth-success{background:rgba(var(--success-rgb),.1);border:1px solid rgba(var(--success-rgb),.25);color:#22c55e;font-size:13px;line-height:1.45;padding:12px 14px;border-radius:var(--radius-sm);margin-bottom:12px}
 .auth-success strong{color:#16a34a;font-weight:700}
