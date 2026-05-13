@@ -39,7 +39,7 @@ struct WebViewContainer: UIViewRepresentable {
         (function(){
           var m=document.querySelector('meta[name="viewport"]');
           if(!m){ m=document.createElement('meta'); m.name='viewport'; document.head.appendChild(m); }
-          m.setAttribute('content','width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover');
+          m.setAttribute('content','width=device-width, initial-scale=1, viewport-fit=cover');
           document.documentElement.style.setProperty('-webkit-text-size-adjust','100%');
           document.documentElement.style.setProperty('text-size-adjust','100%');
         })();

@@ -49,9 +49,22 @@ final class ConnectivityService: NSObject, ObservableObject {
         send(["payload": "workout", "data": payload.toDictionary()])
     }
 
-    /// iPhone → Watch: push the latest state snapshot using
-    /// updateApplicationContext so the Watch wakes up to it next launch
-    /// even if we weren't reachable when it was sent.
+    /// iPhone → Watch: push the latest state snapshot.
+    ///
+    /// Two-path delivery:
+    ///   • `updateApplicationContext` — "latest-wins" key/value blob.
+    ///     Best for high-frequency render-triggered state where we
+    ///     only care about the most recent value (plan progress, race
+    ///     phase, weather). Always tried first.
+    ///   • `transferUserInfo` — FIFO queue, guaranteed delivery, persists
+    ///     across watch app launches. Triggered ADDITIONALLY when the
+    ///     snapshot carries a critical state change like training
+    ///     start/end or race-day toggle, so a quick follow-up render
+    ///     can't overwrite the trigger before the watch sees it.
+    ///
+    /// This fixes the "started training on phone but watch didn't
+    /// enter training mode" complaint — those events now ride the
+    /// guaranteed channel even when reachability is flaky.
     func pushStateToWatch(_ snapshot: [String: Any]) {
         guard WCSession.isSupported() else {
             print("📲 [WC] WCSession not supported — skip pushStateToWatch")
@@ -64,6 +77,8 @@ final class ConnectivityService: NSObject, ObservableObject {
             return
         }
         let payload: [String: Any] = ["payload": "state", "data": snapshot]
+
+        // 1. Always try the latest-wins context push first (cheap, fast).
         do {
             try s.updateApplicationContext(payload)
             print("📲 [WC] pushStateToWatch via applicationContext OK (reachable=\(s.isReachable))")
@@ -73,10 +88,19 @@ final class ConnectivityService: NSObject, ObservableObject {
                 s.sendMessage(payload, replyHandler: nil) { err in
                     print("📲 [WC] sendMessage fallback also failed: \(err.localizedDescription)")
                 }
-            } else {
-                s.transferUserInfo(payload)
-                print("📲 [WC] queued via transferUserInfo")
             }
+        }
+
+        // 2. If the snapshot carries a critical change, ALSO enqueue via
+        // transferUserInfo so the watch is guaranteed to see it even
+        // if another applicationContext write overwrites step 1 before
+        // delivery. Detected via specific keys in the snapshot.
+        let isCritical = (snapshot["trainingActive"] != nil)
+            || (snapshot["raceDayActive"] != nil)
+            || (snapshot["teamTrainingCue"] != nil)
+        if isCritical {
+            s.transferUserInfo(payload)
+            print("📲 [WC] critical state — also queued via transferUserInfo")
         }
     }
 

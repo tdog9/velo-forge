@@ -2,13 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TurboPrep">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0a0b0f">
+<meta name="theme-color" content="#0a0b0f" id="tp-theme-color-meta">
 <meta name="color-scheme" content="dark light">
+<script>
+// ── Theme bootstrap — runs synchronously BEFORE CSS / paint ──────────
+// Reads the saved theme from localStorage; falls back to the OS
+// preference (prefers-color-scheme); applies the matching class to
+// <html> before the body paints so there's no dark-flash-to-light
+// flicker on launch. Also pre-sets the iOS status-bar tint to match.
+(function(){
+  try {
+    var saved = localStorage.getItem('tp_theme');
+    var theme = saved;
+    if (!theme || theme === 'system') {
+      theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    }
+    var root = document.documentElement;
+    root.classList.toggle('light-theme', theme === 'light');
+    root.classList.toggle('venom-theme', theme === 'venom');
+    // Update iOS status-bar tint to match (must be done before WebKit
+    // commits the first paint to avoid a flicker).
+    var tc = document.getElementById('tp-theme-color-meta');
+    if (tc) tc.setAttribute('content', theme === 'light' ? '#f4f3ef' : '#0a0b0f');
+    // Stash the resolved theme for app.js so it doesn't re-apply
+    // "dark" over a successfully-restored "light".
+    window._tpBootTheme = theme;
+  } catch (e) {}
+})();
+</script>
 
 <!-- Title + description (search results) -->
 <title>TurboPrep — HPR race-day platform</title>

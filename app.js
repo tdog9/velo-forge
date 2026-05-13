@@ -1517,15 +1517,48 @@ let currentTheme = 'dark';
 let calViewMonth = new Date().getMonth();
 let calViewYear = new Date().getFullYear();
 let teamFeedCache = [];
-try { currentTheme = localStorage.getItem('tp_theme') || 'dark'; } catch(e) {}
+// Honor the boot script's resolved theme (already applied to <html>
+// before first paint). If the user hasn't explicitly chosen, that
+// resolves to the OS preference (prefers-color-scheme).
+try {
+  const saved = localStorage.getItem('tp_theme');
+  if (saved === 'light' || saved === 'dark' || saved === 'venom') {
+    currentTheme = saved;
+  } else {
+    currentTheme = window._tpBootTheme || (window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  }
+} catch(e) {}
 applyTheme(currentTheme);
+// Live-follow the OS appearance for users who haven't pinned a
+// theme. If they hit the toggle in Settings, the page tracks.
+try {
+  const mq = window.matchMedia?.('(prefers-color-scheme: light)');
+  if (mq && typeof mq.addEventListener === 'function') {
+    mq.addEventListener('change', (e) => {
+      // Only auto-follow when user has not made an explicit choice.
+      let saved = null;
+      try { saved = localStorage.getItem('tp_theme'); } catch(_) {}
+      if (saved && saved !== 'system') return;
+      const next = e.matches ? 'light' : 'dark';
+      if (next !== currentTheme) {
+        currentTheme = next;
+        applyTheme(next);
+      }
+    });
+  }
+} catch(_) {}
 // Apply the active theme class. Mutually exclusive — only one of
 // light-theme / venom-theme is active at a time; default `dark` has
-// neither class.
+// neither class. Also keeps the iOS status-bar tint (theme-color
+// meta) in sync so the bar reads the right colour after a switch.
 function applyTheme(theme) {
   const root = document.documentElement;
   root.classList.toggle('light-theme', theme === 'light');
   root.classList.toggle('venom-theme', theme === 'venom');
+  try {
+    const tc = document.getElementById('tp-theme-color-meta') || document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute('content', theme === 'light' ? '#f4f3ef' : '#0a0b0f');
+  } catch(_) {}
 }
 // Map tile helper — switches dark/light based on theme
 function debounce(fn, ms=300) {
@@ -2312,7 +2345,7 @@ function showSelectModal(title, options, currentValue, onSave) {
     if (val) onSave(val);
   });
 }
-const APP_VERSION = '91ae134';
+const APP_VERSION = '202605121202';
 function showWelcomeSetup() {
   const name = userProfile?.displayName || 'there';
   const overlay = document.createElement('div');
@@ -14613,7 +14646,7 @@ function bindGodAdminPanel(el) {
 
 function startApp() {
   // App version — bump this on every deploy
-  const APP_VERSION = '91ae134';
+  const APP_VERSION = '202605121202';
 
   // Force-reset stuck student view via URL param: ?reset_admin=true
   const urlParams = new URLSearchParams(window.location.search);
