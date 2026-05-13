@@ -92,97 +92,9 @@ html, body {
   background:var(--bg); color:var(--fg);
   font-family:var(--font-body);
   height:100%;
-  width:100vw;
-  max-width:100vw;
   overflow:hidden;
 }
 body { -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent; }
-/* ═══════════════════════════════════════════════════════════════════
-   Overflow lock — surgically scoped.
-   Applies min-width:0 to BLOCK + FLEX containers only, NOT interactive
-   elements. The previous universal `*` rule collapsed button hit-
-   targets and broke things like "Log manually". This scoped version
-   still defeats the flex-child-overflow bug without touching buttons.
-   ═══════════════════════════════════════════════════════════════════ */
-div, section, article, aside, header, footer, main, nav, ul, ol, li {
-  box-sizing: border-box;
-  min-width: 0;
-}
-/* App fills the phone screen edge-to-edge — the chassis is 100vw,
-   no horizontal inset. Backgrounds (header, content, tab-bar) bleed
-   right up to the device edge so there are no visible gutters.
-   Inner text/button padding (already 16px on header + content)
-   keeps interactive elements out of the curved-corner zone. */
-#main-app,
-#main-app > .header,
-#main-app > .tab-bar,
-#main-app > #content {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  overflow-x: clip;
-  box-sizing: border-box;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   Small / Display-Zoom iPhone responsive shrink
-   ───────────────────────────────────────────────────────────────────
-   Targets: iPhone SE (375pt), iPhone Mini (375pt), any iPhone in
-   iOS "Display Zoom" mode (which reports 320pt regardless of model).
-   Everything visible above the fold gets squeezed proportionally so
-   nothing falls off either edge of the screen.
-   ═══════════════════════════════════════════════════════════════════ */
-@media (max-width: 400px) {
-  :root {
-    --header-h: 50px;
-  }
-  #main-app > .header {
-    height: calc(50px + env(safe-area-inset-top, 0px));
-    padding: env(safe-area-inset-top, 0px) 12px 6px;
-  }
-  #main-app > #content {
-    padding: 12px 12px calc(12px + var(--tab-h, 70px) + env(safe-area-inset-bottom, 0px));
-  }
-  .header-logo { width: 30px; height: 30px; font-size: 13px; border-radius: 8px; }
-  .hw-turbo, .hw-prep { font-size: 15px; letter-spacing: .04em; }
-  .user-avatar { width: 30px !important; height: 30px !important; }
-  #main-app > .tab-bar { height: calc(48px + env(safe-area-inset-bottom, 0px)); }
-  #main-app > .tab-bar .tab-btn svg { width: 18px; height: 18px; }
-  #main-app > .tab-bar .tab-btn-label { font-size: 7.5px; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   320pt mode (iPhone Display Zoom "Larger Text" view + iPhone SE)
-   ───────────────────────────────────────────────────────────────────
-   At ~320pt 7 tab labels can't all read cleanly + the header
-   wordmark crowds the avatar. Hide labels, shrink wordmark to a
-   single bold "T", drop content padding to 10px each side. This
-   is the smallest layout we promise to fit.
-   ═══════════════════════════════════════════════════════════════════ */
-@media (max-width: 360px) {
-  #main-app > .header { padding: env(safe-area-inset-top, 0px) 10px 4px; }
-  #main-app > #content {
-    padding: 10px 10px calc(10px + var(--tab-h, 70px) + env(safe-area-inset-bottom, 0px));
-  }
-  .header-logo { width: 26px; height: 26px; font-size: 12px; border-radius: 7px; }
-  .header-left { gap: 6px; }
-  /* Wordmark collapses to "T" — keeps brand presence without crowding. */
-  .hw-turbo { font-size: 14px; }
-  .hw-prep { display: none; }
-  .user-avatar { width: 26px !important; height: 26px !important; }
-  /* Tab labels go off — icons only. Maintains 44pt touch targets. */
-  #main-app > .tab-bar .tab-btn-label { display: none; }
-  #main-app > .tab-bar .tab-btn svg { width: 20px; height: 20px; }
-  /* Today's "Start training" CTA: hide the subtitle line, keep CTA crisp. */
-  #today-start-training span[style*="font-size:11.5px"] { display: none !important; }
-}
-
-/* iPhone 16 (393pt) + iPhone 16 Pro Max (430pt) — the sweet spot.
-   Make sure nothing in this band is too tight either. Slightly
-   smaller header padding so the wordmark + avatar always breathe. */
-@media (min-width: 390px) and (max-width: 440px) {
-  #main-app > .header { padding-left: 14px; padding-right: 14px; }
-  #main-app > #content { padding-left: 14px; padding-right: 14px; }
-}
 
 #main-app {
   display:none;

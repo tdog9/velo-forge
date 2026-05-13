@@ -1,67 +1,31 @@
 // TurboPrep HPR Training App
 
-// ── Viewport size detector ──────────────────────────────────────────
-// Sets data attributes + CSS vars on <html> so the stylesheet can
-// adapt to the ACTUAL rendered viewport, not the theoretical one.
-// Handles iOS Display Zoom + accessibility text scaling cases that
-// pure media queries miss.
-function _detectViewport() {
+// ── Viewport diagnostic overlay (opt-in via ?vpdebug=1) ───────────
+// No more JS-driven font-size or media-query gymnastics — those
+// caused more problems than they solved. Keeps only the diagnostic
+// bar that shows actual rendered viewport vs device, so we can
+// SEE if Display Zoom is in play instead of guessing.
+function _vpDebugBar() {
   try {
-    const w = Math.round(window.innerWidth || document.documentElement.clientWidth || 0);
-    const h = Math.round(window.innerHeight || document.documentElement.clientHeight || 0);
-    document.documentElement.style.setProperty('--tp-vw', w + 'px');
-    document.documentElement.style.setProperty('--tp-vh', h + 'px');
-    let size = 'lg';
-    if (w <= 340) size = 'xxs';
-    else if (w <= 380) size = 'xs';
-    else if (w <= 410) size = 'sm';        // iPhone 16 sits here at 393pt
-    else if (w <= 460) size = 'md';
-    document.documentElement.setAttribute('data-vp', size);
-    // Tighten body font size proportionally for narrow viewports so
-    // every rem/em-based element shrinks together. Conservative: 95%
-    // on xs, 90% on xxs. Doesn't touch px-fixed values.
-    const fontScale = size === 'xxs' ? 0.90 : size === 'xs' ? 0.94 : 1.0;
-    document.documentElement.style.setProperty('font-size', (16 * fontScale) + 'px');
-    // ── Diagnostic overlay ──────────────────────────────────────────
-    // Pinned info bar showing what the page actually thinks the
-    // viewport is. Visible only when localStorage tp_debug_viewport=1
-    // (set via ?vpdebug=1 in the URL, persists for the session).
-    // Lets us see whether the "everything looks zoomed" symptom is:
-    //   • viewport width != device width (iOS scale bug)
-    //   • font-size cascaded > 16px (Dynamic Type leak)
-    //   • body offsetWidth > viewport (overflow somewhere)
-    //   • devicePixelRatio unusual (Display Zoom mode)
-    // None of which any CSS-only fix can solve in isolation.
-    try {
-      const urlDebug = new URLSearchParams(location.search).get('vpdebug') === '1';
-      if (urlDebug) localStorage.setItem('tp_debug_viewport', '1');
-      const debug = localStorage.getItem('tp_debug_viewport') === '1';
-      if (debug) {
-        let bar = document.getElementById('tp-vp-debug');
-        if (!bar) {
-          bar = document.createElement('div');
-          bar.id = 'tp-vp-debug';
-          bar.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0);left:0;right:0;z-index:99999;background:#000;color:#0f0;font:11px/1.3 monospace;padding:4px 8px;text-align:left;pointer-events:none;border-bottom:1px solid #0f0';
-          document.documentElement.appendChild(bar);
-        }
-        const dpr = window.devicePixelRatio || 1;
-        const sw = window.screen?.width || 0;
-        const sh = window.screen?.height || 0;
-        const aw = window.screen?.availWidth || 0;
-        const bodyW = document.body?.offsetWidth || 0;
-        const docW = document.documentElement.offsetWidth || 0;
-        const rootFs = getComputedStyle(document.documentElement).fontSize;
-        const bodyFs = getComputedStyle(document.body || document.documentElement).fontSize;
-        bar.textContent =
-          `vp ${w}×${h} · scr ${sw}×${sh} avail ${aw} · dpr ${dpr.toFixed(1)} · `
-          + `body ${bodyW} doc ${docW} · root ${rootFs} body ${bodyFs} · ua ${navigator.userAgent.slice(0, 50)}…`;
-      }
-    } catch(_) {}
+    const urlDebug = new URLSearchParams(location.search).get('vpdebug') === '1';
+    if (urlDebug) localStorage.setItem('tp_debug_viewport', '1');
+    if (localStorage.getItem('tp_debug_viewport') !== '1') return;
+    let bar = document.getElementById('tp-vp-debug');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'tp-vp-debug';
+      bar.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0);left:0;right:0;z-index:99999;background:#000;color:#0f0;font:10px/1.2 monospace;padding:3px 6px;text-align:left;pointer-events:none;border-bottom:1px solid #0f0';
+      document.documentElement.appendChild(bar);
+    }
+    const w = Math.round(window.innerWidth || 0);
+    const h = Math.round(window.innerHeight || 0);
+    const dpr = window.devicePixelRatio || 1;
+    const sw = window.screen?.width || 0;
+    bar.textContent = `vp ${w}×${h} · scr ${sw} · dpr ${dpr.toFixed(1)} · body ${document.body?.offsetWidth || 0}`;
   } catch (_) {}
 }
-_detectViewport();
-window.addEventListener('resize', _detectViewport, { passive: true });
-window.addEventListener('orientationchange', _detectViewport, { passive: true });
+_vpDebugBar();
+window.addEventListener('resize', _vpDebugBar, { passive: true });
 
 // ── Production log gate ─────────────────────────────────────────────
 // Silence console.log + console.debug in shipped builds so the JS
