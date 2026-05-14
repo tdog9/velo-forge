@@ -9358,6 +9358,7 @@ function renderTeam() {
     btn.classList.toggle('active', isActive);
     btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
+  try { updateChatUnreadBadge(); } catch(_) {}
   const tc = $('lb-team-content');
   const cc = $('lb-chat-content');
   if (tc) tc.style.display = 'none';
@@ -9371,6 +9372,8 @@ function renderTeam() {
       // Idempotent self-heal in case membership drifted.
       try { ensureDefaultTeamMembership?.().catch(() => {}); } catch(_) {}
       renderTeamChatPanelInto(cc);
+      // Opening the Chat tab clears the unread badge.
+      try { markChatRead(); } catch(_) {}
       // Optimistic UX: chat opens instantly to messages from cache. The
       // pill is hidden by default and only surfaces on a real error.
       // If the listener wasn't attached yet, kick it now.
@@ -9436,6 +9439,67 @@ function getChatScope() {
 
 function setChatScope(scope) {
   try { localStorage.setItem('tp_chat_scope', scope ? scope : '__all'); } catch(e) {}
+}
+
+// ── Chat unread tracking (rec #24) ──────────────────────────────────
+// A last-read timestamp per team lives in localStorage. The Chat
+// sub-tab shows a badge counting messages newer than last-read that
+// aren't the user's own. Opening the Chat tab marks everything read.
+function chatLastReadKey() {
+  return 'tp_chat_lastread_' + (userProfile?.teamId || 'none');
+}
+function getChatLastRead() {
+  try { return parseInt(localStorage.getItem(chatLastReadKey()) || '0', 10) || 0; }
+  catch(e) { return 0; }
+}
+function msgMillis(m) {
+  if (!m || !m.createdAt) return 0;
+  if (typeof m.createdAt.toMillis === 'function') return m.createdAt.toMillis();
+  if (typeof m.createdAt === 'number') return m.createdAt;
+  const d = new Date(m.createdAt); return isNaN(d) ? 0 : d.getTime();
+}
+function markChatRead() {
+  try {
+    const cache = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+    let newest = Date.now();
+    for (const m of cache) { const t = msgMillis(m); if (t > newest) newest = t; }
+    localStorage.setItem(chatLastReadKey(), String(newest));
+  } catch(e) {}
+  updateChatUnreadBadge();
+}
+function computeChatUnread() {
+  if (!userProfile?.teamId) return 0;
+  const cache = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+  if (!Array.isArray(cache) || !cache.length) return 0;
+  const lastRead = getChatLastRead();
+  const myUid = currentUser?.uid;
+  const isCoachUser = !!userProfile?.isCoach;
+  const visible = (typeof filterMessagesForScope === 'function')
+    ? filterMessagesForScope(cache, { scope: getChatScope(), coachSeesAll: isCoachUser })
+    : cache;
+  let n = 0;
+  for (const m of visible) {
+    if (m.uid === myUid || m._pending || m._failed || m.deleted) continue;
+    if (msgMillis(m) > lastRead) n++;
+  }
+  return n;
+}
+function updateChatUnreadBadge() {
+  const btn = document.querySelector('.lb-sub-tab[data-lb-sub="chat"]');
+  if (!btn) return;
+  const onChatTab = (lbSubTab === 'chat' && currentPage === 'team');
+  const count = onChatTab ? 0 : computeChatUnread();
+  let badge = btn.querySelector('.lb-sub-badge');
+  if (count > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'lb-sub-badge';
+      btn.appendChild(badge);
+    }
+    badge.textContent = count > 9 ? '9+' : String(count);
+  } else if (badge) {
+    badge.remove();
+  }
 }
 
 /// Render the chat panel into the Team page's chat container (which lives
@@ -9662,25 +9726,74 @@ function refreshTeamChatList() {
   const html = renderChatPanel(messages, { isCoach: isHeadCoachLocal, myUid: currentUser?.uid });
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
-  const newList = tmp.firstElementChild;
-  // If renderChatPanel produced markup with no root element (e.g. the
-  // empty-state path was taken with messages.length > 0 due to a filter
-  // mismatch), fall back to a full repaint instead of crashing on
-  // list.replaceWith(undefined).
+  // renderChatPanel may prepend a .chat-pinned-banner before the list,
+  // so select the list explicitly rather than relying on firstChild.
+  const newList = tmp.querySelector('#team-chat-list');
+  const newBanner = tmp.querySelector('.chat-pinned-banner');
+  // If renderChatPanel produced markup with no list element, fall back
+  // to a full repaint instead of crashing on list.replaceWith(undefined).
   if (!newList) { renderTeamChatPanelInto(cc); return; }
+  // Sync the pinned banner: drop the stale one, insert the fresh one
+  // (if any) just above the list.
+  const oldBanner = cc.querySelector('.chat-pinned-banner');
+  if (oldBanner) oldBanner.remove();
   list.replaceWith(newList);
+  if (newBanner) newList.parentElement.insertBefore(newBanner, newList);
   // Delete handlers use a single delegated listener attached ONCE to the
   // chat container. Previous version re-bound .chat-msg-del every refresh
   // which leaked listeners as messages came + went.
   if (!cc._tpDeleteDelegated) {
     cc._tpDeleteDelegated = true;
     cc.addEventListener('click', async (e) => {
-      const btn = e.target?.closest?.('.chat-msg-del');
-      if (!btn || !cc.contains(btn)) return;
-      e.stopPropagation();
-      if (!confirm('Delete this message?')) return;
-      const id = btn.dataset.delId;
-      if (id) await deleteChatMessage(userProfile?.teamId, id);
+      // Delete a message.
+      const delBtn = e.target?.closest?.('.chat-msg-del');
+      if (delBtn && cc.contains(delBtn)) {
+        e.stopPropagation();
+        if (!confirm('Delete this message?')) return;
+        const id = delBtn.dataset.delId;
+        if (id) await deleteChatMessage(userProfile?.teamId, id);
+        return;
+      }
+      // Pin / unpin a coach message (rec #22) — head coach only.
+      // Pinning a message unpins any other pinned message in the same
+      // channel scope so there's exactly one pin per channel.
+      const pinBtn = e.target?.closest?.('.chat-msg-pin');
+      const unpinBtn = e.target?.closest?.('.chat-pinned-unpin');
+      const tid = userProfile?.teamId;
+      if (pinBtn && cc.contains(pinBtn) && tid) {
+        e.stopPropagation();
+        const id = pinBtn.dataset.pinId;
+        const cache = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+        const msg = cache.find(m => m.id === id);
+        if (!msg) return;
+        const willPin = !msg.pinned;
+        try {
+          if (willPin) {
+            const scope = msg.subteamId || '';
+            const others = cache.filter(m => m.id && m.id !== id && m.pinned && (m.subteamId || '') === scope);
+            for (const o of others) {
+              await updateDoc(doc(db, 'teams', tid, 'chat', o.id), { pinned: false });
+            }
+          }
+          await updateDoc(doc(db, 'teams', tid, 'chat', id), { pinned: willPin });
+          showToast?.(willPin ? 'Message pinned to top.' : 'Message unpinned.', 'success');
+        } catch (err) {
+          console.error('pin failed:', err);
+          showToast?.('Could not pin message.', 'error');
+        }
+        return;
+      }
+      if (unpinBtn && cc.contains(unpinBtn) && tid) {
+        e.stopPropagation();
+        const id = unpinBtn.dataset.pinId;
+        if (id) {
+          try {
+            await updateDoc(doc(db, 'teams', tid, 'chat', id), { pinned: false });
+            showToast?.('Message unpinned.', 'success');
+          } catch (err) { showToast?.('Could not unpin.', 'error'); }
+        }
+        return;
+      }
     });
   }
   // Auto-scroll to newest if the user was near the bottom of the page —
@@ -13518,8 +13631,13 @@ async function attachBackgroundChat() {
       _bgChatRetryCount = 0;
       if (currentPage === 'team' && lbSubTab === 'chat') {
         try { refreshTeamChatList(); } catch(_) {}
+        // Viewing the thread → keep it marked read as messages arrive.
+        try { markChatRead(); } catch(_) {}
         const pill = document.getElementById('chat-status-pill');
         if (pill) pill.hidden = true;
+      } else {
+        // Not looking at chat — refresh the unread badge on the tab.
+        try { updateChatUnreadBadge(); } catch(_) {}
       }
     }, (err) => {
       _bgChatLive = false;

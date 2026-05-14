@@ -339,6 +339,22 @@ export function renderChatPanel(messages, opts = {}) {
       <div class="msg-empty-sub">Be the first to say hi — your team sees it here.</div>
     </div>`;
   }
+  // Pinned coach message (rec #22) — render a sticky banner above the
+  // thread. `messages` is already scope-filtered by the caller, so the
+  // pinned one (if any) belongs to the channel being viewed.
+  let pinnedBanner = '';
+  const pinnedMsg = messages.find(m => m.pinned === true && m.kind === 'coach' && !m.deleted);
+  if (pinnedMsg) {
+    const pid = escHtml(pinnedMsg.id || '');
+    const unpinBtn = opts.isCoach
+      ? `<button class="chat-pinned-unpin" data-pin-id="${pid}" aria-label="Unpin">×</button>`
+      : '';
+    pinnedBanner = `<div class="chat-pinned-banner" data-msg-id="${pid}">
+      <svg class="chat-pinned-icon" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.5-3V7a2 2 0 0 0-2-2H8.5a2 2 0 0 0-2 2v7z"/></svg>
+      <div class="chat-pinned-text"><span class="chat-pinned-author">${escHtml(pinnedMsg.displayName || 'Coach')}</span> ${escHtml(pinnedMsg.text || '')}</div>
+      ${unpinBtn}
+    </div>`;
+  }
   // Newest at the bottom — flip order for natural chat feel.
   const ordered = [...messages].reverse();
   const GROUP_WINDOW_MS = 3 * 60 * 1000;
@@ -374,7 +390,7 @@ export function renderChatPanel(messages, opts = {}) {
     prevKind = m.kind;
     prevTs = ts;
   });
-  return `<div id="team-chat-list" class="msg-list">${html}</div>`;
+  return `${pinnedBanner}<div id="team-chat-list" class="msg-list">${html}</div>`;
 }
 
 function toDate(raw) {
@@ -438,10 +454,17 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
   // Coach broadcast: full-width banner with delete control if allowed.
   if (m.kind === 'coach') {
     const delBtn = canDelete ? `<button class="msg-del chat-msg-del" data-del-id="${id}" aria-label="Delete">×</button>` : '';
-    return `<div class="msg-event msg-event-coach" data-msg-id="${id}">
+    // Head coach can pin one coach message per channel (rec #22).
+    const pinBtn = isCoach
+      ? `<button class="msg-pin chat-msg-pin${m.pinned ? ' pinned' : ''}" data-pin-id="${id}" aria-label="${m.pinned ? 'Unpin message' : 'Pin message'}" title="${m.pinned ? 'Unpin' : 'Pin to top'}">
+           <svg viewBox="0 0 24 24" fill="${m.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.5-3V7a2 2 0 0 0-2-2H8.5a2 2 0 0 0-2 2v7z"/></svg>
+         </button>`
+      : '';
+    return `<div class="msg-event msg-event-coach${m.pinned ? ' msg-pinned' : ''}" data-msg-id="${id}">
       <div class="msg-event-head">
-        <span class="msg-event-actor">${escHtml(m.displayName || 'Coach')}${m.broadcastPush ? ' · pushed' : ''}</span>
+        <span class="msg-event-actor">${escHtml(m.displayName || 'Coach')}${m.broadcastPush ? ' · pushed' : ''}${m.pinned ? ' · pinned' : ''}</span>
         <span class="msg-event-time">${timeStr}</span>
+        ${pinBtn}
         ${delBtn}
       </div>
       <div class="msg-event-body">${escHtml(m.text || '')}</div>
