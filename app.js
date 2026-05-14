@@ -9600,6 +9600,14 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
     ${panel}
     <div class="msg-composer">
       <div id="team-chat-error" class="msg-composer-error" hidden></div>
+      ${isCoachUser && subs.length > 0 ? `
+        <div id="chat-broadcast-targets" class="chat-broadcast-targets" hidden>
+          <div class="chat-broadcast-targets-label">Broadcast to:</div>
+          <div class="chat-broadcast-targets-chips">
+            <button type="button" class="chat-bt-chip" data-bt-scope="">Whole team</button>
+            ${subs.map(s => `<button type="button" class="chat-bt-chip" data-bt-scope="${escHtml(s.id)}">${escHtml(s.name || 'Subteam')}</button>`).join('')}
+          </div>
+        </div>` : ''}
       <div class="msg-composer-row">
         <button id="team-chat-attach" class="msg-composer-attach" aria-label="Attach photo" type="button" title="Attach photo">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -9613,7 +9621,7 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
       </div>
       <div class="msg-composer-hint">${
         isCoachUser
-          ? `Sending to <strong>${escHtml(targetLabel)}</strong> · Tick Push to also send as a notification.`
+          ? `Sending to <strong>${escHtml(targetLabel)}</strong> · Tick Push to broadcast${subs.length > 0 ? ' (pick targets above)' : ''}.`
           : (mySubteamId
               ? `Sending to <strong>${escHtml(targetLabel)}</strong>. Coach broadcasts appear here too.`
               : 'Sending to <strong>whole team</strong>. Ask your coach to assign you to a subteam.')
@@ -12537,6 +12545,85 @@ function bindTeamChatPanel(c) {
     ta.addEventListener('input', grow);
     setTimeout(grow, 0);
   }
+  // @mention autocomplete (rec #23) — typing "@" surfaces a dropdown of
+  // team members; tapping one inserts "@DisplayName ". Rendered messages
+  // highlight known-member mentions (see teamchat.js highlightMentions).
+  if (ta) {
+    const composer = c.querySelector('.msg-composer');
+    let mentionBox = null;
+    const closeMentions = () => { if (mentionBox) { mentionBox.remove(); mentionBox = null; } };
+    // { token, start } if the cursor sits in an active @mention, else null.
+    const activeMention = () => {
+      const pos = ta.selectionStart;
+      const before = ta.value.slice(0, pos);
+      const at = before.lastIndexOf('@');
+      if (at === -1) return null;
+      if (at > 0 && !/\s/.test(before[at - 1])) return null; // must follow whitespace / line-start
+      const token = before.slice(at + 1);
+      if (/\n/.test(token) || token.length > 24) return null;
+      return { token, start: at };
+    };
+    const renderMentions = () => {
+      const m = activeMention();
+      if (!m || !composer) { closeMentions(); return; }
+      const members = Array.isArray(teamMembers) ? teamMembers : [];
+      const q = m.token.toLowerCase();
+      const matches = members
+        .filter(mem => mem.uid && mem.uid !== currentUser?.uid)
+        .filter(mem => (mem.displayName || '').toLowerCase().includes(q))
+        .slice(0, 6);
+      if (!matches.length) { closeMentions(); return; }
+      if (!mentionBox) {
+        mentionBox = document.createElement('div');
+        mentionBox.className = 'chat-mention-list';
+        composer.insertBefore(mentionBox, composer.firstChild);
+      }
+      mentionBox.innerHTML = matches.map(mem =>
+        `<button type="button" class="chat-mention-item" data-mention-name="${escHtml(mem.displayName || '')}">
+           <span class="chat-mention-avatar">${escHtml((mem.displayName || '?').trim().charAt(0).toUpperCase())}</span>
+           <span class="chat-mention-name">${escHtml(mem.displayName || 'Member')}</span>
+         </button>`).join('');
+      mentionBox.querySelectorAll('.chat-mention-item').forEach(btn => {
+        // mousedown (not click) so it fires before the textarea blur.
+        btn.addEventListener('mousedown', (ev) => {
+          ev.preventDefault();
+          const name = btn.dataset.mentionName || '';
+          const cur = activeMention();
+          if (!cur) { closeMentions(); return; }
+          const pos = ta.selectionStart;
+          const after = ta.value.slice(pos);
+          ta.value = ta.value.slice(0, cur.start) + '@' + name + ' ' + after;
+          const newPos = cur.start + name.length + 2;
+          closeMentions();
+          ta.focus();
+          ta.setSelectionRange(newPos, newPos);
+          ta.dispatchEvent(new Event('input'));
+        });
+      });
+    };
+    ta.addEventListener('input', renderMentions);
+    ta.addEventListener('keyup', (e) => { if (e.key === 'Escape') closeMentions(); });
+    ta.addEventListener('blur', () => setTimeout(closeMentions, 160));
+  }
+  // Multi-subteam broadcast targets (rec #17) — the targets row only
+  // appears when Push is ticked; chips multi-select. The send handler
+  // reads the active chips and fans the broadcast out to each.
+  const pushBox = c.querySelector('#team-chat-push');
+  const targetsRow = c.querySelector('#chat-broadcast-targets');
+  if (pushBox && targetsRow) {
+    pushBox.addEventListener('change', () => {
+      targetsRow.hidden = !pushBox.checked;
+      // First reveal — pre-select the coach's current viewing scope.
+      if (pushBox.checked && !targetsRow.querySelector('.chat-bt-chip.active')) {
+        const cur = getChatScope() || '';
+        const match = targetsRow.querySelector('.chat-bt-chip[data-bt-scope="' + cur + '"]');
+        if (match) match.classList.add('active');
+      }
+    });
+    targetsRow.querySelectorAll('.chat-bt-chip').forEach(chip => {
+      chip.addEventListener('click', () => chip.classList.toggle('active'));
+    });
+  }
   const sendBtn = c.querySelector('#team-chat-send');
   const errBox = c.querySelector('#team-chat-error');
   const showErr = (msg) => {
@@ -12593,6 +12680,17 @@ function bindTeamChatPanel(c) {
       btnLive.style.opacity = '0.55';
     }
     const pushChecked = !!c.querySelector('#team-chat-push')?.checked;
+    // Multi-subteam broadcast (rec #17): when Push is ticked and the
+    // coach has selected target chips, fan the broadcast out to every
+    // selected scope. '' = whole-team channel.
+    let broadcastScopes = null;
+    if (pushChecked && isCoachUser) {
+      const tr = c.querySelector('#chat-broadcast-targets');
+      if (tr && !tr.hidden) {
+        const chips = [...tr.querySelectorAll('.chat-bt-chip.active')];
+        if (chips.length) broadcastScopes = chips.map(ch => ch.dataset.btScope || '');
+      }
+    }
     let ok = false;
     // Resolve target scope. Athletes are pinned to their own subteam (or
     // whole-team if they have none). Coaches send into whichever scope the
@@ -12685,7 +12783,28 @@ function bindTeamChatPanel(c) {
       return result;
     };
     try {
-      if (isCoachUser && pushChecked) {
+      if (isCoachUser && pushChecked && broadcastScopes && broadcastScopes.length) {
+        // Multi-target broadcast — one message per selected scope.
+        const names = broadcastScopes.map(s => {
+          if (!s) return 'Whole team';
+          const sub = (teamData?.subteams || []).find(x => x.id === s);
+          return sub ? (sub.name || 'Subteam') : 'Subteam';
+        });
+        if (!confirm(`Broadcast this push to ${names.join(', ')}?`)) {
+          ok = false;
+        } else {
+          let sent = 0;
+          for (const scope of broadcastScopes) {
+            try {
+              const r = await sendCoachBroadcast(teamId, text, { push: true, subteamId: scope });
+              if (r !== false) sent++;
+            } catch (e) { console.warn('[chat] broadcast to scope failed:', scope, e); }
+          }
+          ok = sent > 0;
+          if (ok) showToast?.('Broadcast sent to ' + sent + ' channel' + (sent === 1 ? '' : 's') + '.', 'success');
+          if (!ok) showErr('Broadcast failed — try again.');
+        }
+      } else if (isCoachUser && pushChecked) {
         if (!confirm(`Send this as a push notification to ${targetLabel}?`)) {
           ok = false;
         } else {

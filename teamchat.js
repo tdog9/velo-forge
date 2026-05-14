@@ -399,6 +399,32 @@ function toDate(raw) {
   return new Date(raw);
 }
 
+// Wrap @mentions of known team members in a highlight span. Operates on
+// ALREADY-ESCAPED text. Matches the longest member display name first
+// so "@Sam Carter" wins over "@Sam". Names are matched case-insensitively.
+function highlightMentions(escapedText) {
+  if (!escapedText || escapedText.indexOf('@') === -1) return escapedText;
+  let members = [];
+  try {
+    members = (typeof A !== 'undefined' && A.teamMembers)
+      ? A.teamMembers : (window._tpTeamMembers || []);
+  } catch(_) {}
+  const names = (Array.isArray(members) ? members : [])
+    .map(m => (m && m.displayName ? String(m.displayName).trim() : ''))
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length); // longest first
+  if (!names.length) return escapedText;
+  let out = escapedText;
+  for (const name of names) {
+    // Escape the name for use in a regex AND escape it the same way the
+    // text was escaped, so it matches the escaped text.
+    const escName = escHtml(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('@' + escName + '\\b', 'gi');
+    out = out.replace(re, '<span class="msg-mention">@' + escHtml(name) + '</span>');
+  }
+  return out;
+}
+
 function renderDaySep(date) {
   if (isNaN(date)) return '';
   const today = new Date(); today.setHours(0,0,0,0);
@@ -507,7 +533,7 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
   const imageHtml = hasImg
     ? `<img class="msg-image" src="${escHtml(m.imageUrl)}" alt="" loading="lazy" data-img-src="${escHtml(m.imageUrl)}">`
     : '';
-  const textHtml = (m.text || '').trim() ? `<span class="msg-text">${escHtml(m.text)}</span>` : '';
+  const textHtml = (m.text || '').trim() ? `<span class="msg-text">${highlightMentions(escHtml(m.text))}</span>` : '';
   const bubbleClass = hasImg ? 'msg-bubble msg-bubble-image' : 'msg-bubble';
   const bubbleInner = hasImg && !textHtml
     ? `${imageHtml}${stateIndicator}${delBtn}`
