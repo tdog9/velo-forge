@@ -300,11 +300,18 @@ service cloud.firestore {
                   && request.resource.data.imageUrl is string
                   && request.resource.data.imageUrl.size() <= 1024))
           && request.resource.data.kind in ['chat', 'workout', 'coach', 'system', 'cheer', 'pr']
-          // 'coach' kind only writable by an actual head coach of this team.
+          // 'coach' kind only writable by an actual head coach of this
+          // team, a co-coach (isCoach), OR a subteam captain
+          // (team.subCoaches[]) — but a captain may only broadcast into
+          // a subteam channel, never the whole team.
           && (request.resource.data.kind != 'coach'
               || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
               || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
-                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isCoach == true))
+                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isCoach == true)
+              || (('subCoaches' in get(/databases/$(database)/documents/teams/$(teamId)).data)
+                  && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.subCoaches
+                  && request.resource.data.subteamId is string
+                  && request.resource.data.subteamId.size() > 0))
           // Author must use their own profile displayName so the
           // coach banner can't be impersonated by a member typing
           // someone else's name into displayName.
@@ -330,6 +337,13 @@ service cloud.firestore {
             || (
               request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+            )
+            // A subteam captain may pin/unpin within their team — the
+            // ONLY field they may touch is `pinned`.
+            || (
+              ('subCoaches' in get(/databases/$(database)/documents/teams/$(teamId)).data)
+              && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.subCoaches
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned'])
             )
           );
         allow delete: if isSignedIn()

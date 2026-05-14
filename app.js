@@ -9423,6 +9423,16 @@ function getMySubteamId() {
   return sub ? sub.id : '';
 }
 
+/// The subteam id I'm the captain (sub-coach) of, or '' if none.
+/// A captain gets limited coach powers scoped to this subteam: posting
+/// coach broadcasts into it and pinning messages (rec #19).
+function getMyCaptainSubteamId() {
+  const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+  const myUid = currentUser?.uid;
+  const sub = subs.find(s => s.subCoachUid && s.subCoachUid === myUid);
+  return sub ? sub.id : '';
+}
+
 /// Active chat scope: '' = whole-team channel, '<subteamId>' = a specific
 /// subteam channel. Athletes are pinned to their own subteam (or whole-team
 /// if they have none). Coaches can switch via chips; choice is persisted
@@ -9537,6 +9547,10 @@ function renderTeamChatPanelInto(el) {
   }
   const isHeadCoachLocal = userProfile?.isCoach && teamData?.createdBy === currentUser?.uid;
   const isCoachUser = !!userProfile?.isCoach;
+  // Subteam captain (rec #19) — limited coach powers scoped to one
+  // subteam: broadcast into it + pin its messages.
+  const myCaptainSub = getMyCaptainSubteamId();
+  const isCaptain = !!myCaptainSub && !isCoachUser;
   const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
   const mySubteamId = getMySubteamId();
   const scope = getChatScope();
@@ -9547,8 +9561,9 @@ function renderTeamChatPanelInto(el) {
   const visible = (typeof filterMessagesForScope === 'function')
     ? filterMessagesForScope(allMessages, { scope, coachSeesAll: isCoachUser })
     : allMessages;
+  // Captains get the pin control too — rules let them pin within the team.
   const panel = (typeof renderChatPanel === 'function')
-    ? renderChatPanel(visible, { isCoach: isHeadCoachLocal, myUid: currentUser?.uid })
+    ? renderChatPanel(visible, { isCoach: isHeadCoachLocal || isCaptain, myUid: currentUser?.uid })
     : '<div style="text-align:center;padding:40px;color:var(--muted-fg)">Chat loading…</div>';
 
   // Scope chips — coaches only. Athletes are auto-scoped (their feed already
@@ -9639,7 +9654,7 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
         </button>
         <input type="file" id="team-chat-photo-input" accept="image/*" hidden>
         <textarea id="team-chat-input" class="msg-composer-input" placeholder="${escHtml(placeholder)}" maxlength="500" rows="1" aria-label="Type a message"></textarea>
-        ${isCoachUser ? `<label class="msg-composer-push" title="Send as push notification"><input type="checkbox" id="team-chat-push"><span>Push</span></label>` : ''}
+        ${(isCoachUser || isCaptain) ? `<label class="msg-composer-push" title="Send as push notification"><input type="checkbox" id="team-chat-push"><span>Push</span></label>` : ''}
         <button id="team-chat-send" class="msg-composer-send" aria-label="Send" type="button">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
@@ -9647,9 +9662,11 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
       <div class="msg-composer-hint">${
         isCoachUser
           ? `Sending to <strong>${escHtml(targetLabel)}</strong> · Tick Push to broadcast${subs.length > 0 ? ' (pick targets above)' : ''}.`
-          : (mySubteamId
-              ? `Sending to <strong>${escHtml(targetLabel)}</strong>. Coach broadcasts appear here too.`
-              : 'Sending to <strong>whole team</strong>. Ask your coach to assign you to a subteam.')
+          : isCaptain
+              ? `Captain of <strong>${escHtml((subs.find(s => s.id === myCaptainSub) || {}).name || 'your subteam')}</strong> · Tick Push to broadcast to it.`
+              : (mySubteamId
+                  ? `Sending to <strong>${escHtml(targetLabel)}</strong>. Coach broadcasts appear here too.`
+                  : 'Sending to <strong>whole team</strong>. Ask your coach to assign you to a subteam.')
       }</div>
     </div>
   `;
@@ -12723,6 +12740,10 @@ function bindTeamChatPanel(c) {
     }
     const isCoachUser = !!userProfile?.isCoach;
     const isAdminUser = !!isAdmin;
+    // Subteam captain (rec #19) — limited coach powers for their subteam.
+    const captainSub = isCoachUser ? '' : getMyCaptainSubteamId();
+    const isCaptain = !!captainSub;
+    const canBroadcast = isCoachUser || isCaptain;
     // Coaches and admins skip the school-context profanity filter — the
     // underlying send funcs also bypass it for them.
     if (!isCoachUser && !isAdminUser && !isMessageClean(text)) {
@@ -12748,10 +12769,12 @@ function bindTeamChatPanel(c) {
       }
     }
     let ok = false;
-    // Resolve target scope. Athletes are pinned to their own subteam (or
-    // whole-team if they have none). Coaches send into whichever scope the
-    // chips currently select.
-    const targetScope = isCoachUser ? getChatScope() : (getMySubteamId() || '');
+    // Resolve target scope. Coaches send into whichever scope the chips
+    // select. Captains are pinned to the subteam they captain. Athletes
+    // are pinned to their own subteam (or whole-team if they have none).
+    const targetScope = isCoachUser
+      ? getChatScope()
+      : (captainSub || getMySubteamId() || '');
     const targetLabel = (() => {
       if (!targetScope) return 'whole team';
       const sub = (teamData?.subteams || []).find(s => s.id === targetScope);
@@ -12762,7 +12785,7 @@ function bindTeamChatPanel(c) {
     // dedupes when the real version lands. If the write fails, we mark
     // the pending bubble as failed (with retry affordance).
     const clientId = 'pending-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-    const pendingKind = (isCoachUser && pushChecked) ? 'coach' : 'chat';
+    const pendingKind = (canBroadcast && pushChecked) ? 'coach' : 'chat';
     const pendingMsg = {
       _clientId: clientId,
       id: clientId,
@@ -12803,16 +12826,16 @@ function bindTeamChatPanel(c) {
     // scope using the real Firebase functions imported here — same
     // payload shape, same Firestore rules.
     const directSend = async () => {
-      const safeName = ((userProfile?.displayName || currentUser?.displayName || currentUser?.email || (isCoachUser ? 'Coach' : 'Member')).toString().trim()) || (isCoachUser ? 'Coach' : 'Member');
+      const safeName = ((userProfile?.displayName || currentUser?.displayName || currentUser?.email || (canBroadcast ? 'Coach' : 'Member')).toString().trim()) || (canBroadcast ? 'Coach' : 'Member');
       const payload = {
         uid: currentUser.uid,
         displayName: safeName,
         text: text,
-        kind: (isCoachUser && pushChecked) ? 'coach' : 'chat',
+        kind: (canBroadcast && pushChecked) ? 'coach' : 'chat',
         subteamId: String(targetScope || ''),
         createdAt: serverTimestamp(),
       };
-      if (isCoachUser && pushChecked) payload.broadcastPush = true;
+      if (canBroadcast && pushChecked) payload.broadcastPush = true;
       await addDoc(collection(db, 'teams', teamId, 'chat'), payload);
       return true;
     };
@@ -12821,7 +12844,7 @@ function bindTeamChatPanel(c) {
     const doSend = async () => {
       let result;
       try {
-        if (isCoachUser && pushChecked) {
+        if (canBroadcast && pushChecked) {
           result = await sendCoachBroadcast(teamId, text, { push: true, subteamId: targetScope });
         } else {
           result = await sendChatMessage(teamId, text, { subteamId: targetScope });
@@ -12860,7 +12883,7 @@ function bindTeamChatPanel(c) {
           if (ok) showToast?.('Broadcast sent to ' + sent + ' channel' + (sent === 1 ? '' : 's') + '.', 'success');
           if (!ok) showErr('Broadcast failed — try again.');
         }
-      } else if (isCoachUser && pushChecked) {
+      } else if (canBroadcast && pushChecked) {
         if (!confirm(`Send this as a push notification to ${targetLabel}?`)) {
           ok = false;
         } else {
@@ -13426,17 +13449,22 @@ function openSubteamDetailSheet(subId) {
       }
     });
   });
-  // Sub-coach assign
+  // Sub-coach assign. We also maintain a flat `subCoaches` array on the
+  // team doc — the Firestore rules check membership of that array to
+  // grant captains their limited coach powers (rec #19); rules can't
+  // reach into the subteams array to verify a per-subteam subCoachUid.
   document.querySelectorAll('.sub-promote').forEach(btn => {
     btn.addEventListener('click', async () => {
       const uid = btn.dataset.uid;
       const updatedSubs = subteams.map(s => s.id === subId
         ? { ...s, subCoachUid: uid, updatedAt: new Date().toISOString() }
         : s);
+      const subCoaches = [...new Set(updatedSubs.map(s => s.subCoachUid).filter(Boolean))];
       try {
-        await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updatedSubs });
+        await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updatedSubs, subCoaches });
         teamData.subteams = updatedSubs;
-        showToast('Sub-coach set.', 'success');
+        teamData.subCoaches = subCoaches;
+        showToast('Captain set — they can broadcast + pin in this subteam.', 'success');
         openSubteamDetailSheet(subId);
       } catch(e) { showToast('Failed: ' + (e.message || e), 'error'); }
     });
@@ -13446,9 +13474,11 @@ function openSubteamDetailSheet(subId) {
     const ok = await confirmModal('Delete subteam?', 'Members keep team membership but lose this subteam grouping.');
     if (!ok) return;
     const updatedSubs = subteams.filter(s => s.id !== subId);
+    const subCoaches = [...new Set(updatedSubs.map(s => s.subCoachUid).filter(Boolean))];
     try {
-      await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updatedSubs });
+      await updateDoc(doc(db, 'teams', userProfile.teamId), { subteams: updatedSubs, subCoaches });
       teamData.subteams = updatedSubs;
+      teamData.subCoaches = subCoaches;
       showToast('Subteam deleted.', 'info');
       openManageSubteamsSheet();
     } catch(e) { showToast('Failed: ' + (e.message || e), 'error'); }
