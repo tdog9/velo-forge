@@ -1555,6 +1555,20 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   color:var(--primary);
   font-weight:700;
 }
+/* Schedule-a-message button in the chat composer. */
+.msg-composer-schedule{
+  flex-shrink:0;
+  width:38px;height:38px;
+  border-radius:50%;
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--muted-fg);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:color .14s, border-color .14s;
+}
+.msg-composer-schedule:hover{ color:var(--primary); border-color:rgba(var(--primary-rgb),.4); }
+
 /* Message reactions (rec #21) — chips beneath a chat bubble. */
 .msg-reactions{
   display:flex;

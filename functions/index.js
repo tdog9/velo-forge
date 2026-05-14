@@ -9,6 +9,7 @@
 // Triggers:
 //   - onChatWrite:        moderation + chat / coach-broadcast push fan-out
 //   - cleanupOldChatMessages: scheduled, prunes chat to last 7 days
+//   - deliverScheduledMessages: scheduled, posts due future-dated messages
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -273,6 +274,62 @@ exports.cleanupOldChatMessages = onSchedule(
       }
     }
     console.log(`[cleanupOldChatMessages] total deleted: ${totalDeleted}`);
+  }
+);
+
+// ─── Scheduled chat messages — deliver when due ─────────────────────────
+//
+// Coaches/captains can queue a chat message for a future time via the
+// app. It lands in teams/{teamId}/scheduled/{id} with a `scheduledFor`
+// timestamp. This job runs every 5 minutes, moves any due message into
+// the team's chat collection (which fires onChatWrite → push fan-out),
+// then deletes the scheduled doc.
+exports.deliverScheduledMessages = onSchedule(
+  {
+    schedule: 'every 5 minutes',
+    region: 'us-central1',
+    timeoutSeconds: 300,
+    memory: '256MiB',
+  },
+  async () => {
+    const db = getFirestore();
+    const now = Timestamp.now();
+    const teamsSnap = await db.collection('teams').get();
+    let delivered = 0;
+    for (const teamDoc of teamsSnap.docs) {
+      const teamId = teamDoc.id;
+      let due;
+      try {
+        due = await db.collection('teams').doc(teamId).collection('scheduled')
+          .where('scheduledFor', '<=', now)
+          .limit(50)
+          .get();
+      } catch (e) {
+        console.warn('[deliverScheduled] query failed for', teamId, e?.message || e);
+        continue;
+      }
+      if (due.empty) continue;
+      for (const d of due.docs) {
+        const m = d.data() || {};
+        try {
+          await db.collection('teams').doc(teamId).collection('chat').add({
+            uid: m.uid || '',
+            displayName: String(m.displayName || 'Coach').slice(0, 80),
+            text: String(m.text || '').slice(0, 500),
+            kind: m.kind === 'coach' ? 'coach' : 'chat',
+            subteamId: String(m.subteamId || ''),
+            broadcastPush: !!m.broadcastPush,
+            createdAt: FieldValue.serverTimestamp(),
+            scheduledDelivery: true,
+          });
+          await d.ref.delete();
+          delivered++;
+        } catch (e) {
+          console.warn('[deliverScheduled] deliver failed', teamId, d.id, e?.message || e);
+        }
+      }
+    }
+    console.log('[deliverScheduledMessages] delivered ' + delivered);
   }
 );
 

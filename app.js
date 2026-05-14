@@ -9655,6 +9655,7 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
         <input type="file" id="team-chat-photo-input" accept="image/*" hidden>
         <textarea id="team-chat-input" class="msg-composer-input" placeholder="${escHtml(placeholder)}" maxlength="500" rows="1" aria-label="Type a message"></textarea>
         ${(isCoachUser || isCaptain) ? `<label class="msg-composer-push" title="Send as push notification"><input type="checkbox" id="team-chat-push"><span>Push</span></label>` : ''}
+        ${(isCoachUser || isCaptain) ? `<button id="team-chat-schedule" class="msg-composer-schedule" type="button" aria-label="Schedule a message" title="Schedule a message"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></button>` : ''}
         <button id="team-chat-send" class="msg-composer-send" aria-label="Send" type="button">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
@@ -12697,6 +12698,12 @@ function bindTeamChatPanel(c) {
       chip.addEventListener('click', () => chip.classList.toggle('active'));
     });
   }
+  // Schedule-a-message (rec #25) — opens the scheduled-messages sheet,
+  // pre-filled with whatever is in the composer.
+  c.querySelector('#team-chat-schedule')?.addEventListener('click', () => {
+    const draft = (c.querySelector('#team-chat-input')?.value || '').trim();
+    openScheduledMessagesSheet(draft);
+  });
   const sendBtn = c.querySelector('#team-chat-send');
   const errBox = c.querySelector('#team-chat-error');
   const showErr = (msg) => {
@@ -13308,6 +13315,125 @@ async function promoteToCoach(uid, btn) {
     showToast('Failed: ' + (e.message || e), 'error');
     btn.disabled = false; btn.textContent = 'Promote';
   }
+}
+
+// Scheduled messages (rec #25) — coaches/captains queue a chat message
+// for a future time. Stored in teams/{teamId}/scheduled; the
+// deliverScheduledMessages Cloud Function posts due ones into /chat.
+async function openScheduledMessagesSheet(draftText) {
+  const teamId = userProfile?.teamId;
+  if (!teamId) { showToast('Join a team first.', 'warn'); return; }
+  const isCoachUser = !!userProfile?.isCoach;
+  const captainSub = isCoachUser ? '' : getMyCaptainSubteamId();
+  if (!isCoachUser && !captainSub && !isAdmin) {
+    showToast('Only coaches and captains can schedule messages.', 'warn');
+    return;
+  }
+  const subs = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+  const pad = n => String(n).padStart(2, '0');
+  const toLocalInput = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const minDt = new Date(Date.now() + 5 * 60 * 1000);
+  $('sheet-content').innerHTML = `
+    <div class="sheet-title">Schedule a Message</div>
+    <div class="form-group">
+      <label class="label">Message</label>
+      <textarea class="input" id="sched-text" rows="3" maxlength="500" placeholder="What do you want to send later?">${escHtml(draftText || '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="label">Send at</label>
+      <input class="input" type="datetime-local" id="sched-when" min="${toLocalInput(minDt)}" value="${toLocalInput(new Date(Date.now() + 60*60*1000))}">
+    </div>
+    ${isCoachUser && subs.length ? `
+      <div class="form-group">
+        <label class="label">Channel</label>
+        <select class="input" id="sched-scope">
+          <option value="">Whole team</option>
+          ${subs.map(s => `<option value="${escHtml(s.id)}">${escHtml(s.name || 'Subteam')}</option>`).join('')}
+        </select>
+      </div>` : ''}
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:14px">
+      <input type="checkbox" id="sched-push" checked> Send as a push notification
+    </label>
+    <button class="btn btn-primary" id="sched-create" style="width:100%;margin-bottom:16px">Schedule</button>
+    <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Pending</div>
+    <div id="sched-list"><div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:10px">Loading…</div></div>
+  `;
+  openSheet();
+
+  const loadPending = async () => {
+    const listEl = $('sched-list');
+    if (!listEl) return;
+    try {
+      const snap = await getDocs(collection(db, 'teams', teamId, 'scheduled'));
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.scheduledFor?.toMillis?.() || 0) - (b.scheduledFor?.toMillis?.() || 0));
+      if (!items.length) {
+        listEl.innerHTML = '<div style="font-size:12px;color:var(--muted-fg);text-align:center;padding:10px">No scheduled messages.</div>';
+        return;
+      }
+      listEl.innerHTML = items.map(it => {
+        const when = it.scheduledFor?.toDate ? it.scheduledFor.toDate() : null;
+        const whenStr = when ? when.toLocaleString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'numeric', minute:'2-digit' }) : '—';
+        const scopeName = it.subteamId ? ((subs.find(s => s.id === it.subteamId) || {}).name || 'Subteam') : 'Whole team';
+        return `<div style="display:flex;gap:8px;padding:9px 10px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(it.text || '')}</div>
+            <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">${escHtml(whenStr)} · ${escHtml(scopeName)}${it.broadcastPush ? ' · push' : ''}</div>
+          </div>
+          <button class="sched-cancel" data-sched-id="${escHtml(it.id)}" style="flex-shrink:0;background:transparent;border:1px solid var(--border);color:var(--destructive);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">Cancel</button>
+        </div>`;
+      }).join('');
+      listEl.querySelectorAll('.sched-cancel').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            await deleteDoc(doc(db, 'teams', teamId, 'scheduled', btn.dataset.schedId));
+            showToast('Scheduled message cancelled.', 'info');
+            loadPending();
+          } catch(e) { showToast('Could not cancel.', 'error'); }
+        });
+      });
+    } catch(e) {
+      listEl.innerHTML = '<div style="font-size:12px;color:var(--destructive);text-align:center;padding:10px">Could not load scheduled messages.</div>';
+    }
+  };
+  loadPending();
+
+  $('sched-create')?.addEventListener('click', async () => {
+    const text = ($('sched-text')?.value || '').trim();
+    const whenVal = $('sched-when')?.value || '';
+    if (!text) { showToast('Type a message.', 'warn'); return; }
+    if (!whenVal) { showToast('Pick a send time.', 'warn'); return; }
+    const when = new Date(whenVal);
+    if (isNaN(when) || when.getTime() < Date.now() + 60 * 1000) {
+      showToast('Pick a time at least a few minutes from now.', 'warn');
+      return;
+    }
+    const scope = isCoachUser ? ($('sched-scope')?.value || '') : (captainSub || '');
+    const push = !!$('sched-push')?.checked;
+    const safeName = ((userProfile?.displayName || currentUser?.displayName || 'Coach').toString().trim()) || 'Coach';
+    const btn = $('sched-create');
+    if (btn) { btn.disabled = true; btn.textContent = 'Scheduling…'; }
+    try {
+      await addDoc(collection(db, 'teams', teamId, 'scheduled'), {
+        uid: currentUser.uid,
+        displayName: safeName,
+        text,
+        kind: push ? 'coach' : 'chat',
+        subteamId: String(scope || ''),
+        broadcastPush: push,
+        scheduledFor: Timestamp.fromDate(when),
+        createdAt: serverTimestamp(),
+      });
+      showToast('Message scheduled.', 'success');
+      const t = $('sched-text'); if (t) t.value = '';
+      loadPending();
+    } catch(e) {
+      console.error('schedule failed:', e);
+      showToast('Could not schedule: ' + (e.message || e), 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Schedule'; }
+    }
+  });
 }
 
 function openManageSubteamsSheet() {

@@ -352,6 +352,21 @@ service cloud.firestore {
               || isAdmin());
       }
 
+      // Scheduled chat messages — coach/captain queues a message for a
+      // future time; the deliverScheduledMessages Cloud Function moves
+      // due ones into /chat. Schema: { uid, displayName, text, kind,
+      // subteamId, broadcastPush, scheduledFor, createdAt }.
+      match /scheduled/{schedId} {
+        allow read, create, update, delete: if isSignedIn()
+          && (
+            request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
+            || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isCoach == true)
+            || (('subCoaches' in get(/databases/$(database)/documents/teams/$(teamId)).data)
+                && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.subCoaches)
+          );
+      }
+
       // Subteam hierarchy: a head coach (the team's createdBy user) can
       // carve their team into named subteams (e.g. "Venom") and assign a
       // sub-coach. Athletes only see their own subteam's leaderboard.
