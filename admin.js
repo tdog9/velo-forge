@@ -543,6 +543,8 @@ function renderAdminSystem() {
   const s = A.globalSettings || {};
   let pretendBase = false;
   try { pretendBase = localStorage.getItem('tp_admin_view_base') === '1'; } catch(e) {}
+  let layoutDebug = false;
+  try { layoutDebug = localStorage.getItem('tp_layout_debug') === '1'; } catch(e) {}
   el.innerHTML = `
     <div class="card" style="margin-bottom:14px;padding:14px">
       <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Admin Preview Mode</div>
@@ -554,6 +556,18 @@ function renderAdminSystem() {
         <button class="admin-toggle ${pretendBase?'on':''}" id="admin-view-base-toggle"></button>
       </div>
       <div style="margin-top:8px;font-size:11px;color:var(--muted-fg)">Currently: <strong>${pretendBase?'Base Coach (preview)':'Coach Pro (full access)'}</strong></div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Layout Debug HUD</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">Show layout debug overlay</div>
+          <div style="font-size:11px;color:var(--muted-fg);margin-top:2px">Outlines any element that overflows the screen or its container in red, and shows viewport numbers. Use it to find UIs cut off internally.</div>
+        </div>
+        <button class="admin-toggle ${layoutDebug?'on':''}" id="admin-layout-debug-toggle"></button>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted-fg)">Currently: <strong>${layoutDebug?'ON':'OFF'}</strong> — applies app-wide until toggled off.</div>
     </div>
 
     <div class="card" style="margin-bottom:14px;padding:14px">
@@ -591,6 +605,19 @@ function renderAdminSystem() {
     } catch(e) {}
     A.showToast(turningOn ? 'Now viewing as Base Coach. Reloading…' : 'Restored Coach Pro view. Reloading…', 'success');
     setTimeout(() => location.reload(), 700);
+  });
+
+  el.querySelector('#admin-layout-debug-toggle')?.addEventListener('click', () => {
+    const btn = el.querySelector('#admin-layout-debug-toggle');
+    const turningOn = !btn.classList.contains('on');
+    try {
+      if (turningOn) localStorage.setItem('tp_layout_debug', '1');
+      else localStorage.removeItem('tp_layout_debug');
+    } catch(e) {}
+    btn.classList.toggle('on', turningOn);
+    if (typeof window.tpLayoutDebug === 'function') window.tpLayoutDebug(turningOn);
+    A.showToast(turningOn ? 'Layout debug HUD ON.' : 'Layout debug HUD OFF.', 'success');
+    renderAdminSystem();
   });
   el.querySelector('#push-test-self')?.addEventListener('click', () => sendTestPush(false));
   el.querySelector('#push-test-broadcast')?.addEventListener('click', () => sendTestPush(true));
