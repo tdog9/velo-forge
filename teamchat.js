@@ -24,6 +24,17 @@ export function initTeamChat(ctx) { A = ctx; }
 let chatUnsub = null;
 let chatCache = [];
 
+// Message reactions (rec #21). A small fixed set rendered with SVG
+// icons — no unicode emoji, per the app's no-emoji UI convention.
+// A message's `reactions` field is a map: { up:[uid,...], heart:[...],
+// fire:[...] }.
+export const REACTIONS = {
+  up:    { label: 'Thumbs up', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>' },
+  heart: { label: 'Heart',     svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>' },
+  fire:  { label: 'Fire',      svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/></svg>' },
+};
+const REACTION_KEYS = Object.keys(REACTIONS);
+
 // Persist a slim copy of the most-recent messages to localStorage so the
 // next chat-tab open paints instantly (no waiting for Firestore's first
 // snapshot). Firestore Timestamps are serialised as ms; the renderer's
@@ -399,6 +410,33 @@ function toDate(raw) {
   return new Date(raw);
 }
 
+// Render the reaction row beneath a message bubble: a chip per
+// reaction that has at least one reactor (highlighted if the viewer
+// reacted) plus an "add reaction" affordance.
+function renderReactions(m, myUid) {
+  const id = escHtml(m.id || '');
+  const rx = (m && m.reactions) || {};
+  let chips = '';
+  for (const k of REACTION_KEYS) {
+    const uids = Array.isArray(rx[k]) ? rx[k] : [];
+    if (!uids.length) continue;
+    const mine = uids.indexOf(myUid) !== -1;
+    chips += `<button type="button" class="msg-rx${mine ? ' mine' : ''}" data-rx-id="${id}" data-rx-key="${k}" aria-label="${REACTIONS[k].label} (${uids.length})">${REACTIONS[k].svg}<span>${uids.length}</span></button>`;
+  }
+  chips += `<button type="button" class="msg-rx-add" data-rx-id="${id}" aria-label="Add reaction"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`;
+  return `<div class="msg-reactions">${chips}</div>`;
+}
+
+// The reaction picker popup markup (one set of options for a message).
+export function reactionPickerHtml(messageId) {
+  const id = escHtml(messageId || '');
+  return `<div class="msg-rx-picker" data-rx-picker="${id}">${
+    REACTION_KEYS.map(k =>
+      `<button type="button" class="msg-rx-pick" data-rx-id="${id}" data-rx-key="${k}" aria-label="${REACTIONS[k].label}">${REACTIONS[k].svg}</button>`
+    ).join('')
+  }</div>`;
+}
+
 // Wrap @mentions of known team members in a highlight span. Operates on
 // ALREADY-ESCAPED text. Matches the longest member display name first
 // so "@Sam Carter" wins over "@Sam". Names are matched case-insensitively.
@@ -543,6 +581,7 @@ function renderChatMessage(m, { isCoach, myUid, date, isFirstInGroup, isLastInGr
     <div class="msg-stack">
       ${author}
       <div class="${bubbleClass}${tailCls}">${bubbleInner}</div>
+      ${renderReactions(m, myUid)}
       ${meta}
     </div>
   </div>`;

@@ -319,8 +319,19 @@ service cloud.firestore {
               || (request.resource.data.subteamId is string
                   && request.resource.data.subteamId.size() <= 64));
         allow update: if isSignedIn()
-          && (resource.data.uid == request.auth.uid
-              || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy);
+          && (
+            // Author edits (e.g. soft-delete) or head-coach edits
+            // (delete / pin) — full update allowed.
+            resource.data.uid == request.auth.uid
+            || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
+            // Any team member may add/remove their own reaction — but
+            // the ONLY field they may touch is `reactions`, so they
+            // can't rewrite text / kind / displayName.
+            || (
+              request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.members
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+            )
+          );
         allow delete: if isSignedIn()
           && (resource.data.uid == request.auth.uid
               || request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy

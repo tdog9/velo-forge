@@ -1555,6 +1555,64 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
   color:var(--primary);
   font-weight:700;
 }
+/* Message reactions (rec #21) — chips beneath a chat bubble. */
+.msg-reactions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+  margin-top:3px;
+  position:relative;
+}
+.msg-row.msg-mine .msg-reactions{ justify-content:flex-end; }
+.msg-rx, .msg-rx-add{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  height:22px;
+  padding:0 7px;
+  border-radius:99px;
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--muted-fg);
+  font-size:11px;
+  font-weight:700;
+  cursor:pointer;
+  transition:background .12s, color .12s, border-color .12s;
+}
+.msg-rx svg, .msg-rx-add svg{ width:12px; height:12px; }
+.msg-rx.mine{
+  background:rgba(var(--primary-rgb),.14);
+  color:var(--primary);
+  border-color:rgba(var(--primary-rgb),.4);
+}
+.msg-rx:hover, .msg-rx-add:hover{ color:var(--fg); }
+.msg-rx-add{ width:22px; padding:0; justify-content:center; opacity:.6; }
+.msg-row:hover .msg-rx-add, .msg-event:hover .msg-rx-add{ opacity:1; }
+/* Reaction picker popup. */
+.msg-rx-picker{
+  position:absolute;
+  bottom:26px;
+  z-index:15;
+  display:flex;
+  gap:2px;
+  padding:4px;
+  border-radius:12px;
+  background:var(--card);
+  border:1px solid var(--border);
+  box-shadow:0 6px 22px rgba(0,0,0,.4);
+}
+.msg-row.msg-mine .msg-rx-picker{ right:0; }
+.msg-rx-pick{
+  width:34px;height:34px;
+  display:flex;align-items:center;justify-content:center;
+  border:none;background:transparent;
+  color:var(--muted-fg);
+  border-radius:8px;
+  cursor:pointer;
+}
+.msg-rx-pick svg{ width:18px;height:18px; }
+.msg-rx-pick:hover{ background:rgba(var(--primary-rgb),.12); color:var(--primary); }
+
 /* Multi-subteam broadcast target chips (shown when Push is ticked). */
 .chat-broadcast-targets{
   padding:6px 4px 8px;

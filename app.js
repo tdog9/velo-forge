@@ -88,7 +88,7 @@ let initTeamChat = () => {}, subscribeTeamChat = () => null, unsubscribeTeamChat
     deleteChatMessage = async () => {}, renderChatPanel = () => '', isMessageClean = () => false,
     filterMessagesForScope = (m) => m, hydrateChatFromLocal = () => [],
     addPendingChatMessage = () => {}, markPendingChatFailed = () => {},
-    removePendingChatMessage = () => {};
+    removePendingChatMessage = () => {}, reactionPickerHtml = () => '', REACTIONS = {};
 let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     openRaceLogForm = () => {}, getFootageForRace = () => [],
     getStreamForRace = () => null, renderFootageLinks = () => '',
@@ -197,6 +197,7 @@ Promise.allSettled([
       addPendingChatMessage = addPendingChatMessage,
       markPendingChatFailed = markPendingChatFailed,
       removePendingChatMessage = removePendingChatMessage,
+      reactionPickerHtml = reactionPickerHtml, REACTIONS = REACTIONS,
     } = m);
     // Hydrate the chat cache from localStorage immediately if we
     // already know the team. This means the next chat-tab open paints
@@ -9502,6 +9503,30 @@ function updateChatUnreadBadge() {
   }
 }
 
+// Toggle the current user's reaction on a chat message (rec #21).
+// Writes the whole `reactions` map back — the only field touched, so
+// the loosened Firestore rule (reactions-only update for team members)
+// accepts it.
+async function toggleChatReaction(messageId, key) {
+  const tid = userProfile?.teamId;
+  const uid = currentUser?.uid;
+  if (!tid || !uid || !messageId || !key || !db) return;
+  const cache = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+  const msg = cache.find(m => m.id === messageId);
+  if (!msg) return;
+  const reactions = { ...(msg.reactions || {}) };
+  const arr = Array.isArray(reactions[key]) ? reactions[key].slice() : [];
+  const i = arr.indexOf(uid);
+  if (i === -1) arr.push(uid); else arr.splice(i, 1);
+  if (arr.length) reactions[key] = arr; else delete reactions[key];
+  try {
+    await updateDoc(doc(db, 'teams', tid, 'chat', messageId), { reactions });
+  } catch (e) {
+    console.error('reaction toggle failed:', e);
+    showToast?.('Could not react — try again.', 'error');
+  }
+}
+
 /// Render the chat panel into the Team page's chat container (which lives
 /// in index.html so the sub-tab strip can sit above it cleanly).
 function renderTeamChatPanelInto(el) {
@@ -9802,6 +9827,37 @@ function refreshTeamChatList() {
         }
         return;
       }
+      // Reactions (rec #21) — tap an existing reaction chip to toggle it.
+      const rxChip = e.target?.closest?.('.msg-rx');
+      if (rxChip && cc.contains(rxChip)) {
+        e.stopPropagation();
+        toggleChatReaction(rxChip.dataset.rxId, rxChip.dataset.rxKey);
+        return;
+      }
+      // Tap "+" to open the reaction picker for that message.
+      const rxAdd = e.target?.closest?.('.msg-rx-add');
+      if (rxAdd && cc.contains(rxAdd)) {
+        e.stopPropagation();
+        const open = cc.querySelector('.msg-rx-picker');
+        if (open) open.remove();
+        const wrap = document.createElement('div');
+        wrap.innerHTML = reactionPickerHtml(rxAdd.dataset.rxId);
+        const picker = wrap.firstElementChild;
+        if (picker) rxAdd.parentElement.appendChild(picker);
+        return;
+      }
+      // Pick a reaction from the open picker.
+      const rxPick = e.target?.closest?.('.msg-rx-pick');
+      if (rxPick && cc.contains(rxPick)) {
+        e.stopPropagation();
+        toggleChatReaction(rxPick.dataset.rxId, rxPick.dataset.rxKey);
+        const picker = rxPick.closest('.msg-rx-picker');
+        if (picker) picker.remove();
+        return;
+      }
+      // Click anywhere else closes an open picker.
+      const openPicker = cc.querySelector('.msg-rx-picker');
+      if (openPicker && !e.target?.closest?.('.msg-rx-picker')) openPicker.remove();
     });
   }
   // Auto-scroll to newest if the user was near the bottom of the page —
