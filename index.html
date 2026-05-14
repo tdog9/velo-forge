@@ -185,14 +185,35 @@
         if (over > widestW){ widestW = over; widest = el; }
       }
       // (b) Its own content is wider than its clip box (cut off
-      //     internally by overflow:hidden / clip).
+      //     internally by overflow:hidden / clip). Decorative
+      //     ::before/::after circles that bleed off a corner inflate
+      //     scrollWidth too — those are intentional. Only flag when a
+      //     REAL non-absolute child overflows, or (for a text-only
+      //     element) the text itself is clipped.
       if ((cs.overflowX === 'hidden' || cs.overflowX === 'clip')){
         var clip = el.scrollWidth - el.clientWidth;
         if (clip > MIN_OVERFLOW){
-          el.classList.add('tp-ld-clipped');
-          clippedCount++;
-          logIssue('clipped', el, clip, 'content ' + el.scrollWidth +
-            'px clipped by ' + clip + 'px inside its ' + el.clientWidth + 'px box');
+          var realClip = false;
+          var kids = el.children;
+          if (kids.length === 0){
+            // Text-only element — scrollWidth>clientWidth means the
+            // text itself is being cut.
+            realClip = true;
+          } else {
+            for (var c = 0; c < kids.length; c++){
+              var kcs = window.getComputedStyle(kids[c]);
+              if (kcs.position === 'absolute' || kcs.position === 'fixed') continue;
+              if (kids[c].getBoundingClientRect().width > el.clientWidth + MIN_OVERFLOW){
+                realClip = true; break;
+              }
+            }
+          }
+          if (realClip){
+            el.classList.add('tp-ld-clipped');
+            clippedCount++;
+            logIssue('clipped', el, clip, 'content ' + el.scrollWidth +
+              'px clipped by ' + clip + 'px inside its ' + el.clientWidth + 'px box');
+          }
         }
       }
     }

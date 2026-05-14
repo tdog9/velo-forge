@@ -2182,9 +2182,14 @@ body:has(#page-team.active) .ai-fab,
   color:var(--muted-fg);
   margin-top:4px;
   text-transform:uppercase;
-  white-space:nowrap;
+  /* Was white-space:nowrap + ellipsis — "Workouts this week" got cut
+     to "Workouts this we…" in the ~100px cell. Wrap to 2 lines
+     instead so the label reads in full. */
+  line-height:1.25;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
   overflow:hidden;
-  text-overflow:ellipsis;
 }
 
 /* ============================================================
