@@ -1941,6 +1941,7 @@ export function renderAdminUsersMerged() {
 
   const subTabs = [
     { id: 'all', label: 'All Users' },
+    { id: 'import', label: 'Import Roster' },
     { id: 'permissions', label: 'Admin Access' }
   ];
 
@@ -1962,8 +1963,238 @@ export function renderAdminUsersMerged() {
   const sc = A.$('users-sub-content');
   switch (usersSubTab) {
     case 'all': renderUsersAll(sc); break;
+    case 'import': renderUsersImport(sc); break;
     case 'permissions': renderUsersPermissions(sc); break;
   }
+}
+
+// ── Excel / CSV roster import ─────────────────────────────────────────
+// Coach uploads the school roster spreadsheet; we parse it in-browser
+// (SheetJS lazy-loaded for .xlsx, native parse for .csv), normalise the
+// columns the same way scripts/import-roster.js does, preview it, then
+// write one doc per athlete to the top-level `roster` collection keyed
+// by sanitised email. The signup flow reads roster/{emailKey} right
+// after account creation to pre-fill year/tier/subteam and auto-join
+// the athlete to the coach's team.
+let _rosterParsed = null; // { athletes:[], skipped:[], source:'' }
+
+function sanitiseEmailKey(email) {
+  return String(email || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_');
+}
+
+function normYearLevel(v) {
+  const s = String(v || '').trim().toUpperCase();
+  const m = s.match(/(\d{1,2})/);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  if (n < 7 || n > 12) return null;
+  return 'Y' + n;
+}
+
+function normTierLevel(v) {
+  const s = String(v || '').trim().toLowerCase();
+  if (['basic', 'beginner', 'starter', 'easy'].includes(s)) return 'basic';
+  if (['average', 'standard', 'intermediate', 'mid', 'medium'].includes(s)) return 'average';
+  if (['intense', 'advanced', 'elite', 'race', 'high'].includes(s)) return 'intense';
+  return 'average';
+}
+
+// Turn an array of {column:value} row objects into normalised athletes.
+function normaliseRosterRows(rows) {
+  const athletes = [], skipped = [];
+  if (!rows.length) return { athletes, skipped };
+  const keys = Object.keys(rows[0]);
+  const find = (label) => keys.find(k => k.toLowerCase().replace(/[\s_\-]/g, '') === label) || null;
+  const kName    = find('name') || find('fullname') || find('athlete');
+  const kEmail   = find('email');
+  const kYear    = find('year') || find('yearlevel') || find('yr');
+  const kTier    = find('tier') || find('fitness') || find('level') || find('ability');
+  const kSubteam = find('subteam') || find('group') || find('squad');
+  const kNotes   = find('notes') || find('note') || find('comment');
+  if (!kName || !kEmail) {
+    return { athletes, skipped, error: 'Spreadsheet needs a "Name" and an "Email" column. Found: ' + keys.join(', ') };
+  }
+  rows.forEach((row, i) => {
+    const name = String(row[kName] || '').trim();
+    const email = String(row[kEmail] || '').trim().toLowerCase();
+    if (!name || !email) { skipped.push({ row: i + 2, reason: 'missing name or email' }); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { skipped.push({ row: i + 2, reason: 'invalid email: ' + email }); return; }
+    const year = normYearLevel(kYear ? row[kYear] : '');
+    if (!year) { skipped.push({ row: i + 2, reason: 'unparseable year for ' + name }); return; }
+    athletes.push({
+      displayName: name,
+      email,
+      yearLevel: year,
+      fitnessLevel: normTierLevel(kTier ? row[kTier] : ''),
+      subteam: kSubteam ? (String(row[kSubteam] || '').trim() || null) : null,
+      notes: kNotes ? (String(row[kNotes] || '').trim() || null) : null,
+    });
+  });
+  return { athletes, skipped };
+}
+
+// Minimal CSV parser — handles quoted fields + embedded commas/quotes.
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c === '\r') { /* skip */ }
+      else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  if (rows.length < 2) return [];
+  const header = rows[0].map(h => h.trim());
+  return rows.slice(1).filter(r => r.some(c => c.trim() !== '')).map(r => {
+    const obj = {};
+    header.forEach((h, idx) => { obj[h] = r[idx] != null ? r[idx] : ''; });
+    return obj;
+  });
+}
+
+// Lazy-load SheetJS only when an .xlsx is actually picked.
+function loadSheetJs() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    s.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('SheetJS failed to load'));
+    s.onerror = () => reject(new Error('Could not load the Excel parser (offline?)'));
+    document.head.appendChild(s);
+  });
+}
+
+function renderUsersImport(el) {
+  const teamName = A.teamData?.name || A.userProfile?.teamName || null;
+  const teamId = A.userProfile?.teamId || A.teamData?.id || null;
+  let html = `
+    <div class="card" style="margin-bottom:12px;padding:14px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px">Import roster from Excel / CSV</div>
+      <div style="font-size:12px;color:var(--muted-fg);line-height:1.5;margin-bottom:10px">
+        Upload your school roster. Columns (any order, case-insensitive):
+        <strong>Name</strong> and <strong>Email</strong> required;
+        <strong>Year</strong>, <strong>Tier</strong>, <strong>Subteam</strong>, <strong>Notes</strong> optional.
+        Each athlete is saved to the roster keyed by email — when they sign up
+        with that email their year, tier and subteam pre-fill and they auto-join
+        ${teamName ? '<strong>' + escHtml(teamName) + '</strong>' : 'your team'}.
+      </div>
+      ${teamId ? '' : '<div style="font-size:12px;color:var(--destructive);margin-bottom:8px">You are not on a team — imported athletes will not be auto-joined to one. Join/create a team first for the full flow.</div>'}
+      <input type="file" id="roster-file-input" accept=".xlsx,.xls,.csv" style="font-size:12px;width:100%">
+      <div id="roster-parse-status" style="font-size:12px;color:var(--muted-fg);margin-top:8px"></div>
+    </div>
+    <div id="roster-preview"></div>
+  `;
+  el.innerHTML = html;
+
+  const statusEl = el.querySelector('#roster-parse-status');
+  const previewEl = el.querySelector('#roster-preview');
+  _rosterParsed = null;
+
+  el.querySelector('#roster-file-input')?.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    statusEl.textContent = 'Reading ' + file.name + '…';
+    previewEl.innerHTML = '';
+    try {
+      let rows;
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.csv')) {
+        rows = parseCsv(await file.text());
+      } else {
+        const XLSX = await loadSheetJs();
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        if (!sheet) throw new Error('No sheets in workbook');
+        rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      }
+      const result = normaliseRosterRows(rows);
+      if (result.error) { statusEl.textContent = result.error; statusEl.style.color = 'var(--destructive)'; return; }
+      result.source = file.name;
+      _rosterParsed = result;
+      statusEl.style.color = 'var(--muted-fg)';
+      statusEl.textContent = result.athletes.length + ' athletes parsed, ' + result.skipped.length + ' skipped.';
+      renderRosterPreview(previewEl, result, teamId, teamName);
+    } catch (err) {
+      console.error('Roster parse error:', err);
+      statusEl.style.color = 'var(--destructive)';
+      statusEl.textContent = 'Could not read that file: ' + (err && err.message || err);
+    }
+  });
+}
+
+function renderRosterPreview(el, result, teamId, teamName) {
+  const { athletes, skipped } = result;
+  let html = '';
+  if (athletes.length) {
+    html += '<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">';
+    html += '<div style="padding:10px 14px;font-size:12px;font-weight:700;border-bottom:1px solid var(--border)">Will import — ' + athletes.length + ' athletes</div>';
+    html += '<div style="max-height:280px;overflow-y:auto">';
+    athletes.forEach(a => {
+      html += `<div style="display:flex;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:12px;align-items:center">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(a.displayName)}</div>
+          <div style="color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(a.email)}</div>
+        </div>
+        <div style="color:var(--muted-fg);flex-shrink:0">${a.yearLevel} · ${capitalize(a.fitnessLevel)}${a.subteam ? ' · ' + escHtml(a.subteam) : ''}</div>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
+  if (skipped.length) {
+    html += '<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden;border-color:rgba(var(--destructive-rgb),.3)">';
+    html += '<div style="padding:10px 14px;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);color:var(--destructive)">Skipped — ' + skipped.length + ' rows</div>';
+    html += '<div style="max-height:160px;overflow-y:auto">';
+    skipped.forEach(s => {
+      html += `<div style="padding:6px 14px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted-fg)">Row ${s.row}: ${escHtml(s.reason)}</div>`;
+    });
+    html += '</div></div>';
+  }
+  if (athletes.length) {
+    html += `<button class="btn btn-primary" id="roster-confirm-btn" style="width:100%">Import ${athletes.length} athletes${teamName ? ' → ' + escHtml(teamName) : ''}</button>`;
+  }
+  el.innerHTML = html;
+
+  el.querySelector('#roster-confirm-btn')?.addEventListener('click', async () => {
+    const btn = el.querySelector('#roster-confirm-btn');
+    if (!_rosterParsed || !_rosterParsed.athletes.length) return;
+    btn.disabled = true;
+    const total = _rosterParsed.athletes.length;
+    let done = 0, failed = 0;
+    for (const a of _rosterParsed.athletes) {
+      btn.textContent = 'Importing… ' + (done + failed + 1) + '/' + total;
+      try {
+        await A.setDoc(A.doc(A.db, 'roster', sanitiseEmailKey(a.email)), {
+          email: a.email,
+          displayName: a.displayName,
+          yearLevel: a.yearLevel,
+          fitnessLevel: a.fitnessLevel,
+          subteam: a.subteam || null,
+          notes: a.notes || null,
+          teamId: teamId || null,
+          teamName: teamName || null,
+          importedAt: A.serverTimestamp(),
+          importedBy: A.currentUser?.email || null,
+        });
+        done++;
+      } catch (e) {
+        console.error('Roster row import failed:', a.email, e);
+        failed++;
+      }
+    }
+    btn.textContent = 'Imported ' + done + (failed ? ' (' + failed + ' failed)' : '');
+    A.showToast('Roster import complete — ' + done + ' saved' + (failed ? ', ' + failed + ' failed' : '') + '.', failed ? 'warn' : 'success');
+  });
 }
 
 async function renderUsersAll(el) {

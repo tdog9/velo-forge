@@ -400,6 +400,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /roster/{emailKey} {
+      // Pre-seeded roster entries from the admin Excel/CSV import.
+      // Doc ID = sanitised lowercase email. Schema:
+      //   { email, displayName, yearLevel, fitnessLevel,
+      //     subteam, teamId, teamName, importedAt, importedBy }
+      // Read: any signed-in user — the signup flow reads its own
+      // entry right after account creation to pre-fill + auto-join.
+      // Write: admins only (the importer runs from the admin panel).
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /global_settings/{docId} {
       allow read: if true;
       allow write: if isAdmin();

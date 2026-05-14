@@ -3072,17 +3072,40 @@ $('signup-btn')?.addEventListener('click', async () => {
     };
     if (role === 'parent') userData.linkedChildEmail = childEmail;
     if (role === 'coach') userData.isCoach = true;
+    // Roster pre-fill — if an admin imported this athlete's email via
+    // the Excel/CSV roster import, override year/tier/subteam with the
+    // coach's values and queue an auto-join to their team. Doc ID is
+    // the sanitised lowercase email (matches admin.js sanitiseEmailKey).
+    let rosterTeamId = null;
+    if (db && role !== 'coach') {
+      try {
+        const emailKey = email.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_');
+        const rosterSnap = await getDoc(doc(db, 'roster', emailKey));
+        if (rosterSnap.exists()) {
+          const r = rosterSnap.data();
+          if (r.yearLevel) userData.yearLevel = r.yearLevel;
+          if (r.fitnessLevel) userData.fitnessLevel = r.fitnessLevel;
+          if (r.subteam) userData.subteamName = r.subteam;
+          if (r.teamId) rosterTeamId = r.teamId;
+        }
+      } catch (e) {
+        console.warn('Roster lookup failed (non-fatal):', e);
+      }
+    }
+    // Effective team to join: the form selection wins; otherwise fall
+    // back to the team the roster import assigned this athlete to.
+    const effectiveTeamId = selectedTeamId || rosterTeamId;
     // Auto-join selected team — surface failure to the user instead of
     // silently leaving them without a team (was the source of the
     // post-signup "you can't see anything" complaint).
     let teamJoinNote = '';
-    if (selectedTeamId && db) {
+    if (effectiveTeamId && db) {
       try {
-        const teamSnap = await getDoc(doc(db, 'teams', selectedTeamId));
+        const teamSnap = await getDoc(doc(db, 'teams', effectiveTeamId));
         if (teamSnap.exists()) {
           const td = teamSnap.data();
-          await updateDoc(doc(db, 'teams', selectedTeamId), { members: arrayUnion(cred.user.uid) });
-          userData.teamId = selectedTeamId;
+          await updateDoc(doc(db, 'teams', effectiveTeamId), { members: arrayUnion(cred.user.uid) });
+          userData.teamId = effectiveTeamId;
           userData.teamName = td.name;
           teamJoinNote = ` Joined ${td.name}.`;
         } else {

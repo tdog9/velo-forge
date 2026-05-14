@@ -71,11 +71,16 @@
 // ── Layout Debug HUD ────────────────────────────────────────────────
 // Toggled from Admin → System → "Layout Debug HUD" (localStorage key
 // tp_layout_debug). When on: a fixed readout shows viewport numbers
-// and the widest offending element, and every element that overflows
-// the screen OR is clipped by its own container gets a red outline so
-// internally-cut-off UIs are easy to spot.
+// and the widest offending element; every element that overflows the
+// screen OR is clipped by its own container gets a red/orange outline
+// so internally-cut-off UIs are easy to spot. Every distinct issue
+// seen since activation is logged; "Send Report" emails the full list
+// to the dev inbox.
 (function(){
-  var on = false, raf = 0, mo = null, hud = null;
+  var on = false, raf = 0, mo = null, hud = null, body = null;
+  var sessionStart = 0;
+  // Accumulated issues since activation: key → {type, sel, page, w, vw, firstSeen, lastSeen, count}
+  var issueLog = {};
   try { on = localStorage.getItem('tp_layout_debug') === '1'; } catch(e){}
 
   var STYLE_ID = 'tp-ld-style';
@@ -95,6 +100,41 @@
     });
   }
 
+  // Best-effort human selector for an element.
+  function sel(el){
+    if (!el || !el.tagName) return '-';
+    var s = el.tagName.toLowerCase();
+    if (el.id) s += '#' + el.id;
+    var cls = (el.className || '').toString().trim().split(/\s+/)
+      .filter(function(c){ return c && c.indexOf('tp-ld-') !== 0; });
+    if (cls.length) s += '.' + cls.slice(0, 3).join('.');
+    return s.slice(0, 60);
+  }
+
+  // Which app page/tab is currently active — gives the report context.
+  function currentPage(){
+    var p = document.querySelector('.page.active, [id^="page-"].active');
+    if (p && p.id) return p.id;
+    var t = document.querySelector('.tab-btn.active .tab-btn-label, .tab-btn.active');
+    if (t) return (t.textContent || '').trim() || 'unknown';
+    return location.hash || 'home';
+  }
+
+  function logIssue(type, el, w, vw){
+    var page = currentPage();
+    var s = sel(el);
+    var key = type + '|' + page + '|' + s;
+    var now = Date.now();
+    if (issueLog[key]){
+      issueLog[key].lastSeen = now;
+      issueLog[key].count++;
+      if (w > issueLog[key].w) issueLog[key].w = w;
+    } else {
+      issueLog[key] = { type:type, sel:s, page:page, w:Math.round(w), vw:vw,
+        firstSeen:now, lastSeen:now, count:1 };
+    }
+  }
+
   function scan(){
     if (!on || !document.body) return;
     clear();
@@ -103,13 +143,14 @@
     var all = document.body.querySelectorAll('*');
     for (var i=0;i<all.length;i++){
       var el = all[i];
-      if (el.id === 'tp-ld-hud') continue;
+      if (el.id === 'tp-ld-hud' || (el.closest && el.closest('#tp-ld-hud'))) continue;
       var r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       // (a) Extends past the right/left edge of the screen.
       if (r.right > vw + 1 || r.left < -1){
         el.classList.add('tp-ld-overflow');
         overflowCount++;
+        logIssue('overflow', el, r.width, vw);
         if (r.width > widestW){ widestW = r.width; widest = el; }
       }
       // (b) Its own content is wider than its clip box (cut off
@@ -119,16 +160,17 @@
           el.scrollWidth > el.clientWidth + 1){
         el.classList.add('tp-ld-clipped');
         clippedCount++;
+        logIssue('clipped', el, el.scrollWidth, el.clientWidth);
       }
     }
-    if (hud){
-      var t = widest ? (widest.tagName.toLowerCase()+'.'+
-        ((widest.className||'').toString().trim().split(/\s+/)[0]||'')+
-        (widest.id?('#'+widest.id):'')) : '-';
-      hud.innerHTML =
+    if (body){
+      var totalLogged = Object.keys(issueLog).length;
+      var t = widest ? sel(widest) : '-';
+      body.innerHTML =
         'iw='+vw+' sw='+window.screen.width+' bw='+document.body.scrollWidth+
         ' dpr='+window.devicePixelRatio+
-        '<br>overflow='+overflowCount+' (red) · clipped='+clippedCount+' (orange)'+
+        '<br>now: overflow='+overflowCount+' (red) · clipped='+clippedCount+' (orange)'+
+        '<br>logged this session: <b>'+totalLogged+'</b> distinct issue'+(totalLogged===1?'':'s')+
         (widest ? '<br>widest: '+t.slice(0,46)+' @'+Math.round(widestW)+'px' : '');
     }
   }
@@ -139,18 +181,124 @@
     raf = requestAnimationFrame(function(){ raf = 0; scan(); });
   }
 
+  // Build the plain-text report body.
+  function buildReport(){
+    var keys = Object.keys(issueLog);
+    var lines = [];
+    lines.push('TurboPrep — Layout Debug Report');
+    lines.push('Generated: ' + new Date().toISOString());
+    lines.push('Session started: ' + new Date(sessionStart).toISOString());
+    lines.push('Device: ' + navigator.userAgent);
+    lines.push('Viewport: innerWidth=' + window.innerWidth +
+      ' screen.width=' + window.screen.width +
+      ' dpr=' + window.devicePixelRatio);
+    lines.push('App version: ' + (window.APP_VERSION || (window.tpAppVersion) || 'unknown'));
+    lines.push('');
+    lines.push('Distinct issues logged: ' + keys.length);
+    lines.push('================================================');
+    if (!keys.length){
+      lines.push('No layout issues detected this session.');
+    } else {
+      // Sort: overflow before clipped, then by widest.
+      keys.sort(function(a,b){
+        var x = issueLog[a], y = issueLog[b];
+        if (x.type !== y.type) return x.type === 'overflow' ? -1 : 1;
+        return y.w - x.w;
+      });
+      keys.forEach(function(k, idx){
+        var it = issueLog[k];
+        lines.push('');
+        lines.push((idx+1) + '. [' + it.type.toUpperCase() + '] ' + it.sel);
+        lines.push('   page: ' + it.page);
+        if (it.type === 'overflow'){
+          lines.push('   element width ' + it.w + 'px vs viewport ' + it.vw + 'px (overflows by ' + (it.w - it.vw) + 'px)');
+        } else {
+          lines.push('   content width ' + it.w + 'px vs clip box ' + it.vw + 'px (clipped by ' + (it.w - it.vw) + 'px)');
+        }
+        lines.push('   seen ' + it.count + 'x · first ' +
+          new Date(it.firstSeen).toLocaleTimeString() + ' · last ' +
+          new Date(it.lastSeen).toLocaleTimeString());
+      });
+    }
+    lines.push('');
+    lines.push('================================================');
+    lines.push('Legend: OVERFLOW = element spills past the screen edge.');
+    lines.push('        CLIPPED = element content cut off inside its own');
+    lines.push('        overflow:hidden container.');
+    return lines.join('\n');
+  }
+
+  function sendReport(){
+    var report = buildReport();
+    var count = Object.keys(issueLog).length;
+    var subject = 'TurboPrep layout report — ' + count + ' issue' + (count===1?'':'s');
+    // Copy to clipboard as a reliable fallback, then open mail compose.
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(report);
+      }
+    } catch(e){}
+    var mailto = 'mailto:hearn.tenny@icloud.com?subject=' +
+      encodeURIComponent(subject) + '&body=' + encodeURIComponent(report);
+    try {
+      window.location.href = mailto;
+    } catch(e){}
+    if (body){
+      var note = document.createElement('div');
+      note.style.cssText = 'color:#0ff;margin-top:2px';
+      note.textContent = 'Report (' + count + ') copied to clipboard + mail opened.';
+      body.appendChild(note);
+      setTimeout(function(){ try { note.remove(); } catch(e){} }, 4000);
+    }
+  }
+
   function enable(){
     on = true;
+    sessionStart = Date.now();
+    issueLog = {};
     ensureStyle();
     if (!hud){
       hud = document.createElement('div');
       hud.id = 'tp-ld-hud';
       hud.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;'+
-        'z-index:2147483647;background:rgba(0,0,0,.88);color:#0f0;'+
-        'font:10px/1.3 ui-monospace,Menlo,monospace;padding:3px 6px;'+
-        'border-bottom:1px solid #0f0;word-break:break-all;pointer-events:auto;';
-      hud.title = 'Tap to hide (still ON — toggle off in Admin → System)';
-      hud.onclick = function(){ hud.style.display = hud.style.display==='none'?'':'none'; };
+        'z-index:2147483647;background:rgba(0,0,0,.9);color:#0f0;'+
+        'font:10px/1.3 ui-monospace,Menlo,monospace;'+
+        'border-bottom:1px solid #0f0;pointer-events:auto;';
+      // Readout body.
+      body = document.createElement('div');
+      body.style.cssText = 'padding:3px 6px;word-break:break-all;';
+      body.textContent = 'layout debug ON — scanning…';
+      // Button row.
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:4px;padding:0 6px 4px;';
+      var sendBtn = document.createElement('button');
+      sendBtn.textContent = 'Send Report';
+      sendBtn.style.cssText = 'flex:1;background:#0f0;color:#000;border:0;'+
+        'font:700 10px ui-monospace,monospace;padding:5px 0;border-radius:3px;';
+      sendBtn.onclick = function(e){ e.stopPropagation(); sendReport(); };
+      var clearBtn = document.createElement('button');
+      clearBtn.textContent = 'Clear Log';
+      clearBtn.style.cssText = 'flex:0 0 auto;background:#333;color:#0f0;'+
+        'border:1px solid #0f0;font:700 10px ui-monospace,monospace;'+
+        'padding:5px 8px;border-radius:3px;';
+      clearBtn.onclick = function(e){ e.stopPropagation(); issueLog = {}; sessionStart = Date.now(); scan(); };
+      var hideBtn = document.createElement('button');
+      hideBtn.textContent = 'Hide';
+      hideBtn.style.cssText = 'flex:0 0 auto;background:#333;color:#0f0;'+
+        'border:1px solid #0f0;font:700 10px ui-monospace,monospace;'+
+        'padding:5px 8px;border-radius:3px;';
+      hideBtn.onclick = function(e){ e.stopPropagation(); body.style.display='none'; row.style.display='none'; reopenTab.style.display=''; };
+      row.appendChild(sendBtn);
+      row.appendChild(clearBtn);
+      row.appendChild(hideBtn);
+      // Tiny re-open tab shown when hidden.
+      var reopenTab = document.createElement('div');
+      reopenTab.textContent = '▾ debug';
+      reopenTab.style.cssText = 'display:none;padding:2px 6px;color:#0f0;cursor:pointer;';
+      reopenTab.onclick = function(){ body.style.display=''; row.style.display='flex'; reopenTab.style.display='none'; };
+      hud.appendChild(body);
+      hud.appendChild(row);
+      hud.appendChild(reopenTab);
       (document.body||document.documentElement).appendChild(hud);
     }
     hud.style.display = '';
@@ -169,7 +317,8 @@
     if (mo){ mo.disconnect(); mo = null; }
     window.removeEventListener('resize', schedule);
     window.removeEventListener('orientationchange', schedule);
-    if (hud){ hud.remove(); hud = null; }
+    if (hud){ hud.remove(); hud = null; body = null; }
+    issueLog = {};
   }
 
   // Public toggle used by admin.js.
