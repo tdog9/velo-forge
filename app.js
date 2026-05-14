@@ -13124,9 +13124,20 @@ function openManageSubteamsSheet() {
     return;
   }
   const subteams = teamData?.subteams || [];
+  // Roster overview (rec #16): work out who's assigned where so the
+  // coach can see, at a glance, which athletes still need a subteam.
+  const assignedUids = new Set();
+  subteams.forEach(s => {
+    (s.members || []).forEach(u => assignedUids.add(u));
+    if (s.subCoachUid) assignedUids.add(s.subCoachUid);
+  });
+  const unassigned = (Array.isArray(teamMembers) ? teamMembers : [])
+    .filter(m => m.uid && !assignedUids.has(m.uid));
+  const totalAthletes = (Array.isArray(teamMembers) ? teamMembers : []).length;
   $('sheet-content').innerHTML = `
     <div class="sheet-title">Manage Subteams</div>
     <p style="font-size:13px;color:var(--muted-fg);margin-bottom:14px">Create subteams within your club (e.g. "Venom"). Tap a subteam to assign members and set a sub-coach.</p>
+    ${totalAthletes > 0 ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:8px;font-weight:700;letter-spacing:.03em;text-transform:uppercase">${assignedUids.size}/${totalAthletes} athletes assigned</div>` : ''}
     <div id="subteams-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
       ${subteams.length === 0
         ? '<div style="font-size:13px;color:var(--muted-fg);text-align:center;padding:12px">No subteams yet.</div>'
@@ -13142,6 +13153,17 @@ function openManageSubteamsSheet() {
           }).join('')
       }
     </div>
+    ${unassigned.length > 0 ? `
+      <div style="font-size:11px;color:var(--primary);margin-bottom:6px;font-weight:700;letter-spacing:.03em;text-transform:uppercase">Unassigned — ${unassigned.length}</div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px;max-height:180px;overflow-y:auto">
+        ${unassigned.map(m => `
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--card);border:1px solid var(--border);border-radius:8px">
+            <div style="flex:1;min-width:0;font-size:13px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.displayName || m.email || 'Unknown')}</div>
+            <span style="font-size:11px;color:var(--muted-fg)">${escHtml(m.yearLevel || '—')}</span>
+          </div>`).join('')}
+      </div>
+      <p style="font-size:11px;color:var(--muted-fg);margin:-6px 0 14px">Tap a subteam above to add these athletes.</p>
+    ` : (totalAthletes > 0 && subteams.length > 0 ? '<p style="font-size:12px;color:var(--success,#22c55e);margin-bottom:14px">Every athlete is assigned to a subteam.</p>' : '')}
     <div class="form-group">
       <label class="label" for="new-subteam-name">New Subteam Name</label>
       <input class="input" type="text" id="new-subteam-name" placeholder="e.g. Venom" maxlength="40">
