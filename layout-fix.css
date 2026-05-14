@@ -1378,8 +1378,37 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
 }
 /* Connection pill removed entirely — message-bubble pending/delivered
    states are the only delivery indicator now. The error-state
-   diagnostic strip in the panel handles real failures. */
-#lb-chat-content .chat-status-row{display:none}
+   diagnostic strip in the panel handles real failures. The status
+   row now hosts the silent-mode toggle, right-aligned. */
+#lb-chat-content .chat-status-row{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  flex-shrink:0;
+  padding:6px 12px 2px;
+}
+.chat-silent-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 11px;
+  border-radius:99px;
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--muted-fg);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.02em;
+  cursor:pointer;
+  transition:color .15s, border-color .15s, background .15s;
+}
+.chat-silent-toggle svg{ width:13px; height:13px; flex-shrink:0; }
+.chat-silent-toggle:active{ transform:scale(.96); }
+.chat-silent-toggle.muted{
+  color:var(--destructive);
+  border-color:rgba(var(--destructive-rgb),.4);
+  background:rgba(var(--destructive-rgb),.08);
+}
 #lb-chat-content .chat-scope-row{
   flex-shrink:0;
   padding:6px 12px 8px;

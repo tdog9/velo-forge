@@ -7,8 +7,8 @@
 // (Project Settings → Cloud Messaging → Apple app config).
 //
 // Triggers:
-//   - onChatWrite:        moderation + coach-broadcast push fan-out
-//   - cleanupOldChatMessages: scheduled, prunes chat to last 24h
+//   - onChatWrite:        moderation + chat / coach-broadcast push fan-out
+//   - cleanupOldChatMessages: scheduled, prunes chat to last 7 days
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -80,12 +80,29 @@ exports.onChatWrite = onDocumentCreated(
       }
     }
 
-    if (msg.kind !== 'coach') return;
-    if (!msg.broadcastPush) return;
+    // Step 2 — decide whether this message fires a push, and under
+    // which category. Two paths:
+    //   - coach broadcast: kind 'coach' + broadcastPush flag → loud
+    //     (active interruption), category 'coach_broadcast'.
+    //   - ordinary athlete chat: kind 'chat' → quiet (passive
+    //     interruption), category 'team_chat'. Default-ON for every
+    //     recipient — they opt OUT via notificationPrefs.team_chat
+    //     (the in-chat "silent mode" toggle), not opt in.
+    // Everything else (workout / cheer / pr posts) stays silent.
+    let category, isLoud;
+    if (msg.kind === 'coach' && msg.broadcastPush) {
+      category = 'coach_broadcast';
+      isLoud = true;
+    } else if (msg.kind === 'chat') {
+      category = 'team_chat';
+      isLoud = false;
+    } else {
+      return;
+    }
 
     const text = String(msg.text || '').slice(0, 240);
     if (!text) return;
-    const senderName = String(msg.displayName || 'Coach').slice(0, 80);
+    const senderName = String(msg.displayName || (isLoud ? 'Coach' : 'Teammate')).slice(0, 80);
 
     // Resolve recipients: team members or subteam members.
     let recipientUids = Array.isArray(team.members) ? team.members.slice() : [];
@@ -99,12 +116,11 @@ exports.onChatWrite = onDocumentCreated(
         recipientUids = Array.from(ids);
       }
     }
-    // Don't push the broadcast back to the sender.
+    // Don't push the message back to the sender.
     if (msg.uid) recipientUids = recipientUids.filter((u) => u !== msg.uid);
     if (recipientUids.length === 0) return;
 
     // Pull FCM tokens + filter by per-user notificationPrefs.
-    const category = 'coach_broadcast';
     const tokenWork = await Promise.all(
       recipientUids.map(async (uid) => {
         try {
@@ -131,13 +147,15 @@ exports.onChatWrite = onDocumentCreated(
 
     // FCM multicast — one call, Firebase fans out to all tokens. APNs
     // env routing, token rotation, and dev/prod handling are all
-    // server-side now.
+    // server-side now. Coach broadcasts ride loud (active, priority
+    // 10); ordinary chat messages ride quiet (passive, priority 5) so
+    // they notify without interrupting.
     const fcmMessage = {
       tokens,
       notification: { title: senderName, body: text },
       apns: {
         headers: {
-          'apns-priority': '10',
+          'apns-priority': isLoud ? '10' : '5',
           'apns-push-type': 'alert',
         },
         payload: {
@@ -145,8 +163,8 @@ exports.onChatWrite = onDocumentCreated(
             sound: 'default',
             badge: 1,
             'mutable-content': 1,
-            'thread-id': 'tp.coach_broadcast',
-            'interruption-level': 'active',
+            'thread-id': isLoud ? 'tp.coach_broadcast' : 'tp.team_chat',
+            'interruption-level': isLoud ? 'active' : 'passive',
           },
         },
       },
@@ -214,11 +232,13 @@ exports.onChatWrite = onDocumentCreated(
   }
 );
 
-// ─── Scheduled cleanup: chat messages auto-clear after 24 hours ─────────
+// ─── Scheduled cleanup: chat messages auto-clear after 1 week ──────────
 //
 // Photos sent via chat are dual-written into the team gallery before
 // they land here, so the gallery copy persists forever. This job just
-// trims the chat collection to keep storage costs low.
+// trims the chat collection to keep storage costs low. Retention was
+// 24h — bumped to 7 days so conversations and coach notes stay
+// readable for a full training week.
 exports.cleanupOldChatMessages = onSchedule(
   {
     schedule: 'every 60 minutes',
@@ -228,7 +248,7 @@ exports.cleanupOldChatMessages = onSchedule(
   },
   async () => {
     const db = getFirestore();
-    const cutoff = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+    const cutoff = Timestamp.fromMillis(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const teamsSnap = await db.collection('teams').get();
     let totalDeleted = 0;
     for (const teamDoc of teamsSnap.docs) {

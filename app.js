@@ -9509,6 +9509,19 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
       <div id="chat-diag-result" style="margin-top:8px;font-size:11px;font-family:var(--font-mono);white-space:pre-wrap;color:var(--muted-fg)"></div>
     </div>
   ` : '';
+  // Silent-mode toggle — chat notifications are opt-OUT. They're on by
+  // default for everyone; this button lets the receiver mute them by
+  // setting notificationPrefs.team_chat = false on their own profile.
+  const chatMuted = userProfile?.notificationPrefs?.team_chat === false;
+  const silentBtn = `
+    <button id="chat-silent-toggle" type="button"
+      class="chat-silent-toggle${chatMuted ? ' muted' : ''}"
+      aria-label="${chatMuted ? 'Chat notifications muted — tap to unmute' : 'Chat notifications on — tap to mute'}"
+      title="${chatMuted ? 'Notifications muted' : 'Notifications on'}">
+      ${chatMuted
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg><span>Muted</span>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>Notify</span>'}
+    </button>`;
   el.innerHTML = `
     <div class="chat-status-row">
       <div id="chat-status-pill" class="chat-status-pill chat-status-error" hidden>
@@ -9516,6 +9529,7 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
         <span class="chat-status-label">Reconnecting…</span>
         <button id="chat-status-retry" type="button" aria-label="Retry chat connection" style="margin-left:8px;background:transparent;border:1px solid currentColor;color:inherit;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;cursor:pointer">Retry</button>
       </div>
+      ${silentBtn}
     </div>
     ${diagHtml}
     ${scopeChips}
@@ -9550,6 +9564,33 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
       setChatScope(k === '__all' ? '' : k);
       renderTeamChatPanelInto(el);
     });
+  });
+
+  // Silent-mode toggle — flips notificationPrefs.team_chat between
+  // off (false) and on (delete the key → default-on). Writes to the
+  // user's own profile doc; the onChatWrite Cloud Function reads this
+  // before fanning out chat pushes.
+  el.querySelector('#chat-silent-toggle')?.addEventListener('click', async () => {
+    const uid = currentUser?.uid;
+    if (!uid || !db) { showToast?.('Not signed in.', 'error'); return; }
+    const currentlyMuted = userProfile?.notificationPrefs?.team_chat === false;
+    const nextMuted = !currentlyMuted;
+    try {
+      // false = muted, true = explicitly on. The Cloud Function only
+      // suppresses on === false, so true behaves the same as the
+      // default-on (absent) state.
+      await updateDoc(doc(db, 'users', uid), {
+        'notificationPrefs.team_chat': nextMuted ? false : true,
+      });
+      // Keep the local profile in sync so the re-render reflects it.
+      if (!userProfile.notificationPrefs) userProfile.notificationPrefs = {};
+      userProfile.notificationPrefs.team_chat = !nextMuted;
+      showToast?.(nextMuted ? 'Chat notifications muted.' : 'Chat notifications on.', 'success');
+      renderTeamChatPanelInto(el);
+    } catch (e) {
+      console.error('Silent-mode toggle failed:', e);
+      showToast?.('Could not change notification setting.', 'error');
+    }
   });
 
   // Single-bind guard — bindTeamChatPanel attaches click handlers to
