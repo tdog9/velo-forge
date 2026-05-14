@@ -38,17 +38,11 @@
 </script>
 <script>
 // ── WebView fit-to-screen guard ─────────────────────────────────────
-// Some iPhones (system Display Zoom on, or older devices) render the
-// page wider than the actual visible viewport, clipping content on
-// both edges. We measure on every layout pass and counter-scale via
-// CSS `zoom` so the page width always matches the WebView's visible
-// width. Cheap, runs continuously via rAF + resize.
+// Belt-and-braces fallback behind the native frame lock (see iOS
+// WebViewContainer.swift). If the WebView's layout viewport ever
+// reports wider than the actual screen, force the viewport meta to
+// the real screen width so layout matches the visible pixels.
 (function(){
-  // One-shot: if the WebView's innerWidth exceeds the actual screen
-  // width, the layout viewport is too big and content gets rendered
-  // wider than the visible area. Force the viewport meta to use the
-  // real screen width so layout matches the visible pixels. The
-  // browser will then fit-scale on top.
   function fixViewport(){
     try {
       var sw = window.screen.width;
@@ -62,65 +56,15 @@
     } catch(e){}
   }
   fixViewport();
-
-  function fit(){
-    var html = document.documentElement;
-    if (!document.body) return;
-    fixViewport();
-    html.style.zoom = '';
-    var have = Math.max(document.body.scrollWidth, html.scrollWidth);
-    var want = window.innerWidth;
-    var screenW = window.screen.width;
-    var ratio = 1;
-    if (have > want + 1) ratio = want / have;
-    if (want > screenW + 1) ratio = Math.min(ratio, screenW / want);
-    if (ratio < 1) {
-      if (ratio < 0.6) ratio = 0.6;
-      html.style.zoom = ratio;
-    }
-    var hud = document.getElementById('tp-vp-hud');
-    if (hud) {
-      // Find which descendant is the widest — that's the overflow culprit.
-      var widest = null, widestW = 0;
-      try {
-        var all = document.body.querySelectorAll('*');
-        for (var i=0;i<all.length;i++){
-          var el = all[i];
-          var w = el.scrollWidth || el.offsetWidth || 0;
-          if (w > widestW && w > want){
-            widestW = w;
-            widest = el;
-          }
-        }
-      } catch(e){}
-      var tag = widest ? (widest.tagName+'.'+(widest.className||'').toString().split(' ')[0]+'#'+(widest.id||'')) : '-';
-      hud.innerHTML = 'iw='+want+' sw='+screenW+' bw='+have+'<br>dpr='+window.devicePixelRatio+' z='+(ratio.toFixed(3))+'<br>wide='+widestW+' '+tag.slice(0,40);
-    }
-  }
   var pending = false;
   function schedule(){
     if (pending) return;
     pending = true;
-    requestAnimationFrame(function(){ pending = false; fit(); });
+    requestAnimationFrame(function(){ pending = false; fixViewport(); });
   }
   window.addEventListener('load', schedule);
   window.addEventListener('resize', schedule);
   window.addEventListener('orientationchange', schedule);
-  // Re-fit after the initial render and after any dynamic content swap
-  // (DOM mutations).
-  document.addEventListener('DOMContentLoaded', function(){
-    // Inject diagnostic HUD — tap to dismiss.
-    try {
-      var hud = document.createElement('div');
-      hud.id = 'tp-vp-hud';
-      hud.style.cssText = 'position:fixed;top:env(safe-area-inset-top,2px);left:2px;right:2px;z-index:99999;background:rgba(0,0,0,.85);color:#0f0;font:10px/1.25 ui-monospace,monospace;padding:3px 5px;border-radius:3px;pointer-events:auto;border:1px solid #0f0;word-break:break-all;white-space:normal';
-      hud.textContent = 'init';
-      hud.onclick = function(){ hud.remove(); };
-      document.body.appendChild(hud);
-    } catch(e){}
-    schedule();
-    new MutationObserver(schedule).observe(document.body, { childList:true, subtree:true });
-  });
 })();
 </script>
 <script>
