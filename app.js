@@ -10604,6 +10604,23 @@ async function renderProfile() {
   const isStravaConnected = !!(stravaTokens && stravaTokens.access_token);
   const photoUrl = userProfile?.photoURL || '';
   const bio = userProfile?.bio || '';
+  // Team + subteam line — shows the athlete which squad they're on
+  // right in their profile header (was only visible in the Team tab).
+  const teamNameStr = userProfile?.teamName || teamData?.name || '';
+  let subteamNameStr = '';
+  try {
+    const mySubId = getMySubteamId();
+    if (mySubId) {
+      const sub = (teamData?.subteams || []).find(s => s.id === mySubId);
+      if (sub) subteamNameStr = sub.name || '';
+    }
+  } catch(e) {}
+  const teamLine = teamNameStr
+    ? `<div class="profile-team-line">
+         <span class="profile-team-chip">${escHtml(teamNameStr)}</span>
+         ${subteamNameStr ? `<span class="profile-subteam-chip">${escHtml(subteamNameStr)}</span>` : ''}
+       </div>`
+    : '';
   let html = `
     <div class="profile-avatar-wrap">
       ${photoUrl
@@ -10616,6 +10633,7 @@ async function renderProfile() {
     </div>
     <div class="profile-name-big">${escHtml(name)}</div>
     <div class="profile-meta">${escHtml(email)}</div>
+    ${teamLine}
     <div class="profile-bio-row">
       ${bio ? `<div class="profile-bio">${escHtml(bio)}</div>` : '<div class="profile-bio profile-bio-empty">Tap to add a short bio.</div>'}
       <button id="profile-edit-bio" class="profile-bio-edit" type="button">${bio ? 'Edit' : 'Add'}</button>

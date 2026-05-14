@@ -120,7 +120,9 @@
     return location.hash || 'home';
   }
 
-  function logIssue(type, el, w, vw){
+  // logIssue records the real overflow amount in `over` (px past the
+  // edge / px clipped) so the report never shows negative "overflow".
+  function logIssue(type, el, over, detail){
     var page = currentPage();
     var s = sel(el);
     var key = type + '|' + page + '|' + s;
@@ -128,12 +130,30 @@
     if (issueLog[key]){
       issueLog[key].lastSeen = now;
       issueLog[key].count++;
-      if (w > issueLog[key].w) issueLog[key].w = w;
+      if (over > issueLog[key].over) { issueLog[key].over = over; issueLog[key].detail = detail; }
     } else {
-      issueLog[key] = { type:type, sel:s, page:page, w:Math.round(w), vw:vw,
-        firstSeen:now, lastSeen:now, count:1 };
+      issueLog[key] = { type:type, sel:s, page:page, over:Math.round(over),
+        detail:detail, firstSeen:now, lastSeen:now, count:1 };
     }
   }
+
+  // True if any ancestor is an intentional horizontal scroller — tab
+  // bars, scope-chip rows, calendars all set overflow-x:auto/scroll and
+  // their children are MEANT to extend past the edge. Flagging those
+  // was the source of every false-positive in the first HUD run.
+  function inScrollableAncestor(el){
+    var p = el.parentElement;
+    while (p && p !== document.body){
+      var ox = window.getComputedStyle(p).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+      p = p.parentElement;
+    }
+    return false;
+  }
+
+  // Ignore noise: overlays, fixed/sticky chrome, things the app
+  // positions deliberately off-screen (drawers, hidden sheets).
+  var MIN_OVERFLOW = 6; // px — anything under this is sub-pixel rounding
 
   function scan(){
     if (!on || !document.body) return;
@@ -146,21 +166,34 @@
       if (el.id === 'tp-ld-hud' || (el.closest && el.closest('#tp-ld-hud'))) continue;
       var r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
-      // (a) Extends past the right/left edge of the screen.
-      if (r.right > vw + 1 || r.left < -1){
+      var cs = window.getComputedStyle(el);
+      // Skip fixed/absolute chrome and hidden/off-screen drawers — they
+      // sit outside the document flow on purpose.
+      if (cs.position === 'fixed' || cs.position === 'sticky') continue;
+      if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+      // (a) Genuinely spills past the screen edge — but NOT if it lives
+      //     inside an intentional horizontal scroller.
+      var overR = r.right - vw;
+      var overL = -r.left;
+      var over = Math.max(overR, overL);
+      if (over > MIN_OVERFLOW && !inScrollableAncestor(el)){
         el.classList.add('tp-ld-overflow');
         overflowCount++;
-        logIssue('overflow', el, r.width, vw);
-        if (r.width > widestW){ widestW = r.width; widest = el; }
+        logIssue('overflow', el, over, 'el width ' + Math.round(r.width) +
+          'px ends ' + Math.round(over) + 'px past the ' +
+          (overR >= overL ? 'right' : 'left') + ' screen edge');
+        if (over > widestW){ widestW = over; widest = el; }
       }
       // (b) Its own content is wider than its clip box (cut off
       //     internally by overflow:hidden / clip).
-      var cs = window.getComputedStyle(el);
-      if ((cs.overflowX === 'hidden' || cs.overflowX === 'clip') &&
-          el.scrollWidth > el.clientWidth + 1){
-        el.classList.add('tp-ld-clipped');
-        clippedCount++;
-        logIssue('clipped', el, el.scrollWidth, el.clientWidth);
+      if ((cs.overflowX === 'hidden' || cs.overflowX === 'clip')){
+        var clip = el.scrollWidth - el.clientWidth;
+        if (clip > MIN_OVERFLOW){
+          el.classList.add('tp-ld-clipped');
+          clippedCount++;
+          logIssue('clipped', el, clip, 'content ' + el.scrollWidth +
+            'px clipped by ' + clip + 'px inside its ' + el.clientWidth + 'px box');
+        }
       }
     }
     if (body){
@@ -171,7 +204,7 @@
         ' dpr='+window.devicePixelRatio+
         '<br>now: overflow='+overflowCount+' (red) · clipped='+clippedCount+' (orange)'+
         '<br>logged this session: <b>'+totalLogged+'</b> distinct issue'+(totalLogged===1?'':'s')+
-        (widest ? '<br>widest: '+t.slice(0,46)+' @'+Math.round(widestW)+'px' : '');
+        (widest ? '<br>worst: '+t.slice(0,46)+' +'+Math.round(widestW)+'px' : '');
     }
   }
 
@@ -199,22 +232,18 @@
     if (!keys.length){
       lines.push('No layout issues detected this session.');
     } else {
-      // Sort: overflow before clipped, then by widest.
+      // Sort: overflow before clipped, then by biggest offence.
       keys.sort(function(a,b){
         var x = issueLog[a], y = issueLog[b];
         if (x.type !== y.type) return x.type === 'overflow' ? -1 : 1;
-        return y.w - x.w;
+        return y.over - x.over;
       });
       keys.forEach(function(k, idx){
         var it = issueLog[k];
         lines.push('');
-        lines.push((idx+1) + '. [' + it.type.toUpperCase() + '] ' + it.sel);
+        lines.push((idx+1) + '. [' + it.type.toUpperCase() + '] ' + it.sel + '  (+' + it.over + 'px)');
         lines.push('   page: ' + it.page);
-        if (it.type === 'overflow'){
-          lines.push('   element width ' + it.w + 'px vs viewport ' + it.vw + 'px (overflows by ' + (it.w - it.vw) + 'px)');
-        } else {
-          lines.push('   content width ' + it.w + 'px vs clip box ' + it.vw + 'px (clipped by ' + (it.w - it.vw) + 'px)');
-        }
+        lines.push('   ' + (it.detail || ''));
         lines.push('   seen ' + it.count + 'x · first ' +
           new Date(it.firstSeen).toLocaleTimeString() + ' · last ' +
           new Date(it.lastSeen).toLocaleTimeString());

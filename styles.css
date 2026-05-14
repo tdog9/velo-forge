@@ -729,7 +729,14 @@ select.input{
 .gallery-cell:hover .gallery-del{opacity:1}
 @media (hover: none) { .gallery-del{opacity:.7} }
 .profile-name-big{text-align:center;font-size:18px;font-weight:700;margin-bottom:2px}
-.profile-meta{text-align:center;font-size:13px;color:var(--muted-fg);margin-bottom:20px}
+.profile-meta{text-align:center;font-size:13px;color:var(--muted-fg);margin-bottom:8px}
+.profile-team-line{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.profile-team-chip,.profile-subteam-chip{
+  font-size:11px;font-weight:700;letter-spacing:.02em;
+  padding:3px 10px;border-radius:99px;
+}
+.profile-team-chip{background:rgba(var(--primary-rgb),.12);color:var(--primary);border:1px solid rgba(var(--primary-rgb),.3)}
+.profile-subteam-chip{background:var(--surface-raised,var(--muted));color:var(--muted-fg);border:1px solid var(--border)}
 .profile-section{margin-bottom:20px}
 .profile-section-title{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-fg);font-weight:600;margin-bottom:8px}
 .profile-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px}
