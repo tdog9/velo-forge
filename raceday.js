@@ -30,9 +30,26 @@ let stintPolyline     = null;
 let stintMarker       = null;
 let stintWakeLock     = null;  // Strong reference to the wake-lock sentinel so GC doesn't drop it mid-stint.
 
+// GPS dropout tracking (rec #12). A "gap" is recorded whenever more
+// than GPS_GAP_THRESHOLD_MS elapses between two onPos samples mid-
+// stint. Used to (a) flag low-confidence laps and (b) stamp the stint
+// archive with diagnostic data.
+let stintGpsGaps        = [];   // [{ startTs, endTs, gapMs }]
+let stintLastSampleTs   = 0;
+const GPS_GAP_THRESHOLD_MS = 15000;
+// Rider-down manual flag (rec #4) — set when the rider taps the
+// "Rider down" button. Stamped on the stint record so the post-race
+// archive shows the incident clearly.
+let stintRiderDownFlag  = null; // null or { ts, reason }
+// Local persistence keys (rec #5). On cold boot mid-stint we rehydrate
+// laps + pit stops + gaps from localStorage so a force-quit doesn't
+// destroy in-flight stint data.
+const STINT_PERSIST_KEY = 'tp_stint_state_v1';
+
 const LAP_THRESHOLD_M  = 30;   // metres — within this = at start/finish
 const MIN_SPEED_MS     = 0.3;  // m/s — below this = stopped
 const AUTO_START_SECS  = 450;  // 7 min 30 s of continuous movement
+const POSITIONS_CAP    = 3000; // ~50 min at 1Hz, ~2.5h at 0.3Hz — raw trace (rec #15)
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function todayKey() {
@@ -1223,6 +1240,24 @@ async function startStint(c) {
   // Reset detector + voice state for the new stint.
   _crashHrSamples = []; _crashAlertedThisStint = false;
   _lastPitSuggestionAt = 0; _bestLapSpoken = Infinity;
+  // Reset GPS-gap + rider-down state for the new stint (recs #4, #12).
+  stintGpsGaps = []; stintLastSampleTs = 0; stintRiderDownFlag = null;
+  // Crash-recovery: if a persisted state exists from a force-quit
+  // within the last hour, rehydrate the in-flight stint silently so no
+  // lap data is lost. (rec #5)
+  try {
+    const persisted = rehydratePersistedStintState();
+    if (persisted && persisted.startTime && (Date.now() - persisted.startTime) < 60 * 60 * 1000) {
+      stintStartTime = persisted.startTime;
+      stintLaps = Array.isArray(persisted.laps) ? persisted.laps : [];
+      stintPitStops = Array.isArray(persisted.pitStops) ? persisted.pitStops : [];
+      stintGpsGaps = Array.isArray(persisted.gaps) ? persisted.gaps : [];
+      stintRiderDownFlag = persisted.riderDown || null;
+      if (stintLaps.length) lastLapTime = stintLaps[stintLaps.length - 1].time;
+      try { localStorage.setItem('tp_stint_start', String(stintStartTime)); } catch (_) {}
+      ctx.showToast?.('Resumed in-flight stint — ' + stintLaps.length + ' laps restored.', 'info');
+    }
+  } catch (_) {}
   // Kick off the iOS Live Activity (lock-screen + Dynamic Island).
   // Best-effort — silently no-ops on non-iOS or when the user has
   // disabled live activities in Settings.
@@ -1353,9 +1388,70 @@ async function clearLiveStint() {
   } catch(e) {}
 }
 
+// Persist mid-stint state so a cold-boot or force-quit doesn't destroy
+// lap data. Debounced via timer below. (rec #5)
+let _stintPersistTimer = null;
+function persistStintState() {
+  if (_stintPersistTimer) return;
+  _stintPersistTimer = setTimeout(() => {
+    _stintPersistTimer = null;
+    if (!stintActive) return;
+    try {
+      const slim = {
+        startTime: stintStartTime,
+        laps: stintLaps,
+        pitStops: stintPitStops,
+        gaps: stintGpsGaps,
+        positionsTail: stintPositions.slice(-50), // small recent slice
+        riderDown: stintRiderDownFlag,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(STINT_PERSIST_KEY, JSON.stringify(slim));
+    } catch (_) {}
+  }, 5000);
+}
+function clearPersistedStintState() {
+  try { localStorage.removeItem(STINT_PERSIST_KEY); } catch (_) {}
+}
+function rehydratePersistedStintState() {
+  try {
+    const raw = localStorage.getItem(STINT_PERSIST_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    // Drop persisted state if it's older than 25 hours — a stale
+    // forgotten stint from a previous race should not auto-resume.
+    if (!s || (Date.now() - (s.savedAt || 0)) > 25 * 60 * 60 * 1000) {
+      clearPersistedStintState();
+      return null;
+    }
+    return s;
+  } catch (_) { return null; }
+}
+
+// Annotate a lap with confidence (rec #14) based on whether a GPS gap
+// happened during it and the lap's source.
+function lapConfidence(lap) {
+  if (lap.source === 'manual') return 'manual';
+  const overlap = stintGpsGaps.some(g => {
+    const start = lap.time - lap.duration;
+    return g.startTs >= start && g.endTs <= lap.time;
+  });
+  return overlap ? 'low' : 'high';
+}
+
 function onPos(pos) {
   const {latitude:lat,longitude:lng,speed}=pos.coords, now=Date.now();
+  // GPS gap detection (rec #12) — record any silent stretch > threshold.
+  if (stintActive && stintLastSampleTs && (now - stintLastSampleTs) > GPS_GAP_THRESHOLD_MS) {
+    stintGpsGaps.push({ startTs: stintLastSampleTs, endTs: now, gapMs: now - stintLastSampleTs });
+    try { ctx.showToast?.('GPS gap (' + Math.round((now - stintLastSampleTs) / 1000) + 's) — laps in this window flagged.', 'warn'); } catch (_) {}
+  }
+  stintLastSampleTs = now;
   stintPositions.push({lat,lng,time:now,speed:speed||0});
+  // Trim to cap so very long stints don't unbounded the trace.
+  if (stintPositions.length > POSITIONS_CAP) {
+    stintPositions = stintPositions.slice(-POSITIONS_CAP);
+  }
 
   // Update map
   try {
@@ -1432,6 +1528,8 @@ function recordManualLap(durMs, opts = {}) {
   // Pit predictor + crash detector check on every new lap.
   try { checkPitPredictor(); } catch(_) {}
   try { checkCrashDetector(); } catch(_) {}
+  // Persist current state for cold-boot recovery (rec #5).
+  persistStintState();
 }
 
 // ── Crash detector ────────────────────────────────────────────────
@@ -1662,11 +1760,12 @@ function renderActiveStint(c) {
       <div style="text-align:center;min-width:0"><span id="rd-pc" style="font-size:14px;font-weight:800;color:var(--warning, #f97316)">0</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">pits</span></div>
     </div>
     <div id="rd-laplist" style="margin-bottom:10px;max-height:180px;overflow-y:auto"></div>
-    <div style="display:flex;gap:6px;margin-bottom:8px">
+    <div style="display:flex;gap:6px;margin-bottom:6px">
       <button id="rd-tap-lap" style="flex:1;padding:14px;border-radius:12px;background:rgba(var(--success-rgb),.10);border:1px solid rgba(var(--success-rgb),.35);color:var(--success);font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">Tap Lap</button>
       <button id="rd-pit-btn" style="flex:1;padding:14px;border-radius:12px;background:rgba(var(--warning-rgb),.10);border:1px solid rgba(var(--warning-rgb),.35);color:var(--warning, #f97316);font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">+ Pit Stop</button>
       <button id="rd-end-stint" style="flex:1;padding:14px;border-radius:12px;background:var(--destructive);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">End</button>
-    </div>`;
+    </div>
+    <button id="rd-rider-down" style="width:100%;padding:11px;border-radius:12px;background:rgba(var(--destructive-rgb),.10);border:1px solid rgba(var(--destructive-rgb),.40);color:var(--destructive);font-size:12.5px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;-webkit-tap-highlight-color:transparent">Rider down / mechanical — flag pit</button>`;
 
   setTimeout(()=>{
     try {
@@ -1706,6 +1805,34 @@ function renderActiveStint(c) {
     const now = Date.now();
     const dur = lastLapTime ? (now - lastLapTime) : (now - stintStartTime);
     recordManualLap(dur, { time: now, source: 'manual' });
+  });
+  // Rider-down / mechanical flag (rec #4). Reuses the existing crash-
+  // alert path — writes a `kind: 'rider-down-manual'` doc into the
+  // team's alerts so the pit sees it immediately, voices the call,
+  // stamps the stint record so the post-race archive shows it.
+  c.querySelector('#rd-rider-down')?.addEventListener('click', () => {
+    if (!confirm('Flag rider down / mechanical and alert the pit?')) return;
+    try { ctx.haptic?.('heavy'); } catch(_) {}
+    stintRiderDownFlag = { ts: Date.now(), reason: 'rider-down-manual' };
+    try { speakRaceCue('crash', null, 'Rider down — pit alerted.'); } catch(_) {}
+    // Write the alert via the existing escalate path with a manual kind.
+    (async () => {
+      try {
+        if (!ctx?.db || !ctx.userProfile?.teamId) return;
+        const aRef = ctx.doc(ctx.collection(ctx.db, 'teams', ctx.userProfile.teamId, 'alerts'));
+        await ctx.setDoc(aRef, {
+          kind: 'rider-down-manual',
+          reason: 'Manual rider-down flag',
+          driver: ctx.userProfile?.displayName || 'Driver',
+          driverUid: ctx.currentUser?.uid || null,
+          stintStartTime,
+          lapCount: stintLaps.length,
+          createdAt: ctx.serverTimestamp(),
+        });
+        ctx.showToast?.('Pit alerted — help is on the way.', 'warn');
+      } catch (e) { console.warn('rider-down write failed:', e?.message || e); }
+    })();
+    persistStintState();
   });
   // Pit-stop counter — single-tap to log a stop. Also updates the
   // live spectator state so coaches see pit count climb in real time.
@@ -1758,11 +1885,29 @@ function updateActive() {
     const lapList=document.getElementById('rd-laplist');
     if (lapList) {
       const bestDur=Math.min(...stintLaps.map(l=>l.duration));
+      // Median of laps so we can colour each lap by trend (rec #7).
+      // Faster than median × 0.95 = green; within ±5% = neutral;
+      // slower than median × 1.05 = red.
+      const sorted = stintLaps.map(l => l.duration).sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)] || 1;
+      const trendColor = (durMs) => {
+        if (durMs <= median * 0.95) return 'var(--success)';
+        if (durMs >= median * 1.05) return 'var(--destructive)';
+        return 'var(--fg)';
+      };
       lapList.innerHTML=stintLaps.slice().reverse().map((lap,i)=>{
         const n=stintLaps.length-i, isBest=lap.duration===bestDur;
-        return `<div style="display:flex;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
+        const conf = lapConfidence(lap);
+        const confBadge = conf === 'low'
+          ? '<span title="GPS gap during this lap — confidence low" style="font-size:9px;font-weight:800;color:var(--warning,#f97316);padding:1px 5px;border:1px solid rgba(var(--warning-rgb,249,115,22),.4);border-radius:99px;letter-spacing:.04em">LOW</span>'
+          : (conf === 'manual'
+              ? '<span title="Recorded manually" style="font-size:9px;font-weight:800;color:var(--muted-fg);padding:1px 5px;border:1px solid var(--border);border-radius:99px;letter-spacing:.04em">MANUAL</span>'
+              : '');
+        const c = isBest ? 'var(--success)' : trendColor(lap.duration);
+        return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
           <span style="color:var(--muted-fg);width:54px">Lap ${n}</span>
-          <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${isBest?'var(--success)':'var(--fg)'}">${fmtMs(lap.duration)}</span>
+          <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${c}">${fmtMs(lap.duration)}</span>
+          ${confBadge}
           ${isBest?'<span style="font-size:10px;color:var(--success);font-weight:700">BEST</span>':''}
         </div>`;
       }).join('');
@@ -1820,9 +1965,15 @@ async function endStint(c) {
     // 24-hour Maryborough stint at 1Hz that's the first 8.3 minutes
     // only. Take the most-recent 500 to preserve the end of the stint
     // (where the rider's actually ridden the most distance).
-    laps:stintLaps, positions:stintPositions.slice(-500),
+    // Per-lap confidence (rec #14) is computed at save time so the
+    // archive carries the trust-level alongside the raw duration.
+    laps:stintLaps.map(l => ({ ...l, confidence: lapConfidence(l) })),
+    positions:stintPositions.slice(-POSITIONS_CAP), // rec #15 — raw trace
+    positionsCount: stintPositions.length,
     pitStops: stintPitStops.length,
     pitTimestamps: stintPitStops.map(p => p.ts),
+    gpsGaps: stintGpsGaps,                          // rec #12
+    riderDownFlag: stintRiderDownFlag,              // rec #4
   };
   // Save the stint FIRST. If this fails (network flake), we still want
   // the live doc up so the spectator panel doesn't show "off track" for
@@ -1832,6 +1983,9 @@ async function endStint(c) {
   await clearLiveStint();
   todayStints=todayStints.filter(s=>s.uid!==record.uid); todayStints.push(record);
   stintMap=null; stintPolyline=null; stintMarker=null;
+  // Clean up per-stint module state so the next stint starts fresh.
+  stintGpsGaps = []; stintLastSampleTs = 0; stintRiderDownFlag = null;
+  clearPersistedStintState();
   renderStintSummary(c,record);
 }
 
