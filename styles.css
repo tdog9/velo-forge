@@ -840,17 +840,17 @@ select.input{
 .strava-import-btn.imported{background:var(--muted);color:var(--muted-fg);border-color:var(--border);cursor:default}
 
 /* ===== AI Coach ===== */
-/* Pill shape — icon + "AI" label sit side by side. The old 44px
-   circle crammed both into a round button and looked broken; this
-   is the unobtrusive pill the button is meant to be. */
+/* Moved to bottom-right + made icon-only so it stops overlapping
+   primary actions in the bottom-left of the Today/Fitness/Races
+   feeds. Same translucent purple, just smaller + out of the way. */
 .ai-fab{
   position:fixed;
-  left:16px;
+  right:16px;
   bottom:calc(var(--tab-h, 70px) + 14px + env(safe-area-inset-bottom, 0px));
-  height:34px;
-  min-width:34px;
-  padding:0 11px;
-  border-radius:99px;
+  width:38px;
+  height:38px;
+  padding:0;
+  border-radius:50%;
   background:rgba(139,92,246,.14);
   color:#a855f7;
   border:1px solid rgba(139,92,246,.35);
@@ -859,19 +859,21 @@ select.input{
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:6px;
-  font-size:11.5px;
-  font-weight:700;
-  letter-spacing:.04em;
-  text-transform:uppercase;
   z-index:35;
   backdrop-filter:blur(8px);
   -webkit-backdrop-filter:blur(8px);
   transition:transform .12s, background .12s;
 }
-.ai-fab svg{width:14px;height:14px;stroke:currentColor}
+.ai-fab svg{width:16px;height:16px;stroke:currentColor}
+.ai-fab > span{ display:none; } /* hide the "AI" text label — icon is enough */
 .ai-fab:hover{background:rgba(139,92,246,.22)}
 .ai-fab:active{transform:scale(.94)}
+/* Content gets extra bottom padding when the fab can appear so
+   nothing important scrolls under it. The pages that show the fab
+   (today/fitness/races) all live inside #main-app > #content. */
+#main-app > #content{
+  padding-bottom:calc(20px + var(--tab-h, 70px) + 64px + env(safe-area-inset-bottom, 0px));
+}
 /* Use 100dvh so iOS Safari shrinks the overlay when the on-screen
    keyboard is up, instead of leaving the input bar floating below the
    keyboard. inset:0 alone falls back to the larger SVH which causes
@@ -1305,7 +1307,9 @@ select.input{
   
   .sheet{max-width:480px;left:50%;right:auto;transform:translateX(-50%);border-radius:16px 16px 0 0}
   .sheet.visible{transform:translateX(-50%) translateY(0)}
-  .ai-fab{left:calc(50% - 270px)}
+  /* Tablet+ — anchor the fab to the right edge of the centred app
+     column instead of the screen so it stays within the content gutter. */
+  .ai-fab{ right:calc(50% - 240px); }
   .auth-form{max-width:400px}
   
 }
@@ -1332,7 +1336,7 @@ select.input{
   .ai-overlay{max-width:720px}
   .profile-overlay{max-width:720px}
   .timer-overlay{max-width:720px}
-  .ai-fab{left:calc(50% - 330px)}
+  .ai-fab{ right:calc(50% - 300px); }
 }
 
 /* Extra wide 1440px+ */
