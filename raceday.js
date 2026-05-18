@@ -1969,7 +1969,8 @@ async function shareReport(subject, body) {
   if (typeof navigator !== 'undefined' && navigator.share) {
     try { await navigator.share({ title: subject, text: body }); return; } catch(e) {}
   }
-  try { window.open('mailto:?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)); } catch(e) {}
+  // Default destination = dev inbox (per the app's email-routing rule).
+  try { window.open('mailto:hearn.tenny@icloud.com?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)); } catch(e) {}
   try {
     await navigator.clipboard?.writeText(subject + '\n\n' + body);
     ctx.showToast?.('Report copied to clipboard — paste into Mail / Messages.', 'success');

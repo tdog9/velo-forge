@@ -2575,6 +2575,65 @@ function openFeedbackSheet() {
   });
 }
 
+// Diagnostics sheet (rec #65). Shows app + account + connection state
+// so a user (or coach helping them) can self-diagnose. Tap the modal
+// to dismiss; "Copy" puts the full readout on the clipboard.
+function openDiagnosticsSheet() {
+  if (document.getElementById('diagnostics-overlay')) return;
+  const truncTok = t => t ? (t.slice(0, 8) + '…' + t.slice(-4)) : '—';
+  const isIOSShell = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tpNative);
+  const stravaConn = !!(stravaTokens && stravaTokens.access_token);
+  const fitbitConn = !!(fitbitTokens && fitbitTokens.access_token);
+  const fcm = (() => { try { return localStorage.getItem('tp_pending_fcm_token') || ''; } catch(_) { return ''; } })();
+  const apns = (() => { try { return localStorage.getItem('tp_pending_apns_token') || ''; } catch(_) { return ''; } })();
+  const rows = [
+    ['App version', APP_VERSION],
+    ['Shell', isIOSShell ? 'iOS WKWebView' : 'Web'],
+    ['User', currentUser?.email || currentUser?.uid || '—'],
+    ['UID', currentUser?.uid || '—'],
+    ['Role', userProfile?.role || (userProfile?.isCoach ? 'coach' : 'student')],
+    ['Year / Tier', (userProfile?.yearLevel || '—') + ' · ' + capitalize(userProfile?.fitnessLevel || '—')],
+    ['Team', userProfile?.teamName ? `${userProfile.teamName} (${userProfile.teamId || '—'})` : '—'],
+    ['Members[] OK', (Array.isArray(teamData?.members) && currentUser?.uid && teamData.members.includes(currentUser.uid)) ? 'yes' : 'no'],
+    ['Strava', stravaConn ? 'connected' : 'not connected'],
+    ['Fitbit', fitbitConn ? 'connected' : 'not connected'],
+    ['APNs token', truncTok(apns)],
+    ['FCM token', truncTok(fcm)],
+    ['Online', navigator.onLine ? 'yes' : 'no'],
+    ['Viewport', window.innerWidth + ' × ' + window.innerHeight + ' (dpr ' + window.devicePixelRatio + ')'],
+    ['Screen', window.screen.width + ' × ' + window.screen.height],
+    ['SW killed', window.__TP_NO_SW__ ? 'yes' : 'no'],
+    ['Layout debug', (() => { try { return localStorage.getItem('tp_layout_debug') === '1' ? 'on' : 'off'; } catch(_) { return '—'; } })()],
+  ];
+  const ov = document.createElement('div');
+  ov.id = 'diagnostics-overlay';
+  ov.className = 'modal-overlay';
+  ov.innerHTML = `
+    <div class="modal-card" style="max-width:480px;width:94%;max-height:80vh;display:flex;flex-direction:column">
+      <div style="padding:18px 20px 6px;flex-shrink:0">
+        <div style="font-size:18px;font-weight:800;color:var(--fg)">Diagnostics</div>
+        <div style="font-size:12px;color:var(--muted-fg);margin-top:4px">App + account state. Copy + paste this when reporting issues.</div>
+      </div>
+      <div style="padding:10px 20px 14px;overflow-y:auto;flex:1;min-height:0;font:11.5px/1.5 ui-monospace,Menlo,monospace">
+        ${rows.map(([k, v]) => `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+          <div style="flex-shrink:0;width:120px;color:var(--muted-fg)">${escHtml(k)}</div>
+          <div style="flex:1;min-width:0;color:var(--fg);word-break:break-all">${escHtml(String(v))}</div>
+        </div>`).join('')}
+      </div>
+      <div style="padding:0 20px 18px;display:flex;gap:8px;flex-shrink:0">
+        <button id="diag-copy" class="btn btn-secondary" style="flex:1">Copy</button>
+        <button id="diag-close" class="btn btn-primary" style="flex:1">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#diag-close')?.addEventListener('click', () => ov.remove());
+  ov.querySelector('#diag-copy')?.addEventListener('click', async () => {
+    const text = 'TurboPrep Diagnostics\n' + rows.map(([k, v]) => k + ': ' + v).join('\n');
+    try { await navigator.clipboard?.writeText(text); showToast?.('Diagnostics copied to clipboard.', 'success'); }
+    catch (_) { showToast?.('Could not copy.', 'warn'); }
+  });
+}
+
 function showWhatsNewModal() {
   if (document.getElementById('whatsnew-overlay')) return;
   const latest = CHANGELOG[0];
@@ -9440,7 +9499,8 @@ async function renderRaceDayHistory() {
         }).join('\n');
         const subj = encodeURIComponent('TurboPrep Race Day Results — '+date);
         const body = encodeURIComponent('TURBOPREP RACE DAY TEAM REPORT\nDate: '+date+'\nDrivers: '+stints2.length+'\nTotal Laps: '+stints2.reduce((s,x)=>s+(x.laps?.length||0),0)+'\n\nRESULTS\n-------\n'+lines+'\n\n--- Sent from TurboPrep ---');
-        window.open('mailto:?subject='+subj+'&body='+body);
+        // Default destination = dev inbox (per the app's email-routing rule).
+        window.open('mailto:hearn.tenny@icloud.com?subject='+subj+'&body='+body);
       });
     });
 
@@ -11162,6 +11222,9 @@ async function renderProfile() {
         <button id="profile-feedback" type="button" style="margin-top:4px;padding:11px;border-radius:10px;background:var(--card);border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">
           Send feedback
         </button>
+        <button id="profile-diagnostics" type="button" style="margin-top:4px;padding:11px;border-radius:10px;background:var(--card);border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">
+          Diagnostics
+        </button>
       </div>
     </div>`;
   // Coach Personality
@@ -11520,6 +11583,8 @@ async function renderProfile() {
   });
   // Send feedback (rec #98) — opens a sheet that writes to /feedback.
   $('profile-feedback')?.addEventListener('click', () => openFeedbackSheet());
+  // Diagnostics (rec #65) — opens a sheet showing app + account state.
+  $('profile-diagnostics')?.addEventListener('click', () => openDiagnosticsSheet());
   // Wearable / sync connect buttons
   $('prof-strava-connect')?.addEventListener('click', () => stravaStartAuth());
   $('prof-strava-disconnect')?.addEventListener('click', () => stravaDisconnect());
