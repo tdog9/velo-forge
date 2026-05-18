@@ -358,6 +358,21 @@ service cloud.firestore {
               || isAdmin());
       }
 
+      // Private coach notes per athlete (rec #27). Only the team's
+      // coaches (head + co-coaches + captains) can read or write —
+      // the athletes themselves never see their own note. Schema:
+      // { note (≤2000), updatedAt, updatedBy, updatedByName }.
+      match /coachNotes/{athleteUid} {
+        allow read, write: if isSignedIn()
+          && (
+            request.auth.uid == get(/databases/$(database)/documents/teams/$(teamId)).data.createdBy
+            || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isCoach == true)
+            || (('subCoaches' in get(/databases/$(database)/documents/teams/$(teamId)).data)
+                && request.auth.uid in get(/databases/$(database)/documents/teams/$(teamId)).data.subCoaches)
+          );
+      }
+
       // Scheduled chat messages — coach/captain queues a message for a
       // future time; the deliverScheduledMessages Cloud Function moves
       // due ones into /chat. Schema: { uid, displayName, text, kind,

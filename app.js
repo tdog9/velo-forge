@@ -12842,6 +12842,16 @@ function openMemberSheet(uid) {
         </div>
       </div>
 
+      ${(userProfile?.isCoach && teamData?.id && uid !== currentUser?.uid) ? `
+      <div class="member-sheet-cat">
+        <div class="member-sheet-cat-title">Coach Notes <span style="font-size:10px;font-weight:600;color:var(--muted-fg);text-transform:none;letter-spacing:0;margin-left:6px">private — coaches only</span></div>
+        <textarea id="member-coach-note" class="input" rows="3" maxlength="2000" placeholder="Private notes about this athlete — only coaches see this." style="font-size:13px"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <button id="member-coach-note-save" type="button" class="btn btn-secondary" style="padding:7px 14px;font-size:12px">Save note</button>
+          <span id="member-coach-note-status" style="font-size:11px;color:var(--muted-fg)"></span>
+        </div>
+      </div>` : ''}
+
       <div class="member-sheet-cat">
         <div class="member-sheet-cat-title">Achievements</div>
         <div class="achv-grid">
@@ -12882,6 +12892,47 @@ function openMemberSheet(uid) {
     close();
     try { openCoachAthleteSheet(uid); } catch(e) {}
   });
+  // Coach notes (rec #27) — private per-athlete note visible only to
+  // team coaches. Lives at teams/{teamId}/coachNotes/{uid}; Firestore
+  // rules gate read + write to the team's coaches.
+  (async () => {
+    const ta = ov.querySelector('#member-coach-note');
+    const saveBtn = ov.querySelector('#member-coach-note-save');
+    const status = ov.querySelector('#member-coach-note-status');
+    if (!ta || !saveBtn || !db || !teamData?.id) return;
+    // Load existing note.
+    try {
+      const snap = await getDoc(doc(db, 'teams', teamData.id, 'coachNotes', uid));
+      if (snap.exists()) {
+        ta.value = String(snap.data().note || '');
+      }
+    } catch (e) {
+      console.warn('coach note load:', e);
+    }
+    saveBtn.addEventListener('click', async () => {
+      const note = (ta.value || '').trim().slice(0, 2000);
+      saveBtn.disabled = true;
+      const orig = saveBtn.textContent;
+      saveBtn.textContent = 'Saving…';
+      try {
+        await setDoc(doc(db, 'teams', teamData.id, 'coachNotes', uid), {
+          note,
+          updatedAt: serverTimestamp(),
+          updatedBy: currentUser?.uid || null,
+          updatedByName: userProfile?.displayName || currentUser?.displayName || '',
+        });
+        if (status) {
+          status.textContent = 'Saved.';
+          setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+        }
+      } catch (err) {
+        showToast?.('Could not save: ' + (err?.message || err), 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = orig;
+      }
+    });
+  })();
   document.addEventListener('keydown', function esc(e) {
     if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
   });
