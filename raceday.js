@@ -44,6 +44,10 @@ let stintRiderDownFlag  = null; // null or { ts, reason }
 // Pit-window heads-up (rec #9). Set to the stint-start (or last-pit)
 // timestamp the cue last fired for, so we voice it once per window.
 let stintPitWindowAlertedFor = 0;
+// Personal-best lap for this race, fetched at stint start from
+// race_archive (rec #8). Used to render continuous gap-to-PB on the
+// active-stint sublabel — was previously only shown post-stint.
+let stintPbLapMs = null;
 // Local persistence keys (rec #5). On cold boot mid-stint we rehydrate
 // laps + pit stops + gaps from localStorage so a force-quit doesn't
 // destroy in-flight stint data.
@@ -1267,6 +1271,28 @@ async function startStint(c) {
   _lastPitSuggestionAt = 0; _bestLapSpoken = Infinity;
   // Reset GPS-gap + rider-down state for the new stint (recs #4, #12).
   stintGpsGaps = []; stintLastSampleTs = 0; stintRiderDownFlag = null;
+  // Fetch this rider's PB lap for this race in the background (rec #8)
+  // so updateActive can render a live gap-to-PB. Best-effort — silently
+  // leaves stintPbLapMs null if the user has no prior years at this race.
+  stintPbLapMs = null;
+  (async () => {
+    try {
+      if (!ctx?.db || !ctx.currentUser || !rdd.raceId) return;
+      const yearsSnap = await ctx.getDocs(ctx.collection(ctx.db, 'race_archive', rdd.raceId, 'years'));
+      let best = Infinity;
+      for (const yd of yearsSnap.docs) {
+        const ref = ctx.doc(ctx.db, 'race_archive', rdd.raceId, 'years', yd.id, 'stints', ctx.currentUser.uid);
+        const s = await ctx.getDoc(ref).catch(() => null);
+        if (!s?.exists?.()) continue;
+        const laps = Array.isArray(s.data()?.laps) ? s.data().laps : [];
+        for (const lap of laps) {
+          const d = lap?.duration;
+          if (typeof d === 'number' && d > 3000 && d < best) best = d;
+        }
+      }
+      if (Number.isFinite(best)) stintPbLapMs = best;
+    } catch (_) {}
+  })();
   // Crash-recovery: if a persisted state exists from a force-quit
   // within the last hour, rehydrate the in-flight stint silently so no
   // lap data is lost. (rec #5)
@@ -1903,7 +1929,21 @@ function updateActive() {
     } else if (stintGpsState === 'connecting') {
       sl.textContent = 'GPS connecting…';
     } else if (stintLaps.length > 0) {
-      sl.textContent = 'Lap ' + (stintLaps.length) + ' in progress';
+      // Continuous gap-to-PB ghost-line (rec #8). Append the delta
+      // between the current best lap and the rider's all-time PB for
+      // this race, so they can see live whether this stint is on
+      // record pace.
+      let pbDelta = '';
+      if (stintPbLapMs && stintLaps.length > 0) {
+        const bestThisStint = Math.min.apply(null, stintLaps.map(l => l.duration));
+        const d = bestThisStint - stintPbLapMs;
+        const abs = Math.abs(d);
+        const sec = (abs / 1000).toFixed(1);
+        const sign = d < 0 ? '−' : (d > 0 ? '+' : '=');
+        const colour = d < 0 ? '#22c55e' : d > 0 ? '#ef4444' : 'var(--muted-fg)';
+        pbDelta = ' · <span style="color:' + colour + ';font-weight:700">' + (d === 0 ? '= PB' : (sign + sec + 's vs PB')) + '</span>';
+      }
+      sl.innerHTML = 'Lap ' + (stintLaps.length) + ' in progress' + pbDelta;
     } else if (rdd.startPointSet) {
       sl.textContent = 'Approaching start/finish…';
     } else {
