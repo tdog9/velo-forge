@@ -8,25 +8,46 @@ export function stravaStartAuth() {
   if (!A.STRAVA_CLIENT_ID) { A.showToast('Strava Client ID not configured.', 'error'); return; }
   const scope = 'activity:read_all,activity:write';
   const url = `https://www.strava.com/oauth/authorize?client_id=${A.STRAVA_CLIENT_ID}&redirect_uri=${encodeURIComponent(A.STRAVA_REDIRECT_URI)}&response_type=code&scope=${scope}&approval_prompt=auto`;
-  window.location.href = url;
+  // In the iOS WebView, Strava's OAuth page often hangs or refuses to
+  // complete (embedded-browser detection). Open it in Safari instead —
+  // the Universal Link on https://turboprep.app/* routes the redirect
+  // back into the app, where stravaHandleCallback consumes ?code=. On
+  // web, stay in the same tab.
+  const isIOSShell = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tpNative);
+  console.log('[strava] start auth, iOS shell=', isIOSShell);
+  try { A.showToast?.('Opening Strava…', 'info'); } catch(_) {}
+  if (isIOSShell) {
+    // window.open with _blank triggers WKWebView's createWebViewWith
+    // delegate, which routes the URL to UIApplication.shared.open
+    // (Safari). Fall back to same-tab nav if popups are blocked.
+    const win = window.open(url, '_blank');
+    if (!win) window.location.href = url;
+  } else {
+    window.location.href = url;
+  }
 }
 
 export async function stravaHandleCallback() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   if (!code) return;
+  console.log('[strava] callback received, exchanging code…');
 
   // Clean URL
   window.history.replaceState({}, '', window.location.pathname);
 
   try {
+    A.showToast?.('Connecting Strava…', 'info');
     // Exchange code for tokens via Netlify Function
     const resp = await fetch('/.netlify/functions/strava-auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code })
     });
-    if (!resp.ok) throw new Error('Token exchange failed');
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      throw new Error('Token exchange failed (' + resp.status + '): ' + body.slice(0, 200));
+    }
     const data = await resp.json();
     A.stravaTokens = {
       access_token: data.access_token,
@@ -41,9 +62,10 @@ export async function stravaHandleCallback() {
     // Fetch activities
     await stravaFetchActivities();
     A.renderProfile();
+    A.showToast?.('Strava connected.', 'success');
   } catch(e) {
-    console.error('Strava auth error:', e);
-    A.showToast('Failed to connect Strava.', 'error');
+    console.error('[strava] auth error:', e);
+    A.showToast('Failed to connect Strava: ' + (e?.message || 'unknown'), 'error');
   }
 }
 
