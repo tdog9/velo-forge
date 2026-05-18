@@ -11434,6 +11434,22 @@ async function renderProfile() {
     { id: 'team_chat',       label: '💬 Team Chat', desc: 'New messages in your team chat' },
     { id: 'daily',           label: 'Daily Summary', desc: 'Weekly stats + quote, 3:30 PM each day' },
   ];
+  // Home Assistant outbound webhook (integration). Lets a user paste
+  // their HA "Webhook" trigger URL; TurboPrep then POSTs key events
+  // (coach broadcasts, crash / rider-down alerts) so HA can automate
+  // off them — lights, sirens, voice announcements, log history.
+  const haEnabled = !!userProfile?.haEnabled;
+  const haUrl = userProfile?.haWebhookUrl || '';
+  html += '<div class="profile-section"><div class="profile-section-title">Home Assistant</div>';
+  html += `<div class="profile-row" style="flex-direction:column;align-items:stretch;gap:8px">
+    <div style="font-size:12px;color:var(--muted-fg);line-height:1.5">Paste a Home Assistant webhook URL and TurboPrep will POST events (coach broadcasts, crashes, rider-down) so HA can run automations. Find your URL in HA → Settings → Automations → Create Automation → trigger "Webhook".</div>
+    <input class="input" type="url" id="profile-ha-url" placeholder="https://your-ha.example/api/webhook/..." value="${escHtml(haUrl)}" autocomplete="off" style="font-size:12px">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">
+      <input type="checkbox" id="profile-ha-enabled" ${haEnabled ? 'checked' : ''}> Forward events to Home Assistant
+    </label>
+    <button id="profile-ha-test" type="button" style="padding:10px;border-radius:10px;background:var(--card);border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">Send test event</button>
+  </div>`;
+  html += '</div>';
   // AI Coach toggle — fab is opt-in so the default UI stays calm.
   let aiFabEnabled = false;
   try { aiFabEnabled = localStorage.getItem('tp_ai_fab_enabled') === '1'; } catch(_) {}
@@ -11794,6 +11810,55 @@ async function renderProfile() {
   $('profile-feedback')?.addEventListener('click', () => openFeedbackSheet());
   // Diagnostics (rec #65) — opens a sheet showing app + account state.
   $('profile-diagnostics')?.addEventListener('click', () => openDiagnosticsSheet());
+  // Home Assistant integration: save URL/toggle on change, test button
+  // POSTs a sample event to the current URL.
+  const saveHa = async (patch) => {
+    if (!db || !currentUser) return;
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), patch);
+      if (userProfile) Object.assign(userProfile, patch);
+    } catch (e) {
+      console.warn('HA save failed:', e);
+      showToast?.('Could not save Home Assistant settings.', 'error');
+    }
+  };
+  $('profile-ha-url')?.addEventListener('change', (e) => {
+    const v = (e.target.value || '').trim();
+    if (v && !/^https?:\/\/.{4,}/.test(v)) {
+      showToast?.('That URL needs to start with http:// or https://', 'warn');
+      return;
+    }
+    saveHa({ haWebhookUrl: v });
+  });
+  $('profile-ha-enabled')?.addEventListener('change', (e) => {
+    saveHa({ haEnabled: !!e.target.checked });
+  });
+  $('profile-ha-test')?.addEventListener('click', async () => {
+    const url = ($('profile-ha-url')?.value || '').trim();
+    if (!url) { showToast?.('Paste a webhook URL first.', 'warn'); return; }
+    if (!/^https?:\/\/.{4,}/.test(url)) { showToast?.('URL must start with http:// or https://', 'warn'); return; }
+    const btn = $('profile-ha-test');
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app: 'TurboPrep', event: 'test', ts: Date.now(), uid: currentUser?.uid || null, payload: { source: 'profile-test', note: 'If you see this in HA, the webhook works.' } }),
+      });
+      if (r.ok || r.status === 200 || r.status === 204) {
+        showToast?.('Test sent — check your HA automations.', 'success');
+      } else {
+        showToast?.('HA returned HTTP ' + r.status, 'warn');
+      }
+    } catch (e) {
+      showToast?.('Could not reach the webhook: ' + (e?.message || e), 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  });
   // Wearable / sync connect buttons
   $('prof-strava-connect')?.addEventListener('click', () => stravaStartAuth());
   $('prof-strava-disconnect')?.addEventListener('click', () => stravaDisconnect());

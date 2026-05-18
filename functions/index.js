@@ -22,6 +22,87 @@ const { BigQuery } = require('@google-cloud/bigquery');
 
 initializeApp();
 
+// ─── Home Assistant webhook fan-out ─────────────────────────────────────
+//
+// Users can paste a Home Assistant webhook URL into Profile → Home
+// Assistant. fireUserWebhook(uid, event, payload) POSTs a small JSON
+// envelope to that URL on key events (chat broadcast, crash alert,
+// rider-down). HA users wire a Webhook trigger and automate from there.
+//
+// Best-effort with a 4s timeout — never blocks the original write.
+// Allow-listed URL schemes (https + http for self-hosted local HA).
+async function fireUserWebhook(uid, event, payload) {
+  try {
+    const db = getFirestore();
+    const profSnap = await db.collection('users').doc(uid).get();
+    if (!profSnap.exists) return;
+    const p = profSnap.data() || {};
+    if (!p.haEnabled) return;
+    const url = String(p.haWebhookUrl || '').trim();
+    if (!/^https?:\/\/.{4,}/.test(url)) return;
+    const body = {
+      app: 'TurboPrep',
+      event,
+      ts: Date.now(),
+      uid,
+      payload: payload || {},
+    };
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    try {
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      console.warn('[fireUserWebhook]', uid, event, 'failed:', e?.message || e);
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn('[fireUserWebhook] outer:', e?.message || e);
+  }
+}
+
+// Fan a single event out to every team member's webhook. Used for
+// team-scoped events (race-day alerts, crash, rider-down).
+async function fireTeamWebhooks(teamId, event, payload) {
+  try {
+    const db = getFirestore();
+    const teamSnap = await db.collection('teams').doc(teamId).get();
+    if (!teamSnap.exists) return;
+    const members = Array.isArray(teamSnap.data()?.members) ? teamSnap.data().members : [];
+    await Promise.all(members.map(uid => fireUserWebhook(uid, event, payload)));
+  } catch (e) {
+    console.warn('[fireTeamWebhooks]', teamId, event, e?.message || e);
+  }
+}
+
+// ─── Team alerts → HA webhook trigger ───────────────────────────────────
+exports.onAlertWrite = onDocumentCreated(
+  {
+    document: 'teams/{teamId}/alerts/{alertId}',
+    region: 'us-central1',
+  },
+  async (event) => {
+    const data = event.data?.data() || {};
+    const teamId = event.params.teamId;
+    const kind = data.kind || 'alert';
+    // Whitelist the kinds we forward to HA so a future internal alert
+    // type doesn't surprise users.
+    if (!['crash-prompt-unanswered', 'rider-down-manual'].includes(kind)) return;
+    await fireTeamWebhooks(teamId, kind, {
+      teamId,
+      driver: data.driver || null,
+      driverUid: data.driverUid || null,
+      reason: data.reason || null,
+      lapCount: data.lapCount ?? null,
+    });
+  }
+);
+
 // ─── Server-side moderation ─────────────────────────────────────────────
 //
 // School-context blocklist — same words as the client-side filter in
@@ -251,6 +332,21 @@ exports.onChatWrite = onDocumentCreated(
     }
 
     console.log(`[onChatWrite] team=${teamId} scope=${scope || 'all'} fcmTokens=${tokens.length} delivered=${delivered} failed=${failed}`);
+
+    // Home Assistant fan-out (one webhook per recipient). Same gating as
+    // the FCM filter — respects opt-out + quiet hours by reading prefs
+    // inside fireUserWebhook? Actually no — HA webhooks are a separate
+    // automation channel, so we don't apply the chat-notification
+    // gates. The user explicitly opted in via Profile → Home Assistant.
+    try {
+      await Promise.all(recipientUids.map(u => fireUserWebhook(u, category, {
+        senderName,
+        text,
+        teamId,
+        scope,
+        loud: isLoud,
+      })));
+    } catch (e) { console.warn('[onChatWrite] webhook fan-out:', e?.message || e); }
   }
 );
 
