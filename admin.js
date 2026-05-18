@@ -578,7 +578,9 @@ function renderAdminSystem() {
         <button class="btn btn-secondary" id="push-test-self" style="flex:1">📱 Send to Me</button>
         <button class="btn btn-primary" id="push-test-broadcast" style="flex:1">📢 Broadcast All</button>
       </div>
-      <div style="font-size:11px;color:var(--muted-fg);margin-top:8px">Self-test goes only to your devices. Broadcast hits every iOS user with a registered token.</div>
+      <button class="btn btn-secondary" id="push-test-daily" style="width:100%;margin-top:8px">⏰ Test daily push to me now</button>
+      <div id="push-test-daily-result" style="font-size:11px;color:var(--muted-fg);margin-top:6px;display:none;padding:8px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-family:var(--font-mono,ui-monospace);white-space:pre-wrap;line-height:1.5"></div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-top:8px">Self-test goes only to your devices. Broadcast hits every iOS user with a registered token. "Test daily" runs the scheduled daily-push logic against your account so you can verify it works without waiting for 3:30 PM.</div>
     </div>
 
     <div style="margin-bottom:14px">
@@ -621,6 +623,7 @@ function renderAdminSystem() {
   });
   el.querySelector('#push-test-self')?.addEventListener('click', () => sendTestPush(false));
   el.querySelector('#push-test-broadcast')?.addEventListener('click', () => sendTestPush(true));
+  el.querySelector('#push-test-daily')?.addEventListener('click', () => triggerDailyPushDiag(el));
 
   el.querySelectorAll('.gc-feat-toggle').forEach(btn => btn.addEventListener('click',()=>btn.classList.toggle('on')));
   el.querySelector('#gc-flags-save')?.addEventListener('click', async () => {
@@ -638,6 +641,52 @@ function renderAdminSystem() {
       A.showToast('Announcement saved.','success');
     } catch(e) { A.showToast('Failed: '+e.message,'error'); }
   });
+}
+
+// Fires the daily-push logic for the calling user via the
+// triggerDailyPushNow HTTPS function. Surfaces a full diagnostic so
+// the admin can pinpoint why the scheduled job didn't deliver.
+async function triggerDailyPushDiag(rootEl) {
+  const out = rootEl?.querySelector('#push-test-daily-result');
+  const btn = rootEl?.querySelector('#push-test-daily');
+  if (!out || !btn) return;
+  const user = A.currentUser;
+  if (!user) { A.showToast('Not signed in.', 'error'); return; }
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = 'Firing…';
+  out.style.display = 'block';
+  out.textContent = 'Calling triggerDailyPushNow…';
+  try {
+    const idToken = await user.getIdToken();
+    // 2nd-gen Cloud Functions deploy as Cloud Run services under
+    // https://<name>-<hash>-<region>.a.run.app — but Firebase also
+    // exposes the legacy https://<region>-<projectId>.cloudfunctions.net/<name>
+    // URL for v2 functions via a redirect. Use the legacy URL for
+    // simplicity; CORS is enabled on the function.
+    const url = 'https://us-central1-hpr-2026.cloudfunctions.net/triggerDailyPushNow';
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+      body: JSON.stringify({}),
+    });
+    const txt = await r.text();
+    let parsed; try { parsed = JSON.parse(txt); } catch (_) { parsed = { raw: txt }; }
+    const lines = [];
+    lines.push('HTTP ' + r.status);
+    Object.keys(parsed).forEach(k => {
+      lines.push(k + ': ' + (typeof parsed[k] === 'object' ? JSON.stringify(parsed[k]) : String(parsed[k])));
+    });
+    out.textContent = lines.join('\n');
+    if (parsed.sent > 0) A.showToast('Daily push fired — check your device.', 'success');
+    else A.showToast('Daily push did not send. See diagnostic below.', 'warn');
+  } catch (e) {
+    out.textContent = 'Error: ' + (e?.message || e);
+    A.showToast('Could not run daily diagnostic.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
 }
 
 async function sendTestPush(broadcast) {

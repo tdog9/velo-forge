@@ -519,6 +519,99 @@ exports.dailyMotivationPush = onSchedule(
   }
 );
 
+// ─── HTTPS trigger: fire the daily push for the calling user now ────────
+//
+// Lets an admin verify the daily-motivation push end-to-end without
+// waiting for 15:30 Melbourne. Returns a JSON payload showing each
+// step's outcome so we can pinpoint where it failed (no team / muted /
+// in quiet hours / no FCM token / FCM send error).
+//
+// Auth: the request must carry a Firebase ID token. We then read the
+// caller's profile and fire one push to their own devices.
+exports.triggerDailyPushNow = onRequest(
+  { region: 'us-central1', cors: true },
+  async (req, res) => {
+    try {
+      const authHeader = req.get('Authorization') || '';
+      const idToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+      if (!idToken) {
+        res.status(401).json({ error: 'Missing Authorization header' });
+        return;
+      }
+      const { getAuth } = require('firebase-admin/auth');
+      const decoded = await getAuth().verifyIdToken(idToken);
+      const uid = decoded.uid;
+      const db = getFirestore();
+      const profSnap = await db.collection('users').doc(uid).get();
+      if (!profSnap.exists) {
+        res.status(404).json({ error: 'User profile not found', uid });
+        return;
+      }
+      const profile = profSnap.data() || {};
+      const diag = {
+        uid,
+        hasTeam: !!profile.teamId,
+        prefsAllow: profile.notificationPrefs?.daily !== false,
+        inQuietHours: inQuietHours(profile.notificationPrefs),
+        tokens: 0,
+        sent: 0,
+        failed: 0,
+      };
+      if (!diag.hasTeam) {
+        res.status(200).json({ ...diag, reason: 'no teamId — daily skips users with no team' });
+        return;
+      }
+      if (!diag.prefsAllow) {
+        res.status(200).json({ ...diag, reason: 'notificationPrefs.daily is false' });
+        return;
+      }
+      if (diag.inQuietHours) {
+        res.status(200).json({ ...diag, reason: 'currently in quiet hours' });
+        return;
+      }
+      // Build the same summary the scheduled job builds.
+      const weekStart = new Date();
+      weekStart.setHours(0, 0, 0, 0);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekSnap = await db.collection('users').doc(uid).collection('workouts')
+        .where('date', '>=', weekStart)
+        .get();
+      let mins = 0;
+      weekSnap.forEach(d => { mins += Number(d.data().duration || 0); });
+      const summary = { sessions: weekSnap.size, minutes: mins };
+      const quote = FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
+      const body = `${summary.sessions} session${summary.sessions === 1 ? '' : 's'} · ${summary.minutes} min this week. ${quote}`;
+      const devSnap = await db.collection('users').doc(uid).collection('devices').get();
+      const tokens = devSnap.docs.map(d => d.data())
+        .filter(d => d.platform === 'ios' && d.fcmToken)
+        .map(d => d.fcmToken);
+      diag.tokens = tokens.length;
+      if (tokens.length === 0) {
+        res.status(200).json({ ...diag, reason: 'no iOS FCM tokens registered for this user — push permissions not granted, or the device never registered with FCM' });
+        return;
+      }
+      const response = await getMessaging().sendEachForMulticast({
+        tokens,
+        notification: { title: 'TurboPrep · Daily (test)', body },
+        apns: {
+          headers: { 'apns-priority': '10', 'apns-push-type': 'alert' },
+          payload: { aps: { sound: 'default', 'thread-id': 'tp.daily', 'interruption-level': 'active' } },
+        },
+        data: { teamId: profile.teamId || '', threadId: 'daily-motivation', category: 'daily' },
+      });
+      diag.sent = response.successCount;
+      diag.failed = response.failureCount;
+      const errors = response.responses
+        .filter(r => !r.success)
+        .map(r => r.error?.code || r.error?.message || 'unknown');
+      res.status(200).json({ ...diag, body, errors, reason: response.successCount > 0 ? 'pushed' : 'FCM rejected — see errors' });
+    } catch (e) {
+      console.error('[triggerDailyPushNow]', e);
+      res.status(500).json({ error: e?.message || String(e) });
+    }
+  }
+);
+
 // ─── One-shot: create BigQuery views in turboprep_analytics ──────────────
 //
 // HTTP trigger so we can run it once after the firestore-bigquery-export

@@ -11344,6 +11344,7 @@ async function renderProfile() {
     { id: 'coach_broadcast', label: '📣 Coach Messages', desc: 'Broadcasts from your coach' },
     { id: 'training',        label: '📅 Training Reminders', desc: 'Daily plan + workout nudges' },
     { id: 'team_chat',       label: '💬 Team Chat', desc: 'New messages in your team chat' },
+    { id: 'daily',           label: 'Daily Summary', desc: 'Weekly stats + quote, 3:30 PM each day' },
   ];
   // AI Coach toggle — fab is opt-in so the default UI stays calm.
   let aiFabEnabled = false;
