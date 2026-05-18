@@ -20,6 +20,8 @@ struct ComplicationSnapshot {
     let raceShortName: String   // "R1 Calder" etc
     let todayDoneCount: Int     // workouts completed today
     let todayTotalCount: Int    // total scheduled today
+    let raceDayActive: Bool     // race day live right now? (rec #46)
+    let raceDayLapCount: Int    // total laps in the current stint
 
     static let placeholder = ComplicationSnapshot(
         phaseLabel: "BASE",
@@ -27,7 +29,9 @@ struct ComplicationSnapshot {
         daysOut: 42,
         raceShortName: "Round 1",
         todayDoneCount: 0,
-        todayTotalCount: 1
+        todayTotalCount: 1,
+        raceDayActive: false,
+        raceDayLapCount: 0
     )
 
     /// Read whatever the Watch app last cached into the shared App Group
@@ -44,7 +48,9 @@ struct ComplicationSnapshot {
             daysOut: d.integer(forKey: "tp_comp_daysOut"),
             raceShortName: d.string(forKey: "tp_comp_raceShortName") ?? "—",
             todayDoneCount: d.integer(forKey: "tp_comp_todayDoneCount"),
-            todayTotalCount: d.integer(forKey: "tp_comp_todayTotalCount")
+            todayTotalCount: d.integer(forKey: "tp_comp_todayTotalCount"),
+            raceDayActive: d.bool(forKey: "tp_comp_raceDayActive"),
+            raceDayLapCount: d.integer(forKey: "tp_comp_raceDayLapCount")
         )
     }
 }
@@ -93,7 +99,11 @@ private func phaseColor(_ hex: String) -> Color {
 struct InlineView: View {
     let entry: TodayPhaseEntry
     var body: some View {
-        Text("\(entry.snapshot.phaseLabel) · \(entry.snapshot.daysOut)d")
+        if entry.snapshot.raceDayActive {
+            Text("RACE DAY · \(entry.snapshot.raceDayLapCount) lap\(entry.snapshot.raceDayLapCount == 1 ? "" : "s")")
+        } else {
+            Text("\(entry.snapshot.phaseLabel) · \(entry.snapshot.daysOut)d")
+        }
     }
 }
 
@@ -103,13 +113,25 @@ struct CircularView: View {
     var body: some View {
         ZStack {
             AccessoryWidgetBackground()
-            VStack(spacing: 0) {
-                Text("\(entry.snapshot.daysOut)")
-                    .font(.system(size: 20, weight: .heavy, design: .rounded))
-                    .minimumScaleFactor(0.6)
-                Text("d")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.secondary)
+            if entry.snapshot.raceDayActive {
+                VStack(spacing: 0) {
+                    Text("\(entry.snapshot.raceDayLapCount)")
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .minimumScaleFactor(0.5)
+                    Text("LAPS")
+                        .font(.system(size: 7, weight: .heavy))
+                        .tracking(0.4)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    Text("\(entry.snapshot.daysOut)")
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .minimumScaleFactor(0.6)
+                    Text("d")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -120,27 +142,46 @@ struct RectangularView: View {
     let entry: TodayPhaseEntry
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(phaseColor(entry.snapshot.phaseAccent))
-                    .frame(width: 6, height: 6)
-                Text(entry.snapshot.phaseLabel)
-                    .font(.system(size: 11, weight: .heavy))
-                    .tracking(0.4)
-                    .foregroundStyle(phaseColor(entry.snapshot.phaseAccent))
-            }
-            Text("\(entry.snapshot.daysOut)d to \(entry.snapshot.raceShortName)")
-                .font(.system(.body, weight: .heavy))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            if entry.snapshot.todayTotalCount > 0 {
-                Text("Today \(entry.snapshot.todayDoneCount)/\(entry.snapshot.todayTotalCount)")
+            if entry.snapshot.raceDayActive {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 6, height: 6)
+                    Text("RACE DAY")
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(0.4)
+                        .foregroundStyle(Color.red)
+                }
+                Text("\(entry.snapshot.raceDayLapCount) lap\(entry.snapshot.raceDayLapCount == 1 ? "" : "s") in")
+                    .font(.system(.body, weight: .heavy))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text("Tap to open")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Rest day")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(phaseColor(entry.snapshot.phaseAccent))
+                        .frame(width: 6, height: 6)
+                    Text(entry.snapshot.phaseLabel)
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(0.4)
+                        .foregroundStyle(phaseColor(entry.snapshot.phaseAccent))
+                }
+                Text("\(entry.snapshot.daysOut)d to \(entry.snapshot.raceShortName)")
+                    .font(.system(.body, weight: .heavy))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                if entry.snapshot.todayTotalCount > 0 {
+                    Text("Today \(entry.snapshot.todayDoneCount)/\(entry.snapshot.todayTotalCount)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Rest day")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .containerBackground(.fill.tertiary, for: .widget)
@@ -151,12 +192,19 @@ struct RectangularView: View {
 struct CornerView: View {
     let entry: TodayPhaseEntry
     var body: some View {
-        Text("\(entry.snapshot.daysOut)d")
-            .font(.system(size: 16, weight: .black, design: .rounded))
-            .widgetCurvesContent()
-            .widgetLabel {
-                Text("\(entry.snapshot.phaseLabel) · \(entry.snapshot.raceShortName)")
-            }
+        if entry.snapshot.raceDayActive {
+            Text("\(entry.snapshot.raceDayLapCount)L")
+                .font(.system(size: 16, weight: .black, design: .rounded))
+                .widgetCurvesContent()
+                .widgetLabel { Text("RACE DAY · live") }
+        } else {
+            Text("\(entry.snapshot.daysOut)d")
+                .font(.system(size: 16, weight: .black, design: .rounded))
+                .widgetCurvesContent()
+                .widgetLabel {
+                    Text("\(entry.snapshot.phaseLabel) · \(entry.snapshot.raceShortName)")
+                }
+        }
     }
 }
 

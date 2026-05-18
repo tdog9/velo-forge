@@ -413,6 +413,11 @@ final class WatchAppState: ObservableObject {
         defaults.set(phase?.raceShortName ?? "—",      forKey: "tp_comp_raceShortName")
         defaults.set(todayWorkouts.filter(\.completed).count, forKey: "tp_comp_todayDoneCount")
         defaults.set(todayWorkouts.count,              forKey: "tp_comp_todayTotalCount")
+        // Race-day overrides for the complication (rec #46) — when
+        // race day is live, the complication should show RACE DAY +
+        // the current lap count rather than days-out to the next race.
+        defaults.set(raceDayActive,                    forKey: "tp_comp_raceDayActive")
+        defaults.set(raceDayLaps.count,                forKey: "tp_comp_raceDayLapCount")
         defaults.set(Date().timeIntervalSince1970,     forKey: "tp_comp_updatedAt")
 
         #if canImport(WidgetKit)
