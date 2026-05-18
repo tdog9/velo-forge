@@ -41,6 +41,9 @@ const GPS_GAP_THRESHOLD_MS = 15000;
 // "Rider down" button. Stamped on the stint record so the post-race
 // archive shows the incident clearly.
 let stintRiderDownFlag  = null; // null or { ts, reason }
+// Pit-window heads-up (rec #9). Set to the stint-start (or last-pit)
+// timestamp the cue last fired for, so we voice it once per window.
+let stintPitWindowAlertedFor = 0;
 // Local persistence keys (rec #5). On cold boot mid-stint we rehydrate
 // laps + pit stops + gaps from localStorage so a force-quit doesn't
 // destroy in-flight stint data.
@@ -1716,6 +1719,10 @@ function speakRaceCue(kind, value = null, message = null) {
       }
     } else if (kind === 'pit-suggest') {
       text = 'Time to pit';
+    } else if (kind === 'pit-window') {
+      // Heads-up rec #9 — fired once when pit ETA crosses 3 min so the
+      // rider can plan their approach rather than being told "now".
+      text = 'Pit window in three minutes';
     } else if (kind === 'crash') {
       text = message || 'Are you OK?';
     } else if (kind === 'stint-end') {
@@ -1888,9 +1895,10 @@ function updateActive() {
   // window: target = 25 min since last pit (or stint start).
   const pitEta = document.getElementById('rd-pit-eta');
   if (pitEta) {
-    const sinceLastPit = stintPitStops.length
-      ? Date.now() - stintPitStops[stintPitStops.length - 1].ts
-      : Date.now() - stintStartTime;
+    const lastPitTs = stintPitStops.length
+      ? stintPitStops[stintPitStops.length - 1].ts
+      : stintStartTime;
+    const sinceLastPit = Date.now() - lastPitTs;
     const remainingMs = 25 * 60 * 1000 - sinceLastPit;
     if (remainingMs <= 0) {
       pitEta.textContent = 'NOW';
@@ -1898,6 +1906,13 @@ function updateActive() {
     } else {
       pitEta.textContent = fmtTime(remainingMs);
       pitEta.style.color = remainingMs < 5 * 60 * 1000 ? 'var(--warning, #f97316)' : 'var(--fg)';
+    }
+    // 3-minute pit-window heads-up (rec #9) — voice once per window.
+    if (remainingMs > 0 && remainingMs <= 3 * 60 * 1000
+        && stintPitWindowAlertedFor !== lastPitTs) {
+      stintPitWindowAlertedFor = lastPitTs;
+      try { speakRaceCue('pit-window'); } catch (_) {}
+      try { ctx.showToast?.('Pit window in 3 min — start planning approach.', 'info'); } catch (_) {}
     }
   }
   if (stintLaps.length>0) {
@@ -1918,7 +1933,8 @@ function updateActive() {
         return 'var(--fg)';
       };
       lapList.innerHTML=stintLaps.slice().reverse().map((lap,i)=>{
-        const n=stintLaps.length-i, isBest=lap.duration===bestDur;
+        const idx = stintLaps.length - 1 - i; // index into stintLaps[]
+        const n=idx+1, isBest=lap.duration===bestDur;
         const conf = lapConfidence(lap);
         const confBadge = conf === 'low'
           ? '<span title="GPS gap during this lap — confidence low" style="font-size:9px;font-weight:800;color:var(--warning,#f97316);padding:1px 5px;border:1px solid rgba(var(--warning-rgb,249,115,22),.4);border-radius:99px;letter-spacing:.04em">LOW</span>'
@@ -1931,8 +1947,29 @@ function updateActive() {
           <span style="flex:1;font-weight:700;font-family:var(--font-mono);color:${c}">${fmtMs(lap.duration)}</span>
           ${confBadge}
           ${isBest?'<span style="font-size:10px;color:var(--success);font-weight:700">BEST</span>':''}
+          <button class="rd-lap-del" data-lap-idx="${idx}" aria-label="Remove lap ${n}" title="Remove lap" style="margin-left:4px;background:transparent;border:none;color:var(--muted-fg);font-size:14px;line-height:1;padding:0 4px;cursor:pointer">×</button>
         </div>`;
       }).join('');
+      // Bind delete buttons. Each click confirms then splices the lap.
+      // Used to correct an auto-detected lap that was a false positive
+      // (rec #11). Re-renders via updateActive.
+      lapList.querySelectorAll('.rd-lap-del').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.dataset.lapIdx || '-1', 10);
+          if (idx < 0 || idx >= stintLaps.length) return;
+          const n = idx + 1;
+          if (!confirm('Remove lap ' + n + '? You can re-add it with Tap Lap.')) return;
+          const removed = stintLaps.splice(idx, 1)[0];
+          // Re-anchor lastLapTime so the next auto-lap measures from
+          // the most-recent surviving lap (or stint start).
+          lastLapTime = stintLaps.length ? stintLaps[stintLaps.length - 1].time : null;
+          try { ctx.showToast?.('Lap ' + n + ' removed.', 'info'); } catch (_) {}
+          try { ctx.haptic?.('light'); } catch (_) {}
+          persistStintState();
+          updateActive();
+        });
+      });
     }
   }
 }
