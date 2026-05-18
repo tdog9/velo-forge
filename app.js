@@ -5857,7 +5857,7 @@ function renderToday() {
   html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
     <div class="today-date" style="margin:0">${dateStr}</div>
     <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:12px;font-weight:700;color:var(--primary);letter-spacing:.02em">${escHtml(lvl.name)} · ${xp} XP</span>
+      <span id="today-xp-display" style="font-size:12px;font-weight:700;color:var(--primary);letter-spacing:.02em">${escHtml(lvl.name)} · ${xp} XP</span>
       <button id="today-customize" aria-label="Customize widgets" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:2px;display:inline-flex;align-items:center" title="Customize widgets">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
@@ -6027,6 +6027,9 @@ function renderToday() {
           <button id="health-resync-btn" type="button" aria-label="Sync health now" title="Sync health now" style="background:transparent;border:none;color:var(--muted-fg);padding:2px 4px;cursor:pointer;display:inline-flex;align-items:center" onclick="event.stopPropagation()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           </button>
+          ${ageMin == null ? `<button id="health-regrant-btn" type="button" aria-label="Re-grant HealthKit in Settings" title="Re-grant HealthKit in Settings" style="background:transparent;border:none;color:var(--muted-fg);padding:2px 4px;cursor:pointer;display:inline-flex;align-items:center" onclick="event.stopPropagation()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>` : ''}
           <span style="font-size:12px;color:var(--muted-fg)">›</span>
         </div>
       </div>
@@ -6514,6 +6517,20 @@ function renderToday() {
   // lives there. Less duplication, cleaner Today page.
   html += '</div></div>';
   c.innerHTML = html;
+  // XP bump animation (rec #94). When XP has gone up since the last
+  // Today render, pulse the XP pill briefly. Respected by the
+  // prefers-reduced-motion media query in styles.css.
+  try {
+    const prevXp = window._tpLastSeenXp ?? xp;
+    if (xp > prevXp) {
+      const el = document.getElementById('today-xp-display');
+      if (el) {
+        el.classList.add('tp-xp-bump');
+        setTimeout(() => el.classList.remove('tp-xp-bump'), 900);
+      }
+    }
+    window._tpLastSeenXp = xp;
+  } catch (_) {}
   // Bind duration picker
   document.querySelectorAll('.dur-pick').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -6885,6 +6902,20 @@ function renderToday() {
         showToast?.('Health sync only works in the iOS app.', 'warn');
       }
     } catch (err) { showToast?.('Sync failed: ' + (err?.message || err), 'error'); }
+  });
+  // HealthKit re-grant (rec #45) — when no health data is syncing,
+  // shortcut to Settings → TurboPrep so the user can flip Health
+  // access back on if they denied it during onboarding.
+  $('health-regrant-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    haptic('light');
+    try {
+      if (window.webkit?.messageHandlers?.openAppSettings) {
+        window.webkit.messageHandlers.openAppSettings.postMessage({});
+      } else {
+        showToast?.('HealthKit only available in the iOS app.', 'warn');
+      }
+    } catch (err) { showToast?.('Could not open Settings: ' + (err?.message || err), 'error'); }
   });
   // Health card → open detailed dashboard
   $('health-card-tap')?.addEventListener('click', () => {

@@ -1967,6 +1967,18 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 
 .admin-tab-btn.active{background:var(--primary)!important;color:var(--primary-fg)!important;border-color:var(--primary)!important}
 
+/* XP bump (rec #94) — brief pulse when the XP pill increases. */
+@keyframes tp-xp-bump {
+  0%   { transform: scale(1);    }
+  35%  { transform: scale(1.20); color: #fbbf24; }
+  70%  { transform: scale(0.96); }
+  100% { transform: scale(1);    }
+}
+.tp-xp-bump {
+  display: inline-block;
+  animation: tp-xp-bump 700ms cubic-bezier(.34,1.56,.64,1);
+}
+
 /* iPad pit-display layout (rec #6). On wide landscape screens the
    active-stint view flows into a two-column grid: timer + map on
    the left, stats + lap list + buttons on the right. Phone portrait

@@ -2157,10 +2157,21 @@ async function renderUsersOrphans(el) {
   orphans.forEach(u => {
     const c = created(u);
     const dateStr = c ? new Date(c).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-    // Heuristic spam tags.
+    // Heuristic spam tags (rec #80). Each layer = one likely-spam
+    // signal; more layers = more confidence the row should be deleted.
     const tags = [];
     if (!u.displayName) tags.push('no name');
     if (u.email && /^[a-z]+\d+@gmail\.com$/i.test(u.email)) tags.push('numeric gmail');
+    // Display name made of mostly digits / random consonant runs.
+    if (u.displayName) {
+      const n = String(u.displayName).trim();
+      if (/^\d+$/.test(n)) tags.push('digits-only name');
+      else if (n.length >= 6 && !/[aeiouAEIOU]/.test(n)) tags.push('no-vowel name');
+    }
+    // Hardly any standard onboarding fields filled in.
+    if (!u.yearLevel && !u.fitnessLevel && !u.bio) tags.push('empty profile');
+    // Never logged a workout.
+    if ((u.totalWorkouts || 0) === 0) tags.push('no workouts');
     if (u.teamId && u.teamId === teamId && !teamMembersSet.has(u.uid)) tags.push('drift');
     html += `
       <div class="card admin-orphan-row" data-orphan-uid="${escHtml(u.uid)}" style="margin-bottom:8px;padding:12px 14px">
