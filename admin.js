@@ -986,13 +986,34 @@ export async function renderCoachDashboard() {
     const exportBtn = A.$('coach-export-csv');
     if (exportBtn) {
       exportBtn.addEventListener('click', async () => {
-        let csv = 'Name,Year,Tier,Workouts,Avg RPE,Last Active\n';
+        // Full export (rec #79) — pulls every additional field from
+        // teamMembers (looked up by name) so the CSV carries email,
+        // subteam, streak alongside the dashboard stats. Each cell is
+        // quoted so commas in names / subteams don't break columns.
+        const csvCell = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const subteams = Array.isArray(A.teamData?.subteams) ? A.teamData.subteams : [];
+        const subteamForUid = (uid) => {
+          if (!uid) return '';
+          const s = subteams.find(s => Array.isArray(s.members) && s.members.includes(uid));
+          return s ? (s.name || '') : '';
+        };
+        let csv = 'Name,Email,Year,Tier,Subteam,Workouts,Streak,Avg RPE,Last Active\n';
         students.forEach(s => {
+          // Match the student back to the team-members cache by name
+          // (case-insensitive) — gives us email + uid + streak.
+          const lower = (s.name || '').trim().toLowerCase();
+          const m = (A.teamMembers || []).find(mem =>
+            (mem.displayName || '').trim().toLowerCase() === lower);
           csv += [
-            '"' + (s.name || '').replace(/"/g, '""') + '"',
-            s.year, capitalize(s.tier), s.workouts,
-            s.avgRpe ? s.avgRpe.toFixed(1) : '',
-            s.lastActive ? s.lastActive.toISOString().split('T')[0] : 'Never'
+            csvCell(s.name),
+            csvCell(m?.email || ''),
+            csvCell(s.year || m?.yearLevel || ''),
+            csvCell(capitalize(s.tier || m?.fitnessLevel || '')),
+            csvCell(subteamForUid(m?.uid)),
+            csvCell(s.workouts ?? m?.totalWorkouts ?? 0),
+            csvCell(m?.streak ?? 0),
+            csvCell(s.avgRpe ? s.avgRpe.toFixed(1) : ''),
+            csvCell(s.lastActive ? s.lastActive.toISOString().split('T')[0] : 'Never'),
           ].join(',') + '\n';
         });
         const filename = 'turboprep-students-' + new Date().toISOString().split('T')[0] + '.csv';
