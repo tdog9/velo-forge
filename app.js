@@ -9806,20 +9806,28 @@ function computeChatUnread() {
 }
 function updateChatUnreadBadge() {
   const btn = document.querySelector('.lb-sub-tab[data-lb-sub="chat"]');
-  if (!btn) return;
   const onChatTab = (lbSubTab === 'chat' && currentPage === 'team');
   const count = onChatTab ? 0 : computeChatUnread();
-  let badge = btn.querySelector('.lb-sub-badge');
-  if (count > 0) {
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'lb-sub-badge';
-      btn.appendChild(badge);
+  if (btn) {
+    let badge = btn.querySelector('.lb-sub-badge');
+    if (count > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'lb-sub-badge';
+        btn.appendChild(badge);
+      }
+      badge.textContent = count > 9 ? '9+' : String(count);
+    } else if (badge) {
+      badge.remove();
     }
-    badge.textContent = count > 9 ? '9+' : String(count);
-  } else if (badge) {
-    badge.remove();
   }
+  // Native app icon badge sync — iOS only. The native shell handles
+  // clamping + UNUserNotificationCenter.setBadgeCount.
+  try {
+    if (window.webkit?.messageHandlers?.tpNative) {
+      window.webkit.messageHandlers.tpNative.postMessage({ type: 'set-badge', count: count });
+    }
+  } catch (_) {}
 }
 
 // Toggle the current user's reaction on a chat message (rec #21).

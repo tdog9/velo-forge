@@ -228,6 +228,16 @@ struct WebViewContainer: UIViewRepresentable {
                 if #available(iOS 14.0, *) {
                     WidgetCenter.shared.reloadAllTimelines()
                 }
+            case "set-badge":
+                // Web telling iOS the desired app-icon badge count
+                // (typically chat unread). Clamp to 0…99 and write via
+                // UNUserNotificationCenter so iOS 17+'s deprecation of
+                // applicationIconBadgeNumber doesn't bite.
+                let raw = (body["count"] as? Int) ?? 0
+                let n = max(0, min(99, raw))
+                Task { @MainActor in
+                    try? await UNUserNotificationCenter.current().setBadgeCount(n)
+                }
             case "request-health-sync":
                 // Web tapped "Sync now" on the Health tab. Run a forced
                 // refresh that bypasses the 5-min throttle so the user
