@@ -2011,6 +2011,7 @@ export function renderAdminUsersMerged() {
 
   const subTabs = [
     { id: 'all', label: 'All Users' },
+    { id: 'search', label: 'Search All' },
     { id: 'import', label: 'Import Roster' },
     { id: 'orphans', label: 'Orphans' },
     { id: 'permissions', label: 'Admin Access' }
@@ -2034,10 +2035,82 @@ export function renderAdminUsersMerged() {
   const sc = A.$('users-sub-content');
   switch (usersSubTab) {
     case 'all': renderUsersAll(sc); break;
+    case 'search': renderUsersSearch(sc); break;
     case 'import': renderUsersImport(sc); break;
     case 'orphans': renderUsersOrphans(sc); break;
     case 'permissions': renderUsersPermissions(sc); break;
   }
+}
+
+// ── Search All Users (rec #77) ────────────────────────────────────────
+// Loads the full users collection once on tab open, caches it, and
+// filters by substring on every keystroke (name / email / uid). Used
+// when a coach needs to find an athlete who isn't on their team yet
+// — a Pro Request applicant, a parent linking to a child, etc.
+let _allUsersFullCache = null;
+let _allUsersFullCachedAt = 0;
+async function renderUsersSearch(el) {
+  el.innerHTML = `
+    <div style="margin-bottom:10px">
+      <input class="input" id="admin-user-fulltext" type="search" placeholder="Search name, email, or uid…" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div id="admin-user-fulltext-meta" style="font-size:11px;color:var(--muted-fg);margin-top:6px">Loading users…</div>
+    </div>
+    <div id="admin-user-fulltext-results"></div>`;
+  const meta = el.querySelector('#admin-user-fulltext-meta');
+  const results = el.querySelector('#admin-user-fulltext-results');
+  const input = el.querySelector('#admin-user-fulltext');
+
+  // Reuse a recent cache (90 s) so flipping tabs doesn't refetch the
+  // whole collection.
+  if (!_allUsersFullCache || (Date.now() - _allUsersFullCachedAt) > 90 * 1000) {
+    try {
+      const snap = await A.getDocs(A.collection(A.db, 'users'));
+      _allUsersFullCache = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+      _allUsersFullCachedAt = Date.now();
+    } catch (e) {
+      meta.textContent = 'Failed to load users: ' + (e?.message || e);
+      return;
+    }
+  }
+  meta.textContent = _allUsersFullCache.length + ' users in the system. Start typing.';
+
+  const renderMatches = (q) => {
+    const ql = (q || '').toLowerCase().trim();
+    if (!ql) {
+      results.innerHTML = '<div class="admin-empty" style="padding:18px">Type to search across every account, not just team members.</div>';
+      return;
+    }
+    const matches = _allUsersFullCache.filter(u => {
+      const n = (u.displayName || '').toLowerCase();
+      const e = (u.email || '').toLowerCase();
+      const uid = (u.uid || '').toLowerCase();
+      return n.includes(ql) || e.includes(ql) || uid.includes(ql);
+    }).slice(0, 50);
+    if (!matches.length) {
+      results.innerHTML = '<div class="admin-empty" style="padding:18px">No matches.</div>';
+      return;
+    }
+    results.innerHTML = matches.map(u => {
+      const subs = A.teamData?.subteams || [];
+      const sub = subs.find(s => Array.isArray(s.members) && s.members.includes(u.uid));
+      const subLabel = sub ? sub.name : '';
+      return `<div class="card" style="margin-bottom:6px;padding:10px 12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.displayName || '(no name)')}</div>
+            <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.email || u.uid)}</div>
+          </div>
+          <div style="font-size:10.5px;color:var(--muted-fg);flex-shrink:0;text-align:right">
+            ${escHtml(u.yearLevel || '—')} · ${capitalize(u.fitnessLevel || '—')}
+            ${u.teamName ? '<div>' + escHtml(u.teamName) + (subLabel ? ' · ' + escHtml(subLabel) : '') + '</div>' : (u.teamId ? '<div>team ' + escHtml(String(u.teamId).slice(0, 8)) + '…</div>' : '<div>no team</div>')}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  };
+  renderMatches('');
+  input.addEventListener('input', e => renderMatches(e.target.value));
+  input.focus();
 }
 
 // ── Orphan Accounts (rec #76) ─────────────────────────────────────────
