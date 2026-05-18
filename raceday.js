@@ -1789,6 +1789,8 @@ function renderActiveStint(c) {
       <div style="text-align:center;min-width:0"><span id="rd-pc" style="font-size:14px;font-weight:800;color:var(--warning, #f97316)">0</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">pits</span></div>
       <div style="width:1px;height:14px;background:var(--border)"></div>
       <div style="text-align:center;min-width:0"><span id="rd-pit-eta" style="font-size:14px;font-weight:800;color:var(--fg);font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">next pit</span></div>
+      <div style="width:1px;height:14px;background:var(--border)"></div>
+      <div style="text-align:center;min-width:0"><span id="rd-watch-bat" style="font-size:14px;font-weight:800;color:var(--muted-fg);font-family:var(--font-mono)">—</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">watch</span></div>
     </div>
     <div id="rd-laplist" style="margin-bottom:10px;max-height:180px;overflow-y:auto"></div>
     <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -1931,6 +1933,22 @@ function updateActive() {
       stintPitWindowAlertedFor = lastPitTs;
       try { speakRaceCue('pit-window'); } catch (_) {}
       try { ctx.showToast?.('Pit window in 3 min — start planning approach.', 'info'); } catch (_) {}
+    }
+  }
+  // Watch battery display (rec #50). Latest sample was pushed by the
+  // Watch via ConnectivityService → tpNative.onWatchBattery; show it
+  // and colour-warn under 20%. Treat data >5 min old as stale.
+  const watchEl = document.getElementById('rd-watch-bat');
+  if (watchEl) {
+    const wb = window._tpWatchBattery;
+    if (wb && (Date.now() - wb.at) < 5 * 60 * 1000) {
+      const pct = Math.round((wb.level || 0) * 100);
+      const charging = wb.state === 2 || wb.state === 3;
+      watchEl.textContent = pct + '%' + (charging ? '⚡' : '');
+      watchEl.style.color = pct < 20 ? 'var(--destructive)' : (pct < 40 ? 'var(--warning, #f97316)' : 'var(--fg)');
+    } else {
+      watchEl.textContent = '—';
+      watchEl.style.color = 'var(--muted-fg)';
     }
   }
   if (stintLaps.length>0) {

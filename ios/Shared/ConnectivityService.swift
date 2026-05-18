@@ -37,6 +37,12 @@ final class ConnectivityService: NSObject, ObservableObject {
     /// match pushes a fresh state snapshot back to the Watch.
     var onWatchPairAttempt: (([String: Any]) -> Void)?
 
+    /// Watch → iPhone: latest Watch battery snapshot (rec #50). `body`
+    /// contains `{ level: 0.0-1.0, state: Int }` where state is the
+    /// WKInterfaceDeviceBatteryState raw value. iPhone forwards into
+    /// the web via the tpNative bridge.
+    var onWatchBatteryReceived: (([String: Any]) -> Void)?
+
     override init() {
         super.init()
         guard WCSession.isSupported() else { return }
@@ -122,6 +128,13 @@ final class ConnectivityService: NSObject, ObservableObject {
     /// which writes users/{uid}/training_sessions/{id}.
     func sendTrainingSessionEnd(_ payload: [String: Any]) {
         send(["payload": "trainingSessionEnd", "data": payload])
+    }
+
+    /// Watch → iPhone: current Watch battery level (rec #50). iPhone
+    /// surfaces this in the race-day overlay so the pit crew knows
+    /// whether to swap the Watch before the next stint.
+    func sendWatchBattery(level: Float, state: Int) {
+        send(["payload": "watchBattery", "data": ["level": level, "state": state]])
     }
 
     private func send(_ dict: [String: Any], onSent: (@MainActor (Bool) -> Void)? = nil) {
@@ -228,6 +241,8 @@ extension ConnectivityService: WCSessionDelegate {
             onSnapshotRequested?()
         case "watchPairAttempt":
             onWatchPairAttempt?(body)
+        case "watchBattery":
+            onWatchBatteryReceived?(body)
         default:
             break
         }

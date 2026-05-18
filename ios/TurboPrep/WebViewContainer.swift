@@ -437,6 +437,17 @@ struct WebViewContainer: UIViewRepresentable {
                     let js = "if (window.tpNative && typeof window.tpNative.checkWatchPairCode === 'function') { window.tpNative.checkWatchPairCode('\(escaped)'); }"
                     webView.evaluateJavaScript(js, completionHandler: nil)
                 }
+                // Watch battery push (rec #50). Web exposes
+                // window.tpNative.onWatchBattery({level, state}) which
+                // the race-day overlay reads to show the Watch battery
+                // pill next to the lap timer.
+                ConnectivityService.shared.onWatchBatteryReceived = { [weak webView] body in
+                    guard let webView,
+                          let data = try? JSONSerialization.data(withJSONObject: body),
+                          let json = String(data: data, encoding: .utf8) else { return }
+                    let js = "if (window.tpNative && typeof window.tpNative.onWatchBattery === 'function') { window.tpNative.onWatchBattery(\(json)); }"
+                    webView.evaluateJavaScript(js, completionHandler: nil)
+                }
             }
         }
 

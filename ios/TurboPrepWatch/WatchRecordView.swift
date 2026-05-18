@@ -46,6 +46,9 @@ struct RaceDayView: View {
     @State private var now: Date = Date()
     @State private var tickCancellable: AnyCancellable?
     @State private var lastCountdownAlert: Int = -1
+    /// Timestamp of the most-recent watch-battery push to iPhone — used
+    /// to throttle to one send per 60 s (rec #50).
+    @State private var lastBatterySentAt: Date = .distantPast
 
     var body: some View {
         Group {
@@ -80,6 +83,21 @@ struct RaceDayView: View {
         // Haptic alerts as the stint countdown approaches zero.
         .onChange(of: now) { _, newNow in
             checkCountdownAlerts(at: newNow)
+            // Throttled Watch-battery push to the iPhone (rec #50) —
+            // fires once per minute while a stint is active so the pit
+            // crew can decide whether to swap the Watch before the
+            // next handoff.
+            if state.stintInProgress
+               && newNow.timeIntervalSince(lastBatterySentAt) >= 60 {
+                lastBatterySentAt = newNow
+                let dev = WKInterfaceDevice.current()
+                dev.isBatteryMonitoringEnabled = true
+                let level = dev.batteryLevel // -1.0 if unavailable
+                let stateRaw = dev.batteryState.rawValue // 0 unknown, 1 unplugged, 2 charging, 3 full
+                if level >= 0 {
+                    ConnectivityService.shared.sendWatchBattery(level: level, state: stateRaw)
+                }
+            }
         }
     }
 

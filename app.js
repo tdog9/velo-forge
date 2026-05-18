@@ -1042,6 +1042,17 @@ if (typeof window !== 'undefined') {
       }
     } catch(e) {}
   };
+  // Watch battery (rec #50) — pushed every ~60s while a stint is
+  // active. Latest value lives on window so renderActiveStint can pick
+  // it up on the next 1Hz tick.
+  window.tpNative.onWatchBattery = function(payload) {
+    try {
+      const level = typeof payload?.level === 'number' ? payload.level : null;
+      const state = typeof payload?.state === 'number' ? payload.state : 0;
+      if (level == null) return;
+      window._tpWatchBattery = { level, state, at: Date.now() };
+    } catch (e) {}
+  };
   window.tpNative.onRaceDayLaps = async function(payload) {
     try {
       const today = new Date();
