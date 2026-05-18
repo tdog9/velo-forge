@@ -1967,6 +1967,29 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 
 .admin-tab-btn.active{background:var(--primary)!important;color:var(--primary-fg)!important;border-color:var(--primary)!important}
 
+/* iPad pit-display layout (rec #6). On wide landscape screens the
+   active-stint view flows into a two-column grid: timer + map on
+   the left, stats + lap list + buttons on the right. Phone portrait
+   is unaffected (flex column default). The timer + map scale up so
+   the rider can read them at pit-wall distance. */
+.rd-active-grid{ display:flex; flex-direction:column; gap:8px; }
+@media (min-width: 900px) and (orientation: landscape) {
+  .rd-active-grid{
+    display:grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap:18px;
+    align-items:start;
+    max-width:1100px;
+    margin:0 auto;
+  }
+  .rd-active-col-a #rd-timer{ font-size:84px !important; }
+  .rd-active-col-a #rd-sublabel{ font-size:15px !important; }
+  .rd-active-col-a #rd-live-map{ height:320px !important; }
+  .rd-active-col-b #rd-laplist{ max-height:none !important; }
+  /* Make the stats bar's tabular numbers more glanceable. */
+  .rd-active-col-b [id^="rd-"]{ font-size:16px; }
+}
+
 /* Reduced motion (rec #74). Respects the OS-level accessibility
    setting — Settings → Accessibility → Motion → Reduce Motion on
    iOS. Collapses every animation + transition to ~instant and stops

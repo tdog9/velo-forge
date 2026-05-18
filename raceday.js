@@ -1798,13 +1798,21 @@ function addStartMarker(lat,lng) {
 }
 
 function renderActiveStint(c) {
+  // The active-stint UI is wrapped in .rd-active-grid so the CSS at
+  // the bottom of styles.css can flow it into a 2-column grid on
+  // landscape iPads / wide desktops (rec #6 — pit-display layout).
+  // On phone portrait the wrapper is a plain flex column.
   c.innerHTML=`
+  <div class="rd-active-grid">
+    <div class="rd-active-col-a">
     <div style="text-align:center;padding-top:8px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">● STINT ACTIVE</div>
       <div id="rd-timer" style="font-size:60px;font-weight:800;font-family:var(--font-mono);color:var(--fg);line-height:1">00:00</div>
       <div id="rd-sublabel" style="font-size:12px;color:var(--muted-fg);margin-top:4px">GPS connecting...</div>
     </div>
     <div id="rd-live-map" style="width:100%;height:140px;border-radius:12px;overflow:hidden;background:#0a1628;margin-bottom:10px"></div>
+    </div>
+    <div class="rd-active-col-b">
     <div style="display:flex;align-items:center;justify-content:space-around;gap:4px;margin-bottom:10px;padding:8px 8px;border:1px solid var(--border);border-radius:99px;background:var(--card)">
       <div style="text-align:center;min-width:0"><span id="rd-al" style="font-size:14px;font-weight:800;color:var(--primary)">0</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">laps</span></div>
       <div style="width:1px;height:14px;background:var(--border)"></div>
@@ -1824,7 +1832,9 @@ function renderActiveStint(c) {
       <button id="rd-pit-btn" style="flex:1;padding:14px;border-radius:12px;background:rgba(var(--warning-rgb),.10);border:1px solid rgba(var(--warning-rgb),.35);color:var(--warning, #f97316);font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent">+ Pit Stop</button>
       <button id="rd-end-stint" style="flex:1;padding:14px;border-radius:12px;background:var(--destructive);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">End</button>
     </div>
-    <button id="rd-rider-down" style="width:100%;padding:11px;border-radius:12px;background:rgba(var(--destructive-rgb),.10);border:1px solid rgba(var(--destructive-rgb),.40);color:var(--destructive);font-size:12.5px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;-webkit-tap-highlight-color:transparent">Rider down / mechanical — flag pit</button>`;
+    <button id="rd-rider-down" style="width:100%;padding:11px;border-radius:12px;background:rgba(var(--destructive-rgb),.10);border:1px solid rgba(var(--destructive-rgb),.40);color:var(--destructive);font-size:12.5px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;-webkit-tap-highlight-color:transparent">Rider down / mechanical — flag pit</button>
+    </div>
+  </div>`;
 
   setTimeout(()=>{
     try {
