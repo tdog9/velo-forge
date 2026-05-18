@@ -10473,6 +10473,45 @@ function renderTeamTab(c, opts) {
           <div class="hub-pulse-lbl">${escHtml(longestStreakName)}</div>
         </div>
       </div>`;
+    // Needs Attention (rec #28) — coach-only card listing athletes who
+    // have either gone quiet (7+ days without activity) or have a
+    // current streak ≥3 with no workout today (at risk of breaking).
+    if (isMasterOrCoach && teamMembers.length > 0) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const todayMs = today.getTime();
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      const flagged = [];
+      teamMembers.forEach(m => {
+        if (m.uid === currentUser?.uid) return;
+        const lastMs = m.lastActive ? (new Date(m.lastActive)).getTime() : 0;
+        if (!lastMs) {
+          flagged.push({ uid: m.uid, name: m.displayName || 'Unknown', reason: 'no activity yet', priority: 1 });
+          return;
+        }
+        const daysSince = Math.floor((now - lastMs) / (24 * 60 * 60 * 1000));
+        if (daysSince >= 7) {
+          flagged.push({ uid: m.uid, name: m.displayName || 'Unknown', reason: daysSince + ' days quiet', priority: 0 });
+        } else if ((m.streak || 0) >= 3 && lastMs < todayMs) {
+          flagged.push({ uid: m.uid, name: m.displayName || 'Unknown', reason: 'streak (' + m.streak + 'd) at risk', priority: 2 });
+        }
+      });
+      flagged.sort((a, b) => a.priority - b.priority);
+      if (flagged.length > 0) {
+        html += `<div class="hub-attention">
+          <div class="hub-attention-head">
+            <span class="hub-attention-title">Needs Attention</span>
+            <span class="hub-attention-count">${flagged.length}</span>
+          </div>
+          ${flagged.slice(0, 8).map(f => `
+            <div class="hub-attention-row" data-member-uid="${escHtml(f.uid)}" role="button" tabindex="0">
+              <div class="hub-attention-name">${escHtml(f.name)}</div>
+              <div class="hub-attention-reason">${escHtml(f.reason)}</div>
+            </div>
+          `).join('')}
+          ${flagged.length > 8 ? `<div class="hub-attention-more">+${flagged.length - 8} more</div>` : ''}
+        </div>`;
+      }
+    }
   } catch(_) {}
   // ── Featured member of the week — pinned card just below the pulse
   // strip. Default = top member by total workouts (fast deterministic
@@ -10876,6 +10915,17 @@ function renderTeamTab(c, opts) {
     };
     card.addEventListener('click', open);
     card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+  });
+  // Needs Attention rows (rec #28) — tap an athlete to open their sheet.
+  c.querySelectorAll('.hub-attention-row[data-member-uid]').forEach(row => {
+    const open = () => {
+      const uid = row.dataset.memberUid;
+      if (uid) openMemberSheet(uid);
+    };
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
     });
   });

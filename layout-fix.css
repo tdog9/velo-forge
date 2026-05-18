@@ -2405,6 +2405,59 @@ body:has(#page-team.active) .ai-fab,
   overflow:hidden;
 }
 
+/* Needs Attention coach card (rec #28). */
+.hub-attention{
+  margin-bottom:14px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:rgba(var(--destructive-rgb),.06);
+  border:1px solid rgba(var(--destructive-rgb),.25);
+}
+.hub-attention-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:8px;
+}
+.hub-attention-title{
+  font-size:11px;font-weight:800;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:var(--destructive);
+}
+.hub-attention-count{
+  font-size:10.5px;font-weight:800;
+  padding:2px 7px;border-radius:99px;
+  background:rgba(var(--destructive-rgb),.18);
+  color:var(--destructive);
+}
+.hub-attention-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 0;
+  border-top:1px solid rgba(var(--destructive-rgb),.18);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.hub-attention-row:first-of-type{ border-top:none; padding-top:0; }
+.hub-attention-name{
+  font-size:13px;font-weight:700;color:var(--fg);
+  flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.hub-attention-reason{
+  font-size:11px;font-weight:700;
+  color:var(--destructive);
+  flex-shrink:0;
+  white-space:nowrap;
+}
+.hub-attention-more{
+  font-size:11px;color:var(--muted-fg);
+  text-align:center;margin-top:6px;
+  font-weight:700;
+}
+
 /* ============================================================
    Hub — featured member card
    ============================================================ */
