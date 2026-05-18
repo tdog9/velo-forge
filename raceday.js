@@ -85,7 +85,7 @@ export async function loadRaceDayState() {
   } catch(e) { console.warn('loadRaceDayState:',e); }
   return false;
 }
-export async function activateRaceDay(raceId) {
+export async function activateRaceDay(raceId, opts = {}) {
   const isMaster = ctx.currentUser?.email?.toLowerCase() === 'hearn.tenny@icloud.com';
   if (!ctx?.userProfile?.isCoach && !isMaster) return false;
   const now = Date.now();
@@ -99,6 +99,12 @@ export async function activateRaceDay(raceId) {
     startPoint: null,
     startPointSet: false,
     raceId: raceId||null,
+    // Dry-run mode (rec #1): coach can flip this to true when
+    // rehearsing handoffs/pit drills. saveStint reads it to skip the
+    // race_archive mirror so the rehearsal doesn't pollute the
+    // team's historical record. The race_day stint doc still writes
+    // (with dryRun:true stamped) so the live UI works normally.
+    dryRun: !!opts.dryRun,
     maxDurationMs: 12*60*60*1000 // 12 hour hard limit (was 25h — too long, watches got stuck)
   };
   try {
@@ -302,10 +308,17 @@ async function saveStint(record) {
     const merged = { ...existing, ...record, laps: mergedLaps };
     if (raceId) merged.raceId = raceId;
     if (raceYear) merged.raceYear = raceYear;
+    // Stamp dry-run state (rec #1) so post-race analysis can filter.
+    if (rdd.dryRun) merged.dryRun = true;
     await ctx.setDoc(ref, merged, { merge: true });
     // Mirror into a top-level race-archive collection keyed by race
     // identity so a future "Casey Fields, all years" view can query
     // across calendar dates without scanning every race_day doc.
+    // Dry-run rehearsals don't write to the archive — they'd pollute
+    // the historical record (rec #1).
+    if (rdd.dryRun) {
+      return;
+    }
     if (raceId && raceYear) {
       try {
         const archiveRef = ctx.doc(
@@ -502,6 +515,11 @@ function buildOverlayHTML() {
   .rd-drag-item.drag-over{border-color:var(--primary);border-top:2px solid var(--primary)}
 </style>
 
+<!-- Dry-run banner (rec #1). Surfaces above the header when the race
+     day was activated in rehearsal mode; nothing here writes to the
+     race archive, so coaches can drill handoffs without polluting
+     historical data. -->
+${rdd.dryRun ? `<div style="background:#f59e0b;color:#1a1a1a;text-align:center;padding:4px 10px;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;flex-shrink:0">Dry run — rehearsal mode, no archive</div>` : ''}
 <!-- Header matching app style -->
 <header style="height:56px;min-height:calc(56px + env(safe-area-inset-top,0px));padding:0 16px;padding-top:env(safe-area-inset-top,0px);display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;z-index:30">
   <div style="width:32px;height:32px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(var(--primary-rgb),.3)">T</div>

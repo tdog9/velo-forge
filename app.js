@@ -11201,9 +11201,16 @@ function renderTeamTab(c, opts) {
       const todayKey = localDateKey();
       const races = (typeof getActiveRaces === 'function') ? (getActiveRaces() || []) : [];
       const todayRace = races.find(r => r.date === todayKey) || null;
-      const ok = await activateRaceDay(todayRace?.id || null);
+      // Three-way choice: live race / dry run / cancel (rec #1).
+      const choice = window.prompt(
+        'Start race day:\n  1 = Live race (writes to archive)\n  2 = Dry run (rehearsal — no archive)\n\nEnter 1 or 2 (or cancel):',
+        '1'
+      );
+      if (choice == null) return;
+      const dryRun = choice.trim() === '2';
+      const ok = await activateRaceDay(todayRace?.id || null, { dryRun });
       if (ok) {
-        showToast('Race day mode activated.', 'success');
+        showToast(dryRun ? 'Dry-run race day active — nothing archives.' : 'Race day mode activated.', 'success');
         try { updateRaceDayTabBar(true); } catch(e) {}
         try { pushWatchState(); } catch(e) {}
         openRaceDayOverlay();
