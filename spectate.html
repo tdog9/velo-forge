@@ -210,12 +210,23 @@
             '<span class="chevron">▶</span>' +
           '</div>';
         if (isOpen) {
+          // Pace + projection (rec #10). Average lap = total elapsed
+          // ÷ laps completed; "next 30 min" projection extrapolates
+          // how many more laps the rider will tick over if they hold
+          // pace — gives spectators a feel for stint trajectory
+          // without needing a planned-duration field.
+          var avgMs = l.lapCount > 0 ? Math.round(l.elapsed / l.lapCount) : 0;
+          var proj30Min = avgMs > 0 ? Math.floor((30 * 60 * 1000) / avgMs) : 0;
           html += '<div class="live-row-detail">' +
             '<div class="stat-grid">' +
               '<div class="stat"><div class="stat-label">Last</div><div class="stat-value">' + fmtMs(l.lastMs) + '</div></div>' +
               '<div class="stat"><div class="stat-label">Best</div><div class="stat-value accent">' + fmtMs(l.bestMs) + '</div></div>' +
+              '<div class="stat"><div class="stat-label">Avg</div><div class="stat-value">' + (avgMs > 0 ? fmtMs(avgMs) : '—') + '</div></div>' +
               '<div class="stat"><div class="stat-label">Laps</div><div class="stat-value">' + l.lapCount + '</div></div>' +
             '</div>' +
+            (proj30Min > 0
+              ? '<div style="text-align:center;padding:8px 4px;margin-top:6px;border-radius:8px;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.18);font-size:12px;color:var(--fg)">On current pace: <strong>~' + proj30Min + ' laps</strong> in the next 30 min</div>'
+              : '') +
             (l.coord
               ? '<div class="live-map" id="live-map-' + id + '"></div>'
               : '<div class="empty" style="padding:20px">Waiting for GPS…</div>') +
