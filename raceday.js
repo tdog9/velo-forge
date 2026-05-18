@@ -241,10 +241,14 @@ async function loadSetupFields() {
 }
 function defaultSetupFields() {
   return [
-    {id:'seat',  label:'Seat Number', type:'number',min:0,max:30,value:'',filledBy:'member'},
-    {id:'helmet',label:'Helmet Size',  type:'text',  value:'',filledBy:'member'},
-    {id:'gloves',label:'Glove Size',   type:'text',  value:'',filledBy:'member'},
-    {id:'notes', label:'Personal Notes',type:'text', value:'',filledBy:'member'},
+    {id:'seat',     label:'Seat Number',        type:'number', min:0, max:30, value:'', filledBy:'member'},
+    {id:'helmet',   label:'Helmet Size',        type:'text',   value:'', filledBy:'member'},
+    {id:'gloves',   label:'Glove Size',         type:'text',   value:'', filledBy:'member'},
+    // Per-track lap distance (rec #13) — used to compute lap-based
+    // pace + speed in post-race analysis. Filled once per race by the
+    // coach, persists in the race-day setup doc.
+    {id:'lapDistM', label:'Lap Distance (m)',   type:'number', min:50, max:5000, value:'', filledBy:'coach'},
+    {id:'notes',    label:'Personal Notes',     type:'text',   value:'', filledBy:'member'},
   ];
 }
 async function saveSetupFields() {
@@ -1758,6 +1762,8 @@ function renderActiveStint(c) {
       <div style="text-align:center;min-width:0"><span id="rd-bl" style="font-size:14px;font-weight:800;color:var(--success);font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">best</span></div>
       <div style="width:1px;height:14px;background:var(--border)"></div>
       <div style="text-align:center;min-width:0"><span id="rd-pc" style="font-size:14px;font-weight:800;color:var(--warning, #f97316)">0</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">pits</span></div>
+      <div style="width:1px;height:14px;background:var(--border)"></div>
+      <div style="text-align:center;min-width:0"><span id="rd-pit-eta" style="font-size:14px;font-weight:800;color:var(--fg);font-family:var(--font-mono)">--:--</span> <span style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;margin-left:2px">next pit</span></div>
     </div>
     <div id="rd-laplist" style="margin-bottom:10px;max-height:180px;overflow-y:auto"></div>
     <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -1878,6 +1884,22 @@ function updateActive() {
     }
   }
   const al=document.getElementById('rd-al'); if(al) al.textContent=stintLaps.length;
+  // Live pit countdown (rec #2). Mirrors checkPitPredictor's 25-min
+  // window: target = 25 min since last pit (or stint start).
+  const pitEta = document.getElementById('rd-pit-eta');
+  if (pitEta) {
+    const sinceLastPit = stintPitStops.length
+      ? Date.now() - stintPitStops[stintPitStops.length - 1].ts
+      : Date.now() - stintStartTime;
+    const remainingMs = 25 * 60 * 1000 - sinceLastPit;
+    if (remainingMs <= 0) {
+      pitEta.textContent = 'NOW';
+      pitEta.style.color = 'var(--destructive)';
+    } else {
+      pitEta.textContent = fmtTime(remainingMs);
+      pitEta.style.color = remainingMs < 5 * 60 * 1000 ? 'var(--warning, #f97316)' : 'var(--fg)';
+    }
+  }
   if (stintLaps.length>0) {
     const last=stintLaps[stintLaps.length-1], best=[...stintLaps].sort((a,b)=>a.duration-b.duration)[0];
     const ll=document.getElementById('rd-ll'); if(ll) ll.textContent=fmtMs(last.duration);
