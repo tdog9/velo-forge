@@ -2405,6 +2405,78 @@ body:has(#page-team.active) .ai-fab,
   overflow:hidden;
 }
 
+/* First-week setup checklist (rec #59). Shown on Today for the
+   first 14 days; tapping a row routes to the action. */
+.setup-checklist{
+  margin-bottom:12px;
+  padding:12px 14px 10px;
+  border-radius:14px;
+  background:linear-gradient(135deg, rgba(var(--primary-rgb),.10), rgba(var(--primary-rgb),.02));
+  border:1px solid rgba(var(--primary-rgb),.30);
+}
+.setup-checklist-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.setup-checklist-title{
+  font-size:13px;
+  font-weight:800;
+  color:var(--fg);
+}
+.setup-checklist-sub{
+  font-size:11px;
+  color:var(--muted-fg);
+  margin-top:2px;
+}
+.setup-checklist-dismiss{
+  flex-shrink:0;
+  background:transparent;
+  border:none;
+  color:var(--muted-fg);
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+  padding:0 4px;
+}
+.setup-checklist-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 0;
+  border-top:1px solid rgba(var(--primary-rgb),.18);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.setup-checklist-row:first-of-type{ border-top:none; padding-top:4px; }
+.setup-checklist-row.done{ cursor:default; opacity:.6; }
+.setup-checklist-check{
+  flex-shrink:0;
+  width:22px; height:22px;
+  display:inline-flex; align-items:center; justify-content:center;
+  border-radius:50%;
+  color:var(--muted-fg);
+}
+.setup-checklist-check svg{ width:14px; height:14px; }
+.setup-checklist-row.done .setup-checklist-check{
+  background:rgba(var(--primary-rgb),.18);
+  color:var(--primary);
+}
+.setup-checklist-label{
+  flex:1; min-width:0;
+  font-size:13px;
+  font-weight:600;
+  color:var(--fg);
+}
+.setup-checklist-row.done .setup-checklist-label{ text-decoration:line-through; color:var(--muted-fg); }
+.setup-checklist-arrow{
+  width:13px; height:13px;
+  flex-shrink:0;
+  color:var(--muted-fg);
+}
+
 /* Needs Attention coach card (rec #28). */
 .hub-attention{
   margin-bottom:14px;

@@ -5820,6 +5820,55 @@ function renderToday() {
     </div>
   </div>`;
   html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
+  // ── First-week setup checklist (rec #59) ─────────────────────────
+  // Shown only for the first 14 days after signup AND only if at
+  // least one item is still incomplete. Each item taps through to
+  // the action that completes it. The completed state is read live
+  // from existing data, never from a separate flag — so the user
+  // can't get stuck with a stale "todo" after they've already done
+  // the thing elsewhere.
+  try {
+    const createdMs = (() => {
+      const c = userProfile?.createdAt;
+      if (!c) return null;
+      if (typeof c.toMillis === 'function') return c.toMillis();
+      if (typeof c === 'number') return c;
+      const d = new Date(c); return isNaN(d) ? null : d.getTime();
+    })();
+    const ageDays = createdMs ? (Date.now() - createdMs) / 86400000 : 0;
+    const dismissed = (() => { try { return localStorage.getItem('tp_setup_dismissed') === '1'; } catch (_) { return false; } })();
+    if (createdMs && ageDays < 14 && !dismissed) {
+      const items = [
+        { key: 'plan',   label: 'Pick a training plan',  done: !!userProfile?.activePlanId, action: 'fitness' },
+        { key: 'photo',  label: 'Add a profile photo',   done: !!userProfile?.photoURL,     action: 'profile' },
+        { key: 'team',   label: 'Join your team',        done: !!userProfile?.teamId,       action: 'team' },
+        { key: 'strava', label: 'Connect Strava',        done: !!(stravaTokens && stravaTokens.access_token), action: 'strava' },
+        { key: 'log',    label: 'Log your first workout', done: userWorkouts.length > 0,    action: 'log' },
+      ];
+      const remaining = items.filter(it => !it.done);
+      if (remaining.length > 0) {
+        const doneCount = items.length - remaining.length;
+        html += `<div class="setup-checklist">
+          <div class="setup-checklist-head">
+            <div>
+              <div class="setup-checklist-title">Get TurboPrep set up</div>
+              <div class="setup-checklist-sub">${doneCount}/${items.length} done · finish for a smoother first week</div>
+            </div>
+            <button class="setup-checklist-dismiss" id="setup-checklist-dismiss" aria-label="Hide this checklist">×</button>
+          </div>
+          ${items.map(it => `
+            <div class="setup-checklist-row${it.done ? ' done' : ''}" data-setup-action="${escHtml(it.action)}" role="${it.done ? 'presentation' : 'button'}" tabindex="${it.done ? '-1' : '0'}">
+              <span class="setup-checklist-check">${it.done
+                ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+                : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>'}
+              </span>
+              <span class="setup-checklist-label">${escHtml(it.label)}</span>
+              ${it.done ? '' : '<svg class="setup-checklist-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'}
+            </div>`).join('')}
+        </div>`;
+      }
+    }
+  } catch (_) {}
   // ── Prominent Start Training CTA ──────────────────────────────────
   // Always visible at the top of Today (between progress bar + weather).
   // Hidden when a training session is already in flight — the
@@ -6702,6 +6751,27 @@ function renderToday() {
       console.warn('Start training failed:', e);
       showToast?.('Could not start training. Try again.', 'warn');
     }
+  });
+  // First-week setup checklist (rec #59) — row tap routes to the
+  // action that completes the item; dismiss "×" hides it permanently.
+  c.querySelectorAll('.setup-checklist-row[data-setup-action]:not(.done)').forEach(row => {
+    const go = () => {
+      haptic('light');
+      const a = row.dataset.setupAction;
+      if (a === 'plan')   { switchPage('fitness'); }
+      else if (a === 'photo')  { openProfile(); }
+      else if (a === 'team')   { switchPage('team'); }
+      else if (a === 'strava') { openProfile(); setTimeout(() => $('prof-strava-connect')?.click(), 300); }
+      else if (a === 'log')    { switchPage('record'); }
+    };
+    row.addEventListener('click', go);
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+    });
+  });
+  $('setup-checklist-dismiss')?.addEventListener('click', () => {
+    try { localStorage.setItem('tp_setup_dismissed', '1'); } catch (_) {}
+    renderToday();
   });
   // Widget customization
   $('today-customize')?.addEventListener('click', () => {
