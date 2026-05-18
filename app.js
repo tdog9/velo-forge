@@ -1903,7 +1903,7 @@ ${JSON.stringify(sample, null, 2)}`;
           uploadedBy: currentUser.uid,
           uploadedByName: userProfile?.displayName || 'Coach',
         };
-        await setDoc(doc(db, 'teams', teamId, 'raceArchive', eventId), payload);
+        await retryableWrite(() => setDoc(doc(db, 'teams', teamId, 'raceArchive', eventId), payload), 'casey-import');
         window._tpRaceArchive = [
           { id: eventId, ...payload },
           ...(window._tpRaceArchive || []).filter(r => r.id !== eventId)
@@ -2494,6 +2494,34 @@ function showSelectModal(title, options, currentValue, onSave) {
   });
 }
 const APP_VERSION = '202605121202';
+
+// Generic retryable Firestore write (rec #62). Wraps an async fn with
+// exponential backoff for *transient* errors only — permanent ones
+// (permission-denied, not-found, invalid-argument) bubble immediately
+// so callers don't paper over real bugs. Default schedule: 3 retries
+// at 250ms / 1s / 4s. Use it for any write that isn't already covered
+// by the chat retry path or the offline workout queue.
+//
+// Usage: await retryableWrite(() => setDoc(ref, data), 'race-archive');
+async function retryableWrite(fn, label) {
+  const TRANSIENT = new Set(['unavailable', 'deadline-exceeded', 'internal', 'resource-exhausted', 'aborted', 'cancelled']);
+  const delays = [250, 1000, 4000];
+  let lastErr;
+  for (let i = 0; i <= delays.length; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      const code = String(e?.code || '');
+      const msg = String(e?.message || '');
+      const transient = TRANSIENT.has(code) || /network|fetch|offline|timeout|temporar/i.test(msg);
+      if (!transient || i === delays.length) throw e;
+      console.warn('[retry] ' + (label || 'write') + ' attempt ' + (i + 1) + ' failed (' + (code || msg.slice(0, 40)) + '), retrying in ' + delays[i] + 'ms');
+      await new Promise(r => setTimeout(r, delays[i]));
+    }
+  }
+  throw lastErr;
+}
 
 // In-app changelog (rec #97). Newest at index 0. The "What's New"
 // modal appears on first cold launch after a new entry lands.
