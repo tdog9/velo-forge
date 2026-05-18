@@ -10732,6 +10732,17 @@ function renderTeamTab(c, opts) {
           </div>
           ${r.location ? `<div class="race-archive-meta">${escHtml(r.location)}${r.weather ? ' · ' + escHtml(r.weather) : ''}</div>` : ''}
           ${r.summary ? `<div class="race-archive-summary">${escHtml(r.summary)}</div>` : ''}
+          ${(() => {
+            // Build a video list: prefer r.videos[], fall back to r.videoUrl.
+            const vids = Array.isArray(r.videos) && r.videos.length ? r.videos
+              : (r.videoUrl ? [{ label: 'Watch race video', url: r.videoUrl }] : []);
+            if (!vids.length) return '';
+            return `<div class="race-archive-videos">${vids.map(v => `
+              <a class="race-archive-video" href="${escHtml(v.url)}" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                <span>${escHtml(v.label || 'Watch video')}</span>
+              </a>`).join('')}</div>`;
+          })()}
           ${Array.isArray(r.drivers) && r.drivers.length > 0
             ? `<div class="race-archive-drivers">${r.drivers.map((d, di) => {
                 const headerStat = d.avgLap ? d.avgLap : (d.bestLap || (d.lapTally != null ? d.lapTally + ' laps' : ''));
@@ -11288,6 +11299,31 @@ async function renderProfile() {
       </div>
     </div>`;
   });
+  // Quiet hours (rec #52). Window during which all non-race-day push is
+  // suppressed server-side. Stored as HH:MM strings in user prefs; the
+  // Cloud Functions compare against Australia/Melbourne local time.
+  const quietOn = !!prefs.quietHoursEnabled;
+  const quietStart = prefs.quietHoursStart || '22:00';
+  const quietEnd = prefs.quietHoursEnd || '07:00';
+  html += `<div class="profile-row" style="margin-top:8px">
+    <div>
+      <span class="profile-row-label">Quiet hours</span>
+      <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">No push between these times. Race-day alerts still come through.</div>
+    </div>
+    <div class="theme-toggle${quietOn ? ' on' : ''}" id="quiet-hours-toggle" role="switch" aria-checked="${quietOn}" aria-label="Quiet hours">
+      <div class="theme-toggle-knob"></div>
+    </div>
+  </div>
+  <div id="quiet-hours-window" style="display:${quietOn ? 'flex' : 'none'};gap:8px;margin-top:6px;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:10px">
+    <div style="flex:1">
+      <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:2px">From</div>
+      <input type="time" id="quiet-hours-start" value="${escHtml(quietStart)}" class="input" style="padding:6px 8px">
+    </div>
+    <div style="flex:1">
+      <div style="font-size:10px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:2px">To</div>
+      <input type="time" id="quiet-hours-end" value="${escHtml(quietEnd)}" class="input" style="padding:6px 8px">
+    </div>
+  </div>`;
   // Diagnostic: send a test push to this device. Surfaces the precise
   // failure (no token, missing APNs env vars, rate-limit, etc.) so the
   // user can see whether the setup is broken on the device side or the
@@ -11807,6 +11843,42 @@ async function renderProfile() {
       haptic('light');
     });
   });
+  // Quiet hours toggle + time pickers (rec #52). The toggle reveals the
+  // window inputs; changes write notificationPrefs.{quietHoursEnabled,
+  // quietHoursStart, quietHoursEnd} which the Cloud Functions read.
+  const saveQuietPref = async (patch) => {
+    if (!db || !currentUser) return;
+    const prefs = { ...(userProfile?.notificationPrefs || {}), ...patch };
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), { notificationPrefs: prefs });
+      if (userProfile) userProfile.notificationPrefs = prefs;
+    } catch (e) {
+      console.warn('Quiet-hours save failed:', e);
+      showToast('Could not save quiet hours.', 'error');
+    }
+  };
+  $('quiet-hours-toggle')?.addEventListener('click', async () => {
+    const t = $('quiet-hours-toggle');
+    const wasOn = t.classList.contains('on');
+    const newOn = !wasOn;
+    t.classList.toggle('on', newOn);
+    t.setAttribute('aria-checked', String(newOn));
+    const win = $('quiet-hours-window');
+    if (win) win.style.display = newOn ? 'flex' : 'none';
+    await saveQuietPref({ quietHoursEnabled: newOn });
+    showToast(newOn ? 'Quiet hours on.' : 'Quiet hours off.', 'success');
+    haptic('light');
+  });
+  const quietTimeChange = async (el, key) => {
+    if (!el) return;
+    el.addEventListener('change', async () => {
+      const v = el.value;
+      if (!/^\d{2}:\d{2}$/.test(v)) return;
+      await saveQuietPref({ [key]: v });
+    });
+  };
+  quietTimeChange($('quiet-hours-start'), 'quietHoursStart');
+  quietTimeChange($('quiet-hours-end'), 'quietHoursEnd');
   $('student-view-toggle')?.addEventListener('click', () => {
     const current = localStorage.getItem('tp_student_view') === 'true';
     const newVal = !current;

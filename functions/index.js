@@ -33,6 +33,24 @@ const BAD_WORDS = [
 ];
 const BAD_RE = new RegExp('\\b(' + BAD_WORDS.join('|') + ')\\b', 'i');
 
+// Quiet hours check (rec #52). User prefs hold HH:MM strings in their
+// local time; we compare against Australia/Melbourne (the team's home
+// timezone). The window can wrap across midnight (22:00–07:00). Race-
+// day pushes never respect this — they call sites pass `respectQuiet`
+// explicitly.
+function inQuietHours(prefs) {
+  if (!prefs || !prefs.quietHoursEnabled) return false;
+  const start = (prefs.quietHoursStart || '22:00');
+  const end = (prefs.quietHoursEnd || '07:00');
+  if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return false;
+  // 24-hour HH:MM in Melbourne local time.
+  const now = new Date().toLocaleTimeString('en-GB', {
+    timeZone: 'Australia/Melbourne', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  if (start <= end) return now >= start && now < end;
+  return now >= start || now < end; // wraps midnight
+}
+
 async function isModerationBypass(uid, teamCreatedBy) {
   if (!uid) return false;
   if (uid === teamCreatedBy) return true; // head coach
@@ -121,13 +139,16 @@ exports.onChatWrite = onDocumentCreated(
     if (msg.uid) recipientUids = recipientUids.filter((u) => u !== msg.uid);
     if (recipientUids.length === 0) return;
 
-    // Pull FCM tokens + filter by per-user notificationPrefs.
+    // Pull FCM tokens + filter by per-user notificationPrefs + quiet
+    // hours (rec #52). Race-day broadcasts ignore quiet hours; chat +
+    // coach broadcasts respect them.
     const tokenWork = await Promise.all(
       recipientUids.map(async (uid) => {
         try {
           const profSnap = await db.collection('users').doc(uid).get();
           const prefs = (profSnap.exists && profSnap.data().notificationPrefs) || {};
           if (prefs[category] === false) return [];
+          if (inQuietHours(prefs)) return [];
           const devSnap = await db.collection('users').doc(uid).collection('devices').get();
           return devSnap.docs
             .map((d) => d.data())
@@ -360,6 +381,7 @@ exports.streakAtRiskPush = onSchedule(
       // Skip users with no team or notifications muted for training.
       if (!profile.teamId) continue;
       if (profile.notificationPrefs?.training === false) continue;
+      if (inQuietHours(profile.notificationPrefs)) continue;
       // Read today's workouts for this user.
       try {
         const today = await db.collection('users').doc(uid).collection('workouts')
@@ -457,6 +479,7 @@ exports.dailyMotivationPush = onSchedule(
       const uid = u.id;
       if (!profile.teamId) continue;
       if (profile.notificationPrefs?.daily === false) continue;
+      if (inQuietHours(profile.notificationPrefs)) continue;
       try {
         // Pull this week's workouts
         const weekSnap = await db.collection('users').doc(uid).collection('workouts')

@@ -4,6 +4,10 @@
   "location": "Casey Fields, VIC",
   "weather": "Dry, overcast (clearing)",
   "summary": "8-stint race plan, 10:00 AM – 4:00 PM. Felix took an additional partial 9th stint (3:36 – 4:00) after early stint adjustments. Roll count: 2.",
+  "videoUrl": "https://www.youtube.com/watch?v=aW8XniBja0A",
+  "videos": [
+    { "label": "Full race highlights", "url": "https://www.youtube.com/watch?v=aW8XniBja0A" }
+  ],
   "drivers": [
     {
       "name": "Felix",
