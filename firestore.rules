@@ -446,6 +446,21 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /crashes/{id} {
+      // Auto-captured client crashes (rec #64). The app writes here
+      // on window.error / unhandledrejection so admins can triage
+      // production issues without users having to report them.
+      // Schema: { uid, displayName, email, page, version, ua,
+      // message (≤2000), stack (≤4000), ts }.
+      allow read, delete: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 2000
+        && (!('stack' in request.resource.data)
+            || (request.resource.data.stack is string && request.resource.data.stack.size() <= 4000));
+    }
+
     match /feedback/{id} {
       // In-app feedback (rec #98). Any signed-in user can submit;
       // admins read + delete. Schema: { uid, displayName, email,

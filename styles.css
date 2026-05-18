@@ -1966,3 +1966,19 @@ svg:not([width]):not([height]):not([style]){max-width:100%;height:auto}
 .modal-btn:active{opacity:.85}
 
 .admin-tab-btn.active{background:var(--primary)!important;color:var(--primary-fg)!important;border-color:var(--primary)!important}
+
+/* Reduced motion (rec #74). Respects the OS-level accessibility
+   setting — Settings → Accessibility → Motion → Reduce Motion on
+   iOS. Collapses every animation + transition to ~instant and stops
+   smooth-scroll so users who get motion-sick (or who just prefer
+   stillness) can use the app comfortably. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}

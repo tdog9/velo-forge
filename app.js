@@ -3788,9 +3788,41 @@ function getAdminFix(area, code, message) {
   }
   return fixes;
 }
+// Crash-report capture (rec #64). Throttled to 1 per minute to avoid
+// a runaway error loop spamming the collection. Best-effort — never
+// throws; the existing logError path remains the source of truth for
+// in-app diagnostics.
+let _lastCrashSentAt = 0;
+async function captureCrashReport(kind, errOrMsg, extra) {
+  const now = Date.now();
+  if (now - _lastCrashSentAt < 60 * 1000) return;
+  _lastCrashSentAt = now;
+  try {
+    if (!currentUser || !db) return;
+    const err = (errOrMsg instanceof Error) ? errOrMsg : null;
+    const message = String((err?.message ?? errOrMsg) || 'unknown').slice(0, 2000);
+    const stack = err?.stack ? String(err.stack).slice(0, 4000) : null;
+    const doc = {
+      uid: currentUser.uid,
+      displayName: userProfile?.displayName || '',
+      email: currentUser.email || '',
+      page: currentPage || '',
+      version: APP_VERSION,
+      ua: navigator.userAgent || '',
+      kind,
+      message,
+      ts: serverTimestamp(),
+      ...(stack ? { stack } : {}),
+      ...(extra && typeof extra === 'object' ? { extra: JSON.stringify(extra).slice(0, 1000) } : {}),
+    };
+    await addDoc(collection(db, 'crashes'), doc);
+  } catch (_) {}
+}
+
 // Global error handler — catches unhandled errors
 window.addEventListener('error', (e) => {
   logError('global', e.error || e.message, { filename: e.filename, line: e.lineno });
+  captureCrashReport('window-error', e.error || e.message, { filename: e.filename, line: e.lineno });
   // Rec #61 — surface a recoverable banner instead of leaving a blank
   // screen. We only show it for genuinely unexpected errors (not the
   // expected Firestore/network ones the app already handles).
@@ -3801,6 +3833,7 @@ window.addEventListener('error', (e) => {
 });
 window.addEventListener('unhandledrejection', (e) => {
   logError('promise', e.reason, {});
+  captureCrashReport('unhandled-rejection', e.reason);
   const msg = String(e.reason?.message || e.reason || '');
   if (msg && !/firestore|network|fetch|abort|permission-denied/i.test(msg)) {
     showGlobalBanner('error', 'Something broke. Reload to recover.', 'Reload', () => location.reload());
@@ -5991,6 +6024,9 @@ function renderToday() {
           ${ageMin == null ? `<span style="font-size:10px;color:var(--muted-fg)">No sync yet</span>`
             : stale ? `<span style="font-size:10px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,.10);padding:2px 7px;border-radius:99px">stale</span>`
             : `<span style="font-size:10px;color:var(--muted-fg)">${escHtml(ageMin < 1 ? 'now' : ageMin < 60 ? ageMin + 'm ago' : Math.floor(ageMin / 60) + 'h ago')}</span>`}
+          <button id="health-resync-btn" type="button" aria-label="Sync health now" title="Sync health now" style="background:transparent;border:none;color:var(--muted-fg);padding:2px 4px;cursor:pointer;display:inline-flex;align-items:center" onclick="event.stopPropagation()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
           <span style="font-size:12px;color:var(--muted-fg)">›</span>
         </div>
       </div>
@@ -6833,6 +6869,22 @@ function renderToday() {
   $('dismiss-roundup')?.addEventListener('click', () => {
     localStorage.setItem('tp_roundup_' + localDateKey(), '1');
     $('dismiss-roundup')?.closest('.today-roundup-card')?.remove();
+  });
+  // Health card "↻" button (rec #41) — request an immediate
+  // HealthKit re-sync via the native bridge. Bypasses the 5-min
+  // throttle on the native side; result lands via tpNative.onHealthSummary
+  // and the card re-renders.
+  $('health-resync-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    haptic('light');
+    try {
+      if (window.webkit?.messageHandlers?.tpNative) {
+        window.webkit.messageHandlers.tpNative.postMessage({ type: 'request-health-sync' });
+        showToast?.('Syncing health…', 'info');
+      } else {
+        showToast?.('Health sync only works in the iOS app.', 'warn');
+      }
+    } catch (err) { showToast?.('Sync failed: ' + (err?.message || err), 'error'); }
   });
   // Health card → open detailed dashboard
   $('health-card-tap')?.addEventListener('click', () => {
