@@ -2483,6 +2483,138 @@ function showSelectModal(title, options, currentValue, onSave) {
   });
 }
 const APP_VERSION = '202605121202';
+
+// In-app changelog (rec #97). Newest at index 0. The "What's New"
+// modal appears on first cold launch after a new entry lands.
+const CHANGELOG = [
+  { version: '2026-05-18', items: [
+    'Schedule a chat message to send later (coaches + captains).',
+    'Subteam captains can broadcast + pin messages in their subteam.',
+    'Message reactions (tap "+" under a chat bubble).',
+    '@mention autocomplete in the chat composer.',
+    'Multi-subteam broadcast — tick Push and pick multiple targets.',
+    'Pin one coach message to the top of a channel.',
+    'Per-subteam unread badge on the Chat tab.',
+    'Subteam shown on your profile header.',
+    'Subteam roster overview (Admin → Manage Subteams).',
+    'Race Archive: expandable rider rows with full post-race detail.',
+    'Strava connect: now opens in Safari for a reliable round-trip.',
+    'Admin → Users → Orphans: spot + clear spam signups.',
+  ]},
+  { version: '2026-05-14', items: [
+    'Chat messages now stay for 7 days (was 24 hours).',
+    'Chat notifications are opt-out — mute via the bell in chat.',
+    'Excel/CSV roster import (Admin → Users → Import Roster).',
+    'AI Coach button restored to the original pill shape.',
+    'Layout debug HUD with a one-tap Send Report.',
+  ]},
+];
+
+// Show the What's New modal if the user hasn't seen the latest entry.
+function maybeShowWhatsNew() {
+  try {
+    const latest = CHANGELOG[0];
+    if (!latest) return;
+    const seen = localStorage.getItem('tp_seen_changelog') || '';
+    if (seen === latest.version) return;
+    showWhatsNewModal();
+  } catch (_) {}
+}
+
+// Feedback sheet (rec #98) — writes to /feedback in Firestore. Admins
+// read the collection; rules block anyone else.
+function openFeedbackSheet() {
+  if (!currentUser) { showToast?.('Sign in first.', 'warn'); return; }
+  if (document.getElementById('feedback-overlay')) return;
+  const ov = document.createElement('div');
+  ov.id = 'feedback-overlay';
+  ov.className = 'modal-overlay';
+  ov.innerHTML = `
+    <div class="modal-card" style="max-width:420px;width:92%;display:flex;flex-direction:column">
+      <div style="padding:18px 20px 6px;flex-shrink:0">
+        <div style="font-size:18px;font-weight:800;color:var(--fg)">Send feedback</div>
+        <div style="font-size:12px;color:var(--muted-fg);margin-top:4px;line-height:1.5">Anything bugging you, missing, or great — it goes straight to the dev inbox. The page you're on and your app version are included automatically.</div>
+      </div>
+      <div style="padding:10px 20px 12px">
+        <textarea id="feedback-text" class="input" rows="5" maxlength="2000" placeholder="What's on your mind?"></textarea>
+        <div id="feedback-count" style="font-size:11px;color:var(--muted-fg);text-align:right;margin-top:4px">0 / 2000</div>
+      </div>
+      <div style="padding:0 20px 18px;display:flex;gap:8px;flex-shrink:0">
+        <button id="feedback-cancel" class="btn btn-secondary" style="flex:1">Cancel</button>
+        <button id="feedback-send" class="btn btn-primary" style="flex:1">Send</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  const ta = ov.querySelector('#feedback-text');
+  const counter = ov.querySelector('#feedback-count');
+  ta?.addEventListener('input', () => { counter.textContent = (ta.value.length) + ' / 2000'; });
+  ov.querySelector('#feedback-cancel')?.addEventListener('click', () => ov.remove());
+  ov.querySelector('#feedback-send')?.addEventListener('click', async () => {
+    const text = (ta?.value || '').trim();
+    if (!text) { showToast?.('Type something first.', 'warn'); return; }
+    const sendBtn = ov.querySelector('#feedback-send');
+    if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Sending…'; }
+    try {
+      await addDoc(collection(db, 'feedback'), {
+        uid: currentUser.uid,
+        displayName: userProfile?.displayName || currentUser.displayName || '',
+        email: currentUser.email || '',
+        role: userProfile?.role || (userProfile?.isCoach ? 'coach' : 'student'),
+        text: text.slice(0, 2000),
+        page: currentPage || '',
+        version: APP_VERSION,
+        ts: serverTimestamp(),
+      });
+      showToast?.('Feedback sent — thanks.', 'success');
+      ov.remove();
+    } catch (e) {
+      console.error('feedback send failed:', e);
+      showToast?.('Could not send: ' + (e?.message || e), 'error');
+      if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
+    }
+  });
+}
+
+function showWhatsNewModal() {
+  if (document.getElementById('whatsnew-overlay')) return;
+  const latest = CHANGELOG[0];
+  if (!latest) return;
+  const ov = document.createElement('div');
+  ov.id = 'whatsnew-overlay';
+  ov.className = 'modal-overlay';
+  ov.innerHTML = `
+    <div class="modal-card" style="max-width:420px;width:92%;max-height:80vh;display:flex;flex-direction:column">
+      <div style="padding:18px 20px 6px;flex-shrink:0">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--primary);text-transform:uppercase">What's New</div>
+        <div style="font-size:20px;font-weight:800;color:var(--fg);margin-top:2px">${escHtml(latest.version)}</div>
+      </div>
+      <div style="padding:6px 20px 16px;overflow-y:auto;flex:1;min-height:0">
+        <ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.55;color:var(--fg)">
+          ${latest.items.map(it => `<li style="margin-bottom:6px">${escHtml(it)}</li>`).join('')}
+        </ul>
+        ${CHANGELOG.length > 1 ? `
+          <details style="margin-top:14px">
+            <summary style="font-size:12px;color:var(--muted-fg);cursor:pointer;font-weight:700">Earlier updates</summary>
+            <div style="margin-top:8px">
+              ${CHANGELOG.slice(1).map(c => `
+                <div style="font-size:11.5px;font-weight:700;color:var(--muted-fg);margin-top:10px;text-transform:uppercase;letter-spacing:.03em">${escHtml(c.version)}</div>
+                <ul style="margin:4px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5;color:var(--muted-fg)">
+                  ${c.items.map(it => `<li style="margin-bottom:3px">${escHtml(it)}</li>`).join('')}
+                </ul>`).join('')}
+            </div>
+          </details>` : ''}
+      </div>
+      <div style="padding:0 20px 18px;flex-shrink:0">
+        <button id="whatsnew-close" class="btn btn-primary" style="width:100%">Got it</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#whatsnew-close')?.addEventListener('click', () => {
+    try { localStorage.setItem('tp_seen_changelog', CHANGELOG[0].version); } catch (_) {}
+    ov.remove();
+  });
+}
+
 function showWelcomeSetup() {
   const name = userProfile?.displayName || 'there';
   const overlay = document.createElement('div');
@@ -10974,6 +11106,12 @@ async function renderProfile() {
         <button id="profile-clear-cache" type="button" style="margin-top:4px;padding:11px;border-radius:10px;background:rgba(var(--primary-rgb),.10);border:1px solid rgba(var(--primary-rgb),.30);color:var(--primary);font-weight:700;font-size:13px;cursor:pointer">
           Clear cache &amp; reload
         </button>
+        <button id="profile-whats-new" type="button" style="margin-top:4px;padding:11px;border-radius:10px;background:var(--card);border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">
+          What's new
+        </button>
+        <button id="profile-feedback" type="button" style="margin-top:4px;padding:11px;border-radius:10px;background:var(--card);border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">
+          Send feedback
+        </button>
       </div>
     </div>`;
   // Coach Personality
@@ -11326,6 +11464,12 @@ async function renderProfile() {
       showToast?.('Couldn\'t clear: ' + (e?.message || 'try again'), 'warn');
     }
   });
+  // What's New (rec #97) — re-opens the latest changelog entry.
+  $('profile-whats-new')?.addEventListener('click', () => {
+    if (typeof showWhatsNewModal === 'function') showWhatsNewModal();
+  });
+  // Send feedback (rec #98) — opens a sheet that writes to /feedback.
+  $('profile-feedback')?.addEventListener('click', () => openFeedbackSheet());
   // Wearable / sync connect buttons
   $('prof-strava-connect')?.addEventListener('click', () => stravaStartAuth());
   $('prof-strava-disconnect')?.addEventListener('click', () => stravaDisconnect());
@@ -15747,6 +15891,10 @@ function startApp() {
       // Show welcome/onboarding for new users with API connection options
       if (!localStorage.getItem('tp_onboarded')) {
         setTimeout(() => showWelcomeSetup(), 800);
+      } else {
+        // Existing user — surface the What's New modal once per new
+        // release (rec #97). Hidden after the user dismisses it.
+        setTimeout(() => maybeShowWhatsNew(), 1200);
       }
       // Check training reminders
       checkTrainingReminder();

@@ -37,7 +37,13 @@ service cloud.firestore {
       // or revoke Coach Pro on a specific user without the user having to
       // re-sign-in for the change to take effect.
       allow read: if isSignedIn();
-      allow create, delete: if isOwner(userId);
+      allow create: if isOwner(userId);
+      // Owner deletes their own. Admins may also delete a user
+      // profile — used by the Admin → Users → Orphan Accounts
+      // tool to clean up spam signups (rec #76). Subcollections
+      // (workouts, devices) are not cascaded; for a thorough
+      // wipe, run firebase firestore:delete recursively from CLI.
+      allow delete: if isOwner(userId) || isAdmin();
       // Owner may update their own profile, but cannot write the
       // privilege-gating fields. Was previously unrestricted, so a
       // user could `setDoc(users/<self>, {isCoach: true})` and bypass
@@ -438,6 +444,18 @@ service cloud.firestore {
     match /config/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    match /feedback/{id} {
+      // In-app feedback (rec #98). Any signed-in user can submit;
+      // admins read + delete. Schema: { uid, displayName, email,
+      // text (≤2000 chars), page, version, ts, role }.
+      allow read, delete: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 2000;
     }
 
     match /roster/{emailKey} {

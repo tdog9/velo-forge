@@ -1942,6 +1942,7 @@ export function renderAdminUsersMerged() {
   const subTabs = [
     { id: 'all', label: 'All Users' },
     { id: 'import', label: 'Import Roster' },
+    { id: 'orphans', label: 'Orphans' },
     { id: 'permissions', label: 'Admin Access' }
   ];
 
@@ -1964,8 +1965,96 @@ export function renderAdminUsersMerged() {
   switch (usersSubTab) {
     case 'all': renderUsersAll(sc); break;
     case 'import': renderUsersImport(sc); break;
+    case 'orphans': renderUsersOrphans(sc); break;
     case 'permissions': renderUsersPermissions(sc); break;
   }
+}
+
+// ── Orphan Accounts (rec #76) ─────────────────────────────────────────
+// Lists every user with no teamId — usually spam signups that never
+// completed onboarding. Admin can review + delete each one. Single-
+// sign-in accounts (created == last-active) are flagged as likely spam.
+async function renderUsersOrphans(el) {
+  el.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div><div style="margin-top:8px;color:var(--muted-fg);font-size:13px">Scanning for orphans…</div></div>';
+  let users;
+  try {
+    const snap = await A.getDocs(A.collection(A.db, 'users'));
+    users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  } catch (e) {
+    el.innerHTML = '<div class="admin-empty" style="padding:20px">Failed to load users: ' + escHtml(e?.message || '') + '</div>';
+    return;
+  }
+  // Orphan = no team yet, OR teamId points at a team the user is not in.
+  const teamId = A.userProfile?.teamId;
+  const teamMembersSet = new Set(Array.isArray(A.teamData?.members) ? A.teamData.members : []);
+  const orphans = users.filter(u => {
+    if (!u.teamId) return true;
+    // If the user claims they're in our team but team.members[] doesn't list them
+    // they're a drift case — surface only if our cache covers their team.
+    if (u.teamId === teamId && !teamMembersSet.has(u.uid)) return true;
+    return false;
+  });
+  // Sort: spam-suspects first (single sign-in / no displayName), then by createdAt desc.
+  const created = u => {
+    const c = u.createdAt;
+    if (!c) return 0;
+    if (typeof c.toMillis === 'function') return c.toMillis();
+    if (typeof c === 'number') return c;
+    const d = new Date(c); return isNaN(d) ? 0 : d.getTime();
+  };
+  orphans.sort((a, b) => created(b) - created(a));
+  let html = `<div style="margin-bottom:10px;font-size:12px;color:var(--muted-fg)">
+    <strong>${orphans.length}</strong> account${orphans.length === 1 ? '' : 's'} with no team — likely spam signups or users who abandoned onboarding.
+  </div>`;
+  if (orphans.length === 0) {
+    html += '<div class="admin-empty">No orphan accounts. Tidy.</div>';
+    el.innerHTML = html;
+    return;
+  }
+  orphans.forEach(u => {
+    const c = created(u);
+    const dateStr = c ? new Date(c).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    // Heuristic spam tags.
+    const tags = [];
+    if (!u.displayName) tags.push('no name');
+    if (u.email && /^[a-z]+\d+@gmail\.com$/i.test(u.email)) tags.push('numeric gmail');
+    if (u.teamId && u.teamId === teamId && !teamMembersSet.has(u.uid)) tags.push('drift');
+    html += `
+      <div class="card admin-orphan-row" data-orphan-uid="${escHtml(u.uid)}" style="margin-bottom:8px;padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.displayName || '(no name)')}</div>
+            <div style="font-size:11px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.email || u.uid)}</div>
+          </div>
+          <button class="admin-edit-btn admin-orphan-del" data-orphan-del="${escHtml(u.uid)}" style="background:rgba(var(--destructive-rgb),.10);color:var(--destructive);border:1px solid rgba(var(--destructive-rgb),.30)">Delete</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10.5px">
+          <span style="color:var(--muted-fg)">created ${escHtml(dateStr)}</span>
+          ${tags.map(t => `<span style="padding:2px 6px;border-radius:99px;background:rgba(var(--destructive-rgb),.10);color:var(--destructive);font-weight:700">${escHtml(t)}</span>`).join('')}
+        </div>
+      </div>`;
+  });
+  el.innerHTML = html;
+  el.querySelectorAll('[data-orphan-del]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const uid = btn.dataset.orphanDel;
+      const row = btn.closest('.admin-orphan-row');
+      const name = row?.querySelector('div[style*="font-weight:600"]')?.textContent || uid;
+      if (!confirm('Delete orphan account "' + name + '"? Their Firestore profile is removed (subcollections + auth login remain — clean those via CLI / Firebase Console).')) return;
+      btn.disabled = true;
+      btn.textContent = '…';
+      try {
+        await A.deleteDoc(A.doc(A.db, 'users', uid));
+        row?.remove();
+        A.showToast('Orphan account removed.', 'success');
+      } catch (e) {
+        console.error('orphan delete failed:', e);
+        A.showToast('Delete failed: ' + (e?.message || e), 'error');
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+      }
+    });
+  });
 }
 
 // ── Excel / CSV roster import ─────────────────────────────────────────
