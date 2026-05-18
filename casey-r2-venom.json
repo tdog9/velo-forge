@@ -1,0 +1,172 @@
+{
+  "raceName": "Casey Fields — Round 2 (Venom)",
+  "raceDate": "2026-05-17",
+  "location": "Casey Fields, VIC",
+  "weather": "Dry, overcast (clearing)",
+  "summary": "8-stint race plan, 10:00 AM – 4:00 PM. Felix took an additional partial 9th stint (3:36 – 4:00) after early stint adjustments. Roll count: 2.",
+  "drivers": [
+    {
+      "name": "Felix",
+      "stintNumber": 1,
+      "stintTime": "10:00 - 10:45",
+      "duration": "45 min",
+      "backups": [
+        "Tenny",
+        "Hugh"
+      ],
+      "foam": 25,
+      "headRest": 2,
+      "posIn": "—",
+      "posOut": 1,
+      "lapTally": "11 (5)",
+      "conditions": "Dry - overcast",
+      "delays": "Stopped (crashed) lap 9 asma",
+      "notes": "Pushing a bit - told him to save enagy for the rest so he slowed down 30 seconds 5 laps - 25km/h on back straight (lap 6) - fastest lap (3:28 (lap1)) until Dylan broke it - took roll (not his fault), got knocked but continued after a check up"
+    },
+    {
+      "name": "Oscar",
+      "stintNumber": 2,
+      "stintTime": "10:45 - 11:25",
+      "duration": "40 min",
+      "backups": [
+        "Josh",
+        "Dylan"
+      ],
+      "foam": 25,
+      "headRest": 0,
+      "posIn": 1,
+      "posOut": 2,
+      "lapTally": 9,
+      "conditions": "Dry - overcast.",
+      "delays": "Nick - wrong cleats - check cleats",
+      "notes": "Could push a pit more - good supportiveness"
+    },
+    {
+      "name": "Ross",
+      "stintNumber": 3,
+      "stintTime": "11:25- 12:00",
+      "duration": "35 min",
+      "backups": [
+        "Hugh",
+        "Oscar"
+      ],
+      "foam": 25,
+      "headRest": 8,
+      "posIn": 2,
+      "posOut": 2,
+      "lapTally": 8,
+      "conditions": "Dry - overcast",
+      "delays": "Flipped - almost hit Aurora",
+      "notes": "Flipped - need to slow down to avoid flipping. Lots of near misses - wanted to come in 5 minutes after he is supposed to (40) but didn't - could learn to stay on the right of track - keeps making excuses - can make harmful comments to team mates"
+    },
+    {
+      "name": "Nick",
+      "stintNumber": 4,
+      "stintTime": "12:00 - 12:45",
+      "duration": "45 min",
+      "backups": [
+        "Dylan",
+        "Oscar"
+      ],
+      "foam": 25,
+      "headRest": 2,
+      "posIn": 2,
+      "posOut": 2,
+      "lapTally": 10,
+      "conditions": "Dry - overcast",
+      "delays": null,
+      "notes": "Needs to be more smooth on turns - rides on the outside of turns - could be more consistent - towards end of stint hits 34km/h at end of down straight (down from 41km/h from normal) - towards end of stint averaging 4:__ (lap 34-38)"
+    },
+    {
+      "name": "Josh",
+      "stintNumber": 5,
+      "stintTime": "12:45 - 1:25",
+      "duration": "40 min",
+      "backups": [
+        "Hugh",
+        "Felix"
+      ],
+      "foam": 25,
+      "headRest": 4,
+      "posIn": 2,
+      "posOut": 2,
+      "lapTally": 10,
+      "conditions": "Dry - overcast clouds are beginning to clear",
+      "delays": null,
+      "notes": "Could work on placing on the s turns good constiency - could stick on the inside when overtaking - great consistency - consistency drops by 8 seconds at lap 45 - went 5 minutes past designated end time.- fastest speed at 50.8km/h"
+    },
+    {
+      "name": "Dylan",
+      "stintNumber": 6,
+      "stintTime": "1:25 - 2:20",
+      "duration": "55 min",
+      "backups": [
+        "Felix",
+        "Hugh"
+      ],
+      "foam": 25,
+      "headRest": 8,
+      "posIn": 2,
+      "posOut": "2 (1 for part)",
+      "lapTally": 17,
+      "conditions": "Dry - overcast",
+      "delays": null,
+      "notes": "Bit unconsitent ranging 3:28-3:21 try and maintain pace - quickest lap time at 3:21 (lap 51) - great consistency for majority of ride - great positioning - should be more prepared when coming into pits"
+    },
+    {
+      "name": "Tenny",
+      "stintNumber": 7,
+      "stintTime": "2:20 - 3:10",
+      "duration": "50 min",
+      "backups": [
+        "Josh",
+        "Oscar"
+      ],
+      "foam": 25,
+      "headRest": 0,
+      "posIn": 2,
+      "posOut": 2,
+      "lapTally": 9,
+      "conditions": "Dry overcast",
+      "delays": null,
+      "notes": "Consistent pace at start (around 3:30). - good pace around the turn around - dropped to an average of 4:40 in the middle of stint - did less then what he said he would do - overall not consistent (time dropped gradually)"
+    },
+    {
+      "name": "Hugh",
+      "stintNumber": 8,
+      "stintTime": "3:10 - 4:00",
+      "duration": "50 min",
+      "backups": [
+        "Felix",
+        "Dylan"
+      ],
+      "foam": 25,
+      "headRest": 8,
+      "posIn": 2,
+      "posOut": null,
+      "lapTally": 7,
+      "conditions": "Dry - overcast",
+      "delays": "Strategy",
+      "notes": "Good saving but could be a bit faster at the start - good idea but could've been executed in a better way - went out early (28 min) Felix required for 2nd stint"
+    },
+    {
+      "name": "Felix (2)",
+      "stintNumber": 9,
+      "stintTime": "3:36 - 4:00",
+      "duration": "26 min",
+      "backups": [
+        "Dylan"
+      ],
+      "foam": 25,
+      "headRest": 2,
+      "posIn": "—",
+      "posOut": 1,
+      "lapTally": "11 (5)",
+      "conditions": "Dry - overcast",
+      "delays": "Stopped (crashed) lap 9 asma",
+      "notes": "Pushing a bit - told him to save enagy for the rest so he slowed down 30 seconds 5 laps - 25km/h on back straight (lap 6) - fastest lap (3:28 (lap1)) until Dylan broke it - took roll (not his fault), got knocked but continued after a check up"
+    }
+  ],
+  "rollCount": 2,
+  "source": "HPR casey (1) info turboprep.xlsx"
+}

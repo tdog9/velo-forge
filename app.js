@@ -1868,6 +1868,47 @@ ${JSON.stringify(sample, null, 2)}`;
       } catch(err) { showToast('Delete failed', 'error'); }
     });
   }
+  // One-shot import for the Casey Fields Round 2 (Venom) race — loads
+  // the pre-parsed post-race data (stint plan + per-rider notes from the
+  // coach's spreadsheet) into the team's race archive. Idempotent: re-
+  // clicking overwrites the same eventId.
+  const caseyBtn = document.getElementById('race-archive-import-casey');
+  if (caseyBtn && !caseyBtn._tpBound) {
+    caseyBtn._tpBound = true;
+    caseyBtn.addEventListener('click', async () => {
+      if (!teamId) { showToast('Join or create a team first.', 'warn'); return; }
+      if (!confirm('Import the Casey R2 Venom post-race data into the team archive?')) return;
+      caseyBtn.disabled = true;
+      const orig = caseyBtn.textContent;
+      caseyBtn.textContent = 'Importing…';
+      try {
+        const resp = await fetch('/casey-r2-venom.json?cb=' + Date.now());
+        if (!resp.ok) throw new Error('Could not load race data');
+        const data = await resp.json();
+        const eventId = 'casey-2026-r2-venom';
+        const payload = {
+          ...data,
+          ts: Date.now(),
+          uploadedBy: currentUser.uid,
+          uploadedByName: userProfile?.displayName || 'Coach',
+        };
+        await setDoc(doc(db, 'teams', teamId, 'raceArchive', eventId), payload);
+        window._tpRaceArchive = [
+          { id: eventId, ...payload },
+          ...(window._tpRaceArchive || []).filter(r => r.id !== eventId)
+        ].slice(0, RACE_ARCHIVE_CAP);
+        showToast('Casey R2 Venom imported — open the card to expand each rider.', 'success');
+        const tc = document.getElementById('lb-team-content');
+        if (tc) renderTeamTab(tc);
+      } catch (err) {
+        console.error('Casey import failed:', err);
+        showToast('Import failed: ' + (err?.message || 'unknown'), 'error');
+      } finally {
+        caseyBtn.disabled = false;
+        caseyBtn.textContent = orig;
+      }
+    });
+  }
 }
 
 // ── Team gallery ────────────────────────────────────────────────────────
@@ -10444,6 +10485,7 @@ function renderTeamTab(c, opts) {
     html += '<div class="profile-section" style="margin-top:18px"><div class="profile-section-title gallery-head">Race Archive';
     if (isCoachUser) {
       html += '<button id="race-archive-import" class="gallery-add-btn" type="button">+ Import CSV</button>';
+      html += '<button id="race-archive-import-casey" class="gallery-add-btn" type="button" style="margin-left:6px">+ Casey R2 Venom</button>';
     }
     html += '</div>';
     if (archive.length === 0) {
@@ -10460,7 +10502,39 @@ function renderTeamTab(c, opts) {
           ${r.location ? `<div class="race-archive-meta">${escHtml(r.location)}${r.weather ? ' · ' + escHtml(r.weather) : ''}</div>` : ''}
           ${r.summary ? `<div class="race-archive-summary">${escHtml(r.summary)}</div>` : ''}
           ${Array.isArray(r.drivers) && r.drivers.length > 0
-            ? `<div class="race-archive-drivers">${r.drivers.map(d => `<span class="race-archive-driver">${escHtml(d.name || 'Driver')}${d.bestLap ? ' · ' + escHtml(d.bestLap) : ''}</span>`).join('')}</div>`
+            ? `<div class="race-archive-drivers">${r.drivers.map((d, di) => {
+                const headerStat = d.avgLap ? d.avgLap : (d.bestLap || (d.lapTally != null ? d.lapTally + ' laps' : ''));
+                // Collect every extra field worth showing in the expanded panel.
+                const detailPairs = [];
+                if (d.stintNumber != null) detailPairs.push(['Stint', '#' + d.stintNumber]);
+                if (d.stintTime) detailPairs.push(['Stint time', d.stintTime]);
+                if (d.duration) detailPairs.push(['Duration', d.duration]);
+                if (d.bestLap) detailPairs.push(['Best lap', d.bestLap]);
+                if (d.avgLap) detailPairs.push(['Avg lap', d.avgLap]);
+                if (d.lapTally != null) detailPairs.push(['Lap tally', String(d.lapTally)]);
+                if (d.posIn != null) detailPairs.push(['Pos in', String(d.posIn)]);
+                if (d.posOut != null) detailPairs.push(['Pos out', String(d.posOut)]);
+                if (d.foam != null) detailPairs.push(['Foam (mm)', String(d.foam)]);
+                if (d.headRest != null) detailPairs.push(['Head rest', String(d.headRest)]);
+                if (d.conditions) detailPairs.push(['Conditions', d.conditions]);
+                if (d.delays) detailPairs.push(['Delays', String(d.delays)]);
+                if (d.backups) detailPairs.push(['Backups', Array.isArray(d.backups) ? d.backups.join(', ') : String(d.backups)]);
+                const hasDetail = detailPairs.length > 0 || (d.notes && String(d.notes).trim());
+                if (!hasDetail) {
+                  return `<span class="race-archive-driver">${escHtml(d.name || 'Driver')}${headerStat ? ' · ' + escHtml(headerStat) : ''}</span>`;
+                }
+                const detailHtml = detailPairs.map(([k, v]) =>
+                  `<div class="race-driver-stat"><span class="race-driver-stat-k">${escHtml(k)}</span><span class="race-driver-stat-v">${escHtml(v)}</span></div>`
+                ).join('') + (d.notes ? `<div class="race-driver-notes">${escHtml(d.notes)}</div>` : '');
+                return `<details class="race-archive-driver-row" data-race-driver="${escHtml(r.id)}-${di}">
+                  <summary class="race-archive-driver-head">
+                    <span class="race-archive-driver-name">${escHtml(d.name || 'Driver')}</span>
+                    ${headerStat ? `<span class="race-archive-driver-stat">${escHtml(headerStat)}</span>` : ''}
+                    <svg class="race-archive-driver-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                  </summary>
+                  <div class="race-archive-driver-detail">${detailHtml}</div>
+                </details>`;
+              }).join('')}</div>`
             : ''}
           ${isCoachUser ? `<button class="race-archive-del" data-race-del="${escHtml(r.id)}" type="button" aria-label="Delete">Delete</button>` : ''}
         </div>`;
@@ -13448,6 +13522,22 @@ function openManageSubteamsSheet() {
     return;
   }
   const subteams = teamData?.subteams || [];
+  // Captain backfill (rec #19): the rules check `subCoaches[]` on the
+  // team doc, but teams created before that change only had subCoachUid
+  // on each subteam. Sync the flat array opportunistically whenever the
+  // coach opens this sheet so old captains gain their permissions
+  // without needing to reassign anyone.
+  (async () => {
+    try {
+      const actual = [...new Set(subteams.map(s => s.subCoachUid).filter(Boolean))].sort();
+      const stored = [...((teamData?.subCoaches || []))].sort();
+      const same = actual.length === stored.length && actual.every((u, i) => u === stored[i]);
+      if (!same && userProfile?.teamId && db) {
+        await updateDoc(doc(db, 'teams', userProfile.teamId), { subCoaches: actual });
+        teamData.subCoaches = actual;
+      }
+    } catch (_) {}
+  })();
   // Roster overview (rec #16): work out who's assigned where so the
   // coach can see, at a glance, which athletes still need a subteam.
   const assignedUids = new Set();
