@@ -2477,6 +2477,74 @@ body:has(#page-team.active) .ai-fab,
   color:var(--muted-fg);
 }
 
+/* Subteam-vs-subteam challenge card (rec #93). */
+.subteam-challenge{
+  margin-bottom:14px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:linear-gradient(135deg, rgba(var(--primary-rgb),.10), rgba(var(--primary-rgb),.02));
+  border:1px solid rgba(var(--primary-rgb),.25);
+}
+.subteam-challenge-head{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  margin-bottom:8px;
+}
+.subteam-challenge-title{
+  font-size:11px;font-weight:800;
+  letter-spacing:.05em;text-transform:uppercase;
+  color:var(--primary);
+}
+.subteam-challenge-sub{
+  font-size:10.5px;font-weight:700;
+  color:var(--muted-fg);
+}
+.subteam-challenge-row{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 0;
+  border-top:1px solid rgba(var(--primary-rgb),.10);
+  font-size:13px;
+}
+.subteam-challenge-row:first-of-type{ border-top:none; padding-top:2px; }
+.subteam-challenge-rank{
+  width:18px;
+  font-size:11px;font-weight:800;
+  color:var(--muted-fg);
+  text-align:center;
+  flex-shrink:0;
+}
+.subteam-challenge-row.leader .subteam-challenge-rank{ color:var(--primary); }
+.subteam-challenge-name{
+  font-weight:700;color:var(--fg);
+  flex-shrink:0;
+  max-width:38%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.subteam-challenge-bar{
+  flex:1;
+  height:6px;
+  border-radius:99px;
+  background:rgba(255,255,255,.06);
+  overflow:hidden;
+}
+.subteam-challenge-bar-fill{
+  height:100%;
+  background:linear-gradient(90deg, rgba(var(--primary-rgb),.55), rgba(var(--primary-rgb),.95));
+  border-radius:99px;
+}
+.subteam-challenge-row.leader .subteam-challenge-bar-fill{
+  background:linear-gradient(90deg, var(--primary), #a3e635);
+}
+.subteam-challenge-score{
+  font-size:13px;font-weight:800;
+  color:var(--fg);
+  flex-shrink:0;
+  font-variant-numeric:tabular-nums;
+  min-width:32px;
+  text-align:right;
+}
+
 /* Needs Attention coach card (rec #28). */
 .hub-attention{
   margin-bottom:14px;

@@ -10750,6 +10750,39 @@ function renderTeamTab(c, opts) {
           <div class="hub-pulse-lbl">${escHtml(longestStreakName)}</div>
         </div>
       </div>`;
+    // Subteam-vs-subteam standings (rec #93). Visible to anyone on a
+    // team with at least 2 subteams. Each subteam's score = sum of
+    // its members' totalWorkouts; tie-broken by number-active (streak
+    // > 0). Shows a stacked bar so the gap between subteams is felt,
+    // not just read.
+    const subs2 = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
+    if (subs2.length >= 2 && teamMembers.length > 0) {
+      const scored = subs2.map(s => {
+        const memSet = new Set(s.members || []);
+        if (s.subCoachUid) memSet.add(s.subCoachUid);
+        const members = teamMembers.filter(m => memSet.has(m.uid));
+        const totalW = members.reduce((sum, m) => sum + (m.totalWorkouts || 0), 0);
+        const active = members.filter(m => (m.streak || 0) > 0).length;
+        return { id: s.id, name: s.name || 'Subteam', totalW, active, size: members.length };
+      }).filter(x => x.size > 0)
+        .sort((a, b) => (b.totalW - a.totalW) || (b.active - a.active));
+      if (scored.length >= 2 && scored[0].totalW > 0) {
+        const maxW = scored[0].totalW || 1;
+        html += `<div class="subteam-challenge">
+          <div class="subteam-challenge-head">
+            <span class="subteam-challenge-title">Subteam Challenge</span>
+            <span class="subteam-challenge-sub">${scored.length} subteams · total workouts</span>
+          </div>
+          ${scored.map((s, i) => `
+            <div class="subteam-challenge-row${i === 0 ? ' leader' : ''}">
+              <span class="subteam-challenge-rank">${i + 1}</span>
+              <span class="subteam-challenge-name">${escHtml(s.name)}</span>
+              <div class="subteam-challenge-bar"><div class="subteam-challenge-bar-fill" style="width:${Math.round((s.totalW / maxW) * 100)}%"></div></div>
+              <span class="subteam-challenge-score">${s.totalW}</span>
+            </div>`).join('')}
+        </div>`;
+      }
+    }
     // Needs Attention (rec #28) — coach-only card listing athletes who
     // have either gone quiet (7+ days without activity) or have a
     // current streak ≥3 with no workout today (at risk of breaking).
