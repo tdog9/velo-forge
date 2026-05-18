@@ -3780,10 +3780,86 @@ function getAdminFix(area, code, message) {
 // Global error handler — catches unhandled errors
 window.addEventListener('error', (e) => {
   logError('global', e.error || e.message, { filename: e.filename, line: e.lineno });
+  // Rec #61 — surface a recoverable banner instead of leaving a blank
+  // screen. We only show it for genuinely unexpected errors (not the
+  // expected Firestore/network ones the app already handles).
+  const msg = String(e.error?.message || e.message || '');
+  if (msg && !/firestore|network|fetch|abort/i.test(msg)) {
+    showGlobalBanner('error', 'Something broke. Reload to recover.', 'Reload', () => location.reload());
+  }
 });
 window.addEventListener('unhandledrejection', (e) => {
   logError('promise', e.reason, {});
+  const msg = String(e.reason?.message || e.reason || '');
+  if (msg && !/firestore|network|fetch|abort|permission-denied/i.test(msg)) {
+    showGlobalBanner('error', 'Something broke. Reload to recover.', 'Reload', () => location.reload());
+  }
 });
+
+// ── Global banner (recs #61 + #63) ──────────────────────────────────
+// A single top-of-page banner used for offline state and for recovering
+// from uncaught errors. Three kinds: 'offline' (yellow), 'error' (red),
+// 'info' (neutral). Persistent until cleared.
+function ensureGlobalBanner() {
+  let el = document.getElementById('tp-global-banner');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'tp-global-banner';
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483646;'
+    + 'padding:calc(env(safe-area-inset-top,0px) + 8px) 14px 8px;'
+    + 'display:none;align-items:center;gap:10px;'
+    + 'font:600 12.5px ui-monospace,Menlo,monospace;color:#fff;';
+  document.body.appendChild(el);
+  return el;
+}
+function showGlobalBanner(kind, text, actionLabel, actionFn) {
+  const el = ensureGlobalBanner();
+  const palette = {
+    error:   { bg: '#dc2626', fg: '#fff' },
+    offline: { bg: '#f59e0b', fg: '#1a1a1a' },
+    info:    { bg: '#3b82f6', fg: '#fff' },
+  }[kind] || { bg: '#3b82f6', fg: '#fff' };
+  el.style.background = palette.bg;
+  el.style.color = palette.fg;
+  el.dataset.kind = kind;
+  let actionHtml = '';
+  if (actionLabel) {
+    actionHtml = `<button id="tp-banner-action" style="background:rgba(0,0,0,.25);color:inherit;border:none;padding:5px 12px;border-radius:6px;font:inherit;cursor:pointer">${escHtml(actionLabel)}</button>`;
+  }
+  el.innerHTML = `<span style="flex:1;min-width:0">${escHtml(text)}</span>${actionHtml}<button id="tp-banner-close" aria-label="Dismiss" style="background:transparent;color:inherit;border:none;padding:4px 8px;font:600 16px monospace;line-height:1;cursor:pointer">×</button>`;
+  el.style.display = 'flex';
+  if (actionFn) {
+    const ab = el.querySelector('#tp-banner-action');
+    if (ab) ab.onclick = actionFn;
+  }
+  const cb = el.querySelector('#tp-banner-close');
+  if (cb) cb.onclick = clearGlobalBanner;
+}
+function clearGlobalBanner() {
+  const el = document.getElementById('tp-global-banner');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+// Offline / online — show a persistent banner while disconnected.
+function _updateOfflineBanner() {
+  const el = document.getElementById('tp-global-banner');
+  // Don't trample a more-severe error banner — offline only fires when
+  // there's nothing else showing OR an existing offline banner.
+  if (!navigator.onLine) {
+    if (!el || el.style.display === 'none' || el.dataset.kind === 'offline') {
+      showGlobalBanner('offline', 'You are offline. Actions will queue and sync when you reconnect.');
+    }
+  } else {
+    if (el && el.dataset.kind === 'offline') clearGlobalBanner();
+  }
+}
+window.addEventListener('online', _updateOfflineBanner);
+window.addEventListener('offline', _updateOfflineBanner);
+// Initial paint — if already offline at boot, surface the banner.
+if (typeof window !== 'undefined' && document.readyState !== 'loading') {
+  _updateOfflineBanner();
+} else {
+  document.addEventListener('DOMContentLoaded', _updateOfflineBanner);
+}
 // --- Tab click handler (features 4 + 10) ---
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
