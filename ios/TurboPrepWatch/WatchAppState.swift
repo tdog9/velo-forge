@@ -60,6 +60,13 @@ final class WatchAppState: ObservableObject {
         didSet { UserDefaults.standard.set(stintDurationMinutes, forKey: "tp_watch_stint_min") }
     }
 
+    /// Target lap time in whole seconds (rec #47). 0 = no target.
+    /// Rider sets this on the pre-stint screen; each subsequent lap is
+    /// rendered with a ±delta vs this target so the rider can pace.
+    @Published var targetLapSeconds: Int = max(0, UserDefaults.standard.integer(forKey: "tp_watch_target_lap_s")) {
+        didSet { UserDefaults.standard.set(targetLapSeconds, forKey: "tp_watch_target_lap_s") }
+    }
+
     /// `startedAt + stintDurationMinutes`. nil if no stint is in flight.
     var stintEndsAt: Date? {
         guard let started = raceDayStartedAt else { return nil }

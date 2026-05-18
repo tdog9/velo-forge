@@ -129,6 +129,22 @@ struct RaceDayView: View {
                 }
             }
 
+            // Target lap-time picker (rec #47). Optional — rider picks
+            // a goal lap in seconds; the active-stint screen shows a
+            // ±delta vs target on each completed lap so they can pace.
+            // 0 = "no target" (the leftmost chip).
+            VStack(alignment: .leading, spacing: 4) {
+                Text("TARGET LAP")
+                    .font(.system(size: 9, weight: .heavy))
+                    .tracking(0.6)
+                    .foregroundStyle(Theme.mutedFg)
+                HStack(spacing: 4) {
+                    ForEach([0, 180, 200, 220, 240], id: \.self) { sec in
+                        targetLapChip(sec)
+                    }
+                }
+            }
+
             // Big Start Stint button — only pressable element. Plain
             // Button so the entire orange rectangle is the hit area.
             Button(action: startStint) {
@@ -183,6 +199,25 @@ struct RaceDayView: View {
         WKInterfaceDevice.current().play(.success)
         state.raceDayActive = false
         state.raceDayStartedAt = nil
+    }
+
+    /// Target-lap chip (rec #47). 0 = "off", otherwise raw seconds.
+    /// Label shows "off" or m:ss.
+    private func targetLapChip(_ sec: Int) -> some View {
+        let active = state.targetLapSeconds == sec
+        let label: String = sec == 0 ? "off" : String(format: "%d:%02d", sec / 60, sec % 60)
+        return Button {
+            WKInterfaceDevice.current().play(.click)
+            state.targetLapSeconds = sec
+        } label: {
+            Text(label)
+                .font(.system(size: 11, weight: .heavy))
+                .frame(maxWidth: .infinity, minHeight: 28)
+                .foregroundStyle(active ? Color.white : Theme.fg)
+                .background(active ? Theme.primary : Theme.card)
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private func durationChip(_ mins: Int) -> some View {
@@ -331,13 +366,35 @@ struct RaceDayView: View {
             .background(Theme.surface)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         } else {
-            HStack(spacing: 6) {
-                lapPill(label: "LAST",
-                        value: format(state.raceDayLaps.first?.durationSeconds ?? 0),
-                        color: Theme.fg)
-                lapPill(label: "BEST",
-                        value: format(state.raceDayLaps.map(\.durationSeconds).min() ?? 0),
-                        color: Theme.primary)
+            VStack(spacing: 4) {
+                HStack(spacing: 6) {
+                    lapPill(label: "LAST",
+                            value: format(state.raceDayLaps.first?.durationSeconds ?? 0),
+                            color: Theme.fg)
+                    lapPill(label: "BEST",
+                            value: format(state.raceDayLaps.map(\.durationSeconds).min() ?? 0),
+                            color: Theme.primary)
+                }
+                // Delta vs target (rec #47). Only renders when the rider
+                // set a target on the pre-stint screen. Green when
+                // faster, red when slower, neutral when on-target.
+                if state.targetLapSeconds > 0,
+                   let last = state.raceDayLaps.first?.durationSeconds {
+                    let delta = last - Double(state.targetLapSeconds)
+                    let abs = Swift.abs(delta)
+                    let sign = delta < -0.05 ? "−" : (delta > 0.05 ? "+" : "=")
+                    let label = sign == "=" ? "= TARGET" :
+                        String(format: "%@ %.1fs vs %d:%02d",
+                               sign, abs,
+                               state.targetLapSeconds / 60,
+                               state.targetLapSeconds % 60)
+                    Text(label)
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(0.4)
+                        .foregroundStyle(delta < -0.05 ? Color.green :
+                                         delta >  0.05 ? Color.red : Theme.mutedFg)
+                        .frame(maxWidth: .infinity)
+                }
             }
         }
     }
