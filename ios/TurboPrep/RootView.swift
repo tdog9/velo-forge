@@ -58,5 +58,13 @@ struct RootView: View {
                   host.contains("turboprep.app") else { return }
             loadURL = url
         }
+        // Home Screen Quick Actions — long-press the app icon to deep-
+        // link into Race Day / Team Chat / Today. QuickActions posts the
+        // URL here; we hand it to WebViewContainer the same way Universal
+        // Links do, so the WebView re-navigates and app.js consumes ?go=.
+        .onReceive(NotificationCenter.default.publisher(for: QuickActions.deepLinkNotification)) { note in
+            guard let url = note.userInfo?["url"] as? URL else { return }
+            loadURL = url
+        }
     }
 }

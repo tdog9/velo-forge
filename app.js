@@ -15989,10 +15989,37 @@ function startApp() {
         const savedTab = localStorage.getItem('tp_lastTab');
         if (savedTab && ['today','fitness','races','team','admin'].includes(savedTab)) currentPage = savedTab;
       } catch(e) {}
+      // iOS Quick Action / deep link routing — handle ?go= on initial
+      // load. The Service Worker NAV path already handles this for the
+      // live PWA, but on iOS the SW is killed so initial loads need an
+      // inline handler. Quick actions land here via the native shell.
+      let deepLinkGo = null;
+      try {
+        const url = new URL(window.location.href);
+        const go = url.searchParams.get('go');
+        if (go === 'team-chat') {
+          currentPage = 'team';
+          lbSubTab = 'chat';
+          deepLinkGo = 'team-chat';
+        } else if (go === 'race-day') {
+          deepLinkGo = 'race-day';
+        } else if (go === 'today' || go === 'fitness' || go === 'races' || go === 'team') {
+          currentPage = go;
+          deepLinkGo = go;
+        }
+        if (go) {
+          // Strip ?go= so a hard reload doesn't re-fire the deep-link.
+          url.searchParams.delete('go');
+          window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
+        }
+      } catch(_) {}
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === currentPage));
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       const startPage = $('page-' + currentPage);
       if (startPage) startPage.classList.add('active');
+      if (deepLinkGo === 'race-day') {
+        setTimeout(() => { try { openRaceDayOverlay(); } catch(_) {} }, 250);
+      }
       initTracker({
         haptic, getMapTileUrl, getWorkouts: () => userWorkouts,
         showToast,
