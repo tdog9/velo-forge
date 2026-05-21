@@ -10150,10 +10150,10 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
     <div class="msg-composer">
       <div id="team-chat-error" class="msg-composer-error" hidden></div>
       ${isCoachUser && subs.length > 0 ? `
-        <div id="chat-broadcast-targets" class="chat-broadcast-targets" hidden>
+        <div id="chat-broadcast-targets" class="chat-broadcast-targets">
           <div class="chat-broadcast-targets-label">Broadcast to:</div>
           <div class="chat-broadcast-targets-chips">
-            <button type="button" class="chat-bt-chip" data-bt-scope="">Whole team</button>
+            <button type="button" class="chat-bt-chip active" data-bt-scope="">Whole team</button>
             ${subs.map(s => `<button type="button" class="chat-bt-chip" data-bt-scope="${escHtml(s.id)}">${escHtml(s.name || 'Subteam')}</button>`).join('')}
           </div>
         </div>` : ''}
@@ -10163,7 +10163,6 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
         </button>
         <input type="file" id="team-chat-photo-input" accept="image/*" hidden>
         <textarea id="team-chat-input" class="msg-composer-input" placeholder="${escHtml(placeholder)}" maxlength="500" rows="1" aria-label="Type a message"></textarea>
-        ${(isCoachUser || isCaptain) ? `<label class="msg-composer-push" title="Send as push notification"><input type="checkbox" id="team-chat-push"><span>Push</span></label>` : ''}
         ${(isCoachUser || isCaptain) ? `<button id="team-chat-schedule" class="msg-composer-schedule" type="button" aria-label="Schedule a message" title="Schedule a message"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></button>` : ''}
         <button id="team-chat-send" class="msg-composer-send" aria-label="Send" type="button">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -10171,9 +10170,9 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
       </div>
       <div class="msg-composer-hint">${
         isCoachUser
-          ? `Sending to <strong>${escHtml(targetLabel)}</strong> · Tick Push to broadcast${subs.length > 0 ? ' (pick targets above)' : ''}.`
+          ? `Coach message — always notifies${subs.length > 0 ? ' the selected channels above' : ' the whole team'}. Members can mute on their end.`
           : isCaptain
-              ? `Captain of <strong>${escHtml((subs.find(s => s.id === myCaptainSub) || {}).name || 'your subteam')}</strong> · Tick Push to broadcast to it.`
+              ? `Captain of <strong>${escHtml((subs.find(s => s.id === myCaptainSub) || {}).name || 'your subteam')}</strong> — your messages notify the subteam.`
               : (mySubteamId
                   ? `Sending to <strong>${escHtml(targetLabel)}</strong>. Coach broadcasts appear here too.`
                   : 'Sending to <strong>whole team</strong>. Ask your coach to assign you to a subteam.')
@@ -13517,21 +13516,13 @@ function bindTeamChatPanel(c) {
     ta.addEventListener('keyup', (e) => { if (e.key === 'Escape') closeMentions(); });
     ta.addEventListener('blur', () => setTimeout(closeMentions, 160));
   }
-  // Multi-subteam broadcast targets (rec #17) — the targets row only
-  // appears when Push is ticked; chips multi-select. The send handler
-  // reads the active chips and fans the broadcast out to each.
-  const pushBox = c.querySelector('#team-chat-push');
+  // Multi-subteam broadcast targets (rec #17). The Push checkbox was
+  // removed — coach messages ALWAYS push now; recipients silence on
+  // their end (silent-mode toggle). The targets row is always visible
+  // for coaches with subteams; chips multi-select which channels the
+  // broadcast fans out to (Whole team pre-selected).
   const targetsRow = c.querySelector('#chat-broadcast-targets');
-  if (pushBox && targetsRow) {
-    pushBox.addEventListener('change', () => {
-      targetsRow.hidden = !pushBox.checked;
-      // First reveal — pre-select the coach's current viewing scope.
-      if (pushBox.checked && !targetsRow.querySelector('.chat-bt-chip.active')) {
-        const cur = getChatScope() || '';
-        const match = targetsRow.querySelector('.chat-bt-chip[data-bt-scope="' + cur + '"]');
-        if (match) match.classList.add('active');
-      }
-    });
+  if (targetsRow) {
     targetsRow.querySelectorAll('.chat-bt-chip').forEach(chip => {
       chip.addEventListener('click', () => chip.classList.toggle('active'));
     });
@@ -13601,14 +13592,16 @@ function bindTeamChatPanel(c) {
       btnLive.disabled = true;
       btnLive.style.opacity = '0.55';
     }
-    const pushChecked = !!c.querySelector('#team-chat-push')?.checked;
-    // Multi-subteam broadcast (rec #17): when Push is ticked and the
-    // coach has selected target chips, fan the broadcast out to every
-    // selected scope. '' = whole-team channel.
+    // Coach + captain messages ALWAYS push now (the opt-out Push
+    // checkbox was removed). Recipients silence on their own end via
+    // the silent-mode toggle. Athletes still send silent chat.
+    const pushChecked = canBroadcast;
+    // Multi-subteam broadcast (rec #17): a coach's selected target chips
+    // fan the broadcast out to every selected scope. '' = whole-team.
     let broadcastScopes = null;
-    if (pushChecked && isCoachUser) {
+    if (isCoachUser) {
       const tr = c.querySelector('#chat-broadcast-targets');
-      if (tr && !tr.hidden) {
+      if (tr) {
         const chips = [...tr.querySelectorAll('.chat-bt-chip.active')];
         if (chips.length) broadcastScopes = chips.map(ch => ch.dataset.btScope || '');
       }

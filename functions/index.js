@@ -601,8 +601,12 @@ exports.dailyMotivationPush = onSchedule(
           tokens,
           notification: { title: 'TurboPrep · Daily', body },
           apns: {
-            headers: { 'apns-priority': '5', 'apns-push-type': 'alert' },
-            payload: { aps: { sound: 'default', 'thread-id': 'tp.daily', 'interruption-level': 'passive' } },
+            // Was priority 5 + passive — iOS delivered it SILENTLY into
+            // Notification Center with no banner or sound, so it looked
+            // like "the 3:30 push doesn't work". Bumped to priority 10 +
+            // active so it actually surfaces a banner + sound.
+            headers: { 'apns-priority': '10', 'apns-push-type': 'alert' },
+            payload: { aps: { sound: 'default', badge: 1, 'thread-id': 'tp.daily', 'interruption-level': 'active' } },
           },
           data: { teamId: profile.teamId || '', threadId: 'daily-motivation', category: 'daily' },
         });
