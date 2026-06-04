@@ -2891,3 +2891,136 @@ body:has(#page-team.active) .ai-fab,
   border:1px dashed var(--border);
   border-radius:10px;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   POLISH PASS — Today / Race Day / Team
+   Goal: stop the app feeling "average" by giving the three hero screens
+   real typographic hierarchy and breathing room. No new chrome; just
+   bigger hero numbers, lighter dividers, calmer cards.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Page titles — larger, tighter letter-spacing for a "premium" read. */
+.page-title{
+  font-size:26px !important;
+  font-weight:800 !important;
+  letter-spacing:-.02em !important;
+  margin-bottom:18px !important;
+  line-height:1.1 !important;
+}
+/* Section labels above cards — smaller, more muted, more breathing. */
+.section-title{
+  font-size:10px !important;
+  letter-spacing:.10em !important;
+  margin:22px 0 10px !important;
+  opacity:.65;
+}
+/* Cards — softer, slightly more padding, less harsh border. */
+.section-card{
+  border:1px solid rgba(255,255,255,.05) !important;
+  border-radius:14px !important;
+  background:linear-gradient(180deg, #131520 0%, #101218 100%) !important;
+}
+/* Inner block padding on common card containers (.section-card direct
+   children that look like a row). Doesn't fight specific overrides. */
+.section-card > .card-inner,
+.section-card > .card-padding{ padding:16px !important; }
+
+/* ── Today hero — make the streak / mins-this-week numbers the focus. */
+#today-hero-stats .hero-stat-number,
+.today-hero .hero-num,
+.today-summary-stat-value{
+  font-size:34px !important;
+  font-weight:800 !important;
+  letter-spacing:-.025em !important;
+  line-height:1 !important;
+  font-variant-numeric:tabular-nums !important;
+}
+#today-hero-stats .hero-stat-label,
+.today-hero .hero-label,
+.today-summary-stat-label{
+  font-size:10px !important;
+  text-transform:uppercase !important;
+  letter-spacing:.08em !important;
+  opacity:.6 !important;
+  margin-top:4px !important;
+}
+/* Today header XP/streak strip — calmer. */
+#today-xp-display, .today-streak-chip{
+  font-variant-numeric:tabular-nums;
+  letter-spacing:.01em;
+}
+
+/* ── Race Day stat bar — bigger primary numbers, calmer labels. */
+.rd-stat-num, .rd-stats-cell-val{
+  font-size:22px !important;
+  font-weight:800 !important;
+  letter-spacing:-.02em !important;
+  font-variant-numeric:tabular-nums !important;
+}
+.rd-stat-label, .rd-stats-cell-label{
+  font-size:9px !important;
+  letter-spacing:.10em !important;
+  opacity:.55 !important;
+  text-transform:uppercase !important;
+}
+/* The big lap timer — make it feel decisive. */
+.rd-lap-timer, #rd-active-timer{
+  font-variant-numeric:tabular-nums !important;
+  letter-spacing:-.04em !important;
+  font-weight:800 !important;
+}
+
+/* ── Team page — quieter chrome around chat list. */
+#team-chat-list .msg{
+  border:0 !important;
+  background:transparent !important;
+  padding:8px 12px !important;
+}
+.chat-broadcast-targets{
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.05);
+  border-radius:12px;
+  padding:10px 12px;
+  margin:0 12px 8px;
+}
+.chat-broadcast-targets-label{
+  font-size:10px;
+  letter-spacing:.10em;
+  text-transform:uppercase;
+  opacity:.6;
+  margin-bottom:6px;
+}
+.chat-bt-chip{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06);
+  color:var(--fg);
+  padding:6px 12px;
+  border-radius:99px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+}
+.chat-bt-chip.active{
+  background:var(--primary-dim);
+  border-color:rgba(var(--primary-rgb),.4);
+  color:var(--primary);
+}
+
+/* ── Primary buttons — slightly more confident height + radius. */
+.btn-primary{
+  min-height:46px;
+  border-radius:12px;
+  font-weight:700;
+  letter-spacing:.005em;
+}
+
+/* Bottom-nav — a hair softer top edge, no harsh top-border. */
+.nav-bottom-tabs, .bottom-tabs{
+  border-top:1px solid rgba(255,255,255,.06) !important;
+}
+
+/* Reduce visual stacking — fewer hard borders between adjacent cards. */
+.section-card + .section-card{ margin-top:10px !important; }
+
+/* Calm down all the legacy shadows that read as "1990s card". */
+.section-card{ box-shadow:none !important; }

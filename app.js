@@ -14829,6 +14829,12 @@ async function attachBackgroundChat() {
       if (!_bgChatLive) console.log('[chat] first snapshot received → Live');
       _bgChatLive = true;
       _bgChatRetryCount = 0;
+      // Hide the pill the instant we go live — earlier it could linger
+      // after a transient error if the next snapshot beat the timeout.
+      try {
+        const pill = document.getElementById('chat-status-pill');
+        if (pill && !pill.hidden) pill.hidden = true;
+      } catch(_) {}
       if (currentPage === 'team' && lbSubTab === 'chat') {
         try { refreshTeamChatList(); } catch(_) {}
         // Viewing the thread → keep it marked read as messages arrive.
@@ -14852,25 +14858,28 @@ async function attachBackgroundChat() {
         const cc = document.getElementById('lb-chat-content');
         if (cc) { try { renderTeamChatPanelInto(cc); } catch(_) {} }
       }
-      // Surface the actual error in the pill — generic "Reconnecting…"
-      // gave us no signal to debug with. Cached messages keep chat
-      // functional, so don't show the pill if we have any.
+      // Only surface the pill once we've genuinely failed many times —
+      // 5 retries (~15s) without a cache and without the listener ever
+      // going live. Earlier it showed at retry 2 and read as
+      // "stuck on connecting" even when the listener was just slow.
+      // Cached messages always keep chat usable; the pill is the
+      // last-resort signal, not a loading indicator.
       if (currentPage === 'team' && lbSubTab === 'chat') {
         const cache = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
         const hasCache = Array.isArray(cache) && cache.length > 0;
         const pill = document.getElementById('chat-status-pill');
         if (pill) {
-          if (_bgChatRetryCount >= 2 && !hasCache) {
+          if (_bgChatRetryCount >= 5 && !hasCache && !_bgChatLive) {
             pill.classList.remove('chat-status-connecting', 'chat-status-live');
             pill.classList.add('chat-status-error');
             pill.hidden = false;
             const lbl = pill.querySelector('.chat-status-label');
             if (lbl) {
               const friendly = (code === 'permission-denied')
-                ? 'Permission denied — tap Retry'
+                ? "Can't load chat — tap Retry"
                 : (code === 'unavailable')
-                  ? 'Offline — tap Retry'
-                  : ('Error: ' + String(code).slice(0, 36));
+                  ? 'Offline'
+                  : 'Reconnect';
               lbl.textContent = friendly;
             }
           } else {
@@ -16480,13 +16489,50 @@ function startApp() {
       // Auto-fetch the cached APNs token from native and write it to
       // Firestore using THIS web session's auth. Native Auth is usually
       // unsigned even when WebView is signed in, so the native-side
-      // write would no-op — we do it from web instead. Fires silently
-      // a couple of seconds after sign-in to give the bridge time to
-      // settle, then again 8s later in case the bridge wasn't ready.
+      // write would no-op — we do it from web instead.
+      //
+      // 3-pass strategy with verification: fire push-status at 2s / 8s
+      // / 25s and after each pass check the user's devices/* docs. If
+      // none have an fcmToken yet, fire again. This recovers from the
+      // common race where the bridge isn't ready yet, or APNs hasn't
+      // handed FCM a registration token at the moment of the first
+      // request.
       try {
         const tickPushSync = () => { try { postNative('push-status'); } catch(_) {} };
-        setTimeout(tickPushSync, 2000);
-        setTimeout(tickPushSync, 8000);
+        const verifyHasFcm = async () => {
+          if (!currentUser?.uid || !db) return false;
+          try {
+            const ds = await getDocs(collection(db, 'users', currentUser.uid, 'devices'));
+            for (const d of ds.docs) { if ((d.data() || {}).fcmToken) return true; }
+          } catch(_) {}
+          return false;
+        };
+        setTimeout(async () => {
+          tickPushSync();
+          setTimeout(async () => {
+            if (await verifyHasFcm()) return;
+            console.log('[push] no fcmToken after pass 1 — retrying');
+            tickPushSync();
+            setTimeout(async () => {
+              if (await verifyHasFcm()) return;
+              console.warn('[push] still no fcmToken after pass 2 — final retry');
+              tickPushSync();
+            }, 17000);
+          }, 6000);
+        }, 2000);
+      } catch(_) {}
+      // Re-fire push-status on every visibility-change → visible. Cold
+      // boots, app foregrounding, push-prompt-grant — any of these can
+      // produce a fresh token that the previous sync missed.
+      try {
+        if (!window._tpPushVisHook) {
+          window._tpPushVisHook = true;
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && currentUser) {
+              try { postNative('push-status'); } catch(_) {}
+            }
+          });
+        }
       } catch(_) {}
       loadUserRaceLogs().then(refresh).catch(() => {});
       if (isAdmin) loadAdminData().then(refresh).catch(() => {});
