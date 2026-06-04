@@ -6405,17 +6405,13 @@ function renderToday() {
       <div style="font-size:10px;font-weight:700;color:var(--primary);background:rgba(var(--primary-rgb),.1);padding:3px 8px;border-radius:6px;letter-spacing:.04em">TODAY</div>
     </div></div></div>`;
   }
-  // Race countdown (compact, only next race)
-  const allRaces = getActiveRaces();
-  const todayStr2 = localDateKey(now);
-  const futureRaces = allRaces.filter(r => r.date >= todayStr2).sort((a,b) => a.date.localeCompare(b.date));
-  const nextRace = futureRaces[0];
-  if (nextRace) {
-    const raceDate = new Date(nextRace.date + 'T09:00:00+10:00');
-    const diffDays = Math.max(0, Math.floor((raceDate - now) / 86400000));
-    html += `<div class="today-race-row" style="margin-top:8px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg><span class="today-race-name">${escHtml(nextRace.name)}</span><span class="today-race-days"><strong>${diffDays}</strong>d</span></div>`;
-  }
-  // Upcoming training session
+  // Simplification: the compact race-countdown row was removed — the
+  // race-phase banner at the top of Today already anchors the calendar
+  // and the Team Hub shows full countdown. Two race counters on the
+  // same screen was the definition of clutter.
+  //
+  // Upcoming training session — only render when it's today OR within
+  // the next 48h. A session 9 days out was just a card on every render.
   const todayStr3 = localDateKey(now);
   const upcomingSessions = trainingSessions.filter(s => s.date >= todayStr3).sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
   const nextSession = upcomingSessions[0];
@@ -6423,38 +6419,39 @@ function renderToday() {
     const sDate = new Date(nextSession.date + 'T' + (nextSession.time || '16:00') + ':00');
     const isSessionToday = nextSession.date === todayStr3;
     const diffMs = sDate - now;
-    const diffHrs = Math.floor(diffMs / 3600000);
-    const diffMins = Math.floor((diffMs % 3600000) / 60000);
-    let timeLabel = '';
-    if (isSessionToday && diffMs > 0) timeLabel = diffHrs > 0 ? 'in ' + diffHrs + 'h ' + diffMins + 'm' : 'in ' + diffMins + 'm';
-    else if (isSessionToday && diffMs <= 0) timeLabel = 'NOW';
-    else { const d = sDate; timeLabel = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
-    const sessionIconSvg = isSessionToday
-      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
-      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
-    const sessionIconColor = isSessionToday ? 'var(--primary)' : '#3b82f6';
-    html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(var(--primary-rgb),.08),rgba(var(--success-rgb),.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba(var(--primary-rgb),.25)' : 'var(--border)'};border-radius:10px">
-      <div style="display:flex;align-items:start;gap:10px">
-        <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(var(--primary-rgb),.15)' : 'rgba(59,130,246,.1)'};color:${sessionIconColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">${sessionIconSvg}</div>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-            <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(nextSession.title)}</div>
-            <div style="font-size:11px;font-weight:700;color:${isSessionToday ? 'var(--primary)' : 'var(--muted-fg)'}">${timeLabel}</div>
+    const withinTwoDays = diffMs <= 2 * 24 * 60 * 60 * 1000;
+    if (isSessionToday || withinTwoDays) {
+      const diffHrs = Math.floor(diffMs / 3600000);
+      const diffMins = Math.floor((diffMs % 3600000) / 60000);
+      let timeLabel = '';
+      if (isSessionToday && diffMs > 0) timeLabel = diffHrs > 0 ? 'in ' + diffHrs + 'h ' + diffMins + 'm' : 'in ' + diffMins + 'm';
+      else if (isSessionToday && diffMs <= 0) timeLabel = 'NOW';
+      else { const d = sDate; timeLabel = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }); }
+      const sessionIconSvg = isSessionToday
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+      const sessionIconColor = isSessionToday ? 'var(--primary)' : '#3b82f6';
+      html += `<div style="margin-top:8px;padding:12px;background:${isSessionToday ? 'linear-gradient(135deg,rgba(var(--primary-rgb),.08),rgba(var(--success-rgb),.06))' : 'var(--card)'};border:1.5px solid ${isSessionToday ? 'rgba(var(--primary-rgb),.25)' : 'var(--border)'};border-radius:10px">
+        <div style="display:flex;align-items:start;gap:10px">
+          <div style="width:36px;height:36px;border-radius:8px;background:${isSessionToday ? 'rgba(var(--primary-rgb),.15)' : 'rgba(59,130,246,.1)'};color:${sessionIconColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">${sessionIconSvg}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+              <div style="font-size:13px;font-weight:700;color:var(--fg)">${escHtml(nextSession.title)}</div>
+              <div style="font-size:11px;font-weight:700;color:${isSessionToday ? 'var(--primary)' : 'var(--muted-fg)'}">${timeLabel}</div>
+            </div>
+            <div style="font-size:12px;color:var(--muted-fg)">${nextSession.time || ''}${nextSession.endTime ? ' - ' + nextSession.endTime : ''}${nextSession.location ? ' · ' + escHtml(nextSession.location) : ''}</div>
+            ${nextSession.notes ? '<div style="font-size:11px;color:var(--muted-fg);margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
           </div>
-          <div style="font-size:12px;color:var(--muted-fg)">${nextSession.time || ''}${nextSession.endTime ? ' - ' + nextSession.endTime : ''}${nextSession.location ? ' · ' + escHtml(nextSession.location) : ''}</div>
-          ${nextSession.notes ? '<div style="font-size:11px;color:var(--muted-fg);margin-top:4px;line-height:1.4">' + escHtml(nextSession.notes) + '</div>' : ''}
         </div>
-      </div>
-      <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:4px">📲 Add to Calendar</button>
-    </div>`;
+        <button class="btn add-to-cal-btn" data-session-idx="0" style="width:100%;margin-top:8px;padding:7px;font-size:11px;font-weight:600;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--fg);display:flex;align-items:center;justify-content:center;gap:4px">Add to Calendar</button>
+      </div>`;
+    }
   }
   // Team challenge (only if active)
   if (activeChallenge) html += renderTeamChallenge();
-  // AI insight (compact single line)
-  if (totalWorkouts >= 5) {
-    const insight = generateTrainingInsight();
-    if (insight) html += `<div style="margin-top:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted-fg);line-height:1.4;display:flex;align-items:start;gap:8px"><span style="font-size:14px;flex-shrink:0">🧠</span><span>${insight}</span></div>`;
-  }
+  // The AI insight one-liner was removed — it duplicated signal from
+  // the AI Coach widget card above and the Recovery / RPE-burnout
+  // banners that already fire when the data warrants it.
   // Daily Roundup (shows after 5pm if student trained today)
   const roundupHour = now.getHours();
   const roundupDateStr = localDateKey(now);
@@ -6472,32 +6469,25 @@ function renderToday() {
     else if (todayWos.length >= 2) encouragement = 'Multiple sessions in one day — that\'s dedication. Your team will notice.';
     else if (streak >= 7) encouragement = 'Streak going strong! Every day you show up, you get better.';
     else encouragement = 'Another day in the books. Consistency is what separates good from great.';
-    html += `<div class="today-roundup-card" style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(var(--primary-rgb),.04));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:14px;font-weight:700;color:var(--fg)">Today's Roundup</div>
-        <button id="dismiss-roundup" style="background:none;border:none;color:var(--muted-fg);font-size:16px;cursor:pointer;padding:2px" aria-label="Dismiss">×</button>
+    // Simplified roundup — was a 4-cell grid + RPE row + HR row +
+    // encouragement, which felt like a press release at 5pm. Now: one
+    // confident summary line, one short encouragement, one inline meta.
+    const summaryLine = todayWos.length === 1
+      ? `${rMins} min${rDist > 0 ? ' · ' + rDist.toFixed(1) + ' km' : ''}`
+      : `${todayWos.length} sessions · ${rMins} min${rDist > 0 ? ' · ' + rDist.toFixed(1) + ' km' : ''}`;
+    const metaLine = [
+      rAvgRpe ? `RPE ${rAvgRpe}/10` : null,
+      `+${rXp} XP`,
+      healthD?.latestHr ? `${healthD.latestHr} bpm peak` : null,
+    ].filter(Boolean).join(' · ');
+    html += `<div class="today-roundup-card" style="margin-top:10px;background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(var(--primary-rgb),.03));border:1px solid rgba(124,58,237,.15);border-radius:12px;padding:14px 16px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#a78bfa">Today's roundup</div>
+        <button id="dismiss-roundup" style="background:none;border:none;color:var(--muted-fg);font-size:18px;line-height:1;cursor:pointer;padding:0" aria-label="Dismiss">×</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(${rDist > 0 ? 4 : 3},1fr);gap:6px;margin-bottom:10px">
-        <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--primary)">${todayWos.length}</div>
-          <div style="font-size:9px;color:var(--muted-fg)">sessions</div>
-        </div>
-        <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--fg)">${rMins}</div>
-          <div style="font-size:9px;color:var(--muted-fg)">mins</div>
-        </div>
-        ${rDist > 0 ? `<div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--fg)">${rDist.toFixed(1)}</div>
-          <div style="font-size:9px;color:var(--muted-fg)">km</div>
-        </div>` : ''}
-        <div style="text-align:center;padding:8px 2px;background:rgba(255,255,255,.03);border-radius:8px">
-          <div style="font-size:20px;font-weight:800;color:var(--warning)">+${rXp}</div>
-          <div style="font-size:9px;color:var(--muted-fg)">XP</div>
-        </div>
-      </div>
-      ${rAvgRpe ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Effort: ${rAvgRpe}/10 · Types: ${rTypes}</div>` : ''}
-      ${healthD?.latestHr ? `<div style="font-size:11px;color:var(--muted-fg);margin-bottom:4px">Peak HR: ${healthD.latestHr} bpm${healthD.latestSteps ? ' · Steps: ' + healthD.latestSteps.toLocaleString() : ''}</div>` : ''}
-      <div style="font-size:12px;color:var(--fg);line-height:1.4;margin-top:6px;padding-top:6px;border-top:1px solid rgba(124,58,237,.1)">${encouragement}</div>
+      <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;color:var(--fg);font-variant-numeric:tabular-nums">${summaryLine}</div>
+      <div style="font-size:11px;color:var(--muted-fg);margin-top:2px;font-variant-numeric:tabular-nums">${metaLine}</div>
+      <div style="font-size:12px;color:var(--fg);line-height:1.4;margin-top:8px;opacity:.85">${encouragement}</div>
     </div>`;
   }
   // Strava connect (new users only)
