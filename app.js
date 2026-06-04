@@ -10770,84 +10770,18 @@ function renderTeamTab(c, opts) {
         </div>`;
     }
   } catch(_) {}
-  // ── Team pulse — three quick numbers that turn the Hub into a
-  // dashboard. Workouts logged this week, members active in the last
-  // 7 days, longest current streak across the team.
-  try {
-    const now = Date.now();
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
-    let weekWorkouts = 0;
-    let activeThisWeek = 0;
-    let longestStreak = 0;
-    let longestStreakName = '—';
-    teamMembers.forEach(m => {
-      const last = m.lastActive ? (new Date(m.lastActive)).getTime() : 0;
-      if (last > 0 && (now - last) < weekMs) activeThisWeek++;
-      if ((m.streak || 0) > longestStreak) {
-        longestStreak = m.streak || 0;
-        longestStreakName = m.displayName || 'Member';
-      }
-      // Per-member workouts logged this week — best-effort: if the
-      // weekly count isn't on the member object, fall back to scaling
-      // their total by a simple recent-fraction heuristic. Live cost
-      // would be a fan-out read; saving that for a follow-up.
-      weekWorkouts += (m.workoutsThisWeek != null) ? m.workoutsThisWeek : 0;
-    });
-    html += `
-      <div class="hub-pulse">
-        <div class="hub-pulse-cell">
-          <div class="hub-pulse-val">${weekWorkouts}</div>
-          <div class="hub-pulse-lbl">Workouts this week</div>
-        </div>
-        <div class="hub-pulse-cell">
-          <div class="hub-pulse-val">${activeThisWeek}<span class="hub-pulse-of">/${teamMembers.length}</span></div>
-          <div class="hub-pulse-lbl">Active in 7 days</div>
-        </div>
-        <div class="hub-pulse-cell">
-          <div class="hub-pulse-val">${longestStreak}<span class="hub-pulse-unit">d</span></div>
-          <div class="hub-pulse-lbl">${escHtml(longestStreakName)}</div>
-        </div>
-      </div>`;
-    // Subteam-vs-subteam standings (rec #93). Visible to anyone on a
-    // team with at least 2 subteams. Each subteam's score = sum of
-    // its members' totalWorkouts; tie-broken by number-active (streak
-    // > 0). Shows a stacked bar so the gap between subteams is felt,
-    // not just read.
-    const subs2 = Array.isArray(teamData?.subteams) ? teamData.subteams : [];
-    if (subs2.length >= 2 && teamMembers.length > 0) {
-      const scored = subs2.map(s => {
-        const memSet = new Set(s.members || []);
-        if (s.subCoachUid) memSet.add(s.subCoachUid);
-        const members = teamMembers.filter(m => memSet.has(m.uid));
-        const totalW = members.reduce((sum, m) => sum + (m.totalWorkouts || 0), 0);
-        const active = members.filter(m => (m.streak || 0) > 0).length;
-        return { id: s.id, name: s.name || 'Subteam', totalW, active, size: members.length };
-      }).filter(x => x.size > 0)
-        .sort((a, b) => (b.totalW - a.totalW) || (b.active - a.active));
-      if (scored.length >= 2 && scored[0].totalW > 0) {
-        const maxW = scored[0].totalW || 1;
-        html += `<div class="subteam-challenge">
-          <div class="subteam-challenge-head">
-            <span class="subteam-challenge-title">Subteam Challenge</span>
-            <span class="subteam-challenge-sub">${scored.length} subteams · total workouts</span>
-          </div>
-          ${scored.map((s, i) => `
-            <div class="subteam-challenge-row${i === 0 ? ' leader' : ''}">
-              <span class="subteam-challenge-rank">${i + 1}</span>
-              <span class="subteam-challenge-name">${escHtml(s.name)}</span>
-              <div class="subteam-challenge-bar"><div class="subteam-challenge-bar-fill" style="width:${Math.round((s.totalW / maxW) * 100)}%"></div></div>
-              <span class="subteam-challenge-score">${s.totalW}</span>
-            </div>`).join('')}
-        </div>`;
-      }
-    }
-    // Needs Attention (rec #28) — coach-only card listing athletes who
-    // have either gone quiet (7+ days without activity) or have a
-    // current streak ≥3 with no workout today (at risk of breaking).
-    if (isMasterOrCoach && teamMembers.length > 0) {
+  // Simplification pass: the Team page used to render five extra cards
+  // here — pulse strip, subteam challenge, needs-attention, featured
+  // member, and a Today-style dashboard band. They duplicated data the
+  // leaderboard table already shows and made the screen feel like a
+  // wall of cards. Coach-only signal (Needs Attention) moved to the
+  // Coach tab via showManageControls below; the athlete-facing Team
+  // page now reads: hero → countdown → leaderboard → archive.
+  if (showManageControls && teamMembers.length > 0) {
+    try {
+      const now = Date.now();
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const todayMs = today.getTime();
-      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
       const flagged = [];
       teamMembers.forEach(m => {
         if (m.uid === currentUser?.uid) return;
@@ -10879,30 +10813,8 @@ function renderTeamTab(c, opts) {
           ${flagged.length > 8 ? `<div class="hub-attention-more">+${flagged.length - 8} more</div>` : ''}
         </div>`;
       }
-    }
-  } catch(_) {}
-  // ── Featured member of the week — pinned card just below the pulse
-  // strip. Default = top member by total workouts (fast deterministic
-  // pick); coach can override later via Manage Team.
-  try {
-    const sortedByWork = [...teamMembers].sort((a, b) => (b.totalWorkouts || 0) - (a.totalWorkouts || 0));
-    const featured = sortedByWork[0];
-    if (featured && teamMembers.length > 1) {
-      const initials = (featured.displayName || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0,2).toUpperCase() || '?';
-      html += `
-        <div class="hub-featured" data-member-uid="${escHtml(featured.uid)}" role="button" tabindex="0">
-          <div class="hub-featured-label">Featured this week</div>
-          <div class="hub-featured-row">
-            <div class="hub-featured-avatar">${featured.photoURL ? `<img src="${escHtml(featured.photoURL)}" alt="">` : escHtml(initials)}</div>
-            <div class="hub-featured-text">
-              <div class="hub-featured-name">${escHtml(featured.displayName || 'Member')}</div>
-              <div class="hub-featured-stats">${featured.totalWorkouts || 0} workouts · ${featured.streak || 0}d streak${featured.yearLevel ? ' · Year ' + escHtml(String(featured.yearLevel)) : ''}</div>
-            </div>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--muted-fg);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>`;
-    }
-  } catch(_) {}
+    } catch(_) {}
+  }
   // The roster chip grid was removed — the Members leaderboard table
   // below already lists every member with their workouts and streak,
   // so duplicating the same data as a chip grid above the table
@@ -11015,6 +10927,62 @@ function renderTeamTab(c, opts) {
           : `<button id="coach-start-rd" style="width:100%;padding:10px;border-radius:10px;background:rgba(var(--success-rgb),.1);border:1px solid rgba(var(--success-rgb),.3);color:var(--success);font-weight:700;font-size:13px;cursor:pointer">Activate Race Day Mode</button>`}
       </div>
     `;
+  }
+  // ─────────────────────────────────────────────────────────────────
+  // Driver Reports — Home Assistant webhook integration (PLACEHOLDER)
+  // ─────────────────────────────────────────────────────────────────
+  // Coach-only stub. Renders an empty card so the slot is visible in
+  // the UI; no fetch logic yet — implementation lands when the HA
+  // side of the integration is ready.
+  //
+  // The shape we're building toward, so a future pass has a brief:
+  //
+  //   HA → TurboPrep (inbound):
+  //     POST https://us-central1-hpr-2026.cloudfunctions.net/haDriverReport
+  //     Headers: X-HA-Secret: <per-team rotating secret>
+  //     Body: {
+  //       teamId, raceId, driverUid|driverName,
+  //       stintNumber,
+  //       lapTimes: [<ms>, ...],
+  //       avgHeartRate, peakHeartRate,
+  //       cadenceAvg, powerAvg,
+  //       coreTemp, ambientTemp,
+  //       hydrationOz, gelsConsumed,
+  //       pitDuration, pitNotes,
+  //       crashFlag, mechanicalFlag,
+  //       gpsTrack: [{t, lat, lng, spd}, ...] (downsampled)
+  //     }
+  //   → written to teams/{teamId}/raceArchive/{raceId}/driverReports/{stintId}
+  //   → AI summary generated (per-stint narrative + per-race aggregate)
+  //   → surfaces in this card with per-driver expand/collapse +
+  //     export-to-CSV/PDF, mirrored into the existing race archive entry.
+  //
+  // Where TurboPrep already fires OUTBOUND to HA: fireTeamWebhooks /
+  // fireUserWebhook in functions/index.js (alerts + chat broadcasts).
+  // The inbound path reuses the same per-user/per-team webhook secret
+  // for symmetry.
+  //
+  // UI to build later, in order of value:
+  //   1. List of races with driver-report counts (cheap aggregate).
+  //   2. Expand a race → per-driver stint reports with HR/power chart.
+  //   3. Per-driver season trend (HR drift, lap-time consistency).
+  //   4. "Generate coach summary" — Claude rolls up a race brief.
+  //   5. Export bundle (CSV + PDF) for post-race team review.
+  if (showManageControls && hasTeam) {
+    html += `
+      <div class="profile-section" style="margin-top:18px">
+        <div class="profile-section-title">Driver Reports
+          <span style="margin-left:8px;font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--muted-fg);background:rgba(255,255,255,.04);padding:3px 8px;border-radius:99px">Coming soon</span>
+        </div>
+        <div style="padding:14px 16px;border:1px dashed var(--border);border-radius:12px;background:rgba(255,255,255,.02)">
+          <div style="font-size:13px;color:var(--fg);font-weight:600;margin-bottom:6px">In-depth race telemetry per driver</div>
+          <div style="font-size:12px;color:var(--muted-fg);line-height:1.5">
+            Lap-by-lap times, heart-rate, cadence, core temp, pit duration and hydration —
+            piped in from a Home Assistant webhook on race day, AI-summarised per stint,
+            and bundled into a printable post-race report.
+          </div>
+        </div>
+      </div>`;
   }
   // Race Archive — coach-imported race results with AI-summarised stint
   // notes, lap times, and weather. Lives at teams/{teamId}/raceArchive.
