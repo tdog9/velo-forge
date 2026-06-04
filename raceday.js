@@ -535,11 +535,29 @@ ${rdd.dryRun ? `<div style="background:#f59e0b;color:#1a1a1a;text-align:center;p
     <div style="width:7px;height:7px;border-radius:50%;background:var(--destructive);animation:rdPulse 1.4s ease infinite"></div>
     <span style="font-size:11px;font-weight:700;color:var(--destructive)">LIVE</span>
   </div>
-  <button id="rd-excel-btn" aria-label="Export race day as Excel" title="Export race day as Excel" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:var(--success, #22c55e);font-weight:700;cursor:pointer;margin-left:4px">Excel</button>
-  <button id="rd-share-btn" aria-label="Share spectator link" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-weight:700;cursor:pointer;margin-left:4px">Share</button>
-  <button id="rd-watch-dismiss" aria-label="Hide race mode on my Watch" title="Hide race mode on my Watch" style="font-size:11px;padding:5px 10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--muted-fg);font-weight:700;cursor:pointer;margin-left:4px">Hide on Watch</button>
-  ${isCoach ? `<button id="rd-clear-history" title="Clear today's race day (keeps archive)" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(var(--warning-rgb),.10);border:1px solid rgba(var(--warning-rgb),.30);color:var(--warning, #f97316);font-weight:700;cursor:pointer;margin-left:4px">Clear</button>` : ''}
-  ${isCoach ? `<button id="rd-end-btn" style="font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(var(--destructive-rgb),.1);border:1px solid rgba(var(--destructive-rgb),.3);color:var(--destructive);font-weight:700;cursor:pointer;margin-left:4px">End Race Day</button>` : ''}
+  <!-- Simplified header (rec — Team/Today/RaceDay polish pass).
+       Was five separate inline buttons (Excel + Share + Hide on
+       Watch + Clear + End Race Day) crammed into the header — read
+       as "way too much" on a phone. Now: Share stays inline (the
+       primary action — spectators need the link), everything else
+       collapses behind one "⋯" menu button. Existing handlers find
+       their #id-named buttons inside the menu via querySelector so
+       no rebinding needed. -->
+  <button id="rd-share-btn" aria-label="Share spectator link" style="font-size:11px;padding:6px 12px;border-radius:8px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);color:#3b82f6;font-weight:700;cursor:pointer;margin-left:4px">Share</button>
+  <div style="position:relative;margin-left:4px">
+    <button id="rd-more-btn" aria-label="More actions" title="More actions" aria-haspopup="menu" aria-expanded="false" style="width:34px;height:30px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--muted-fg);font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>
+    </button>
+    <div id="rd-more-menu" role="menu" hidden style="position:absolute;top:calc(100% + 6px);right:0;min-width:200px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.45);padding:4px;z-index:170;display:flex;flex-direction:column">
+      <button id="rd-excel-btn" role="menuitem" aria-label="Export race day as Excel" style="text-align:left;font-size:12.5px;padding:9px 12px;border-radius:7px;background:transparent;border:none;color:var(--fg);font-weight:600;cursor:pointer">Export race day · Excel</button>
+      <button id="rd-watch-dismiss" role="menuitem" aria-label="Hide race mode on my Watch" style="text-align:left;font-size:12.5px;padding:9px 12px;border-radius:7px;background:transparent;border:none;color:var(--fg);font-weight:600;cursor:pointer">Hide race mode on Watch</button>
+      ${isCoach ? `
+      <div style="height:1px;background:var(--border);margin:3px 6px"></div>
+      <button id="rd-clear-history" role="menuitem" style="text-align:left;font-size:12.5px;padding:9px 12px;border-radius:7px;background:transparent;border:none;color:var(--warning, #f59e0b);font-weight:600;cursor:pointer">Clear today's race day</button>
+      <button id="rd-end-btn" role="menuitem" style="text-align:left;font-size:12.5px;padding:9px 12px;border-radius:7px;background:transparent;border:none;color:var(--destructive);font-weight:700;cursor:pointer">End race day</button>
+      ` : ''}
+    </div>
+  </div>
 </header>
 
 <!-- Scrollable content -->
@@ -635,6 +653,35 @@ function bindOverlay(ov) {
         ctx.showToast?.('Couldn\'t clear — check Firestore rules.', 'error');
       }
     });
+  }
+  // ── Coach/admin "⋯" menu bindings ─────────────────────────────────
+  // Toggle visibility on click, close on outside-tap or Esc, and
+  // collapse the menu the moment any item inside fires so the user
+  // isn't left looking at a stale open menu.
+  const moreBtn  = ov.querySelector('#rd-more-btn');
+  const moreMenu = ov.querySelector('#rd-more-menu');
+  const closeMoreMenu = () => {
+    if (!moreMenu || moreMenu.hidden) return;
+    moreMenu.hidden = true;
+    moreBtn?.setAttribute('aria-expanded', 'false');
+  };
+  if (moreBtn && moreMenu) {
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasOpen = !moreMenu.hidden;
+      moreMenu.hidden = wasOpen;
+      moreBtn.setAttribute('aria-expanded', wasOpen ? 'false' : 'true');
+    });
+    document.addEventListener('click', (e) => {
+      if (moreMenu.hidden) return;
+      if (moreMenu.contains(e.target) || moreBtn.contains(e.target)) return;
+      closeMoreMenu();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMoreMenu();
+    });
+    // Any menu-item click closes the menu after its own handler runs.
+    moreMenu.querySelectorAll('button').forEach(b => b.addEventListener('click', () => setTimeout(closeMoreMenu, 0)));
   }
   ov.querySelector('#rd-excel-btn')?.addEventListener('click', () => {
     if (typeof window.exportRaceDayExcel === 'function') {
