@@ -10235,6 +10235,10 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
 // 30–200 ms after the panel paints — without retries the first attempt
 // scrolled against the empty-state height and landed mid-thread.
 function scrollChatToBottom() {
+  // The message list element itself isn't a scroll container (no
+  // overflow:auto). The actual scrollable parent is the page's
+  // #content. Scroll BOTH so the chat composer + newest message
+  // stay in view regardless of which layer is overflowing.
   let tries = 0;
   const tick = () => {
     const list = document.getElementById('team-chat-list');
@@ -10244,6 +10248,8 @@ function scrollChatToBottom() {
       return;
     }
     if (list) list.scrollTop = list.scrollHeight;
+    const content = document.getElementById('content');
+    if (content) content.scrollTop = content.scrollHeight;
     if (tries < 4) {
       tries++;
       setTimeout(tick, 120);
