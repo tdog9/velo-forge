@@ -557,7 +557,10 @@ async function generateClaudeQuote(weekSummary) {
 
 exports.dailyMotivationPush = onSchedule(
   {
-    schedule: 'every day 15:30',
+    // Weekdays only at 3:30 PM Melbourne. Weekends were sending pushes
+    // when nobody is at school/training, which felt like noise. Cron
+    // is `min hour * * dow` with dow=1-5 = Mon-Fri.
+    schedule: '30 15 * * 1-5',
     timeZone: 'Australia/Melbourne',
     region: 'us-central1',
     timeoutSeconds: 540,
@@ -565,6 +568,17 @@ exports.dailyMotivationPush = onSchedule(
   },
   async () => {
     const db = getFirestore();
+    // Defence-in-depth: even if the cron ever misfires, refuse to send
+    // on Sat/Sun in Melbourne time. Cloud Scheduler timezone semantics
+    // around DST can drift.
+    const melbWeekday = new Intl.DateTimeFormat('en-AU', {
+      timeZone: 'Australia/Melbourne',
+      weekday: 'short',
+    }).format(new Date());
+    if (melbWeekday === 'Sat' || melbWeekday === 'Sun') {
+      console.log('[dailyMotivationPush] weekend in Melbourne — skipping');
+      return;
+    }
     const weekStart = new Date();
     weekStart.setHours(0, 0, 0, 0);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay());
