@@ -10075,8 +10075,11 @@ function renderTeamChatPanelInto(el) {
     ? renderChatPanel(visible, { isCoach: isHeadCoachLocal || isCaptain, myUid: currentUser?.uid })
     : '<div style="text-align:center;padding:40px;color:var(--muted-fg)">Chat loading…</div>';
 
-  // Scope chips — coaches only. Athletes are auto-scoped (their feed already
-  // contains their subteam plus whole-team broadcasts).
+  // Unified channel chips — coaches only. Tapping a chip switches BOTH
+  // the viewed thread AND the broadcast target. Was previously two
+  // identical chip rows (scope + broadcast) which was visually
+  // redundant and confusing — "if I tap Venom up top, why is the
+  // composer still sending to whole team?"
   let scopeChips = '';
   if (isCoachUser && subs.length > 0) {
     const chip = (label, key, isActive) =>
@@ -10149,14 +10152,6 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
     ${panel}
     <div class="msg-composer">
       <div id="team-chat-error" class="msg-composer-error" hidden></div>
-      ${isCoachUser && subs.length > 0 ? `
-        <div id="chat-broadcast-targets" class="chat-broadcast-targets">
-          <div class="chat-broadcast-targets-label">Broadcast to:</div>
-          <div class="chat-broadcast-targets-chips">
-            <button type="button" class="chat-bt-chip active" data-bt-scope="">Whole team</button>
-            ${subs.map(s => `<button type="button" class="chat-bt-chip" data-bt-scope="${escHtml(s.id)}">${escHtml(s.name || 'Subteam')}</button>`).join('')}
-          </div>
-        </div>` : ''}
       <div class="msg-composer-row">
         <button id="team-chat-attach" class="msg-composer-attach" aria-label="Attach photo" type="button" title="Attach photo">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -10170,12 +10165,10 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
       </div>
       <div class="msg-composer-hint">${
         isCoachUser
-          ? `Coach message — always notifies${subs.length > 0 ? ' the selected channels above' : ' the whole team'}. Members can mute on their end.`
+          ? `Notifies <strong>${escHtml(targetLabel)}</strong>.`
           : isCaptain
-              ? `Captain of <strong>${escHtml((subs.find(s => s.id === myCaptainSub) || {}).name || 'your subteam')}</strong> — your messages notify the subteam.`
-              : (mySubteamId
-                  ? `Sending to <strong>${escHtml(targetLabel)}</strong>. Coach broadcasts appear here too.`
-                  : 'Sending to <strong>whole team</strong>. Ask your coach to assign you to a subteam.')
+              ? `Captain of <strong>${escHtml((subs.find(s => s.id === myCaptainSub) || {}).name || 'your subteam')}</strong>.`
+              : `To <strong>${escHtml(targetLabel)}</strong>.`
       }</div>
     </div>
   `;
@@ -13569,16 +13562,12 @@ function bindTeamChatPanel(c) {
     // checkbox was removed). Recipients silence on their own end via
     // the silent-mode toggle. Athletes still send silent chat.
     const pushChecked = canBroadcast;
-    // Multi-subteam broadcast (rec #17): a coach's selected target chips
-    // fan the broadcast out to every selected scope. '' = whole-team.
-    let broadcastScopes = null;
-    if (isCoachUser) {
-      const tr = c.querySelector('#chat-broadcast-targets');
-      if (tr) {
-        const chips = [...tr.querySelectorAll('.chat-bt-chip.active')];
-        if (chips.length) broadcastScopes = chips.map(ch => ch.dataset.btScope || '');
-      }
-    }
+    // Coach broadcast scope follows the unified chip row — whatever
+    // they're viewing is what they're broadcasting into. Multi-target
+    // simultaneous broadcast (rec #17) was dropped when we collapsed
+    // two redundant chip rows into one; coaches just tap the next
+    // chip and broadcast again if they want both subteams.
+    const broadcastScopes = null;
     let ok = false;
     // Resolve target scope. Coaches send into whichever scope the chips
     // select. Captains are pinned to the subteam they captain. Athletes
