@@ -10151,6 +10151,7 @@ Last listener error: ${escHtml(lastErr || '(none)')}</div>
     ${diagHtml}
     ${scopeChips}
     ${panel}
+    <div id="chat-typing-indicator" class="chat-typing-indicator" hidden></div>
     <div class="msg-composer">
       <div id="team-chat-error" class="msg-composer-error" hidden></div>
       <div class="msg-composer-row">
@@ -10379,6 +10380,28 @@ function refreshTeamChatList() {
         toggleChatReaction(rxPick.dataset.rxId, rxPick.dataset.rxKey);
         const picker = rxPick.closest('.msg-rx-picker');
         if (picker) picker.remove();
+        return;
+      }
+      // Tap a failed message to retry the send. Pulls the original text
+      // out of cache, drops the failed entry, populates the composer
+      // and clicks send. Matches the user's mental model from iMessage
+      // (tap the "!" to retry) — no second-screen needed.
+      const failedRow = e.target?.closest?.('.msg-row.msg-failed');
+      if (failedRow && cc.contains(failedRow)) {
+        e.stopPropagation();
+        const id = failedRow.dataset.msgId || failedRow.querySelector('[data-msg-id]')?.dataset?.msgId;
+        if (!id) return;
+        const cache = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+        const failedMsg = cache.find(m => m.id === id || m._clientId === id);
+        if (!failedMsg?.text) return;
+        try { removePendingChatMessage?.(failedMsg._clientId || id); } catch (_) {}
+        const taLive = cc.querySelector('#team-chat-input');
+        if (taLive) {
+          taLive.value = failedMsg.text;
+          taLive.focus();
+        }
+        const sendBtnLive = cc.querySelector('#team-chat-send');
+        sendBtnLive?.click();
         return;
       }
       // Click anywhere else closes an open picker.
@@ -13428,6 +13451,31 @@ function bindTeamChatPanel(c) {
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; };
     ta.addEventListener('input', grow);
     setTimeout(grow, 0);
+    // Typing indicator broadcast — fires a transient Ably 'typing' event
+    // on each keystroke (throttled to once every 1.5s) so other clients
+    // can render "X is typing..." Stops after 2.5s of silence — the
+    // listener side also auto-clears so this is belt-and-braces.
+    let _typingLastSent = 0;
+    const _maybePublishTyping = () => {
+      const teamId = userProfile?.teamId;
+      if (!teamId || !window.AblyChat?.publishTyping) return;
+      const now = Date.now();
+      if (now - _typingLastSent < 1500) return;
+      _typingLastSent = now;
+      const scope = (typeof getChatScope === 'function') ? (getChatScope() || '') : '';
+      const targetScope = scope || (typeof getMySubteamId === 'function' ? getMySubteamId() : '') || '';
+      const channelKey = targetScope
+        ? { scope: 'subteam', id: targetScope }
+        : { scope: 'team',    id: teamId };
+      try {
+        window.AblyChat.publishTyping(channelKey.scope, channelKey.id, {
+          uid: currentUser?.uid || '',
+          displayName: (userProfile?.displayName || currentUser?.displayName || 'Member').toString().slice(0, 40),
+          ts: now,
+        });
+      } catch (_) {}
+    };
+    ta.addEventListener('input', _maybePublishTyping);
   }
   // @mention autocomplete (rec #23) — typing "@" surfaces a dropdown of
   // team members; tapping one inserts "@DisplayName ". Rendered messages
@@ -14732,6 +14780,44 @@ let _bgChatRetryCount = 0;
 // message faster; the Firestore snapshot is the canonical record.
 let _ablyChatUnsub = null;
 let _ablyChatTeamId = null;
+let _ablyTypingUnsub = null;
+
+// Tracks who's currently typing — uid → { displayName, expiresAt }.
+// expiresAt auto-clears entries 4s after last keystroke so a sender
+// closing the app mid-type doesn't leave a stuck "Tenny is typing..."
+const _typingPeers = new Map();
+let _typingRenderTimer = null;
+function _renderTypingIndicator() {
+  const el = document.getElementById('chat-typing-indicator');
+  if (!el) return;
+  const now = Date.now();
+  // Drop expired peers.
+  for (const [uid, p] of _typingPeers) {
+    if (now > p.expiresAt) _typingPeers.delete(uid);
+  }
+  const names = [..._typingPeers.values()].map(p => p.displayName).filter(Boolean);
+  if (names.length === 0) {
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+  let label;
+  if (names.length === 1) label = `${names[0]} is typing…`;
+  else if (names.length === 2) label = `${names[0]} and ${names[1]} are typing…`;
+  else label = 'Several people are typing…';
+  el.hidden = false;
+  el.textContent = label;
+}
+function _onTypingFromAbly(data) {
+  if (!data?.uid || !data?.displayName) return;
+  _typingPeers.set(data.uid, {
+    displayName: data.displayName,
+    expiresAt: Date.now() + 4000,
+  });
+  _renderTypingIndicator();
+  if (_typingRenderTimer) clearTimeout(_typingRenderTimer);
+  _typingRenderTimer = setTimeout(_renderTypingIndicator, 4200);
+}
 async function _attachAblyParallel(teamId) {
   if (!teamId) return;
   if (_ablyChatTeamId === teamId && _ablyChatUnsub) return; // already wired
@@ -14750,6 +14836,14 @@ async function _attachAblyParallel(teamId) {
   _ablyChatUnsub = null;
   _ablyChatTeamId = teamId;
   try {
+    // Typing indicator subscription on the same channel — separate
+    // event name 'typing' so it doesn't trigger the message merge path.
+    try {
+      _ablyTypingUnsub?.();
+      _ablyTypingUnsub = window.AblyChat.subscribeTyping(
+        'team', teamId, _onTypingFromAbly,
+      );
+    } catch (e) { console.warn('[chat] typing subscribe failed:', e); }
     _ablyChatUnsub = window.AblyChat.subscribeTeam(teamId, (ablyMsg) => {
       try {
         const payload = ablyMsg?.data || {};
@@ -14779,8 +14873,11 @@ async function _attachAblyParallel(teamId) {
 }
 function _detachAblyParallel() {
   try { _ablyChatUnsub?.(); } catch(_) {}
+  try { _ablyTypingUnsub?.(); } catch(_) {}
   _ablyChatUnsub = null;
+  _ablyTypingUnsub = null;
   _ablyChatTeamId = null;
+  _typingPeers.clear();
 }
 
 function _scheduleChatRetry() {

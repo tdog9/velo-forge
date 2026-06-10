@@ -1125,9 +1125,26 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
 .msg-row.msg-pending .msg-bubble{
   opacity:0.65;
 }
+.msg-row.msg-failed{
+  cursor:pointer;
+}
 .msg-row.msg-failed .msg-bubble{
   opacity:0.85;
   border:1px solid rgba(239, 68, 68, 0.6);
+}
+.msg-row.msg-failed:hover .msg-bubble{
+  border-color:rgba(239, 68, 68, 0.9);
+  opacity:1;
+}
+.msg-row.msg-failed::after{
+  content:"Tap to retry";
+  display:block;
+  font-size:10.5px;
+  font-weight:700;
+  color:#ef4444;
+  text-align:right;
+  margin:2px 8px 0 0;
+  letter-spacing:.02em;
 }
 .msg-state{
   display:inline-block;
@@ -1821,6 +1838,38 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
    wins) — that's why "RECONNECTING" was showing on every cold boot
    even when nothing was actually wrong. Explicit hide. */
 .chat-status-pill[hidden]{ display:none !important; }
+
+/* Typing indicator — shows just above the composer when someone on
+   the channel is typing. Italic, muted, with three animated dots. */
+.chat-typing-indicator{
+  font-size:12px;
+  font-style:italic;
+  color:var(--muted-fg);
+  padding:6px 14px 4px;
+  letter-spacing:.01em;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:22px;
+}
+.chat-typing-indicator[hidden]{ display:none !important; }
+.chat-typing-indicator::before{
+  content:"";
+  display:inline-block;
+  width:24px; height:8px;
+  background-image:
+    radial-gradient(circle, var(--muted-fg) 2px, transparent 2.5px),
+    radial-gradient(circle, var(--muted-fg) 2px, transparent 2.5px),
+    radial-gradient(circle, var(--muted-fg) 2px, transparent 2.5px);
+  background-size:8px 8px;
+  background-repeat:no-repeat;
+  background-position:0 0, 8px 0, 16px 0;
+  animation:tp-typing-bounce 1.2s ease-in-out infinite;
+}
+@keyframes tp-typing-bounce {
+  0%, 100% { transform:translateY(0); opacity:.4; }
+  50%      { transform:translateY(-2px); opacity:1; }
+}
 .chat-status-dot{ width:6px; height:6px; border-radius:50%; background:currentColor; }
 .chat-status-connecting{ color:var(--muted-fg); }
 .chat-status-connecting .chat-status-dot{ animation:tp-chat-pulse 1.2s ease infinite; }

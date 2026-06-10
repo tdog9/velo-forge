@@ -197,6 +197,39 @@
   }
 
   /**
+   * Publish a transient "typing" event on a chat channel. Sent on every
+   * keystroke (debounced by the caller). Other clients pick this up via
+   * subscribeTyping and render a "X is typing..." line. Not stored in
+   * Ably history — typing is ephemeral and shouldn't replay on reconnect.
+   */
+  async function publishTyping(scope, id, payload) {
+    if (!realtime) return;
+    const ch = channel(`${scope}:${id}:chat`);
+    try { await ch.publish('typing', payload || {}); } catch (_) {}
+  }
+
+  /**
+   * Subscribe to typing events from OTHER users on a chat channel.
+   * The handler receives { uid, displayName, ts }. Ignores events from
+   * the current user (clientId match) so the user doesn't see themselves
+   * typing.
+   */
+  function subscribeTyping(scope, id, onTyping) {
+    if (!realtime) return () => {};
+    const ch = channel(`${scope}:${id}:chat`);
+    const myUid = realtime.auth?.clientId;
+    const handler = (msg) => {
+      try {
+        const data = msg?.data || {};
+        if (data.uid && data.uid === myUid) return; // ignore self
+        onTyping(data);
+      } catch (_) {}
+    };
+    ch.subscribe('typing', handler);
+    return () => { try { ch.unsubscribe('typing', handler); } catch (_) {} };
+  }
+
+  /**
    * Tear down — used on Sign Out so the next user doesn't inherit
    * the previous user's clientId.
    */
@@ -216,6 +249,8 @@
     subscribeTeam,
     subscribeSubteam,
     publish,
+    publishTyping,
+    subscribeTyping,
     history,
     presenceGet,
     presenceEnter,
