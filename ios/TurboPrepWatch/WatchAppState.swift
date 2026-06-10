@@ -107,6 +107,12 @@ final class WatchAppState: ObservableObject {
     @Published var iPhoneUserDisplayName: String? = UserDefaults.standard.string(forKey: "tp_watch_iphone_name") {
         didSet { UserDefaults.standard.set(iPhoneUserDisplayName, forKey: "tp_watch_iphone_name") }
     }
+    /// Team ID mirrored from the iPhone snapshot. Required by the
+    /// race-day-public poller so the Watch only flips into race-day
+    /// mode when ITS team activates (not just any team that day).
+    @Published var teamId: String? = UserDefaults.standard.string(forKey: "tp_watch_team_id") {
+        didSet { UserDefaults.standard.set(teamId, forKey: "tp_watch_team_id") }
+    }
 
     /// Local pairing flag — once the user taps Pair on the sign-in
     /// gate, the Watch is considered "paired with this iPhone" forever
@@ -327,6 +333,9 @@ final class WatchAppState: ObservableObject {
         }
         if let name = dict["iPhoneUserDisplayName"] as? String {
             self.iPhoneUserDisplayName = name
+        }
+        if let team = dict["teamId"] as? String {
+            self.teamId = team.isEmpty ? nil : team
         }
         if let phaseDict = dict["racePhase"] as? [String: Any] {
             self.racePhase = WatchRacePhase(from: phaseDict)

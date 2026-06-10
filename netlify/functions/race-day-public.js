@@ -113,11 +113,20 @@ exports.handler = async (event) => {
     });
     const leaderboard = Object.values(totals)
       .sort((a, b) => (b.lapCount - a.lapCount) || ((a.bestMs || Infinity) - (b.bestMs || Infinity)));
+    // When a teamId was supplied, the caller is asking "is MY team in
+    // race-day mode?" — gate `active` on the doc's teamId matching.
+    // Without this, every Watch flipped into race-day mode whenever
+    // ANY team activated, because rd.active is a single global flag.
+    // Without a teamId we preserve the legacy behaviour (spectator
+    // page that doesn't know which team to ask about).
+    const teamScopedActive = teamId
+      ? (!!rd.active && rd.teamId === teamId)
+      : !!rd.active;
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        active: !!rd.active,
+        active: teamScopedActive,
         date,
         teamName,
         raceName: rd.raceName || '',

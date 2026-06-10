@@ -78,7 +78,11 @@ final class ConnectivityService: NSObject, ObservableObject {
         }
         let s = WCSession.default
         guard s.activationState == .activated else {
-            print("📲 [WC] session not activated yet (state \(s.activationState.rawValue)); reactivating")
+            print("📲 [WC] session not activated yet (state \(s.activationState.rawValue)); buffering snapshot for flush")
+            // Latest-wins: replace any earlier pending snapshot. The web
+            // app's pushWatchState calls always send the FULL current
+            // state, so a newer snapshot fully supersedes an older one.
+            pendingSnapshot = snapshot
             s.activate()
             return
         }
@@ -137,6 +141,20 @@ final class ConnectivityService: NSObject, ObservableObject {
         send(["payload": "watchBattery", "data": ["level": level, "state": state]])
     }
 
+    /// Snapshot waiting to be pushed once WCSession finishes activating.
+    /// On a cold launch the very first state push from the web app fires
+    /// before `activationDidCompleteWith` returns — without a buffer the
+    /// snapshot was dropped on the floor, which manifested as "I signed
+    /// in but the Watch still shows the sign-in gate". Single-slot
+    /// because pushStateToWatch is latest-wins by design.
+    private var pendingSnapshot: [String: Any]?
+
+    private func flushPendingSnapshot() {
+        guard let pending = pendingSnapshot else { return }
+        pendingSnapshot = nil
+        pushStateToWatch(pending)
+    }
+
     private func send(_ dict: [String: Any], onSent: (@MainActor (Bool) -> Void)? = nil) {
         guard WCSession.isSupported() else {
             if let onSent { Task { @MainActor in onSent(false) } }
@@ -178,6 +196,14 @@ extension ConnectivityService: WCSessionDelegate {
         Task { @MainActor [weak self] in
             self?.activationState = state
             self?.isReachable = reachable
+            // Drain any snapshot that was buffered while activation was
+            // still pending — fixes the cold-launch race where the very
+            // first state push (typically the signed-in flip) used to
+            // disappear because pushStateToWatch early-returned on a
+            // not-yet-activated session.
+            if state == .activated {
+                self?.flushPendingSnapshot()
+            }
         }
     }
 

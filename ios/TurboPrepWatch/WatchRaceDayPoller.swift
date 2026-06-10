@@ -58,7 +58,13 @@ final class WatchRaceDayPoller {
         inFlight = true
         defer { inFlight = false }
 
-        guard let url = URL(string: baseUrl) else { return }
+        // Scope by team — without teamId the endpoint returns the global
+        // raceday meta (`rd.active`) which goes true whenever ANY team
+        // activates race-day that day. With teamId the endpoint only
+        // reports active=true when our team is the one running.
+        let teamId = WatchAppState.shared.teamId
+        let urlString = teamId.map { "\(baseUrl)?teamId=\($0)" } ?? baseUrl
+        guard let url = URL(string: urlString) else { return }
         var req = URLRequest(url: url)
         req.timeoutInterval = 10
         do {

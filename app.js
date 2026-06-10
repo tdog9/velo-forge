@@ -542,6 +542,11 @@ function _pushWatchStateImpl() {
     const trainingExercises = exList.map(_trainingExerciseForWatch).filter(Boolean);
     const trainingCurrentIdx = window._tpTrainingCurrentIdx || 0;
     const trainingCurrentSet = window._tpTrainingCurrentSet || 0;
+    // Watch needs to know its team so /race-day-public can return
+    // team-scoped `active` instead of a global flag. Without teamId,
+    // any team activating race-day flipped EVERY paired Watch into
+    // race-day mode.
+    const teamId = userProfile?.teamId || null;
     postNative('watch-state', {
       state: {
         racePhase, todayWorkouts, completedWorkouts,
@@ -549,6 +554,7 @@ function _pushWatchStateImpl() {
         iPhoneSignedIn, iPhoneUserEmail, iPhoneUserDisplayName,
         trainingActive, trainingType, trainingTitle,
         trainingExercises, trainingCurrentIdx, trainingCurrentSet,
+        teamId,
       },
     });
     // Mirror a flat snapshot to the iOS home-screen widget. Bundle-side
