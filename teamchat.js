@@ -103,6 +103,45 @@ export function removePendingChatMessage(clientId) {
   chatCache = chatCache.filter(m => m._clientId !== clientId);
 }
 
+/// Merge a message bridged from Ably's realtime channel into chatCache.
+/// Used by the Ably listener to fast-path live messages so users don't
+/// wait for the Firestore snapshot's 300-800ms round-trip.
+///
+/// Dedupe by Firestore doc id — when the canonical Firestore snapshot
+/// arrives a moment later, it'll see the same id and overwrite this
+/// entry with the server's authoritative timestamp + any moderation
+/// flags applied by onChatWrite.
+///
+/// Returns the new chatCache (newest-first) so the caller can re-render.
+export function mergeAblyMessage(msg) {
+  if (!msg || !msg.id) return chatCache;
+  // Already in cache? Update in place (preserve Firestore's createdAt
+  // if it's there, since Ably's bridgedAt is only a fallback).
+  const existingIdx = chatCache.findIndex(m => m.id === msg.id);
+  const enriched = {
+    id: msg.id,
+    uid: msg.uid || null,
+    displayName: msg.displayName || 'Member',
+    text: msg.text || '',
+    kind: msg.kind || 'chat',
+    subteamId: msg.subteamId || '',
+    // Use Firestore createdAt if already in cache; else stamp Ably's
+    // bridgedAt so renderChatPanel's toDate() formats correctly.
+    createdAt: existingIdx >= 0 ? chatCache[existingIdx].createdAt : (msg.bridgedAt || Date.now()),
+    _ablyDelivered: true,
+  };
+  if (existingIdx >= 0) {
+    chatCache[existingIdx] = { ...chatCache[existingIdx], ...enriched, createdAt: chatCache[existingIdx].createdAt };
+  } else {
+    // Newest-first ordering matches the Firestore listener's orderBy desc.
+    chatCache = [enriched, ...chatCache];
+    if (chatCache.length > CHAT_CACHE_MAX) {
+      chatCache = chatCache.slice(0, CHAT_CACHE_MAX);
+    }
+  }
+  return chatCache;
+}
+
 // Conservative profanity word-list. Substrings on whole-word boundaries.
 // Not exhaustive (there's no perfect list) — purpose is "first line of
 // defence" for school context, not legal-grade moderation. Coaches review

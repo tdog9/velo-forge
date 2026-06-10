@@ -88,7 +88,8 @@ let initTeamChat = () => {}, subscribeTeamChat = () => null, unsubscribeTeamChat
     deleteChatMessage = async () => {}, renderChatPanel = () => '', isMessageClean = () => false,
     filterMessagesForScope = (m) => m, hydrateChatFromLocal = () => [],
     addPendingChatMessage = () => {}, markPendingChatFailed = () => {},
-    removePendingChatMessage = () => {}, reactionPickerHtml = () => '', REACTIONS = {};
+    removePendingChatMessage = () => {}, mergeAblyMessage = () => null,
+    reactionPickerHtml = () => '', REACTIONS = {};
 let loadUserRaceLogs = async () => {}, renderRaceLog = () => {},
     openRaceLogForm = () => {}, getFootageForRace = () => [],
     getStreamForRace = () => null, renderFootageLinks = () => '',
@@ -197,6 +198,7 @@ Promise.allSettled([
       addPendingChatMessage = addPendingChatMessage,
       markPendingChatFailed = markPendingChatFailed,
       removePendingChatMessage = removePendingChatMessage,
+      mergeAblyMessage = mergeAblyMessage,
       reactionPickerHtml = reactionPickerHtml, REACTIONS = REACTIONS,
     } = m);
     // Hydrate the chat cache from localStorage immediately if we
@@ -3424,6 +3426,7 @@ $('logout-btn')?.addEventListener('click', async () => {
     }
     if (teamUnsubscribe) { try { teamUnsubscribe(); } catch(e) {} teamUnsubscribe = null; }
     try { unsubscribeTeamChat(); } catch(e) {}
+    try { _detachAblyParallel(); } catch(e) {}
     if (raceTimerInterval) { clearInterval(raceTimerInterval); raceTimerInterval = null; }
     if (window._tpRaceDayPoll) { clearInterval(window._tpRaceDayPoll); window._tpRaceDayPoll = null; }
     // Clean up the long-lived background tasks added in v3.5.x — these
@@ -3986,6 +3989,7 @@ function switchPage(page) {
   // / Fitness / Races / Admin / Coach.
   if (currentPage === 'team' && page !== 'team') {
     try { unsubscribeTeamChat(); } catch(e) {}
+    try { _detachAblyParallel(); } catch(e) {}
   }
   currentPage = page;
   // Feature 6: Persist to localStorage
@@ -13296,6 +13300,7 @@ function bindTeamChatPanel(c) {
       _bgChatLive = false;
       _bgChatRetryCount = 0;
       try { unsubscribeTeamChat?.(); } catch(_) {}
+      try { _detachAblyParallel(); } catch(_) {}
       try { attachBackgroundChat(); } catch(e) { log('   attach warn: ' + e?.message); }
       log('Done. Try sending a message now.');
     } catch(err) {
@@ -13394,6 +13399,7 @@ function bindTeamChatPanel(c) {
       _bgChatRetryCount = 0;
       _bgChatLive = false;
       try { unsubscribeTeamChat?.(); } catch(_) {}
+      try { _detachAblyParallel(); } catch(_) {}
       const pill = c.querySelector('#chat-status-pill');
       if (pill) {
         const lbl = pill.querySelector('.chat-status-label');
@@ -14724,6 +14730,63 @@ let _bgChatPending = false;
 let _bgChatRetryTimer = null;
 let _bgChatRetryCount = 0;
 
+// Ably realtime parallel subscription. Lives alongside the Firestore
+// snapshot listener — both deliver the same message, dedupe is by
+// Firestore doc id. Ably typically wins by ~300ms, so users see the
+// message faster; the Firestore snapshot is the canonical record.
+let _ablyChatUnsub = null;
+let _ablyChatTeamId = null;
+async function _attachAblyParallel(teamId) {
+  if (!teamId) return;
+  if (_ablyChatTeamId === teamId && _ablyChatUnsub) return; // already wired
+  if (!window.AblyChat) return; // SDK not loaded yet
+  // Wait for init to resolve — boot path kicked it off in background.
+  try {
+    if (currentUser && typeof window.AblyChat.init === 'function') {
+      await window.AblyChat.init(currentUser);
+    }
+  } catch (e) {
+    console.warn('[chat] ably init not ready yet:', e?.message);
+    return;
+  }
+  // Tear down a previous-team subscription if any.
+  try { _ablyChatUnsub?.(); } catch(_) {}
+  _ablyChatUnsub = null;
+  _ablyChatTeamId = teamId;
+  try {
+    _ablyChatUnsub = window.AblyChat.subscribeTeam(teamId, (ablyMsg) => {
+      try {
+        const payload = ablyMsg?.data || {};
+        if (!payload?.id) return;
+        // Merge into cache; only fire UI refresh if something actually
+        // changed (i.e. message wasn't already in cache by id).
+        const before = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+        const beforeIds = new Set(before.map(m => m.id));
+        mergeAblyMessage(payload);
+        const isNew = !beforeIds.has(payload.id);
+        if (!isNew) return;
+        console.log('[chat] ably delivered msg', payload.id, '— refreshing UI');
+        if (currentPage === 'team' && lbSubTab === 'chat') {
+          try { refreshTeamChatList(); } catch(_) {}
+          try { markChatRead(); } catch(_) {}
+        } else {
+          try { updateChatUnreadBadge(); } catch(_) {}
+        }
+      } catch (e) {
+        console.warn('[chat] ably onMessage handler failed:', e);
+      }
+    });
+    console.log('[chat] ably parallel subscribed to team:' + teamId + ':chat');
+  } catch (e) {
+    console.warn('[chat] ably subscribe failed:', e?.message || e);
+  }
+}
+function _detachAblyParallel() {
+  try { _ablyChatUnsub?.(); } catch(_) {}
+  _ablyChatUnsub = null;
+  _ablyChatTeamId = null;
+}
+
 function _scheduleChatRetry() {
   if (_bgChatRetryTimer) return;
   if (_bgChatRetryCount > 60) return; // 60×3s = 3 minutes; give up after that
@@ -14791,6 +14854,11 @@ async function attachBackgroundChat() {
     // Continue anyway — better to try the listener than abort.
   }
   console.log('[chat] attaching listener for teamId=' + userProfile.teamId);
+  // Wire an Ably parallel subscription so realtime messages arrive
+  // ~50-100ms vs Firestore's 300-800ms snapshot propagation. The
+  // Firestore listener still owns canonical persistence — Ably just
+  // races it for the live delivery. Dedupe is by Firestore doc id.
+  try { _attachAblyParallel(userProfile.teamId); } catch (e) { console.warn('ably parallel attach:', e); }
   try {
     subscribeTeamChat(userProfile.teamId, () => {
       if (!_bgChatLive) console.log('[chat] first snapshot received → Live');
@@ -14900,6 +14968,7 @@ function attachTeamLiveListener() {
           _bgChatLive = false;
           _bgChatRetryCount = 0;
           try { unsubscribeTeamChat?.(); } catch(_) {}
+      try { _detachAblyParallel(); } catch(_) {}
           try { attachBackgroundChat?.(); } catch(_) {}
         }
       }

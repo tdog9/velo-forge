@@ -160,12 +160,38 @@ exports.onChatWrite = onDocumentCreated(
   {
     document: 'teams/{teamId}/chat/{messageId}',
     region: 'us-central1',
+    secrets: [ABLY_API_KEY],
   },
   async (event) => {
     const snap = event.data;
     if (!snap) return;
     const msg = snap.data() || {};
-    const { teamId } = event.params;
+    const { teamId, messageId } = event.params;
+
+    // Bridge to Ably realtime channel — kicks off in parallel with the
+    // push-fan-out work below so subscribed Watch / web clients receive
+    // the message in ~50ms instead of waiting on Firestore's snapshot
+    // propagation. Bridged message includes the Firestore doc id so
+    // clients can dedupe a later Firestore snapshot delivery against it.
+    // No await — push fan-out is the higher-value work; Ably's queue is
+    // resilient and we don't want a transient publish error to block push.
+    const ablyChannelName = msg.subteamId
+      ? `subteam:${msg.subteamId}:chat`
+      : `team:${teamId}:chat`;
+    publishToAbly(ablyChannelName, 'msg', {
+      id: messageId,
+      teamId,
+      uid: msg.uid || null,
+      displayName: msg.displayName || '',
+      text: msg.text || '',
+      kind: msg.kind || 'chat',
+      subteamId: msg.subteamId || '',
+      // Cloud Function fires after createdAt is set by the server, but
+      // event.data here doesn't include the resolved serverTimestamp.
+      // Stamp our own millisecond timestamp so the client can render
+      // without a roundtrip to Firestore for the actual createdAt.
+      bridgedAt: Date.now(),
+    });
 
     const db = getFirestore();
     const teamSnap = await db.collection('teams').doc(teamId).get();
