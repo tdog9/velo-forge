@@ -16243,6 +16243,19 @@ function startApp() {
       try { checkAdmin(user.email); } catch(e) { logError('check-admin', e, { email: user.email }); }
       try { setupListeners(user.uid); } catch(e) { console.warn('Listeners:', e); }
       try { listenGlobalSettings(); } catch(e) {}
+      // Auto-init Ably realtime in background. Server mints a per-user
+      // token from the Firebase ID token — no user input needed. Stays
+      // silent on first-run (account just created and provisionAbly
+      // hasn't stamped users/{uid}.ablyProvisionedAt yet); init() will
+      // be retried by callers if it failed. Channel subscriptions are
+      // wired lazily by the chat module.
+      try {
+        window.AblyChat?.init(user).then(() => {
+          console.log('[boot] AblyChat ready');
+        }).catch(e => {
+          console.warn('[boot] AblyChat init failed (will retry on demand):', e?.message || e);
+        });
+      } catch(e) { console.warn('AblyChat init outer:', e); }
       try {
         const rdActive = await loadRaceDayState();
         if (rdActive) {
@@ -16558,6 +16571,9 @@ function startApp() {
       // Flush any workouts queued while offline
       flushOfflineQueue();
     } else {
+      // Tear down Ably so the next signed-in user doesn't inherit the
+      // previous user's clientId and channel subscriptions.
+      try { window.AblyChat?.disconnect(); } catch(_) {}
       currentUser = null;
       userProfile = null;
       userWorkouts = [];

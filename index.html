@@ -910,6 +910,10 @@ if(window.location.search.includes('nuke=true')){
      into the horizontal-overflow regression. -->
 <!-- <script src="polish.js?v=1.0.0-r121" defer></script> -->
 <script src="raceReport.js?v=1.0.0-r121" defer></script>
+<!-- Ably realtime SDK — provides global `Ably` for ably-chat.js to wrap.
+     Pinned to major v2 so a future breaking change can't flip silently. -->
+<script src="https://cdn.ably.com/lib/ably.min-2.js" crossorigin="anonymous" defer></script>
+<script src="ably-chat.js?v=1.0.0-r121" defer></script>
 <script type="module" src="app.js?v=1.0.0-r121"></script>
 </body>
 </html>

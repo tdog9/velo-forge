@@ -17,10 +17,21 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { getMessaging } = require('firebase-admin/messaging');
 const { BigQuery } = require('@google-cloud/bigquery');
+const Ably = require('ably');
 
 initializeApp();
+
+// ─── Ably secret ────────────────────────────────────────────────────────
+//
+// Set with:
+//   npx firebase-tools functions:secrets:set ABLY_API_KEY --project hpr-2026
+// then paste the ROOT key from the Ably dashboard (publish + subscribe +
+// presence + push capability). The client app NEVER sees this — Cloud
+// Functions use it to mint short-lived per-user JWTs on demand.
+const ABLY_API_KEY = defineSecret('ABLY_API_KEY');
 
 // ─── Home Assistant webhook fan-out ─────────────────────────────────────
 //
@@ -814,3 +825,132 @@ GROUP BY team_id, day`,
     res.status(200).json({ results });
   }
 );
+
+// ─── Ably token mint ────────────────────────────────────────────────────
+//
+// Web/iOS sends the user's Firebase ID token; we verify it, build the
+// channel capability that user is allowed to use (team:{teamId},
+// subteam:{subteamId}, dm:{uid1}:{uid2}, presence on those), then mint
+// a short-lived Ably JWT scoped to those channels.
+//
+// The Ably ROOT key never leaves the function. The client receives only
+// a per-user JWT that expires in 1h; the Ably SDK auto-renews via the
+// same authCallback when it nears expiry.
+//
+// URL: POST https://us-central1-hpr-2026.cloudfunctions.net/ablyAuth
+//      Authorization: Bearer <firebase id token>
+//      → { keyName, ttl, timestamp, capability, mac, clientId } (Ably TokenRequest)
+function buildCapability(uid, profile) {
+  const teamId   = profile?.teamId   || null;
+  const subteamId = profile?.subteamId || null;
+  const cap = {};
+  // Always allow self-DM channel — pattern dm:<sorted-uids>:<sorted-uids>
+  // resolved per peer. Each user can publish/subscribe on any dm
+  // channel containing their uid (Ably wildcards support a single * per segment).
+  cap[`dm:${uid}:*`] = ['publish', 'subscribe', 'presence', 'history'];
+  cap[`dm:*:${uid}`] = ['publish', 'subscribe', 'presence', 'history'];
+  if (teamId) {
+    cap[`team:${teamId}:*`] = ['publish', 'subscribe', 'presence', 'history'];
+  }
+  if (subteamId) {
+    cap[`subteam:${subteamId}:*`] = ['publish', 'subscribe', 'presence', 'history'];
+  }
+  // Per-user notification fan-in channel (server publishes; user listens).
+  cap[`user:${uid}`] = ['subscribe', 'history'];
+  return cap;
+}
+
+exports.ablyAuth = onRequest(
+  {
+    region: 'us-central1',
+    cors: true,
+    secrets: [ABLY_API_KEY],
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (req.method !== 'POST' && req.method !== 'GET') {
+      return res.status(405).json({ error: 'method not allowed' });
+    }
+    const authHeader = req.get('Authorization') || '';
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!idToken) return res.status(401).json({ error: 'missing Bearer token' });
+    let decoded;
+    try {
+      decoded = await getAuth().verifyIdToken(idToken);
+    } catch (e) {
+      return res.status(401).json({ error: 'invalid Firebase token' });
+    }
+    const uid = decoded.uid;
+    // Resolve teamId/subteamId from Firestore (don't trust client to send them).
+    let profile = {};
+    try {
+      const snap = await getFirestore().collection('users').doc(uid).get();
+      if (snap.exists) profile = snap.data() || {};
+    } catch (e) {
+      // Soft-fail: a token with only the DM/user capability is still
+      // useful — they just can't join team channels until profile loads.
+      console.warn('[ablyAuth] profile read failed for', uid, e?.message);
+    }
+    const capability = buildCapability(uid, profile);
+    try {
+      const ably = new Ably.Rest({ key: ABLY_API_KEY.value() });
+      const tokenRequest = await ably.auth.createTokenRequest({
+        clientId: uid,
+        capability,
+        ttl: 60 * 60 * 1000, // 1h — Ably SDK auto-renews when near expiry
+      });
+      return res.status(200).json(tokenRequest);
+    } catch (e) {
+      console.error('[ablyAuth] mint failed', e?.message || e);
+      return res.status(500).json({ error: 'ably mint failed' });
+    }
+  }
+);
+
+// ─── Auto-provision a user into Ably on Firestore profile create ────────
+//
+// Fires when a new users/{uid} doc lands (signup completes profile bootstrap).
+// Stamps `ablyProvisionedAt` so the client can know the server-side
+// handshake is done. Ably itself doesn't require a "create user" call —
+// clients identify by clientId at connect time — but stamping a marker
+// lets the client wait for it before opening the realtime connection,
+// which avoids a races where a brand-new user's profile read in ablyAuth
+// returns empty and they get a no-channels token.
+exports.provisionAblyOnUserCreate = onDocumentCreated(
+  {
+    document: 'users/{uid}',
+    region: 'us-central1',
+    timeoutSeconds: 60,
+    memory: '256MiB',
+  },
+  async (event) => {
+    const uid = event.params.uid;
+    try {
+      await getFirestore().collection('users').doc(uid).set({
+        ablyProvisionedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      console.log('[provisionAbly] stamped', uid);
+    } catch (e) {
+      console.warn('[provisionAbly] failed for', uid, e?.message || e);
+    }
+  }
+);
+
+// ─── Server-published broadcast helper ──────────────────────────────────
+//
+// Lets onChatWrite (and future triggers) publish into Ably from Cloud
+// Functions without going through a client SDK. Used to bridge legacy
+// Firestore-routed messages into the new Ably channels during cutover.
+async function publishToAbly(channelName, eventName, data) {
+  try {
+    const ably = new Ably.Rest({ key: ABLY_API_KEY.value() });
+    const ch = ably.channels.get(channelName);
+    await ch.publish(eventName, data);
+  } catch (e) {
+    console.warn('[publishToAbly]', channelName, e?.message || e);
+  }
+}
+exports._publishToAbly = publishToAbly; // exposed for future bridges
+
