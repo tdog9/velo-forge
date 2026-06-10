@@ -1284,8 +1284,19 @@ function initPreMap() {
     if (rdd.startPointSet&&rdd.startPoint) {
       m.setView([rdd.startPoint.lat,rdd.startPoint.lng],17);
       L.circleMarker([rdd.startPoint.lat,rdd.startPoint.lng],{radius:12,fillColor:'#f97316',fillOpacity:.9,color:'#fff',weight:2}).addTo(m).bindPopup('Start / Finish');
-    } else if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(p=>m.setView([p.coords.latitude,p.coords.longitude],16),()=>m.setView([-37.81,144.96],14));
+    } else {
+      // Silent centering: use cached coords from a prior session if we
+      // have them, else default to Melbourne. NEVER trigger a fresh
+      // permission prompt just to center the map — users complained
+      // every cold boot was asking for location.
+      try {
+        const last = JSON.parse(localStorage.getItem('tp_last_coords') || 'null');
+        if (last && Number.isFinite(last.lat) && Number.isFinite(last.lon)) {
+          m.setView([last.lat, last.lon], 16);
+        } else {
+          m.setView([-37.81, 144.96], 14);
+        }
+      } catch (_) { m.setView([-37.81, 144.96], 14); }
     }
   } catch(e){}
 }
@@ -1392,6 +1403,14 @@ async function startStint(c) {
           stintGpsState = 'live';
           if (stintGpsTimeout) { clearTimeout(stintGpsTimeout); stintGpsTimeout = null; }
         }
+        // Cache the last-known coords so map-centering on future cold
+        // launches uses the user's last position instead of either
+        // showing Melbourne CBD or asking for permission again.
+        try {
+          localStorage.setItem('tp_last_coords', JSON.stringify({
+            lat: pos.coords.latitude, lon: pos.coords.longitude, ts: Date.now(),
+          }));
+        } catch (_) {}
         onPos(pos);
       },
       (err) => {
@@ -1901,8 +1920,18 @@ function renderActiveStint(c) {
       if (rdd.startPointSet&&rdd.startPoint) {
         stintMap.setView([rdd.startPoint.lat,rdd.startPoint.lng],17);
         L.circleMarker([rdd.startPoint.lat,rdd.startPoint.lng],{radius:12,fillColor:'#f97316',fillOpacity:.9,color:'#fff',weight:2}).addTo(stintMap);
-      } else if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(p=>stintMap.setView([p.coords.latitude,p.coords.longitude],16),()=>stintMap.setView([-37.81,144.96],14));
+      } else {
+        // Silent centering — watchPosition below (in startStint) is what
+        // actually pulls live GPS during the stint. The map-centering call
+        // doesn't need its own prompt.
+        try {
+          const last = JSON.parse(localStorage.getItem('tp_last_coords') || 'null');
+          if (last && Number.isFinite(last.lat) && Number.isFinite(last.lon)) {
+            stintMap.setView([last.lat, last.lon], 16);
+          } else {
+            stintMap.setView([-37.81, 144.96], 14);
+          }
+        } catch (_) { stintMap.setView([-37.81, 144.96], 14); }
       }
     } catch(e){}
   },150);

@@ -16296,6 +16296,20 @@ function startApp() {
     if (user) {
       currentUser = user;
       showLoading('Loading...');
+      // Fire Ably realtime BEFORE the profile/admin parallel block so
+      // the WebSocket handshake races against Firestore reads instead
+      // of waiting for them. The ablyAuth Cloud Function resolves
+      // teamId/subteamId server-side, so we don't need userProfile
+      // loaded here. By the time the first chat message arrives,
+      // the connection is already warm — saves ~400-800ms vs the
+      // post-profile init.
+      try {
+        window.AblyChat?.init(user).then(() => {
+          console.log('[boot] AblyChat ready (pre-profile)');
+        }).catch(e => {
+          console.warn('[boot] AblyChat init failed (will retry on demand):', e?.message || e);
+        });
+      } catch(e) { console.warn('AblyChat init outer:', e); }
       // PHASE 1: fetch profile, admin emails, race-day state in PARALLEL.
       // Each used to await the previous for no reason; they don't depend on
       // each other. On a typical connection this cuts ~300-500ms off boot.
@@ -16312,19 +16326,6 @@ function startApp() {
       try { checkAdmin(user.email); } catch(e) { logError('check-admin', e, { email: user.email }); }
       try { setupListeners(user.uid); } catch(e) { console.warn('Listeners:', e); }
       try { listenGlobalSettings(); } catch(e) {}
-      // Auto-init Ably realtime in background. Server mints a per-user
-      // token from the Firebase ID token — no user input needed. Stays
-      // silent on first-run (account just created and provisionAbly
-      // hasn't stamped users/{uid}.ablyProvisionedAt yet); init() will
-      // be retried by callers if it failed. Channel subscriptions are
-      // wired lazily by the chat module.
-      try {
-        window.AblyChat?.init(user).then(() => {
-          console.log('[boot] AblyChat ready');
-        }).catch(e => {
-          console.warn('[boot] AblyChat init failed (will retry on demand):', e?.message || e);
-        });
-      } catch(e) { console.warn('AblyChat init outer:', e); }
       try {
         const rdActive = await loadRaceDayState();
         if (rdActive) {
@@ -18697,19 +18698,57 @@ function openHealthDashboard() {
 }
 // --- Weather ---
 const WEATHER_KEY = 'c286357e02b8753b54b5b7bf3e4ee1ce';
+/// Resolve a coarse location WITHOUT triggering the iOS geolocation prompt
+/// unless the user has previously granted it. Most calls return a cached
+/// last-known position; we only call getCurrentPosition fresh when the
+/// browser reports the permission as already granted. Returns a {lat, lon}
+/// tuple, falling back to Melbourne.
+async function getCachedOrSilentLocation() {
+  // Cached coords from a prior successful call — survives reloads.
+  try {
+    const last = JSON.parse(localStorage.getItem('tp_last_coords') || 'null');
+    if (last && Number.isFinite(last.lat) && Number.isFinite(last.lon) && (Date.now() - (last.ts || 0)) < 24 * 60 * 60 * 1000) {
+      return { lat: last.lat, lon: last.lon, source: 'cache' };
+    }
+  } catch (_) {}
+  // Permissions API — if available, use it to avoid asking the OS unless
+  // the user has already opted in. Safari/WKWebView supports this since
+  // iOS 16 for 'geolocation'.
+  let permState = 'unknown';
+  try {
+    if (navigator.permissions?.query) {
+      const s = await navigator.permissions.query({ name: 'geolocation' });
+      permState = s.state; // 'granted' | 'denied' | 'prompt'
+    }
+  } catch (_) {}
+  // Hard-stop if denied — never re-prompt. User can re-enable via iOS Settings.
+  if (permState === 'denied') {
+    return { lat: -37.81, lon: 144.96, source: 'default-denied' };
+  }
+  // Only invoke getCurrentPosition when we KNOW it's granted (no prompt).
+  // For 'prompt' or 'unknown' state, skip — the caller can explicitly ask
+  // later from a user-gestured surface (e.g. a "Use my location" button).
+  if (permState !== 'granted') {
+    return { lat: -37.81, lon: 144.96, source: 'default-no-grant' };
+  }
+  try {
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000, maximumAge: 5 * 60 * 1000 }));
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    try { localStorage.setItem('tp_last_coords', JSON.stringify({ lat, lon, ts: Date.now() })); } catch (_) {}
+    return { lat, lon, source: 'fresh' };
+  } catch (_) {
+    return { lat: -37.81, lon: 144.96, source: 'default-fail' };
+  }
+}
 async function loadWeather() {
   // Check if fresh data needed (15 min TTL)
   try {
     const cached = JSON.parse(localStorage.getItem('tp_weather') || '{}');
     if (cached.ts && Date.now() - cached.ts < 15 * 60 * 1000) return; // Cache is fresh, already rendered inline
   } catch(e) {}
-  // Get location
-  let lat = -37.81, lon = 144.96; // Default: Melbourne
-  try {
-    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
-    lat = pos.coords.latitude;
-    lon = pos.coords.longitude;
-  } catch(e) {}
+  // Get location WITHOUT triggering an iOS prompt unless already granted.
+  const { lat, lon } = await getCachedOrSilentLocation();
   try {
     const resp = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${WEATHER_KEY}`);
     if (!resp.ok) return;

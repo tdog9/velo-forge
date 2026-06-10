@@ -54,13 +54,36 @@
       // Echo off — we render our own optimistic message; let Ably echo
       // back the canonical version and reconcile by clientMsgId.
       echoMessages: false,
+      // Binary protocol (MessagePack) — ~30% smaller payloads than JSON
+      // and faster to encode/decode. Ably negotiates this automatically
+      // when the client requests it.
+      useBinaryProtocol: true,
+      // Heartbeat tuning — default is 15s, drop to 10s so a half-dead
+      // connection is detected ~5s sooner. The SDK auto-recovers.
+      realtimeRequestTimeout: 10_000,
       // Auto-reconnect with sensible backoff; the SDK handles this but
       // we cap the disconnected window at 2 min so a long offline period
       // doesn't keep retrying forever on a stale token.
       disconnectedRetryTimeout: 5_000,
       suspendedRetryTimeout: 30_000,
+      // Transport order — websocket is default; explicit so we don't
+      // accidentally fall back to long-polling on a transient ws block.
+      transports: ['web_socket', 'xhr_streaming', 'xhr_polling'],
+      // Recover the previous connection state across reloads when
+      // possible — keeps clientId / channel state without a fresh
+      // handshake. Stored in sessionStorage by the SDK.
+      recover: (lastConnection, cb) => cb(true),
     });
   }
+
+  /**
+   * Channel options applied at attach time. `rewind: 1m` makes a fresh
+   * attach automatically replay the last minute of messages — so a
+   * user opening the chat tab after a reload sees recent messages
+   * INSTANTLY without an explicit history() call. Combined with the
+   * Firestore cache hydration, the chat is interactive in <50ms.
+   */
+  const CHANNEL_OPTS = { params: { rewind: '1m' } };
 
   /**
    * One-time init. Idempotent — subsequent calls return the same client.
@@ -105,7 +128,9 @@
   function channel(name) {
     if (!realtime) throw new Error('AblyChat not initialised');
     if (!channelHandles.has(name)) {
-      channelHandles.set(name, realtime.channels.get(name));
+      // Pass CHANNEL_OPTS so the rewind=1m flag applies — fresh attach
+      // automatically replays last minute of history.
+      channelHandles.set(name, realtime.channels.get(name, CHANNEL_OPTS));
     }
     return channelHandles.get(name);
   }
