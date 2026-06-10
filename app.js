@@ -5951,12 +5951,13 @@ function renderToday() {
       }
     }
   } catch (_) {}
-  // ── Prominent Start Training CTA ──────────────────────────────────
-  // Always visible at the top of Today (between progress bar + weather).
-  // Hidden when a training session is already in flight — the
-  // CentreBar / training overlay covers that case.
-  if (!window._tpTrainingActive) {
-    html += `<button id="today-start-training" type="button" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;margin:0 0 12px;border-radius:14px;border:none;background:linear-gradient(135deg, var(--primary), #ea6a0a);color:#fff;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 6px 18px rgba(var(--primary-rgb),.30), inset 0 1px 0 rgba(255,255,255,.20);text-align:left">
+  // Prominent Start Training CTA — only when there's no active plan.
+  // Users with a plan get a "Start" button on the plan card itself, so
+  // showing both was a double-CTA that competed for attention. Users
+  // without a plan still need a way to start an ad-hoc session, so
+  // the orange button stays visible for them.
+  if (!window._tpTrainingActive && !activePlan) {
+    html += `<button id="today-start-training" type="button" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;margin:0 0 12px;border-radius:14px;border:none;background:linear-gradient(135deg, var(--primary), #ea6a0a);color:#fff;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 4px 12px rgba(var(--primary-rgb),.22);text-align:left">
       <span style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
       </span>
@@ -6240,8 +6241,9 @@ function renderToday() {
       const todayPw = activePlan.workouts.find(w => w.day === todayDayName);
       if (todayPw?.duration) recDur = todayPw.duration;
     }
-    const durOptions = [5, 10, 15, 20, 30, 45, 60, 75, 90];
-    // Make sure recDur is in the list — slot it in if not.
+    // Five-button picker (was nine — 5/10/20/75/90 were edge cases that
+    // turned the strip into a wall). Recommended is always in the list.
+    const durOptions = [15, 30, 45, 60, 90];
     if (!durOptions.includes(recDur)) {
       durOptions.push(recDur);
       durOptions.sort((a,b) => a - b);
@@ -6250,7 +6252,6 @@ function renderToday() {
     html += `<div class="dur-picker-row">
       <div class="dur-picker-head">
         <span class="dur-picker-label">Session length</span>
-        <span class="dur-picker-rec">Recommended: ${recDur} min</span>
       </div>
       <div class="dur-picker-strip">
         ${durOptions.map(d => `<button class="dur-pick${activeDur===d?' active':''}${d===recDur?' rec':''}" data-dur="${d}">${d}<span class="dur-pick-rec-tag">${d===recDur?'rec.':''}</span></button>`).join('')}
