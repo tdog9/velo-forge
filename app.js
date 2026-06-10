@@ -6804,7 +6804,7 @@ function renderToday() {
     });
   });
   // Quick Log + Record GPS buttons
-  $('today-quick-log')?.addEventListener('click', () => { haptic('light'); openWorkoutSheet(); });
+  $('today-quick-log')?.addEventListener('click', () => { haptic('light'); openQuickLog(); });
   // Onboarding — auto-pick best plan for user's year/tier
   $('onboard-pick-plan')?.addEventListener('click', () => {
     haptic('medium');
@@ -8970,6 +8970,129 @@ function openWorkoutSheet() {
   renderForm(currentType);
   openSheet();
 }
+
+/// Sub-30-second log path. Three taps:
+///   1. pick type (HPR / Ride / Run / Other)
+///   2. pick duration (15 / 30 / 45 / 60 / custom)
+///   3. optional RPE → Save
+/// Wires into the same saveWorkout() backend by populating the named
+/// hidden inputs it reads. "More options" swaps to the full sheet
+/// (openWorkoutSheet) preserving whatever was already chosen.
+function openQuickLog() {
+  const today = localDateKey();
+  let selectedRpe = 0;
+  let currentType = 'Ride';
+  let currentDuration = 30;
+  const TYPES = [
+    { id: 'Ride',    label: 'Ride' },
+    { id: 'Run',     label: 'Run' },
+    { id: 'HPR',     label: 'HPR' },
+    { id: 'Other',   label: 'Other' },
+  ];
+  const DURATIONS = [15, 30, 45, 60];
+  const render = () => {
+    $('sheet-content').innerHTML = `
+      <div class="sheet-title" style="margin-bottom:8px">Quick log</div>
+      <div style="font-size:12px;color:var(--muted-fg);margin-bottom:14px">Three taps. Add detail anytime from Fitness.</div>
+      <div class="form-group">
+        <label class="label">Type</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="ql-type-btns">
+          ${TYPES.map(t => `<button type="button" class="ql-type${t.id === currentType ? ' active' : ''}" data-qltype="${t.id}" style="flex:1;min-width:64px;padding:10px 12px;font-size:13px;font-weight:700;border-radius:10px;border:1.5px solid ${t.id === currentType ? 'var(--primary)' : 'var(--border)'};background:${t.id === currentType ? 'var(--primary-dim)' : 'var(--card)'};color:${t.id === currentType ? 'var(--primary)' : 'var(--fg)'};cursor:pointer">${t.label}</button>`).join('')}
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="label">Duration</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${DURATIONS.map(d => `<button type="button" class="ql-dur${d === currentDuration ? ' active' : ''}" data-qldur="${d}" style="flex:0 0 auto;min-width:54px;padding:10px 14px;font-size:13px;font-weight:700;border-radius:10px;border:1.5px solid ${d === currentDuration ? 'var(--primary)' : 'var(--border)'};background:${d === currentDuration ? 'var(--primary-dim)' : 'var(--card)'};color:${d === currentDuration ? 'var(--primary)' : 'var(--fg)'};cursor:pointer">${d}</button>`).join('')}
+          <input type="number" id="ql-dur-custom" min="1" max="360" placeholder="min" value="${DURATIONS.includes(currentDuration) ? '' : currentDuration}" style="flex:1;min-width:64px;max-width:80px;padding:10px 12px;font-size:13px;font-weight:700;text-align:center;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--fg);font-family:inherit">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="label">RPE <span style="font-size:11px;font-weight:500;color:var(--muted-fg);margin-left:4px">(optional)</span></label>
+        <div class="rpe-row" id="ql-rpe-row">
+          ${[1,2,3,4,5,6,7,8,9,10].map(n => `<button type="button" class="rpe-btn${n === selectedRpe ? ' selected' : ''}" data-qlrpe="${n}">${n}</button>`).join('')}
+        </div>
+      </div>
+      <!-- Hidden fields saveWorkout() reads — pre-populated. -->
+      <input type="hidden" id="wo-name" value="">
+      <input type="hidden" id="wo-duration" value="${currentDuration}">
+      <input type="hidden" id="wo-date" value="${today}">
+      <div style="display:flex;gap:8px;margin-top:18px">
+        <button class="btn btn-secondary" id="ql-more" type="button" style="flex:0 0 auto;padding:12px 16px">More options</button>
+        <button class="btn btn-primary" id="ql-save" type="button" style="flex:1;padding:12px 18px;font-size:14px;font-weight:800">Log it</button>
+      </div>`;
+    // Bind type chips
+    document.querySelectorAll('.ql-type').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentType = btn.dataset.qltype;
+        render();
+      });
+    });
+    // Bind duration chips
+    document.querySelectorAll('.ql-dur').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentDuration = Number(btn.dataset.qldur);
+        $('wo-duration').value = String(currentDuration);
+        render();
+      });
+    });
+    // Custom duration input — updates currentDuration without re-render so
+    // typing isn't interrupted. Sync to hidden field on every keystroke.
+    document.getElementById('ql-dur-custom')?.addEventListener('input', (e) => {
+      const v = Number(e.target.value);
+      if (Number.isFinite(v) && v > 0) {
+        currentDuration = v;
+        $('wo-duration').value = String(v);
+      }
+    });
+    // Bind RPE row
+    document.querySelectorAll('.rpe-btn[data-qlrpe]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedRpe = Number(btn.dataset.qlrpe);
+        render();
+      });
+    });
+    // More options — swap to the full sheet, preserving type + duration.
+    $('ql-more')?.addEventListener('click', () => {
+      const carryType = currentType;
+      const carryDur = currentDuration;
+      const carryRpe = selectedRpe;
+      // openWorkoutSheet re-renders sheet-content; pre-seed the values
+      // it reads back on next render via stable input ids it preserves.
+      openWorkoutSheet();
+      setTimeout(() => {
+        // Swap the type
+        const typeBtn = document.querySelector(`.wo-type-pick[data-wotype="${carryType === 'Other' ? 'Cardio' : carryType}"]`);
+        typeBtn?.click();
+        const durInput = document.getElementById('wo-duration');
+        if (durInput) durInput.value = String(carryDur);
+        if (carryRpe) {
+          const rpeBtn = document.querySelector(`.rpe-btn[data-rpe="${carryRpe}"]`);
+          rpeBtn?.click();
+        }
+      }, 50);
+    });
+    // Save — populate the name based on type (saveWorkout requires it),
+    // then call through.
+    $('ql-save')?.addEventListener('click', () => {
+      const woName = $('wo-name');
+      if (woName) {
+        const labelMap = { Ride: 'Ride', Run: 'Run', HPR: 'HPR Session', Other: 'Workout' };
+        woName.value = labelMap[currentType] || 'Workout';
+      }
+      const dur = Number($('wo-duration')?.value);
+      if (!dur || dur < 1) {
+        showToast?.('Pick a duration first.', 'warn');
+        return;
+      }
+      const saveType = currentType === 'Other' ? 'Cardio' : currentType;
+      saveWorkout(selectedRpe || null, null, saveType);
+    });
+  };
+  render();
+  openSheet();
+}
+
 async function saveWorkout(rpe, photoData, workoutType) {
   const name = $('wo-name')?.value?.trim() || '';
   const type = workoutType || 'Ride';
