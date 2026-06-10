@@ -3024,3 +3024,283 @@ body:has(#page-team.active) .ai-fab,
 
 /* Calm down all the legacy shadows that read as "1990s card". */
 .section-card{ box-shadow:none !important; }
+
+/* ============================================================
+   CHAT — proper messaging app polish.
+   The bones were already there (bubbles, grouping, avatars) but
+   the spacing/contrast/composer felt off. This pass fixes:
+     - bubble breathing room + line-height
+     - "mine" bubbles use the primary tint, not flat grey
+     - composer fixed to bottom, big tap target, no border noise
+     - status pill is invisible until something is actually wrong
+     - empty state is inviting, not depressing
+   ============================================================ */
+
+/* Chat list — generous bottom padding so the last message clears the
+   composer; smooth scrolling on iOS. */
+.msg-list{
+  padding:8px 0 110px !important;
+  -webkit-overflow-scrolling:touch;
+  scroll-behavior:smooth;
+}
+
+/* Bubbles — softer corners, better line-height for readability. */
+.msg-bubble{
+  padding:8px 12px !important;
+  line-height:1.4 !important;
+  font-size:14.5px !important;
+  border-radius:18px !important;
+  max-width:78% !important;
+  word-wrap:break-word;
+  word-break:break-word;
+}
+
+/* My messages — tint with the team primary so they pop without
+   shouting. Was a flat dark grey that read as "system message". */
+.msg-row.msg-mine .msg-bubble{
+  background:var(--primary) !important;
+  color:var(--primary-fg) !important;
+  border:none !important;
+}
+
+/* Other people's messages — subtle card background, no border. */
+.msg-row.msg-other .msg-bubble{
+  background:rgba(255,255,255,.06) !important;
+  color:var(--fg) !important;
+  border:none !important;
+}
+
+/* Sender name above first bubble in a group — small, muted, tight. */
+.msg-row.msg-other.msg-first .msg-sender{
+  font-size:11px;
+  font-weight:700;
+  color:var(--muted-fg);
+  margin:6px 0 2px 44px;
+  letter-spacing:.01em;
+}
+
+/* Time stamp inside bubble — only on last in group. */
+.msg-row.msg-last .msg-time{
+  font-size:10px;
+  opacity:.55;
+  margin-top:2px;
+}
+
+/* Tighter spacing between same-sender bubbles, looser between senders. */
+.msg-row + .msg-row{ margin-top:2px; }
+.msg-row.msg-first{ margin-top:10px; }
+
+/* Day separator — calmer, less in-your-face. */
+.msg-day-sep{
+  text-align:center;
+  margin:18px 0 12px;
+}
+.msg-day-sep span{
+  font-size:10.5px !important;
+  font-weight:700;
+  color:var(--muted-fg);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  background:transparent !important;
+  padding:0 8px;
+}
+
+/* Avatar tweaks — smaller, more refined. */
+.msg-avatar, .msg-avatar-img{
+  width:28px !important;
+  height:28px !important;
+  font-size:11px !important;
+  border-radius:50% !important;
+}
+
+/* Composer — fixed to bottom, large tap target, no border clutter. */
+.msg-composer{
+  position:sticky;
+  bottom:0;
+  background:linear-gradient(180deg, rgba(15,16,23,0) 0%, var(--bg) 30%);
+  padding:12px 8px 16px !important;
+  margin:0 -4px;
+  z-index:5;
+}
+.msg-composer-row{
+  display:flex !important;
+  align-items:flex-end;
+  gap:6px;
+  padding:0 !important;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:24px;
+  padding:4px 4px 4px 8px !important;
+}
+.msg-composer-input{
+  flex:1;
+  background:transparent !important;
+  border:none !important;
+  outline:none !important;
+  resize:none;
+  padding:10px 6px !important;
+  font-size:15px !important;
+  line-height:1.35;
+  color:var(--fg) !important;
+  font-family:inherit;
+  min-height:24px;
+  max-height:120px;
+}
+.msg-composer-input::placeholder{
+  color:var(--muted-fg);
+  opacity:.7;
+}
+.msg-composer-attach, .msg-composer-schedule{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  background:transparent;
+  border:none;
+  color:var(--muted-fg);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+}
+.msg-composer-attach:hover, .msg-composer-schedule:hover{ color:var(--fg); }
+.msg-composer-send{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  background:var(--primary) !important;
+  color:var(--primary-fg) !important;
+  border:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  transition:transform 80ms ease-out, opacity 80ms ease-out;
+}
+.msg-composer-send:active{ transform:scale(.92); }
+.msg-composer-send:disabled{ opacity:.4; cursor:not-allowed; }
+.msg-composer-hint{
+  font-size:10.5px !important;
+  color:var(--muted-fg);
+  margin-top:8px;
+  padding:0 8px;
+  line-height:1.4;
+  opacity:.7;
+}
+.msg-composer-error{
+  font-size:12px;
+  color:var(--destructive);
+  padding:6px 12px 0;
+}
+
+/* Chat status pill — hidden by default (CSS isn't fighting the JS),
+   and when shown, smaller and less alarming. */
+.chat-status-pill{
+  font-size:11px !important;
+  padding:6px 12px !important;
+  border-radius:99px !important;
+  background:rgba(var(--destructive-rgb), .12) !important;
+  color:var(--destructive) !important;
+  border:1px solid rgba(var(--destructive-rgb), .25) !important;
+}
+.chat-status-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:4px 8px 0;
+  min-height:0;
+}
+.chat-silent-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:11px;
+  font-weight:600;
+  padding:5px 10px;
+  border-radius:99px;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--muted-fg);
+  cursor:pointer;
+}
+.chat-silent-toggle svg{ width:13px; height:13px; }
+.chat-silent-toggle.muted{
+  color:var(--destructive);
+  border-color:rgba(var(--destructive-rgb),.35);
+  background:rgba(var(--destructive-rgb),.08);
+}
+
+/* Empty state — feels inviting, not "you have no friends". */
+.msg-empty{
+  text-align:center;
+  padding:60px 28px;
+  color:var(--muted-fg);
+}
+.msg-empty-icon{
+  width:48px;
+  height:48px;
+  opacity:.35;
+  margin:0 auto 16px;
+  display:block;
+}
+.msg-empty-title{
+  font-size:15px;
+  font-weight:700;
+  color:var(--fg);
+  margin-bottom:6px;
+}
+.msg-empty-sub{
+  font-size:13px;
+  line-height:1.5;
+  max-width:260px;
+  margin:0 auto;
+}
+
+/* Coach broadcast — readable banner, not a wall. */
+.msg-event-coach{
+  background:rgba(var(--primary-rgb), .08) !important;
+  border:1px solid rgba(var(--primary-rgb), .20) !important;
+  border-radius:14px !important;
+  padding:12px 14px !important;
+  margin:8px 4px !important;
+}
+.msg-event-coach .msg-event-actor{
+  font-weight:700;
+  color:var(--primary);
+  font-size:12px;
+}
+.msg-event-coach .msg-event-body{
+  margin-top:6px;
+  font-size:14px;
+  line-height:1.45;
+  color:var(--fg);
+}
+
+/* Pinned banner — top-of-thread sticky look. */
+.chat-pinned-banner{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:10px 12px;
+  margin:0 4px 8px;
+  background:linear-gradient(180deg, rgba(var(--primary-rgb),.08), rgba(var(--primary-rgb),.03));
+  border:1px solid rgba(var(--primary-rgb),.20);
+  border-radius:12px;
+}
+.chat-pinned-icon{
+  width:14px; height:14px;
+  color:var(--primary);
+  margin-top:2px;
+  flex-shrink:0;
+}
+.chat-pinned-author{
+  font-weight:700;
+  color:var(--primary);
+  font-size:12px;
+}
+.chat-pinned-text{
+  font-size:13px;
+  line-height:1.4;
+  color:var(--fg);
+}

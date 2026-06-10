@@ -54,25 +54,9 @@
       // Echo off — we render our own optimistic message; let Ably echo
       // back the canonical version and reconcile by clientMsgId.
       echoMessages: false,
-      // Binary protocol (MessagePack) — ~30% smaller payloads than JSON
-      // and faster to encode/decode. Ably negotiates this automatically
-      // when the client requests it.
-      useBinaryProtocol: true,
-      // Heartbeat tuning — default is 15s, drop to 10s so a half-dead
-      // connection is detected ~5s sooner. The SDK auto-recovers.
-      realtimeRequestTimeout: 10_000,
-      // Auto-reconnect with sensible backoff; the SDK handles this but
-      // we cap the disconnected window at 2 min so a long offline period
-      // doesn't keep retrying forever on a stale token.
+      // Conservative retry windows — SDK defaults are sensible.
       disconnectedRetryTimeout: 5_000,
       suspendedRetryTimeout: 30_000,
-      // Transport order — websocket is default; explicit so we don't
-      // accidentally fall back to long-polling on a transient ws block.
-      transports: ['web_socket', 'xhr_streaming', 'xhr_polling'],
-      // Recover the previous connection state across reloads when
-      // possible — keeps clientId / channel state without a fresh
-      // handshake. Stored in sessionStorage by the SDK.
-      recover: (lastConnection, cb) => cb(true),
     });
   }
 
@@ -101,15 +85,22 @@
     initPromise = new Promise((resolve, reject) => {
       try {
         const client = buildClient(firebaseUser);
+        // Log every state transition so we can see "initialized → connecting
+        // → connected" or "→ disconnected → suspended → failed". Saves a
+        // lot of "why isn't it connecting" debugging.
+        client.connection.on((stateChange) => {
+          console.log(`[AblyChat] state ${stateChange.previous} → ${stateChange.current}`,
+            stateChange.reason ? `reason=${stateChange.reason.message}` : '');
+        });
         client.connection.once('connected', () => {
           realtime = client;
-          console.log('[AblyChat] connected as', firebaseUser.uid);
+          console.log('[AblyChat] CONNECTED as', firebaseUser.uid);
           resolve(client);
         });
-        client.connection.once('failed', (err) => {
-          console.warn('[AblyChat] connection failed', err);
+        client.connection.once('failed', (stateChange) => {
+          console.warn('[AblyChat] connection FAILED', stateChange?.reason);
           initPromise = null; // allow retry
-          reject(err);
+          reject(stateChange?.reason || new Error('connection failed'));
         });
       } catch (e) {
         initPromise = null;
