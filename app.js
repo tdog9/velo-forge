@@ -11513,14 +11513,29 @@ async function renderProfile() {
     </div>`;
   // Coach Personality
   const persona = localStorage.getItem('tp_coach_persona') || 'supportive';
-  html += '<div class="profile-section"><div class="profile-section-title">Coach Personality</div>';
+  // AI Coach — merged toggle + personality into one section so the Profile
+  // doesn't have two side-by-side coach-related blocks. The fab toggle
+  // controls whether a floating coach button appears on Today/Fitness/Races;
+  // the personality picker controls tone of voice for that coach.
+  let aiFabEnabled = false;
+  try { aiFabEnabled = localStorage.getItem('tp_ai_fab_enabled') === '1'; } catch(_) {}
+  html += '<div class="profile-section"><div class="profile-section-title">AI Coach</div>';
+  html += `<div class="profile-row">
+    <div>
+      <span class="profile-row-label">Show coach button</span>
+      <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">Floating button on Today / Fitness / Races for quick chat.</div>
+    </div>
+    <div class="theme-toggle${aiFabEnabled ? ' on' : ''}" id="ai-fab-toggle" role="switch" aria-checked="${aiFabEnabled}" aria-label="AI Coach button">
+      <div class="theme-toggle-knob"></div>
+    </div>
+  </div>`;
   html += `<div class="profile-row" style="flex-direction:column;align-items:stretch;gap:8px">
-    <div style="font-size:12px;color:var(--muted-fg)">How the AI Coach talks to you.</div>
+    <div style="font-size:12px;color:var(--muted-fg)">Personality — how the coach talks to you.</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${[
-        { id: 'supportive',     label: '🤗 Supportive', desc: 'Default — warm, encouraging' },
-        { id: 'no_nonsense',    label: '🎯 No-Nonsense', desc: 'Direct, blunt' },
-        { id: 'drill_sergeant', label: '🪖 Drill Sergeant', desc: 'Gruff, demanding' },
+        { id: 'supportive',     label: 'Supportive',     desc: 'Default — warm, encouraging' },
+        { id: 'no_nonsense',    label: 'No-Nonsense',    desc: 'Direct, blunt' },
+        { id: 'drill_sergeant', label: 'Drill Sergeant', desc: 'Gruff, demanding' },
       ].map(p => `<button class="persona-pick${persona === p.id ? ' active' : ''}" data-persona="${p.id}" title="${p.desc}">${p.label}</button>`).join('')}
     </div>
   </div>`;
@@ -11529,11 +11544,11 @@ async function renderProfile() {
   // send-push respects these before delivering.
   const prefs = userProfile?.notificationPrefs || {};
   const NOTIF_CATS = [
-    { id: 'race_day',        label: 'Race Day', desc: 'Race-day activations, lap milestones' },
-    { id: 'coach_broadcast', label: '📣 Coach Messages', desc: 'Broadcasts from your coach' },
-    { id: 'training',        label: '📅 Training Reminders', desc: 'Daily plan + workout nudges' },
-    { id: 'team_chat',       label: '💬 Team Chat', desc: 'New messages in your team chat' },
-    { id: 'daily',           label: 'Daily Summary', desc: 'Weekly stats + quote, 3:30 PM each day' },
+    { id: 'race_day',        label: 'Race Day',           desc: 'Race-day activations, lap milestones' },
+    { id: 'coach_broadcast', label: 'Coach Messages',     desc: 'Broadcasts from your coach' },
+    { id: 'training',        label: 'Training Reminders', desc: 'Daily plan + workout nudges' },
+    { id: 'team_chat',       label: 'Team Chat',          desc: 'New messages in your team chat' },
+    { id: 'daily',           label: 'Daily Summary',      desc: 'Weekly stats + quote, 3:30 PM each day' },
   ];
   // Home Assistant outbound webhook (integration). Lets a user paste
   // their HA "Webhook" trigger URL; TurboPrep then POSTs key events
@@ -11549,20 +11564,6 @@ async function renderProfile() {
       <input type="checkbox" id="profile-ha-enabled" ${haEnabled ? 'checked' : ''}> Forward events to Home Assistant
     </label>
     <button id="profile-ha-test" type="button" style="padding:10px;border-radius:10px;background:var(--card);border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer">Send test event</button>
-  </div>`;
-  html += '</div>';
-  // AI Coach toggle — fab is opt-in so the default UI stays calm.
-  let aiFabEnabled = false;
-  try { aiFabEnabled = localStorage.getItem('tp_ai_fab_enabled') === '1'; } catch(_) {}
-  html += '<div class="profile-section"><div class="profile-section-title">AI Coach</div>';
-  html += `<div class="profile-row">
-    <div>
-      <span class="profile-row-label">Show AI Coach button</span>
-      <div style="font-size:10px;color:var(--muted-fg);margin-top:2px">Adds a floating button on Today / Fitness / Races for quick coach chat. Off by default.</div>
-    </div>
-    <div class="theme-toggle${aiFabEnabled ? ' on' : ''}" id="ai-fab-toggle" role="switch" aria-checked="${aiFabEnabled}" aria-label="AI Coach button">
-      <div class="theme-toggle-knob"></div>
-    </div>
   </div>`;
   html += '</div>';
   // Training session entry — starts training mode (locks the Watch
@@ -11625,11 +11626,11 @@ async function renderProfile() {
       <div style="font-size:13px;font-weight:700;margin-bottom:4px">Push diagnostics</div>
       <div style="font-size:11px;color:var(--muted-fg);margin-bottom:10px">Tests the full pipeline: iOS device → Firestore → Netlify → Apple Push.</div>
       ${hasNativeBridge ? `
-        <button id="push-register-btn" type="button" style="width:100%;padding:10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px">Step 1 · Check & re-register on this iPhone</button>
+        <button id="push-register-btn" type="button" style="width:100%;padding:10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--fg);font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px">Check device registration</button>
       ` : `
         <div style="font-size:11px;color:var(--muted-fg);padding:8px 10px;border:1px dashed var(--border);border-radius:8px;margin-bottom:6px">You're not in the native iOS app. Push only works in the installed TurboPrep app, not in Safari or PWA.</div>
       `}
-      <button id="push-test-btn" type="button" style="width:100%;padding:10px;border-radius:8px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Step 2 · Send test push to me</button>
+      <button id="push-test-btn" type="button" style="width:100%;padding:10px;border-radius:8px;background:var(--primary);color:var(--primary-fg);border:none;font-weight:700;font-size:13px;cursor:pointer">Send test push to me</button>
       <div id="push-test-result" style="margin-top:10px;font-size:12px;color:var(--muted-fg);line-height:1.45;font-family:var(--font-mono);white-space:pre-wrap"></div>
     </div>`;
   html += '</div>';
@@ -11722,7 +11723,7 @@ async function renderProfile() {
     <input type="file" id="prof-garmin-file" accept=".gpx,.tcx" style="display:none">
     <button class="btn btn-primary" id="prof-garmin-pick" style="font-size:12px;padding:6px 12px">Upload</button>
   </div>
-  <div style="font-size:11px;color:var(--muted-fg);padding:0 4px;margin-bottom:8px">In Garmin Connect: open an activity → ⚙️ → Export to GPX or TCX → upload here.</div>`;
+  <div style="font-size:11px;color:var(--muted-fg);padding:0 4px;margin-bottom:8px">In Garmin Connect: open an activity → Settings → Export to GPX or TCX → upload here.</div>`;
   // Apple Watch built-in note
   html += `<div style="font-size:12px;color:var(--muted-fg);line-height:1.5;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:8px">
     <strong style="color:var(--fg)">Apple Watch (built-in)</strong> — the TurboPrep iOS app reads heart rate, steps, and sleep from HealthKit. Open the iOS app once and grant Health permission.
@@ -11740,7 +11741,9 @@ async function renderProfile() {
   }
   html += `<div style="background:linear-gradient(135deg,rgba(var(--primary-rgb),.10),rgba(var(--primary-rgb),.04));border:1px solid rgba(var(--primary-rgb),.25);border-radius:12px;padding:12px;margin-bottom:8px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <div style="width:32px;height:32px;border-radius:8px;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">⌚</div>
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--primary);color:var(--primary-fg);display:flex;align-items:center;justify-content:center;flex-shrink:0" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 6V3h6v3"/><path d="M9 18v3h6v-3"/></svg>
+      </div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13px;color:var(--fg)">Connect Watch</div>
         <div style="font-size:11px;color:var(--muted-fg)">Type this code on your Watch, then tap Send.</div>
@@ -11759,11 +11762,11 @@ async function renderProfile() {
   const health = userProfile?.health;
   if (health) {
     const healthItems = [];
-    if (health.latestHr) healthItems.push('❤️ ' + health.latestHr + ' bpm');
-    if (health.latestSteps) healthItems.push('👟 ' + health.latestSteps.toLocaleString() + ' steps');
-    if (health.latestSleep) healthItems.push('😴 ' + health.latestSleep + 'h sleep');
-    if (health.restingHr) healthItems.push('💓 ' + health.restingHr + ' resting');
-    if (health.vo2max) healthItems.push('🫁 VO2 ' + health.vo2max);
+    if (health.latestHr)    healthItems.push(health.latestHr + ' bpm');
+    if (health.latestSteps) healthItems.push(health.latestSteps.toLocaleString() + ' steps');
+    if (health.latestSleep) healthItems.push(health.latestSleep + 'h sleep');
+    if (health.restingHr)   healthItems.push(health.restingHr + ' resting');
+    if (health.vo2max)      healthItems.push('VO₂ ' + health.vo2max);
     if (healthItems.length > 0) {
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">';
       healthItems.forEach(item => { html += '<span style="font-size:11px;padding:3px 8px;border-radius:6px;background:var(--bg);color:var(--fg)">' + item + '</span>'; });
@@ -11779,7 +11782,7 @@ async function renderProfile() {
   </div>`;
   if (errorLog.length > 0) {
     html += `<div class="profile-row" id="profile-error-log" style="cursor:pointer">
-      <span class="profile-row-label">🐛 Error Log</span>
+      <span class="profile-row-label">Error log</span>
       <span class="profile-row-action">${errorLog.length} recent</span>
     </div>`;
   }
