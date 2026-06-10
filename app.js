@@ -1483,29 +1483,39 @@ function renderRecoveryCard(workouts, healthData) {
   let lastDismissed = '';
   try { lastDismissed = localStorage.getItem('tp_recovery_dismissed') || ''; } catch(e) {}
   if (lastDismissed === today) return '';
-  let kind = null, message = '';
+  let kind = null, suggestion = '';
   if (score < 35) {
     kind = 'rest';
-    message = sleepFresh
-      ? `Score ${score}/100. ${sleep.toFixed(1)}h sleep + ${recentCount} session${recentCount === 1 ? '' : 's'} in 3 days${hardCount ? ' (' + hardCount + ' hard)' : ''}. Rest or active recovery today.`
-      : `Score ${score}/100. ${recentCount} session${recentCount === 1 ? '' : 's'} in 3 days${hardCount ? ' (' + hardCount + ' hard)' : ''}. Easy day recommended.`;
+    suggestion = hardCount >= 2
+      ? '20-min easy spin or skip today'
+      : '20-min easy spin or mobility';
   } else if (score >= 80) {
     // Was gated on `recentCount === 0` — anyone with even one session
     // in the last 3 days never saw the "fresh" surface, which is
     // exactly the population this card is meant to encourage. A high
     // score with sleep + low RPE is the legitimate signal.
     kind = 'fresh';
-    message = `Score ${score}/100. ${sleepFresh ? sleep.toFixed(1) + 'h sleep, ' : ''}you're fresh — good day to push.`;
+    suggestion = 'Good day for a hard session';
   }
   if (!kind) return '';
-  const colors = kind === 'rest'
-    ? { bg: 'rgba(var(--warning-rgb),.10)', border: 'rgba(var(--warning-rgb),.35)', fg: 'var(--warning)', icon: '😴', title: 'Recovery first' }
-    : { bg: 'rgba(var(--success-rgb),.10)',  border: 'rgba(var(--success-rgb),.35)',  fg: 'var(--success)', icon: '⚡', title: 'You\'re fresh' };
+  const sub = sleepFresh
+    ? `${sleep.toFixed(1)}h sleep · ${recentCount} session${recentCount === 1 ? '' : 's'} / 3d${hardCount ? ` · ${hardCount} hard` : ''}`
+    : `${recentCount} session${recentCount === 1 ? '' : 's'} / 3d${hardCount ? ` · ${hardCount} hard` : ''}`;
+  const isRest = kind === 'rest';
+  // SVG icons replace the previous emoji (😴 / ⚡) — keeps the card on
+  // the no-emoji rule.
+  const iconSvg = isRest
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+  const colors = isRest
+    ? { bg: 'rgba(var(--warning-rgb),.10)', border: 'rgba(var(--warning-rgb),.35)', fg: 'var(--warning)', title: 'Recovery first' }
+    : { bg: 'rgba(var(--success-rgb),.10)',  border: 'rgba(var(--success-rgb),.35)',  fg: 'var(--success)', title: 'You\'re fresh' };
   return `<div class="recovery-card" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:${colors.bg};border:1px solid ${colors.border}">
-    <div style="font-size:24px;flex-shrink:0">${colors.icon}</div>
+    <div style="color:${colors.fg};flex-shrink:0;margin-top:1px">${iconSvg}</div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:800;color:${colors.fg};margin-bottom:2px">${colors.title}</div>
-      <div style="font-size:12px;color:var(--fg);line-height:1.4">${escHtml(message)}</div>
+      <div style="font-size:13px;font-weight:800;color:${colors.fg};margin-bottom:3px">${colors.title}</div>
+      <div style="font-size:13.5px;font-weight:700;color:var(--fg);line-height:1.3">${escHtml(suggestion)}</div>
+      <div style="font-size:10.5px;color:var(--muted-fg);margin-top:4px;font-variant-numeric:tabular-nums">${escHtml(sub)} · score ${score}</div>
     </div>
     <button class="recovery-dismiss" aria-label="Dismiss" style="background:none;border:none;color:var(--muted-fg);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
   </div>`;
