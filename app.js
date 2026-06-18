@@ -1202,6 +1202,11 @@ if (typeof window !== 'undefined') {
 /// to team chat (defaults on). Drives day-1 retention.
 function openFirstWorkoutCelebration(workout) {
   document.getElementById('first-wo-overlay')?.remove();
+  // Confetti + success haptic fire FIRST so they're already in motion
+  // by the time the overlay renders — feels like the moment is bigger
+  // than a single card popping up.
+  try { showCelebration(''); } catch (_) {}
+  try { haptic('success'); } catch (_) {}
   const ov = document.createElement('div');
   ov.id = 'first-wo-overlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:20px';
@@ -1209,7 +1214,9 @@ function openFirstWorkoutCelebration(workout) {
     <div style="background:var(--bg);max-width:420px;width:100%;border-radius:18px;border:1px solid rgba(var(--primary-rgb),.4);padding:28px 24px;text-align:center;position:relative;overflow:hidden">
       <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 0%, rgba(var(--primary-rgb),.18), transparent 70%);pointer-events:none"></div>
       <div style="position:relative">
-        <div style="font-size:48px;margin-bottom:6px">🎉</div>
+        <div style="display:flex;align-items:center;justify-content:center;color:var(--primary);margin-bottom:6px">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width:48px;height:48px"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
         <div style="font-size:22px;font-weight:800;letter-spacing:-.01em;margin-bottom:6px">First workout in the books</div>
         <div style="font-size:13px;color:var(--muted-fg);line-height:1.5;margin-bottom:18px">${escHtml((workout?.name || 'Workout').slice(0, 40))} · ${workout?.duration || 0} min. Welcome to the streak.</div>
         <label style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 13px;text-align:left;margin-bottom:14px;cursor:pointer">
@@ -5655,15 +5662,22 @@ function renderPersonalBests(now, totalWorkouts, streak) {
   // Highest RPE
   let highestRpe = 0;
   userWorkouts.forEach(w => { if (w.rpe && w.rpe > highestRpe) highestRpe = w.rpe; });
+  // Personal-bests pictograms — were emoji (🔥📅⏱️💪🏋️). SVGs render
+  // consistently across themes and stay on the no-emoji rule.
+  const SVG_FLAME_PB = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:22px;height:22px"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/></svg>';
+  const SVG_CAL_PB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+  const SVG_CLOCK_PB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  const SVG_BOLT_PB = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:22px;height:22px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+  const SVG_TROPHY_PB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>';
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">Personal Bests</div>';
   html += '<div class="pb-grid">';
-  html += '<div class="pb-card"><div class="pb-icon">🔥</div><div class="pb-val">' + bestStreak + '</div><div class="pb-lbl">Best Streak</div></div>';
-  html += '<div class="pb-card"><div class="pb-icon">📅</div><div class="pb-val">' + bestWeek + '</div><div class="pb-lbl">Best Week</div></div>';
-  html += '<div class="pb-card"><div class="pb-icon">⏱️</div><div class="pb-val">' + longestWorkout + '<span style="font-size:11px">m</span></div><div class="pb-lbl">Longest Session</div></div>';
+  html += '<div class="pb-card"><div class="pb-icon" style="color:#f97316">' + SVG_FLAME_PB + '</div><div class="pb-val">' + bestStreak + '</div><div class="pb-lbl">Best Streak</div></div>';
+  html += '<div class="pb-card"><div class="pb-icon" style="color:#3b82f6">' + SVG_CAL_PB + '</div><div class="pb-val">' + bestWeek + '</div><div class="pb-lbl">Best Week</div></div>';
+  html += '<div class="pb-card"><div class="pb-icon" style="color:#a855f7">' + SVG_CLOCK_PB + '</div><div class="pb-val">' + longestWorkout + '<span style="font-size:11px">m</span></div><div class="pb-lbl">Longest Session</div></div>';
   if (highestRpe > 0) {
-    html += '<div class="pb-card"><div class="pb-icon">💪</div><div class="pb-val">' + highestRpe + '/10</div><div class="pb-lbl">Highest Effort</div></div>';
+    html += '<div class="pb-card"><div class="pb-icon" style="color:#ef4444">' + SVG_BOLT_PB + '</div><div class="pb-val">' + highestRpe + '/10</div><div class="pb-lbl">Highest Effort</div></div>';
   } else {
-    html += '<div class="pb-card"><div class="pb-icon">🏋️</div><div class="pb-val">' + totalWorkouts + '</div><div class="pb-lbl">Total Sessions</div></div>';
+    html += '<div class="pb-card"><div class="pb-icon" style="color:#fbbf24">' + SVG_TROPHY_PB + '</div><div class="pb-val">' + totalWorkouts + '</div><div class="pb-lbl">Total Sessions</div></div>';
   }
   html += '</div></div>';
   return html;
@@ -7522,7 +7536,7 @@ async function toggleChecklist(key) {
           return userChecklist[k];
         });
         if (allDone) {
-          showCelebration('Week ' + currentWeek + ' complete! 🎉');
+          showCelebration('Week ' + currentWeek + ' complete');
           triggerCoachInsight('plan_complete', { event: 'week_complete', week: currentWeek });
         }
       }
@@ -7534,7 +7548,7 @@ async function toggleChecklist(key) {
         if (userChecklist[k2]) doneCount++;
       });
       if (doneCount === totalItems && totalItems > 0) {
-        showCelebration('Plan complete! You crushed it! 🏆');
+        showCelebration('Plan complete — you crushed it');
         triggerCoachInsight('plan_complete', { event: 'plan_complete' });
       }
     } catch(e) { logError('plan-complete-check', e, { activePlanId }); }
