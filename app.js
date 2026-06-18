@@ -3566,7 +3566,17 @@ try {
 } catch(e) {}
 // --- Feature 10: Haptic feedback helper ---
 function haptic(style) {
-  try { if (navigator.vibrate) navigator.vibrate(style === 'light' ? 8 : style === 'medium' ? 15 : 5); } catch(e) {}
+  // Prefer the native iOS bridge (UIImpactFeedbackGenerator) when in the
+  // installed app — much crisper than navigator.vibrate, which on iOS
+  // either no-ops or feels mushy. The bridge expects 'light' / 'medium' /
+  // 'heavy' / 'success' / 'warning' / 'error'.
+  try {
+    if (window.webkit?.messageHandlers?.haptics) {
+      window.webkit.messageHandlers.haptics.postMessage(style || 'light');
+      return;
+    }
+  } catch (_) {}
+  try { if (navigator.vibrate) navigator.vibrate(style === 'light' ? 8 : style === 'medium' ? 15 : style === 'heavy' ? 25 : 5); } catch(e) {}
 }
 // Toast notification system
 function showToast(message, type = 'info') {
@@ -4002,6 +4012,10 @@ function switchPage(page) {
     try { _detachAblyParallel(); } catch(e) {}
   }
   currentPage = page;
+  // Refresh the bottom-nav Team dot so navigating around the app keeps
+  // the indicator honest — leaving Team while it had unread messages
+  // would have left the inner sub-tab badge state stale otherwise.
+  try { updateChatUnreadBadge(); } catch(_) {}
   // Feature 6: Persist to localStorage
   try { localStorage.setItem('tp_lastTab', page); } catch(e) {}
   // Update tab bar
@@ -5901,17 +5915,61 @@ function renderToday() {
   const isWidgetOn = (id) => pinnedWidgets[id] !== false;
   // === BUILD HTML — simplified layout ===
   let html = '';
-  // ── SECTION 1: Compact header (date + XP + streak in one row) ──
-  html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-    <div class="today-date" style="margin:0">${dateStr}</div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span id="today-xp-display" style="font-size:12px;font-weight:700;color:var(--primary);letter-spacing:.02em">${escHtml(lvl.name)} · ${xp} XP</span>
-      <button id="today-customize" aria-label="Customize widgets" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:2px;display:inline-flex;align-items:center" title="Customize widgets">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
+  // Did the user already train today? Used by the streak hero to flip
+  // between "in danger" and "secured" states, and by the at-risk banner.
+  const todayKey = localDateKey(now);
+  const trainedToday = userWorkouts.some(w => {
+    const d = w.date ? (w.date.toDate ? w.date.toDate() : new Date(w.date)) : null;
+    return d && localDateKey(d) === todayKey;
+  });
+  // Streak hero — date + streak count + XP rolled into a single
+  // prominent card. The streak is the most habit-forming element in
+  // the app, so it gets the biggest visual treatment. When the streak
+  // is in danger (>=3 days held, no log today, after 4pm Melbourne),
+  // the card flips to a red "Don't break it" state with a Log CTA.
+  const streakInDanger = streak >= 3 && !trainedToday && now.getHours() >= 16;
+  const streakColor = trainedToday
+    ? '#f97316'                       // secured today — solid orange
+    : streakInDanger ? '#ef4444'      // at risk — red
+    : streak > 0 ? '#f97316'          // active streak, plenty of day left
+    : 'var(--muted-fg)';              // no streak yet
+  const flameSvg = `<svg viewBox="0 0 24 24" fill="currentColor" style="width:24px;height:24px"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>`;
+  const streakSubLabel = streak === 0
+    ? 'Start a streak today'
+    : trainedToday
+      ? streak === 1 ? 'Day 1 — keep it going' : `${streak}-day streak · today secured`
+    : streakInDanger
+      ? `Don't break your ${streak}-day streak`
+      : streak === 1 ? 'Log today to extend' : `${streak}-day streak`;
+  html += `<div class="today-hero" style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:10px;border-radius:16px;background:${streakInDanger ? 'linear-gradient(135deg,rgba(239,68,68,.10),rgba(239,68,68,.04))' : streak > 0 ? 'linear-gradient(135deg,rgba(249,115,22,.10),rgba(249,115,22,.03))' : 'var(--card)'};border:1px solid ${streakInDanger ? 'rgba(239,68,68,.25)' : streak > 0 ? 'rgba(249,115,22,.22)' : 'var(--border)'}">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:44px;color:${streakColor};line-height:1">
+      ${flameSvg}
+      <span style="font-size:22px;font-weight:900;letter-spacing:-.04em;margin-top:2px;font-variant-numeric:tabular-nums">${streak}</span>
     </div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-fg)">${dateStr}</div>
+      <div style="font-size:14px;font-weight:800;color:var(--fg);margin-top:2px;line-height:1.25">${escHtml(streakSubLabel)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+        <div style="flex:1;height:4px;background:rgba(127,127,127,.18);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div>
+        </div>
+        <span id="today-xp-display" style="font-size:11px;font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums;flex-shrink:0">${escHtml(lvl.name)} · ${xp} XP</span>
+      </div>
+    </div>
+    <button id="today-customize" aria-label="Customize widgets" style="background:none;border:none;color:var(--muted-fg);cursor:pointer;padding:4px;display:inline-flex;align-items:center;flex-shrink:0" title="Customize widgets">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
   </div>`;
-  html += `<div style="height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${lvl.pct}%;background:linear-gradient(90deg,var(--primary),#a3e635);border-radius:99px;transition:width .6s"></div></div>`;
+  // Inline streak-at-risk CTA. Renders just below the hero when the
+  // streak is held + uncovered today + late enough in the day that
+  // the user is at risk of losing it. Goes straight to quick-log.
+  if (streakInDanger) {
+    html += `<button id="today-streak-rescue" type="button" style="display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;margin:0 0 10px;border-radius:12px;border:none;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer;box-shadow:0 4px 12px rgba(239,68,68,.20);text-align:left">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;flex-shrink:0"><polygon points="12 2 2 22 22 22 12 2"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span style="flex:1">Log a workout to keep your <span style="font-variant-numeric:tabular-nums">${streak}</span>-day streak</span>
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>`;
+  }
   // ── First-week setup checklist (rec #59) ─────────────────────────
   // Shown only for the first 14 days after signup AND only if at
   // least one item is still incomplete. Each item taps through to
@@ -6815,6 +6873,9 @@ function renderToday() {
   });
   // Quick Log + Record GPS buttons
   $('today-quick-log')?.addEventListener('click', () => { haptic('light'); openQuickLog(); });
+  // Streak rescue button — same destination as the quick-log button
+  // but with a stronger haptic since this is a "save your streak" moment.
+  $('today-streak-rescue')?.addEventListener('click', () => { haptic('medium'); openQuickLog(); });
   // Onboarding — auto-pick best plan for user's year/tier
   $('onboard-pick-plan')?.addEventListener('click', () => {
     haptic('medium');
@@ -9096,6 +9157,8 @@ function openQuickLog() {
         return;
       }
       const saveType = currentType === 'Other' ? 'Cardio' : currentType;
+      // Success haptic — landing a workout is the moment to celebrate.
+      try { haptic('success'); } catch (_) {}
       saveWorkout(selectedRpe || null, null, saveType);
     });
   };
@@ -10147,6 +10210,23 @@ function updateChatUnreadBadge() {
       badge.remove();
     }
   }
+  // Bottom-nav Team-tab dot — was only updating the inner sub-tab. Users
+  // on Today / Fitness / Races had no idea there were unread messages
+  // until they hit the Team tab. A small red dot on the Team tab itself
+  // pulls them back in (no number, just presence).
+  const teamTabBtn = document.querySelector('.tab-btn[data-page="team"]');
+  if (teamTabBtn) {
+    let dot = teamTabBtn.querySelector('.tab-btn-dot');
+    if (count > 0 && currentPage !== 'team') {
+      if (!dot) {
+        dot = document.createElement('span');
+        dot.className = 'tab-btn-dot';
+        teamTabBtn.appendChild(dot);
+      }
+    } else if (dot) {
+      dot.remove();
+    }
+  }
   // Native app icon badge sync — iOS only. The native shell handles
   // clamping + UNUserNotificationCenter.setBadgeCount.
   try {
@@ -10164,6 +10244,9 @@ async function toggleChatReaction(messageId, key) {
   const tid = userProfile?.teamId;
   const uid = currentUser?.uid;
   if (!tid || !uid || !messageId || !key || !db) return;
+  // Tactile feedback on reaction tap — matches the iMessage feel where
+  // a tap-back also vibrates briefly.
+  try { haptic('light'); } catch (_) {}
   const cache = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
   const msg = cache.find(m => m.id === messageId);
   if (!msg) return;
@@ -13777,6 +13860,9 @@ function bindTeamChatPanel(c) {
       createdAt: new Date(),
     };
     // Optimistic insert — surface failures instead of swallowing.
+    // Light haptic on send confirms the tap landed before the user
+    // sees the bubble appear (~16ms vs. paint).
+    try { haptic('light'); } catch(_) {}
     let optimisticOk = false;
     try {
       addPendingChatMessage?.(pendingMsg);

@@ -1839,6 +1839,53 @@ body[data-menu-open="1"] .user-menu-overlay{ opacity:1; }
    even when nothing was actually wrong. Explicit hide. */
 .chat-status-pill[hidden]{ display:none !important; }
 
+/* Bottom-nav badge dot — appears on the Team tab when there are
+   unread messages and the user is on another page. Subtle, just a
+   bright dot in the top-right of the tab icon. */
+.tab-btn{ position:relative; }
+.tab-btn-dot{
+  position:absolute;
+  top:4px;
+  right:50%;
+  transform:translateX(14px);
+  width:9px; height:9px;
+  border-radius:50%;
+  background:#ef4444;
+  border:2px solid var(--bg);
+  pointer-events:none;
+  animation:tp-tab-dot-pulse 1.8s ease-in-out infinite;
+}
+@keyframes tp-tab-dot-pulse {
+  0%, 100% { transform:translateX(14px) scale(1); opacity:1; }
+  50%      { transform:translateX(14px) scale(1.15); opacity:.85; }
+}
+
+/* Today streak hero — tap feedback so the flame feels alive. */
+.today-hero{
+  transition:transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+.today-hero:active{
+  transform:scale(.985);
+}
+
+/* Streak-rescue button — pulse to draw the eye. */
+#today-streak-rescue{
+  animation:tp-rescue-pulse 2.4s ease-in-out infinite;
+}
+#today-streak-rescue:active{
+  transform:scale(.97);
+}
+@keyframes tp-rescue-pulse {
+  0%, 100% { box-shadow:0 4px 12px rgba(239,68,68,.20); }
+  50%      { box-shadow:0 6px 20px rgba(239,68,68,.36); }
+}
+
+/* Send button tactile bounce — feels like the message launched. */
+.msg-composer-send:not(:disabled):active svg{
+  transform:translate(1px, -1px) rotate(-4deg);
+  transition:transform 80ms ease-out;
+}
+
 /* Typing indicator — shows just above the composer when someone on
    the channel is typing. Italic, muted, with three animated dots. */
 .chat-typing-indicator{
