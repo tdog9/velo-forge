@@ -13670,17 +13670,9 @@ function bindTeamChatPanel(c) {
     ta.addEventListener('keyup', (e) => { if (e.key === 'Escape') closeMentions(); });
     ta.addEventListener('blur', () => setTimeout(closeMentions, 160));
   }
-  // Multi-subteam broadcast targets (rec #17). The Push checkbox was
-  // removed — coach messages ALWAYS push now; recipients silence on
-  // their end (silent-mode toggle). The targets row is always visible
-  // for coaches with subteams; chips multi-select which channels the
-  // broadcast fans out to (Whole team pre-selected).
-  const targetsRow = c.querySelector('#chat-broadcast-targets');
-  if (targetsRow) {
-    targetsRow.querySelectorAll('.chat-bt-chip').forEach(chip => {
-      chip.addEventListener('click', () => chip.classList.toggle('active'));
-    });
-  }
+  // (Multi-target broadcast UI was removed in the unified-chip change —
+  // the unified scope chip row at the top now controls both viewing AND
+  // broadcasting. Multi-channel fan-out was dropped.)
   // Schedule-a-message (rec #25) — opens the scheduled-messages sheet,
   // pre-filled with whatever is in the composer.
   c.querySelector('#team-chat-schedule')?.addEventListener('click', () => {
@@ -13755,7 +13747,6 @@ function bindTeamChatPanel(c) {
     // simultaneous broadcast (rec #17) was dropped when we collapsed
     // two redundant chip rows into one; coaches just tap the next
     // chip and broadcast again if they want both subteams.
-    const broadcastScopes = null;
     let ok = false;
     // Resolve target scope. Coaches send into whichever scope the chips
     // select. Captains are pinned to the subteam they captain. Athletes
@@ -13850,28 +13841,7 @@ function bindTeamChatPanel(c) {
       return result;
     };
     try {
-      if (isCoachUser && pushChecked && broadcastScopes && broadcastScopes.length) {
-        // Multi-target broadcast — one message per selected scope.
-        const names = broadcastScopes.map(s => {
-          if (!s) return 'Whole team';
-          const sub = (teamData?.subteams || []).find(x => x.id === s);
-          return sub ? (sub.name || 'Subteam') : 'Subteam';
-        });
-        if (!confirm(`Broadcast this push to ${names.join(', ')}?`)) {
-          ok = false;
-        } else {
-          let sent = 0;
-          for (const scope of broadcastScopes) {
-            try {
-              const r = await sendCoachBroadcast(teamId, text, { push: true, subteamId: scope });
-              if (r !== false) sent++;
-            } catch (e) { console.warn('[chat] broadcast to scope failed:', scope, e); }
-          }
-          ok = sent > 0;
-          if (ok) showToast?.('Broadcast sent to ' + sent + ' channel' + (sent === 1 ? '' : 's') + '.', 'success');
-          if (!ok) showErr('Broadcast failed — try again.');
-        }
-      } else if (canBroadcast && pushChecked) {
+      if (canBroadcast && pushChecked) {
         if (!confirm(`Send this as a push notification to ${targetLabel}?`)) {
           ok = false;
         } else {
@@ -14965,48 +14935,65 @@ async function _attachAblyParallel(teamId) {
     return;
   }
   // Tear down a previous-team subscription if any.
-  try { _ablyChatUnsub?.(); } catch(_) {}
-  _ablyChatUnsub = null;
+  try { _ablyChatUnsub?.forEach(fn => fn?.()); } catch(_) {}
+  try { _ablyTypingUnsub?.forEach(fn => fn?.()); } catch(_) {}
+  _ablyChatUnsub = [];
+  _ablyTypingUnsub = [];
   _ablyChatTeamId = teamId;
-  try {
-    // Typing indicator subscription on the same channel — separate
-    // event name 'typing' so it doesn't trigger the message merge path.
+  // Common message handler used for every channel we subscribe on. Dedupe
+  // is done in mergeAblyMessage by Firestore doc id, so it's safe to wire
+  // the same callback to multiple channels.
+  const onAblyMessage = (ablyMsg) => {
     try {
-      _ablyTypingUnsub?.();
-      _ablyTypingUnsub = window.AblyChat.subscribeTyping(
-        'team', teamId, _onTypingFromAbly,
-      );
-    } catch (e) { console.warn('[chat] typing subscribe failed:', e); }
-    _ablyChatUnsub = window.AblyChat.subscribeTeam(teamId, (ablyMsg) => {
-      try {
-        const payload = ablyMsg?.data || {};
-        if (!payload?.id) return;
-        // Merge into cache; only fire UI refresh if something actually
-        // changed (i.e. message wasn't already in cache by id).
-        const before = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
-        const beforeIds = new Set(before.map(m => m.id));
-        mergeAblyMessage(payload);
-        const isNew = !beforeIds.has(payload.id);
-        if (!isNew) return;
-        console.log('[chat] ably delivered msg', payload.id, '— refreshing UI');
-        if (currentPage === 'team' && lbSubTab === 'chat') {
-          try { refreshTeamChatList(); } catch(_) {}
-          try { markChatRead(); } catch(_) {}
-        } else {
-          try { updateChatUnreadBadge(); } catch(_) {}
-        }
-      } catch (e) {
-        console.warn('[chat] ably onMessage handler failed:', e);
+      const payload = ablyMsg?.data || {};
+      if (!payload?.id) return;
+      const before = (typeof getTeamChatCache === 'function') ? getTeamChatCache() : [];
+      const beforeIds = new Set(before.map(m => m.id));
+      mergeAblyMessage(payload);
+      const isNew = !beforeIds.has(payload.id);
+      if (!isNew) return;
+      console.log('[chat] ably delivered msg', payload.id, '— refreshing UI');
+      if (currentPage === 'team' && lbSubTab === 'chat') {
+        try { refreshTeamChatList(); } catch(_) {}
+        try { markChatRead(); } catch(_) {}
+      } else {
+        try { updateChatUnreadBadge(); } catch(_) {}
       }
-    });
-    console.log('[chat] ably parallel subscribed to team:' + teamId + ':chat');
+    } catch (e) {
+      console.warn('[chat] ably onMessage handler failed:', e);
+    }
+  };
+  try {
+    // Always subscribe to the team-wide channel (whole-team broadcasts).
+    _ablyChatUnsub.push(window.AblyChat.subscribeTeam(teamId, onAblyMessage));
+    _ablyTypingUnsub.push(window.AblyChat.subscribeTyping('team', teamId, _onTypingFromAbly));
+    console.log('[chat] ably subscribed to team:' + teamId + ':chat');
+    // Subteam channels — bridge to whichever subteams the user can see.
+    // Athletes: their own subteam + (if captain) the subteam they captain.
+    // Coaches: every subteam on the team so they get instant delivery
+    // when switching scopes.
+    const subteamIds = new Set();
+    const isCoachUser = !!userProfile?.isCoach;
+    if (isCoachUser) {
+      (teamData?.subteams || []).forEach(s => { if (s?.id) subteamIds.add(s.id); });
+    } else {
+      try { const my = getMySubteamId?.(); if (my) subteamIds.add(my); } catch(_) {}
+      try { const cap = getMyCaptainSubteamId?.(); if (cap) subteamIds.add(cap); } catch(_) {}
+    }
+    for (const subId of subteamIds) {
+      _ablyChatUnsub.push(window.AblyChat.subscribeSubteam(subId, onAblyMessage));
+      _ablyTypingUnsub.push(window.AblyChat.subscribeTyping('subteam', subId, _onTypingFromAbly));
+      console.log('[chat] ably subscribed to subteam:' + subId + ':chat');
+    }
   } catch (e) {
     console.warn('[chat] ably subscribe failed:', e?.message || e);
   }
 }
 function _detachAblyParallel() {
-  try { _ablyChatUnsub?.(); } catch(_) {}
-  try { _ablyTypingUnsub?.(); } catch(_) {}
+  // Each unsub list is an array of per-channel unsub fns (team + every
+  // subteam the user can see). Iterate and call each.
+  try { (_ablyChatUnsub || []).forEach(fn => fn?.()); } catch(_) {}
+  try { (_ablyTypingUnsub || []).forEach(fn => fn?.()); } catch(_) {}
   _ablyChatUnsub = null;
   _ablyTypingUnsub = null;
   _ablyChatTeamId = null;
