@@ -5702,13 +5702,13 @@ function renderGoals() {
   loadGoals();
   let html = '<div class="section-card" style="margin-top:12px"><div class="section-title">My Goals</div>';
   if (userGoals.length === 0) {
-    html += '<div style="font-size:13px;font-weight:600;color:var(--fg);padding:4px 0;margin-bottom:4px">🎯 Pick a goal — earn bonus XP for hitting it</div>';
+    html += '<div style="font-size:13px;font-weight:600;color:var(--fg);padding:4px 0;margin-bottom:4px">Pick a goal — earn bonus XP for hitting it</div>';
     html += '<div style="font-size:11px;color:var(--muted-fg);margin-bottom:10px">Tap any below to get started:</div>';
     html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-      <button class="goal-tpl-btn" data-tpl="weekly_workouts" data-target="4" data-label="4 workouts this week" data-type="workouts_week">📅 4 workouts this week</button>
-      <button class="goal-tpl-btn" data-tpl="month_workouts" data-target="12" data-label="12 workouts this month" data-type="workouts_month">🎯 12 workouts this month</button>
-      <button class="goal-tpl-btn" data-tpl="month_minutes" data-target="600" data-label="10 hours this month" data-type="minutes_month">⏱️ 10 hours this month</button>
-      <button class="goal-tpl-btn" data-tpl="beat_last_week" data-target="0" data-label="Beat last week" data-type="beat_last_week">🚀 Beat last week</button>
+      <button class="goal-tpl-btn" data-tpl="weekly_workouts" data-target="4" data-label="4 workouts this week" data-type="workouts_week">4 workouts this week</button>
+      <button class="goal-tpl-btn" data-tpl="month_workouts" data-target="12" data-label="12 workouts this month" data-type="workouts_month">12 workouts this month</button>
+      <button class="goal-tpl-btn" data-tpl="month_minutes" data-target="600" data-label="10 hours this month" data-type="minutes_month">10 hours this month</button>
+      <button class="goal-tpl-btn" data-tpl="beat_last_week" data-target="0" data-label="Beat last week" data-type="beat_last_week">Beat last week</button>
     </div>`;
   }
   userGoals.forEach((g, idx) => {
