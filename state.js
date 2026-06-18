@@ -61,13 +61,19 @@ export function decodePolyline(encoded) {
   return points;
 }
 
+// Level tones — used to colour-code level badges across the app. The
+// `icon` field is a small inline SVG so renderers can drop it straight
+// into innerHTML without a separate helper. `tone` is the level's
+// signature colour for cases where the SVG alone won't read.
+const _xpDot = (hex) => `<svg viewBox="0 0 24 24" style="width:1em;height:1em;vertical-align:-2px"><circle cx="12" cy="12" r="9" fill="${hex}"/></svg>`;
+const _xpCrown = (hex) => `<svg viewBox="0 0 24 24" fill="${hex}" style="width:1em;height:1em;vertical-align:-2px"><path d="M5 16 3 7l4 3 5-6 5 6 4-3-2 9H5zm0 2h14v2H5z"/></svg>`;
 export const XP_LEVELS = [
-  { name: 'Rookie', min: 0, icon: '🟢' },
-  { name: 'Racer', min: 100, icon: '🔵' },
-  { name: 'Athlete', min: 300, icon: '🟣' },
-  { name: 'Champion', min: 600, icon: '🟠' },
-  { name: 'Legend', min: 1000, icon: '🔴' },
-  { name: 'Elite', min: 1500, icon: '👑' }
+  { name: 'Rookie',   min: 0,    tone: '#22c55e', icon: _xpDot('#22c55e') },
+  { name: 'Racer',    min: 100,  tone: '#3b82f6', icon: _xpDot('#3b82f6') },
+  { name: 'Athlete',  min: 300,  tone: '#a855f7', icon: _xpDot('#a855f7') },
+  { name: 'Champion', min: 600,  tone: '#f97316', icon: _xpDot('#f97316') },
+  { name: 'Legend',   min: 1000, tone: '#ef4444', icon: _xpDot('#ef4444') },
+  { name: 'Elite',    min: 1500, tone: '#fbbf24', icon: _xpCrown('#fbbf24') },
 ];
 
 export function getXpLevel(xp) {

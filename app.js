@@ -1421,24 +1421,28 @@ function renderMilestoneCard(totalWorkouts, streak, lvl, xp) {
   const sMatch = sMilestones.includes(streak) ? streak : null;
   const lvlKey = lvl?.label || lvl?.name || '';
 
+  // SVG icons — no emoji (standing no-emoji rule).
+  const SVG_TARGET = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`;
+  const SVG_FLAME = `<svg viewBox="0 0 24 24" fill="currentColor" style="width:28px;height:28px"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>`;
+  const SVG_STAR = `<svg viewBox="0 0 24 24" fill="currentColor" style="width:28px;height:28px"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
   const cards = [];
   if (wMatch && last.workouts !== wMatch) {
-    cards.push({ key: 'workouts', value: wMatch, icon: '🎯', title: `${wMatch} workouts logged!`, body: 'You showed up. The numbers prove it. Keep stacking.' });
+    cards.push({ key: 'workouts', value: wMatch, icon: SVG_TARGET, tone: '#3b82f6', title: `${wMatch} workouts logged`, body: 'You showed up. The numbers prove it. Keep stacking.' });
   }
   if (sMatch && last.streak !== sMatch) {
-    cards.push({ key: 'streak', value: sMatch, icon: '🔥', title: `${sMatch}-day streak!`, body: 'Consistency is the cheat code. Don\'t break the chain.' });
+    cards.push({ key: 'streak', value: sMatch, icon: SVG_FLAME, tone: '#f97316', title: `${sMatch}-day streak`, body: 'Consistency is the cheat code. Don\'t break the chain.' });
   }
   // Only celebrate a level CHANGE, not a first-ever observation. The
   // previous (lvl.pct < 5) check fired for every brand-new account at
   // 0 XP because last.level was undefined and lvlKey was the starting
   // level, so undefined !== 'Beginner' looked like a level-up.
   if (lvlKey && last.level && last.level !== lvlKey) {
-    cards.push({ key: 'level', value: lvlKey, icon: '⭐', title: `Levelled up to ${lvlKey}`, body: `${xp} XP banked. Next tier awaits.` });
+    cards.push({ key: 'level', value: lvlKey, icon: SVG_STAR, tone: lvl?.tone || '#fbbf24', title: `Levelled up to ${lvlKey}`, body: `${xp} XP banked. Next tier awaits.` });
   }
   if (cards.length === 0) return '';
   // Render + auto-write so we don't re-celebrate on next render.
   const html = cards.map(c => `<div class="milestone-card" style="display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:14px;background:linear-gradient(135deg,rgba(var(--primary-rgb),.18),rgba(var(--purple-rgb),.12));border:1px solid rgba(var(--primary-rgb),.35);box-shadow:0 4px 18px rgba(var(--primary-rgb),.15)">
-    <div style="font-size:28px;flex-shrink:0">${c.icon}</div>
+    <div style="color:${c.tone};flex-shrink:0;display:flex;align-items:center;justify-content:center">${c.icon}</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:14px;font-weight:800;color:var(--fg);margin-bottom:2px">${c.title}</div>
       <div style="font-size:12px;color:var(--muted-fg);line-height:1.35">${c.body}</div>
@@ -2278,12 +2282,14 @@ function showLevelUpAnimation(level) {
   haptic('success');
   const ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;flex-direction:column;animation:fadeIn .3s';
+  // The level.icon is now an SVG string sized via 1em — the wrapping
+  // div sets its own font-size which the svg picks up via 1em.
   ov.innerHTML = `
-    <div style="font-size:80px;animation:bounceIn .6s">${level.icon}</div>
-    <div style="font-size:28px;font-weight:800;color:#fff;margin-top:16px;animation:bounceIn .6s .1s both">LEVEL UP!</div>
-    <div style="font-size:18px;color:var(--primary);font-weight:700;margin-top:8px;animation:bounceIn .6s .2s both">${level.name}</div>
-    <div style="font-size:14px;color:rgba(255,255,255,.6);margin-top:6px;animation:bounceIn .6s .3s both">${level.xp} XP</div>
-    <button style="margin-top:24px;padding:12px 32px;font-size:14px;font-weight:700;border-radius:10px;border:none;background:var(--primary);color:var(--primary-fg);cursor:pointer;animation:bounceIn .6s .4s both" id="lvlup-dismiss">Nice!</button>
+    <div style="font-size:120px;line-height:1;color:${level.tone || '#fff'};animation:bounceIn .6s">${level.icon}</div>
+    <div style="font-size:28px;font-weight:800;color:#fff;margin-top:16px;animation:bounceIn .6s .1s both;letter-spacing:.02em">LEVEL UP</div>
+    <div style="font-size:20px;color:${level.tone || 'var(--primary)'};font-weight:800;margin-top:8px;animation:bounceIn .6s .2s both">${level.name}</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.6);margin-top:6px;animation:bounceIn .6s .3s both;font-variant-numeric:tabular-nums">${level.xp} XP</div>
+    <button style="margin-top:24px;padding:12px 32px;font-size:14px;font-weight:700;border-radius:10px;border:none;background:var(--primary);color:var(--primary-fg);cursor:pointer;animation:bounceIn .6s .4s both" id="lvlup-dismiss">Nice</button>
   `;
   if (!document.getElementById('lvlup-style')) {
     const style = document.createElement('style');
@@ -5667,10 +5673,10 @@ function renderXpBar() {
   const xp = calcXp();
   const lvl = getXpLevel(xp);
   let html = '<div class="xp-bar-wrap">';
-  html += '<div class="xp-header"><span class="xp-level-badge">' + lvl.icon + ' ' + lvl.name + '</span><span class="xp-amount">' + xp + ' XP</span></div>';
+  html += '<div class="xp-header"><span class="xp-level-badge" style="color:' + (lvl.tone || 'var(--primary)') + '">' + lvl.icon + ' ' + lvl.name + '</span><span class="xp-amount">' + xp + ' XP</span></div>';
   html += '<div class="xp-track"><div class="xp-fill" style="width:' + lvl.pct + '%"></div></div>';
   if (lvl.next) {
-    html += '<div class="xp-next">' + (lvl.next.min - xp) + ' XP to ' + lvl.next.icon + ' ' + lvl.next.name + '</div>';
+    html += '<div class="xp-next">' + (lvl.next.min - xp) + ' XP to <span style="color:' + (lvl.next.tone || 'var(--primary)') + '">' + lvl.next.icon + ' ' + lvl.next.name + '</span></div>';
   } else {
     html += '<div class="xp-next">Max level reached!</div>';
   }
