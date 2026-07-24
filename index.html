@@ -892,8 +892,51 @@
 </div>
 
 <script>
-window.addEventListener('error',function(e){var d=document.getElementById('boot-error');if(!d){d=document.createElement('div');d.id='boot-error';d.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a0000;border-top:2px solid #ef4444;color:#fca5a5;font-family:monospace;font-size:12px;padding:12px;max-height:40vh;overflow:auto';document.body.appendChild(d);}d.innerHTML+='<div style="margin-bottom:4px"><b style="color:#ef4444">Error:</b> '+(e.message||'Unknown')+'</div><div style="opacity:.6;font-size:10px">'+(e.filename||'').split('/').pop()+':'+(e.lineno||'?')+'</div><hr style="border-color:#333;margin:4px 0">';});
-window.addEventListener('unhandledrejection',function(e){var d=document.getElementById('boot-error');if(!d){d=document.createElement('div');d.id='boot-error';d.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a0000;border-top:2px solid #ef4444;color:#fca5a5;font-family:monospace;font-size:12px;padding:12px;max-height:40vh;overflow:auto';document.body.appendChild(d);}d.innerHTML+='<div style="margin-bottom:4px"><b style="color:#ef4444">Promise:</b> '+(e.reason?.message||e.reason||'Unknown')+'</div><hr style="border-color:#333;margin:4px 0">';});
+// On-screen error console. Catches boot/runtime errors and unhandled
+// promise rejections so we can diagnose on-device. It is dismissible:
+//   • Close  — removes this instance (reappears on the next error)
+//   • Hide   — persistently off (localStorage tp_debug_hud_off); re-enable
+//              with ?debug=1 in the URL.
+(function(){
+  if (window.location.search.includes('debug=1')) {
+    try { localStorage.removeItem('tp_debug_hud_off'); } catch(_) {}
+  }
+  window.__tpDebugHudOff = (function(){ try { return localStorage.getItem('tp_debug_hud_off') === '1'; } catch(_) { return false; } })();
+  function panel(){
+    var d = document.getElementById('boot-error');
+    if (d) return d;
+    d = document.createElement('div');
+    d.id = 'boot-error';
+    d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:2147483000;background:#1a0000;border-top:2px solid #ef4444;color:#fca5a5;font-family:monospace;font-size:12px;max-height:40vh;display:flex;flex-direction:column';
+    var bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:#2a0000;border-bottom:1px solid #400;flex:0 0 auto';
+    var lbl = document.createElement('span');
+    lbl.textContent = 'Debug log';
+    lbl.style.cssText = 'font-weight:700;color:#ef4444;letter-spacing:.04em';
+    var btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:6px';
+    function mk(t){ var b=document.createElement('button'); b.textContent=t; b.style.cssText='font:inherit;font-size:11px;color:#fff;background:#7f1d1d;border:0;border-radius:6px;padding:5px 11px;'; return b; }
+    var clr = mk('Clear'); clr.onclick = function(){ var l=document.getElementById('boot-error-log'); if(l) l.innerHTML=''; };
+    var hide = mk('Hide'); hide.onclick = function(){ try { localStorage.setItem('tp_debug_hud_off','1'); } catch(_) {} window.__tpDebugHudOff=true; d.remove(); };
+    var close = mk('× Close'); close.onclick = function(){ d.remove(); };
+    btns.appendChild(clr); btns.appendChild(hide); btns.appendChild(close);
+    bar.appendChild(lbl); bar.appendChild(btns);
+    var log = document.createElement('div');
+    log.id = 'boot-error-log';
+    log.style.cssText = 'overflow:auto;padding:10px 12px;flex:1 1 auto';
+    d.appendChild(bar); d.appendChild(log);
+    document.body.appendChild(d);
+    return d;
+  }
+  function append(html){
+    if (window.__tpDebugHudOff) return;
+    panel();
+    var log = document.getElementById('boot-error-log');
+    if (log) log.innerHTML += html;
+  }
+  window.addEventListener('error', function(e){ append('<div style="margin-bottom:4px"><b style="color:#ef4444">Error:</b> '+(e.message||'Unknown')+'</div><div style="opacity:.6;font-size:10px">'+(e.filename||'').split('/').pop()+':'+(e.lineno||'?')+'</div><hr style="border-color:#333;margin:4px 0">'); });
+  window.addEventListener('unhandledrejection', function(e){ append('<div style="margin-bottom:4px"><b style="color:#ef4444">Promise:</b> '+((e.reason&&e.reason.message)||e.reason||'Unknown')+'</div><hr style="border-color:#333;margin:4px 0">'); });
+})();
 if(window.location.search.includes('nuke=true')){
   window.onerror=function(){return true;};
   window.history.replaceState({},'',window.location.pathname);
